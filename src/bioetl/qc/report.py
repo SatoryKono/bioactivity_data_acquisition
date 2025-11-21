@@ -55,7 +55,10 @@ def build_quality_report(
             duplicates = metrics_bundle.duplicates
             for metric_name in summary_order:
                 metric_value = getattr(duplicates, metric_name)
-                summary_row: dict[str, Any] = {"section": "summary", "metric": metric_name}
+                summary_row: dict[str, Any] = {
+                    "section": "summary",
+                    "metric": metric_name,
+                }
                 if isinstance(metric_value, float):
                     summary_row["ratio"] = float(metric_value)
                 else:
@@ -167,7 +170,9 @@ def build_correlation_report(
         correlation = metrics_bundle.correlation
         if correlation is None:
             return None
-        correlation_df = correlation.table.reset_index(names="feature").rename_axis(columns=None)
+        correlation_df = correlation.table.reset_index(
+            names="feature"
+        ).rename_axis(columns=None)
         ordered_columns = ["feature"] + [
             column for column in correlation_df.columns if column != "feature"
         ]
@@ -209,7 +214,9 @@ def build_qc_metrics_payload(
         missing = metrics_bundle.missingness
         if missing is not None:
             payload["total_missing_values"] = missing.total_missing()
-            payload["columns_with_missing"] = ", ".join(missing.columns_with_missing())
+            payload["columns_with_missing"] = ", ".join(
+                missing.columns_with_missing()
+            )
         else:
             payload["total_missing_values"] = 0
             payload["columns_with_missing"] = ""
@@ -241,13 +248,17 @@ def build_qc_metrics_payload(
                     "lower_bound": entry.lower_bound,
                     "upper_bound": entry.upper_bound,
                 }
-                for entry in sorted(metrics_bundle.outliers, key=lambda item: item.column)
+                for entry in sorted(
+                    metrics_bundle.outliers, key=lambda item: item.column
+                )
             }
         else:
             payload["iqr_outliers"] = {}
 
         if metrics_bundle.business_key_fields:
-            payload["business_key_fields"] = list(metrics_bundle.business_key_fields)
+            payload["business_key_fields"] = list(
+                metrics_bundle.business_key_fields
+            )
 
         if metrics_bundle.custom:
             payload["custom_metrics"] = {

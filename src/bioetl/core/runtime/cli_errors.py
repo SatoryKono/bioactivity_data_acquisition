@@ -43,7 +43,9 @@ class CliErrorTemplate:
 
 CLI_ERROR_INTERNAL = CliErrorTemplate(CliErrorCode.INTERNAL, "internal_error")
 CLI_ERROR_CONFIG = CliErrorTemplate(CliErrorCode.CONFIG, "configuration_error")
-CLI_ERROR_EXTERNAL_API = CliErrorTemplate(CliErrorCode.EXTERNAL_API, "external_api_error")
+CLI_ERROR_EXTERNAL_API = CliErrorTemplate(
+    CliErrorCode.EXTERNAL_API, "external_api_error"
+)
 
 _CLI_ERROR_PREFIX = "[bioetl-cli]"
 

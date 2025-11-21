@@ -96,7 +96,9 @@ class SchemaColumnFactory:
             pattern = cls.ID_PATTERNS[name]
         except KeyError as exc:  # pragma: no cover - defensive branch
             message = ", ".join(sorted(cls.ID_PATTERNS))
-            raise KeyError(f"Unknown identifier '{name}'. Available: {message}.") from exc
+            raise KeyError(
+                f"Unknown identifier '{name}'. Available: {message}."
+            ) from exc
         return cls._string_id(pattern, nullable=nullable, unique=unique)
 
     @classmethod
@@ -178,7 +180,9 @@ class SchemaColumnFactory:
         }
 
     @classmethod
-    def chembl_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
+    def chembl_id(
+        cls, *, nullable: bool = True, unique: bool = False
+    ) -> Column:
         """Build a column for ChEMBL identifiers."""
 
         return cls.identifier("chembl_id", nullable=nullable, unique=unique)

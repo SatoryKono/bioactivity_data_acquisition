@@ -64,7 +64,9 @@ def register_tool_app(
 ) -> tuple[TyperApp, Callable[[], None]]:
     """Return a configured Typer app and execution wrapper for simple tools."""
 
-    app = _create_simple_tool_app(name=name, help_text=help_text, main_fn=main_fn)
+    app = _create_simple_tool_app(
+        name=name, help_text=help_text, main_fn=main_fn
+    )
 
     def _run() -> None:
         run_app(app)

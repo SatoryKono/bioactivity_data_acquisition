@@ -52,7 +52,9 @@ class BaseDatasetWriter:
         return WriteResult(dataset=dataset_path)
 
     @staticmethod
-    def _resolve_dataset_path(artifacts: RunArtifacts | WriteArtifacts | Path) -> Path:
+    def _resolve_dataset_path(
+        artifacts: RunArtifacts | WriteArtifacts | Path,
+    ) -> Path:
         if isinstance(artifacts, RunArtifacts):
             return artifacts.write.dataset
         if isinstance(artifacts, WriteArtifacts):

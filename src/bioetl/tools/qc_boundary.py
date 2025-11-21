@@ -60,10 +60,13 @@ def collect_qc_boundary_violations(
 ) -> list[Violation]:
     """Вернуть список CLI-модулей, импортирующих ``bioetl.qc`` напрямую или транзитивно."""
 
-    resolved_root = cli_root or _resolve_cli_root(package=package, source_root=source_root)
+    resolved_root = cli_root or _resolve_cli_root(
+        package=package, source_root=source_root
+    )
     module_records = _discover_modules(root=resolved_root, package=package)
     analyses = {
-        name: _analyze_module(record, module_records) for name, record in module_records.items()
+        name: _analyze_module(record, module_records)
+        for name, record in module_records.items()
     }
 
     cache: dict[str, list[tuple[str, ...]]] = {}
@@ -114,7 +117,9 @@ def _discover_modules(*, root: Path, package: str) -> dict[str, ModuleRecord]:
             is_package = False
 
         module_suffix = ".".join(parts)
-        module_name = f"{package}.{module_suffix}" if module_suffix else package
+        module_name = (
+            f"{package}.{module_suffix}" if module_suffix else package
+        )
 
         module_records[module_name] = ModuleRecord(
             path=path,
@@ -198,7 +203,9 @@ def _collect_chains(
     return chains
 
 
-def _resolve_import_from(*, current: ModuleRecord, module: str | None, level: int) -> str | None:
+def _resolve_import_from(
+    *, current: ModuleRecord, module: str | None, level: int
+) -> str | None:
     """Преобразовать ``from ... import`` в абсолютное имя модуля."""
 
     if level == 0:
@@ -223,7 +230,9 @@ def _resolve_import_from(*, current: ModuleRecord, module: str | None, level: in
     return ".".join(parent_parts)
 
 
-def _resolve_import_targets(base: str | None, aliases: list[ast.alias]) -> set[str]:
+def _resolve_import_targets(
+    base: str | None, aliases: list[ast.alias]
+) -> set[str]:
     """Нормализовать цели импортов в полностью квалифицированные имена модулей."""
 
     targets: set[str] = set()
@@ -243,7 +252,9 @@ def _resolve_import_targets(base: str | None, aliases: list[ast.alias]) -> set[s
     return targets
 
 
-def _iter_cli_candidates(name: str, module_records: dict[str, ModuleRecord]) -> Iterable[str]:
+def _iter_cli_candidates(
+    name: str, module_records: dict[str, ModuleRecord]
+) -> Iterable[str]:
     """Вернуть имена CLI-модулей, совпадающих с импортируемым модулем."""
 
     if name in module_records:
@@ -253,7 +264,9 @@ def _iter_cli_candidates(name: str, module_records: dict[str, ModuleRecord]) -> 
 def _is_qc_module(module_name: str) -> bool:
     """Проверить, относится ли имя модуля к пакету QC."""
 
-    return module_name == QC_MODULE_PREFIX or module_name.startswith(f"{QC_MODULE_PREFIX}.")
+    return module_name == QC_MODULE_PREFIX or module_name.startswith(
+        f"{QC_MODULE_PREFIX}."
+    )
 
 
 def _normalize_qc_name(module_name: str) -> str:

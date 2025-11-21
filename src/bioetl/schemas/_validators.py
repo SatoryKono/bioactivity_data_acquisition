@@ -55,7 +55,11 @@ def validate_json_series(
     candidate = series.dropna() if optional else series
     if optional and candidate.empty:
         return True
-    return bool(candidate.map(lambda value: is_json_string(value, allow_empty=allow_empty)).all())
+    return bool(
+        candidate.map(
+            lambda value: is_json_string(value, allow_empty=allow_empty)
+        ).all()
+    )
 
 
 def is_activity_property_item(
@@ -82,7 +86,9 @@ def is_activity_property_item(
         return False
 
     numeric_value = item["value"]
-    if numeric_value is not None and not isinstance(numeric_value, (Number, str)):
+    if numeric_value is not None and not isinstance(
+        numeric_value, (Number, str)
+    ):
         return False
 
     text_value = item["text_value"]
@@ -135,7 +141,9 @@ def validate_activity_properties(
     for item in candidate_items:
         if not isinstance(item, Mapping):
             return False
-        if not is_activity_property_item(dict(item), allowed_keys=allowed_keys):
+        if not is_activity_property_item(
+            dict(item), allowed_keys=allowed_keys
+        ):
             return False
 
     return True
@@ -148,7 +156,9 @@ def validate_membership_series(
 ) -> bool:
     """Ensure every non-null entry belongs to the allowed value set."""
 
-    allowed_set = frozenset(str(item).strip() for item in allowed if str(item).strip())
+    allowed_set = frozenset(
+        str(item).strip() for item in allowed if str(item).strip()
+    )
     if not allowed_set:
         return True
     non_null = series.dropna()

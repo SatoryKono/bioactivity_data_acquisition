@@ -27,7 +27,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         super().__init__(config, run_id, source, writer=writer)
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
-        return {"field_mappings": {"test_item_id": "test_item_id", "name": "name"}}
+        return {
+            "field_mappings": {"test_item_id": "test_item_id", "name": "name"}
+        }
 
     def get_schema(self):
         return {"test_item_id": lambda series: series.notna()}
@@ -39,7 +41,11 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         release = super()._fetch_chembl_release(client, log)
         # Normalize release value
         if release:
-            normalized_release = release.strip() if isinstance(release, str) else str(release).strip()
+            normalized_release = (
+                release.strip()
+                if isinstance(release, str)
+                else str(release).strip()
+            )
             if hasattr(self, "_set_chembl_release"):
                 self._set_chembl_release(normalized_release)
         # Extract and set api_version if available
@@ -50,7 +56,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
                 status = handshake_method()
                 if isinstance(status, dict):
                     api_version = status.get("api_version")
-                    if api_version is not None and hasattr(self, "_set_api_version"):
+                    if api_version is not None and hasattr(
+                        self, "_set_api_version"
+                    ):
                         self._set_api_version(str(api_version))
             except Exception:
                 pass  # Ignore errors when extracting api_version
@@ -68,20 +76,29 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         # Delegate core logic to the unified Chembl descriptor implementation.
         release, metadata = super().ensure_chembl_release(context, log)
 
-        api_version = metadata.get("api_version") or getattr(self, "api_version", None)
+        api_version = metadata.get("api_version") or getattr(
+            self, "api_version", None
+        )
         if api_version:
             # Ensure the filter is visible to downstream pagination logic.
             context.extra_filters["api_version"] = api_version
 
         return release, metadata
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:  # noqa: D401
+    def _normalize_identifiers(
+        self, df: pd.DataFrame, log: Any
+    ) -> pd.DataFrame:  # noqa: D401
         """Normalize ChEMBL identifiers and InChI keys for the testitem entity."""
 
         result = df.copy()
 
         if "molecule_chembl_id" in result.columns:
-            series = result["molecule_chembl_id"].astype("string").str.strip().str.upper()
+            series = (
+                result["molecule_chembl_id"]
+                .astype("string")
+                .str.strip()
+                .str.upper()
+            )
             series = series.mask(series == "", pd.NA)
             result["molecule_chembl_id"] = series
 
@@ -97,7 +114,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
 
         return result
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:  # noqa: D401
+    def _normalize_string_fields(
+        self, df: pd.DataFrame, log: Any
+    ) -> pd.DataFrame:  # noqa: D401
         """Normalize human-readable string fields for the testitem entity."""
 
         result = df.copy()
@@ -110,7 +129,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
 
         return result
 
-    def _deduplicate_molecules(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:  # noqa: D401
+    def _deduplicate_molecules(
+        self, df: pd.DataFrame, log: Any
+    ) -> pd.DataFrame:  # noqa: D401
         """Deduplicate molecules by structural identifiers.
 
         Rows are grouped by a stable subset of structural keys. The first
@@ -133,7 +154,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
             return df
 
         result = df.copy()
-        result = result.drop_duplicates(subset=subset, keep="first").reset_index(drop=True)
+        result = result.drop_duplicates(
+            subset=subset, keep="first"
+        ).reset_index(drop=True)
         return result
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
@@ -159,7 +182,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         result["_chembl_db_version"] = (
             str(chembl_db_version) if chembl_db_version is not None else ""
         )
-        result["_api_version"] = str(api_version) if api_version is not None else ""
+        result["_api_version"] = (
+            str(api_version) if api_version is not None else ""
+        )
 
         return result
 
@@ -170,7 +195,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
     ) -> TypingMapping[str, object]:  # type: ignore[override]
         """Include ChEMBL release metadata in the persisted meta.yaml payload."""
 
-        enriched: dict[str, object] = dict(super().augment_metadata(metadata, df))
+        enriched: dict[str, object] = dict(
+            super().augment_metadata(metadata, df)
+        )
 
         release_meta = self.chembl_release_metadata()
         chembl_db_version = release_meta.get("chembl_db_version")

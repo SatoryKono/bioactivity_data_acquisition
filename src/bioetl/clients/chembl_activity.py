@@ -22,11 +22,18 @@ class ChemblActivityClient(BaseEntityFetcher):
         default_chunk_size: int | None = 200,
         logger: logging.Logger | None = None,
     ) -> None:
-        super().__init__(session=session, default_chunk_size=default_chunk_size, logger=logger)
+        super().__init__(
+            session=session,
+            default_chunk_size=default_chunk_size,
+            logger=logger,
+        )
         self._base_url = base_url.rstrip("/")
 
     def _build_url(self, *parts: str) -> str:
-        normalized_parts = [self._base_url, *[part.strip("/") for part in parts]]
+        normalized_parts = [
+            self._base_url,
+            *[part.strip("/") for part in parts],
+        ]
         return "/".join(normalized_parts)
 
     def list_activities(
@@ -37,12 +44,18 @@ class ChemblActivityClient(BaseEntityFetcher):
     ) -> Generator[Mapping[str, Any], None, None]:
         """Вернуть генератор активностей с чанковой пагинацией."""
 
-        return self.chunked_fetch(self._build_url("activity"), params=params, chunk_size=chunk_size)
+        return self.chunked_fetch(
+            self._build_url("activity"), params=params, chunk_size=chunk_size
+        )
 
-    def get_by_id(self, activity_id: str, params: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+    def get_by_id(
+        self, activity_id: str, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
         """Получить единичную запись по идентификатору."""
 
-        payload = self.fetch_page(self._build_url("activity", str(activity_id)), params or {})
+        payload = self.fetch_page(
+            self._build_url("activity", str(activity_id)), params or {}
+        )
         if isinstance(payload, Mapping):
             return payload
         return {"data": payload}
@@ -57,7 +70,9 @@ class ChemblActivityClient(BaseEntityFetcher):
     ):
         """Сохранить совместимость с прежним методом DataFrame-выгрузки."""
 
-        records = list(self.list_activities(params=params, chunk_size=chunk_size))
+        records = list(
+            self.list_activities(params=params, chunk_size=chunk_size)
+        )
         return self._records_to_frame(records, field_mapping, dtype_map)
 
     def _records_to_frame(
@@ -68,5 +83,7 @@ class ChemblActivityClient(BaseEntityFetcher):
     ):
         mapping = field_mapping
         if mapping is None:
-            mapping = {key: key for key in records[0].keys()} if records else {}
+            mapping = (
+                {key: key for key in records[0].keys()} if records else {}
+            )
         return self.records_to_dataframe(records, mapping, dtype_map=dtype_map)

@@ -50,7 +50,9 @@ class EnrichmentScenarioEngine:
                 continue
 
             conf = scenario.extract_config(chembl_config, log=log)
-            bundle_builder = getattr(pipeline, "_build_activity_enrichment_bundle", None)
+            bundle_builder = getattr(
+                pipeline, "_build_activity_enrichment_bundle", None
+            )
 
             if callable(bundle_builder):
                 bundle = cast(
@@ -67,7 +69,9 @@ class EnrichmentScenarioEngine:
                     source_config=None,
                 )
                 register_client = getattr(pipeline, "register_client", None)
-                registered_clients = getattr(pipeline, "_registered_clients", None)
+                registered_clients = getattr(
+                    pipeline, "_registered_clients", None
+                )
                 if (
                     callable(register_client)
                     and isinstance(registered_clients, dict)

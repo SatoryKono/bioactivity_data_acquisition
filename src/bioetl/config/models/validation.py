@@ -35,10 +35,12 @@ class ValidationConfig(BaseModel):
         description="Maximum number of migration hops allowed when reconciling schema versions.",
     )
     strict: bool = Field(
-        default=True, description="If true, Pandera enforces column order and presence."
+        default=True,
+        description="If true, Pandera enforces column order and presence.",
     )
     coerce: bool = Field(
-        default=True, description="If true, Pandera coerces data types during validation."
+        default=True,
+        description="If true, Pandera coerces data types during validation.",
     )
 
     @model_validator(mode="after")
@@ -50,8 +52,6 @@ class ValidationConfig(BaseModel):
             msg = "validation.schema_out_version requires validation.schema_out to be set"
             raise ValueError(msg)
         if self.allow_schema_migration and not self.max_schema_migration_hops:
-            msg = (
-                "validation.max_schema_migration_hops must be positive when migrations are allowed"
-            )
+            msg = "validation.max_schema_migration_hops must be positive when migrations are allowed"
             raise ValueError(msg)
         return self

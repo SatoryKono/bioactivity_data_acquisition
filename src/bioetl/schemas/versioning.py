@@ -179,7 +179,9 @@ class SchemaMigrationRegistry:
             return True
         return any(version in adjacency for adjacency in graph.values())
 
-    def _creates_cycle(self, schema_id: str, from_version: str, to_version: str) -> bool:
+    def _creates_cycle(
+        self, schema_id: str, from_version: str, to_version: str
+    ) -> bool:
         """Return True if adding the migration would introduce a cycle."""
 
         graph = self._graph.get(schema_id)

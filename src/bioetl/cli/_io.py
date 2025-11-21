@@ -89,7 +89,9 @@ def git_ls(
         text=True,
         cwd=repo_root,
     )
-    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    lines = [
+        line.strip() for line in result.stdout.splitlines() if line.strip()
+    ]
     return [Path(line) for line in lines]
 
 
@@ -117,5 +119,7 @@ def git_diff_cached(
         text=True,
         cwd=repo_root,
     )
-    lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    lines = [
+        line.strip() for line in result.stdout.splitlines() if line.strip()
+    ]
     return [Path(line) for line in lines]

@@ -30,7 +30,9 @@ class ChemblCompoundRecordEntityClient:
 
     def __init__(self, chembl_client: ChemblClientProtocol) -> None:
         self._chembl_client = chembl_client
-        self._log = UnifiedLogger.get(__name__).bind(component="compound_record")
+        self._log = UnifiedLogger.get(__name__).bind(
+            component="compound_record"
+        )
 
     def fetch_by_pairs(
         self,
@@ -55,7 +57,9 @@ class ChemblCompoundRecordEntityClient:
         records: list[dict[str, Any]] = []
         grouped_pairs = self._group_by_document(validated_pairs)
         for document_id, molecule_ids in grouped_pairs.items():
-            for chunk in self._chunk_molecules(molecule_ids, effective_chunk_size):
+            for chunk in self._chunk_molecules(
+                molecule_ids, effective_chunk_size
+            ):
                 params = self._build_params(
                     document_id=document_id,
                     molecules=chunk,
@@ -159,7 +163,9 @@ class ChemblCompoundRecordEntityClient:
                     items_key=self._ITEMS_KEY,
                 )
             ]
-        except Exception as exc:  # pragma: no cover - network errors exercised in integration tests
+        except (
+            Exception
+        ) as exc:  # pragma: no cover - network errors exercised in integration tests
             self._log.warning(
                 LogEvents.COMPOUND_RECORD_FETCH_ERROR,
                 document_chembl_id=document_id,
@@ -178,8 +184,12 @@ class ChemblCompoundRecordEntityClient:
             return self._empty_frame(fields)
 
         frame = pd.DataFrame.from_records(records)
-        frame = frame.reindex(columns=self._resolve_column_order(frame.columns.tolist(), fields))
-        sort_columns = [column for column in self._KEY_COLUMNS if column in frame.columns]
+        frame = frame.reindex(
+            columns=self._resolve_column_order(frame.columns.tolist(), fields)
+        )
+        sort_columns = [
+            column for column in self._KEY_COLUMNS if column in frame.columns
+        ]
         if sort_columns:
             frame = frame.sort_values(by=sort_columns, kind="mergesort")
         return frame.reset_index(drop=True)
@@ -198,7 +208,9 @@ class ChemblCompoundRecordEntityClient:
             key = (molecule, document)
             candidate = dict(record)
             existing = best_by_pair.get(key)
-            if existing is None or _record_priority(candidate) < _record_priority(existing):
+            if existing is None or _record_priority(
+                candidate
+            ) < _record_priority(existing):
                 best_by_pair[key] = candidate
         return list(best_by_pair.values())
 
@@ -219,7 +231,9 @@ class ChemblCompoundRecordEntityClient:
         return ordered
 
     def _empty_frame(self, fields: Sequence[str] | None) -> pd.DataFrame:
-        columns = list(fields) if fields is not None else list(self._KEY_COLUMNS)
+        columns = (
+            list(fields) if fields is not None else list(self._KEY_COLUMNS)
+        )
         return pd.DataFrame(columns=columns)
 
     def _resolve_page_size(self, page_limit: int | None) -> int:
@@ -256,7 +270,9 @@ def _safe_bool(value: Any) -> bool:
     if value is None:
         return False
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        if isinstance(value, float) and (
+            math.isnan(value) or math.isinf(value)
+        ):
             return False
         return bool(value)
     if isinstance(value, str):
@@ -271,7 +287,9 @@ def _safe_bool(value: Any) -> bool:
     return bool(value)
 
 
-def _record_priority(record: Mapping[str, Any]) -> tuple[int, int, tuple[int, str]]:
+def _record_priority(
+    record: Mapping[str, Any]
+) -> tuple[int, int, tuple[int, str]]:
     """Compute the priority tuple for a compound record."""
     curated_rank = 0 if _safe_bool(record.get("curated")) else 1
     removed_rank = 0 if not _safe_bool(record.get("removed")) else 1
@@ -284,7 +302,9 @@ def _record_id_sort_key(value: Any) -> tuple[int, str]:
     if isinstance(value, bool):
         return (0, "00000000000000000001" if value else "00000000000000000000")
     if isinstance(value, (int, float)) and not isinstance(value, bool):
-        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        if isinstance(value, float) and (
+            math.isnan(value) or math.isinf(value)
+        ):
             return (2, "")
         numeric = int(value)
         return (0, f"{numeric:020d}")

@@ -50,7 +50,9 @@ _COMPOUND_COLUMNS: tuple[tuple[str, str], ...] = (
     ("removed", "boolean"),
 )
 
-_DATA_VALIDITY_COLUMNS: tuple[tuple[str, str], ...] = (("data_validity_description", "string"),)
+_DATA_VALIDITY_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("data_validity_description", "string"),
+)
 
 
 _NormalizedValue = TypeVar("_NormalizedValue", str | None, bool | None)
@@ -65,11 +67,16 @@ def _build_series_from_aliases(
 ) -> pd.Series:
     """Construct a normalized pandas Series for the requested compound record field."""
     aliases = _COMPOUND_FIELD_ALIASES.get(field_key, (field_key,))
-    normalized_values = [normalizer(_extract_first_present(record, aliases)) for record in records]
+    normalized_values = [
+        normalizer(_extract_first_present(record, aliases))
+        for record in records
+    ]
     return pd.Series(data=normalized_values, index=index, dtype=dtype)
 
 
-def _extract_first_present(record: Mapping[str, Any], keys: Iterable[str]) -> Any:
+def _extract_first_present(
+    record: Mapping[str, Any], keys: Iterable[str]
+) -> Any:
     """Return the first available alias value from the record."""
 
     for key in keys:
@@ -138,7 +145,8 @@ def enrich_with_assay(
     # 1) Validate that the key column is available.
     if "assay_chembl_id" not in df_act.columns:
         log.warning(
-            LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS, missing_columns=["assay_chembl_id"]
+            LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
+            missing_columns=["assay_chembl_id"],
         )
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
@@ -188,7 +196,9 @@ def enrich_with_assay(
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     df_enrich = (
-        records_df.loc[:, ["assay_chembl_id", "assay_organism", "assay_tax_id"]]
+        records_df.loc[
+            :, ["assay_chembl_id", "assay_organism", "assay_tax_id"]
+        ]
         .dropna(subset=["assay_chembl_id"])
         .copy()
     )
@@ -213,14 +223,14 @@ def enrich_with_assay(
 
     # 7) Perform soft type coercion.
     if "assay_organism_enrich" in df_merged.columns:
-        df_merged["assay_organism"] = df_merged["assay_organism_enrich"].combine_first(
-            df_merged["assay_organism"]
-        )
+        df_merged["assay_organism"] = df_merged[
+            "assay_organism_enrich"
+        ].combine_first(df_merged["assay_organism"])
         df_merged = df_merged.drop(columns=["assay_organism_enrich"])
     if "assay_tax_id_enrich" in df_merged.columns:
-        df_merged["assay_tax_id"] = df_merged["assay_tax_id_enrich"].combine_first(
-            df_merged["assay_tax_id"]
-        )
+        df_merged["assay_tax_id"] = df_merged[
+            "assay_tax_id_enrich"
+        ].combine_first(df_merged["assay_tax_id"])
         df_merged = df_merged.drop(columns=["assay_tax_id_enrich"])
 
     if "assay_organism" not in df_merged.columns:
@@ -231,9 +241,11 @@ def enrich_with_assay(
     df_merged["assay_organism"] = df_merged["assay_organism"].astype("string")
 
     # assay_tax_id may arrive as a string — coerce to Int64 with NA support.
-    df_merged["assay_tax_id"] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-        df_merged["assay_tax_id"], errors="coerce"
-    ).astype("Int64")
+    df_merged["assay_tax_id"] = (
+        pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+            df_merged["assay_tax_id"], errors="coerce"
+        ).astype("Int64")
+    )
 
     log.info(
         LogEvents.ENRICHMENT_COMPLETED,
@@ -314,27 +326,48 @@ def enrich_with_compound_record(
     df_need_fallback = df_without_doc.copy()
     if enrichment_by_pairs is not None and not enrichment_by_pairs.empty:
         # Check pair-enriched rows with empty compound_name/compound_key.
-        if {"compound_name", "compound_key"}.issubset(enrichment_by_pairs.columns):
+        if {"compound_name", "compound_key"}.issubset(
+            enrichment_by_pairs.columns
+        ):
             mask_empty = (
                 enrichment_by_pairs["compound_name"].isna()
-                | (enrichment_by_pairs["compound_name"].astype("string").str.strip() == "")
+                | (
+                    enrichment_by_pairs["compound_name"]
+                    .astype("string")
+                    .str.strip()
+                    == ""
+                )
             ) & (
                 enrichment_by_pairs["compound_key"].isna()
-                | (enrichment_by_pairs["compound_key"].astype("string").str.strip() == "")
+                | (
+                    enrichment_by_pairs["compound_key"]
+                    .astype("string")
+                    .str.strip()
+                    == ""
+                )
             )
         else:
             mask_empty = pd.Series(False, index=enrichment_by_pairs.index)
         rows_need_fallback = enrichment_by_pairs[mask_empty].copy()
-        if not rows_need_fallback.empty and "record_id" in rows_need_fallback.columns:
+        if (
+            not rows_need_fallback.empty
+            and "record_id" in rows_need_fallback.columns
+        ):
             # Add these rows to df_need_fallback for fallback processing.
-            df_need_fallback = pd.concat([df_need_fallback, rows_need_fallback], ignore_index=True)
+            df_need_fallback = pd.concat(
+                [df_need_fallback, rows_need_fallback], ignore_index=True
+            )
 
     # 5) Fallback enrichment via record_id for the remaining rows.
     enrichment_by_record_id: pd.DataFrame | None = None
     if not df_need_fallback.empty and "record_id" in df_need_fallback.columns:
         # Drop duplicate _row_id entries if present.
-        df_need_fallback = df_need_fallback.drop_duplicates(subset=["_row_id"], keep="first")
-        enrichment_by_record_id = _enrich_by_record_id(df_need_fallback, client, cfg, log)
+        df_need_fallback = df_need_fallback.drop_duplicates(
+            subset=["_row_id"], keep="first"
+        )
+        enrichment_by_record_id = _enrich_by_record_id(
+            df_need_fallback, client, cfg, log
+        )
 
     # 6) Merge results with priority: pair data overrides fallback data.
     # Start from the original DataFrame and apply enrichments sequentially.
@@ -375,11 +408,17 @@ def enrich_with_compound_record(
                         if row_id in pairs_dict:
                             pairs_data = pairs_dict[row_id]
                             if pairs_data.get("compound_name") is not None:
-                                df_result.loc[idx, "compound_name"] = pairs_data["compound_name"]
+                                df_result.loc[idx, "compound_name"] = (
+                                    pairs_data["compound_name"]
+                                )
                             if pairs_data.get("compound_key") is not None:
-                                df_result.loc[idx, "compound_key"] = pairs_data["compound_key"]
+                                df_result.loc[idx, "compound_key"] = (
+                                    pairs_data["compound_key"]
+                                )
                             if pairs_data.get("curated") is not None:
-                                df_result.loc[idx, "curated"] = pairs_data["curated"]
+                                df_result.loc[idx, "curated"] = pairs_data[
+                                    "curated"
+                                ]
                     except (ValueError, TypeError):
                         continue
 
@@ -388,7 +427,10 @@ def enrich_with_compound_record(
         df_result = df_result.sort_values("_row_id").reset_index(drop=True)
 
     # Apply fallback data only for rows with empty compound_name/compound_key.
-    if enrichment_by_record_id is not None and not enrichment_by_record_id.empty:
+    if (
+        enrichment_by_record_id is not None
+        and not enrichment_by_record_id.empty
+    ):
         # Build fallback data mapping by _row_id.
         fallback_dict: dict[int, dict[str, Any]] = {}
         for _, row in enrichment_by_record_id.iterrows():
@@ -434,18 +476,28 @@ def enrich_with_compound_record(
                             name_empty = pd.isna(compound_name) or (
                                 str(compound_name).strip() == ""
                             )
-                            key_empty = pd.isna(compound_key) or (str(compound_key).strip() == "")
+                            key_empty = pd.isna(compound_key) or (
+                                str(compound_key).strip() == ""
+                            )
 
                             if name_empty or key_empty:
                                 fallback_data = fallback_dict[row_id]
-                                if name_empty and fallback_data.get("compound_name") is not None:
-                                    df_result.loc[idx, "compound_name"] = fallback_data[
-                                        "compound_name"
-                                    ]
-                                if key_empty and fallback_data.get("compound_key") is not None:
-                                    df_result.loc[idx, "compound_key"] = fallback_data[
-                                        "compound_key"
-                                    ]
+                                if (
+                                    name_empty
+                                    and fallback_data.get("compound_name")
+                                    is not None
+                                ):
+                                    df_result.loc[idx, "compound_name"] = (
+                                        fallback_data["compound_name"]
+                                    )
+                                if (
+                                    key_empty
+                                    and fallback_data.get("compound_key")
+                                    is not None
+                                ):
+                                    df_result.loc[idx, "compound_key"] = (
+                                        fallback_data["compound_key"]
+                                    )
                     except (ValueError, TypeError):
                         continue
 
@@ -478,7 +530,9 @@ def enrich_with_compound_record(
         normalized_curated = curated_series.map(curated_mapping)
         mapped_mask = normalized_curated.notna()
         if mapped_mask.any():
-            df_result.loc[mapped_mask, "curated"] = normalized_curated[mapped_mask]
+            df_result.loc[mapped_mask, "curated"] = normalized_curated[
+                mapped_mask
+            ]
         df_result["curated"] = df_result["curated"].astype("boolean")
 
     # 10) Normalize string field types.
@@ -490,7 +544,9 @@ def enrich_with_compound_record(
         LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=df_result.shape[0],
         rows_with_doc_id=len(df_with_doc) if not df_with_doc.empty else 0,
-        rows_without_doc_id=len(df_without_doc) if not df_without_doc.empty else 0,
+        rows_without_doc_id=(
+            len(df_without_doc) if not df_without_doc.empty else 0
+        ),
     )
     return COMPOUND_RECORD_ENRICHMENT_SCHEMA.validate(df_result, lazy=True)
 
@@ -503,7 +559,11 @@ def _enrich_by_pairs(
 ) -> pd.DataFrame:
     """Enrich the activity DataFrame using (molecule_chembl_id, document_chembl_id) pairs."""
     # Normalize keys before building pairs: upper and strip.
-    pairs_df = df_act[["molecule_chembl_id", "document_chembl_id"]].astype("string").copy()
+    pairs_df = (
+        df_act[["molecule_chembl_id", "document_chembl_id"]]
+        .astype("string")
+        .copy()
+    )
     for column in pairs_df.columns:
         pairs_df[column] = pairs_df[column].str.strip().str.upper()
     pairs_df = pairs_df.dropna()  # pyright: ignore[reportUnknownMemberType]
@@ -528,7 +588,10 @@ def _enrich_by_pairs(
     page_limit = cfg.get("page_limit", 1000)
 
     # Wrap the client call in try/except to avoid failing the pipeline.
-    log.info(LogEvents.ENRICHMENT_FETCHING_COMPOUND_RECORDS_BY_PAIRS, pairs_count=len(pairs))
+    log.info(
+        LogEvents.ENRICHMENT_FETCHING_COMPOUND_RECORDS_BY_PAIRS,
+        pairs_count=len(pairs),
+    )
     try:
         records_df = client.fetch_compound_records_by_pairs(
             pairs=pairs,
@@ -565,13 +628,21 @@ def _enrich_by_pairs(
     records_df = records_df.copy()
     for column in ("molecule_chembl_id", "document_chembl_id"):
         if column not in records_df.columns:
-            records_df[column] = pd.Series([pd.NA] * len(records_df), dtype="string")
-        records_df[column] = records_df[column].astype("string").str.strip().str.upper()
+            records_df[column] = pd.Series(
+                [pd.NA] * len(records_df), dtype="string"
+            )
+        records_df[column] = (
+            records_df[column].astype("string").str.strip().str.upper()
+        )
 
     records_df = (
         records_df.dropna(subset=["molecule_chembl_id", "document_chembl_id"])
-        .drop_duplicates(subset=["molecule_chembl_id", "document_chembl_id"], keep="first")
-        .sort_values(by=["document_chembl_id", "molecule_chembl_id"], kind="mergesort")
+        .drop_duplicates(
+            subset=["molecule_chembl_id", "document_chembl_id"], keep="first"
+        )
+        .sort_values(
+            by=["document_chembl_id", "molecule_chembl_id"], kind="mergesort"
+        )
         .reset_index(drop=True)
     )
 
@@ -579,7 +650,9 @@ def _enrich_by_pairs(
         log.debug(LogEvents.ENRICHMENT_BY_PAIRS_NO_RECORDS_FOUND)
         return df_act
 
-    record_dicts = cast(Sequence[Mapping[str, Any]], records_df.to_dict(orient="records"))
+    record_dicts = cast(
+        Sequence[Mapping[str, Any]], records_df.to_dict(orient="records")
+    )
     compound_name_series = _build_series_from_aliases(
         records=record_dicts,
         index=records_df.index,
@@ -614,7 +687,9 @@ def _enrich_by_pairs(
     )
 
     pairs_found = int(
-        df_enrich[["molecule_chembl_id", "document_chembl_id"]].drop_duplicates().shape[0]
+        df_enrich[["molecule_chembl_id", "document_chembl_id"]]
+        .drop_duplicates()
+        .shape[0]
     )
     pairs_not_found = max(len(pairs) - pairs_found, 0)
 
@@ -636,10 +711,16 @@ def _enrich_by_pairs(
 
     # Normalize keys in df_enrich for the join (upper and strip).
     df_enrich["molecule_chembl_id"] = (
-        df_enrich["molecule_chembl_id"].astype("string").str.strip().str.upper()
+        df_enrich["molecule_chembl_id"]
+        .astype("string")
+        .str.strip()
+        .str.upper()
     )
     df_enrich["document_chembl_id"] = (
-        df_enrich["document_chembl_id"].astype("string").str.strip().str.upper()
+        df_enrich["document_chembl_id"]
+        .astype("string")
+        .str.strip()
+        .str.upper()
     )
 
     # Normalize keys in df_act for the join (upper and strip).
@@ -653,7 +734,10 @@ def _enrich_by_pairs(
     # Left-join back to df_act on normalized keys.
     df_result = df_act.merge(
         df_enrich,
-        left_on=["molecule_chembl_id_normalized", "document_chembl_id_normalized"],
+        left_on=[
+            "molecule_chembl_id_normalized",
+            "document_chembl_id_normalized",
+        ],
         right_on=["molecule_chembl_id", "document_chembl_id"],
         how="left",
         suffixes=("", "_enrich"),
@@ -661,7 +745,10 @@ def _enrich_by_pairs(
 
     # Remove temporary normalized columns.
     df_result = df_result.drop(
-        columns=["molecule_chembl_id_normalized", "document_chembl_id_normalized"]
+        columns=[
+            "molecule_chembl_id_normalized",
+            "document_chembl_id_normalized",
+        ]
     )
 
     # Coalesce *_enrich columns back into base columns.
@@ -782,19 +869,27 @@ def _enrich_by_record_id(
     df_compound = (
         pd.DataFrame(compound_data)
         if compound_data
-        else pd.DataFrame(columns=["record_id", "compound_key", "compound_name"])
+        else pd.DataFrame(
+            columns=["record_id", "compound_key", "compound_name"]
+        )
     )
 
     # Normalize record_id in df_act for the join.
     df_act_normalized = df_act.copy()
     if "record_id" in df_act_normalized.columns:
         mask_na = df_act_normalized["record_id"].isna()
-        df_act_normalized["record_id"] = df_act_normalized["record_id"].astype(str)
-        df_act_normalized.loc[df_act_normalized["record_id"] == "nan", "record_id"] = pd.NA
+        df_act_normalized["record_id"] = df_act_normalized["record_id"].astype(
+            str
+        )
+        df_act_normalized.loc[
+            df_act_normalized["record_id"] == "nan", "record_id"
+        ] = pd.NA
         df_act_normalized.loc[mask_na, "record_id"] = pd.NA
         if "record_id" in df_compound.columns and not df_compound.empty:
             df_compound["record_id"] = df_compound["record_id"].astype(str)
-            df_compound.loc[df_compound["record_id"] == "nan", "record_id"] = pd.NA
+            df_compound.loc[df_compound["record_id"] == "nan", "record_id"] = (
+                pd.NA
+            )
 
     # Left-join by record_id.
     df_result = df_act_normalized.merge(
@@ -890,7 +985,8 @@ def enrich_with_data_validity(
 
     # Invoke client.fetch_data_validity_lookup.
     log.info(
-        LogEvents.ENRICHMENT_FETCHING_DATA_VALIDITY, comments_count=len(set(validity_comments))
+        LogEvents.ENRICHMENT_FETCHING_DATA_VALIDITY,
+        comments_count=len(set(validity_comments)),
     )
     records_df = client.fetch_data_validity_lookup(
         comments=validity_comments,
@@ -928,7 +1024,9 @@ def enrich_with_data_validity(
         df_enrich["data_validity_comment"].astype("string").str.strip()
     )
     df_enrich = (
-        df_enrich.drop_duplicates(subset=["data_validity_comment"], keep="first")
+        df_enrich.drop_duplicates(
+            subset=["data_validity_comment"], keep="first"
+        )
         .sort_values(by=["data_validity_comment"], kind="mergesort")
         .rename(columns={"description": "data_validity_description"})
         .reset_index(drop=True)
@@ -957,16 +1055,18 @@ def enrich_with_data_validity(
     # Prefer enriched descriptions over placeholder column and drop helper column
     enrich_column = "data_validity_description_enrich"
     if enrich_column in df_result.columns:
-        df_result["data_validity_description"] = df_result[enrich_column].combine_first(
-            df_result["data_validity_description"]
-        )
+        df_result["data_validity_description"] = df_result[
+            enrich_column
+        ].combine_first(df_result["data_validity_description"])
         df_result = df_result.drop(columns=[enrich_column])
 
     # Restore original order.
     df_result = df_result.reindex(original_index)
 
     # Normalize column types.
-    df_result["data_validity_description"] = df_result["data_validity_description"].astype("string")
+    df_result["data_validity_description"] = df_result[
+        "data_validity_description"
+    ].astype("string")
 
     log.info(
         LogEvents.ENRICHMENT_COMPLETED,

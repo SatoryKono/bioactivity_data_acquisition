@@ -24,7 +24,9 @@ def _validate_config(config_path: Path) -> tuple[bool, dict[str, Any]]:
         config = loader.load_config(config_path)
         return True, {
             "config": config,
-            "pipeline_name": getattr(getattr(config, "pipeline", None), "name", None),
+            "pipeline_name": getattr(
+                getattr(config, "pipeline", None), "name", None
+            ),
             "validation_errors": [],
         }
     except Exception as exc:  # noqa: BLE001 - configuration failure surfaced
@@ -54,9 +56,13 @@ def _check_required_fields(config: Any, pipeline_name: str) -> list[str]:
         if not hasattr(chembl_source, "batch_size"):
             errors.append("Missing required field: sources.chembl.batch_size")
         elif getattr(chembl_source, "batch_size", 0) > 25:
-            errors.append(f"Invalid batch_size: {chembl_source.batch_size} (must be <= 25)")
+            errors.append(
+                f"Invalid batch_size: {chembl_source.batch_size} (must be <= 25)"
+            )
 
-    if not hasattr(config, "determinism") or not hasattr(config.determinism, "sort"):
+    if not hasattr(config, "determinism") or not hasattr(
+        config.determinism, "sort"
+    ):
         errors.append("Missing required field: determinism.sort")
     else:
         sort_config = config.determinism.sort
@@ -78,18 +84,27 @@ def _validate_schema_registry() -> list[str]:
 
         missing = [name for name in column_order if name not in schema_columns]
         if missing:
-            errors.append(f"{identifier}: column_order references missing columns {missing}")
+            errors.append(
+                f"{identifier}: column_order references missing columns {missing}"
+            )
 
         for hashed_column in ("hash_row", "hash_business_key"):
             if hashed_column not in schema_columns:
-                errors.append(f"{identifier}: missing required column '{hashed_column}'")
+                errors.append(
+                    f"{identifier}: missing required column '{hashed_column}'"
+                )
             elif hashed_column not in column_order:
-                errors.append(f"{identifier}: '{hashed_column}' not present in column_order")
+                errors.append(
+                    f"{identifier}: '{hashed_column}' not present in column_order"
+                )
 
         module_path, _ = identifier.rsplit(".", 1)
         module = __import__(module_path, fromlist=["__name__"])
         declared_version = getattr(module, "SCHEMA_VERSION", None)
-        if declared_version is not None and str(declared_version) != entry.version:
+        if (
+            declared_version is not None
+            and str(declared_version) != entry.version
+        ):
             errors.append(
                 f"{identifier}: version mismatch (registry={entry.version}, module={declared_version})"
             )
@@ -97,7 +112,9 @@ def _validate_schema_registry() -> list[str]:
     return errors
 
 
-def _write_report(results: dict[str, dict[str, Any]], registry_errors: list[str]) -> Path:
+def _write_report(
+    results: dict[str, dict[str, Any]], registry_errors: list[str]
+) -> Path:
     """Write a schema guard markdown report and return its path."""
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = ARTIFACTS_DIR / "schema_guard_report.md"
@@ -108,7 +125,9 @@ def _write_report(results: dict[str, dict[str, Any]], registry_errors: list[str]
 
     with tmp.open("w", encoding="utf-8") as handle:
         handle.write("# Schema Guard Report\n\n")
-        handle.write("**Purpose**: Validate pipeline configurations against Pydantic models.\n\n")
+        handle.write(
+            "**Purpose**: Validate pipeline configurations against Pydantic models.\n\n"
+        )
         handle.write(f"**Total configs tested**: {len(results)}\n\n")
         handle.write(f"- ✅ Valid: {total_valid}\n")
         handle.write(f"- ❌ Invalid: {total_invalid}\n\n")
@@ -120,7 +139,9 @@ def _write_report(results: dict[str, dict[str, Any]], registry_errors: list[str]
             handle.write(f"**Status**: {status}\n\n")
 
             if result.get("pipeline_name"):
-                handle.write(f"**Pipeline Name**: `{result['pipeline_name']}`\n\n")
+                handle.write(
+                    f"**Pipeline Name**: `{result['pipeline_name']}`\n\n"
+                )
 
             if result["errors"]:
                 handle.write("**Validation Errors**:\n\n")
@@ -129,7 +150,9 @@ def _write_report(results: dict[str, dict[str, Any]], registry_errors: list[str]
                 handle.write("\n")
 
             if result.get("exception_type"):
-                handle.write(f"**Exception Type**: `{result['exception_type']}`\n\n")
+                handle.write(
+                    f"**Exception Type**: `{result['exception_type']}`\n\n"
+                )
 
         handle.write("## Schema Registry\n\n")
         if registry_errors:
@@ -159,7 +182,11 @@ def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
     results: dict[str, dict[str, Any]] = {}
 
     for pipeline_name, config_path in configs_to_check.items():
-        log.info(LogEvents.VALIDATING_CONFIG, pipeline=pipeline_name, path=str(config_path))
+        log.info(
+            LogEvents.VALIDATING_CONFIG,
+            pipeline=pipeline_name,
+            path=str(config_path),
+        )
         if not config_path.exists():
             results[pipeline_name] = {
                 "valid": False,
@@ -174,7 +201,9 @@ def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
         valid, result = _validate_config(config_path)
 
         if valid:
-            field_errors = _check_required_fields(result["config"], pipeline_name)
+            field_errors = _check_required_fields(
+                result["config"], pipeline_name
+            )
             if field_errors:
                 result["validation_errors"].extend(field_errors)
                 valid = False
@@ -198,7 +227,9 @@ def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
 
     registry_errors = _validate_schema_registry()
     if registry_errors:
-        log.warning(LogEvents.SCHEMA_REGISTRY_INVALID, errors=len(registry_errors))
+        log.warning(
+            LogEvents.SCHEMA_REGISTRY_INVALID, errors=len(registry_errors)
+        )
     else:
         log.info(LogEvents.SCHEMA_REGISTRY_VALID)
 

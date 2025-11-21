@@ -50,7 +50,9 @@ class AssaySourceParameters(SourceParameters):
         return cls(
             base_url=normalized.get("base_url"),
             handshake_endpoint=normalized.get("handshake_endpoint", "/status"),
-            handshake_enabled=coerce_bool(normalized.get("handshake_enabled", True)),
+            handshake_enabled=coerce_bool(
+                normalized.get("handshake_enabled", True)
+            ),
         )
 
 
@@ -69,7 +71,9 @@ class AssaySourceConfig(SourceConfig[AssaySourceParameters]):
         default=2000,
         description="Upper bound for paginated URL length when building endpoints.",
     )
-    parameters: AssaySourceParameters = Field(default_factory=AssaySourceParameters)
+    parameters: AssaySourceParameters = Field(
+        default_factory=AssaySourceParameters
+    )
 
     parameters_model = AssaySourceParameters
     batch_field = "batch_size"
@@ -101,5 +105,7 @@ class AssaySourceConfig(SourceConfig[AssaySourceParameters]):
         """Extend the base payload with assay-specific fields."""
 
         payload = super()._build_payload(config=config, parameters=parameters)
-        payload["max_url_length"] = coerce_max_url_length(config.parameters_mapping())
+        payload["max_url_length"] = coerce_max_url_length(
+            config.parameters_mapping()
+        )
         return payload

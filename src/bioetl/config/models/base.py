@@ -33,12 +33,19 @@ class PipelineMetadata(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(..., description="Unique name of the pipeline (e.g., activity, assay).")
-    version: str = Field(..., description="Semantic version of the pipeline implementation.")
-    owner: str | None = Field(
-        default=None, description="Team or individual responsible for the pipeline."
+    name: str = Field(
+        ..., description="Unique name of the pipeline (e.g., activity, assay)."
     )
-    description: str | None = Field(default=None, description="Short human readable description.")
+    version: str = Field(
+        ..., description="Semantic version of the pipeline implementation."
+    )
+    owner: str | None = Field(
+        default=None,
+        description="Team or individual responsible for the pipeline.",
+    )
+    description: str | None = Field(
+        default=None, description="Short human readable description."
+    )
 
 
 DOMAIN_SECTION_FIELDS: tuple[str, ...] = (
@@ -76,13 +83,16 @@ class PipelineConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     version: Literal[1] = Field(
-        ..., description="Configuration schema version. Only version=1 is currently supported."
+        ...,
+        description="Configuration schema version. Only version=1 is currently supported.",
     )
     extends: Sequence[str] = Field(
         default_factory=tuple,
         description="Optional list of profile paths merged before this configuration.",
     )
-    pipeline: PipelineMetadata = Field(..., description="Metadata describing the pipeline.")
+    pipeline: PipelineMetadata = Field(
+        ..., description="Metadata describing the pipeline."
+    )
     domain: PipelineDomainConfig = Field(
         default_factory=PipelineDomainConfig,
         description="Domain-level configuration: schemas, transforms, enrichment, sources.",
@@ -99,8 +109,12 @@ class PipelineConfig(BaseModel):
             return data
 
         normalized: dict[str, Any] = dict(data)
-        domain_payload = cls._as_section_mapping(normalized.pop("domain", None))
-        infra_payload = cls._as_section_mapping(normalized.pop("infrastructure", None))
+        domain_payload = cls._as_section_mapping(
+            normalized.pop("domain", None)
+        )
+        infra_payload = cls._as_section_mapping(
+            normalized.pop("infrastructure", None)
+        )
 
         for field in DOMAIN_SECTION_FIELDS:
             if field in normalized:
@@ -126,10 +140,14 @@ class PipelineConfig(BaseModel):
         )
 
     @classmethod
-    def _prepare_section_update(cls, update: Mapping[str, Any]) -> dict[str, Any]:
+    def _prepare_section_update(
+        cls, update: Mapping[str, Any]
+    ) -> dict[str, Any]:
         normalized = dict(update)
         domain_patch = cls._as_section_mapping(normalized.pop("domain", None))
-        infra_patch = cls._as_section_mapping(normalized.pop("infrastructure", None))
+        infra_patch = cls._as_section_mapping(
+            normalized.pop("infrastructure", None)
+        )
 
         for field in DOMAIN_SECTION_FIELDS:
             if field in normalized:
@@ -150,7 +168,9 @@ class PipelineConfig(BaseModel):
         update: Mapping[str, Any] | None = None,
         deep: bool = False,
     ) -> PipelineConfig:
-        normalized_update = self._prepare_section_update(update) if update else None
+        normalized_update = (
+            self._prepare_section_update(update) if update else None
+        )
         if not normalized_update:
             return super().model_copy(update=None, deep=deep)
 
@@ -159,22 +179,30 @@ class PipelineConfig(BaseModel):
         infra_delta = update_payload.pop("infrastructure", None)
 
         if domain_delta:
-            update_payload["domain"] = self.domain.model_copy(update=domain_delta)
+            update_payload["domain"] = self.domain.model_copy(
+                update=domain_delta
+            )
         if infra_delta:
-            update_payload["infrastructure"] = self.infrastructure.model_copy(update=infra_delta)
+            update_payload["infrastructure"] = self.infrastructure.model_copy(
+                update=infra_delta
+            )
 
         return super().model_copy(
             update=update_payload if update_payload else None,
             deep=deep,
         )
 
-    def apply_overrides(self, overrides: Mapping[str, Any] | None) -> PipelineConfig:
+    def apply_overrides(
+        self, overrides: Mapping[str, Any] | None
+    ) -> PipelineConfig:
         """Return a new config with section-aware overrides applied."""
 
         if not overrides:
             return self
 
-        def _copy_model(model: BaseModel, payload: Mapping[str, Any]) -> BaseModel:
+        def _copy_model(
+            model: BaseModel, payload: Mapping[str, Any]
+        ) -> BaseModel:
             update_payload: dict[str, Any] = {}
             for key, value in payload.items():
                 if isinstance(value, Mapping):
@@ -200,7 +228,9 @@ class PipelineConfig(BaseModel):
                     prepared_overrides[key] = value
                 else:
                     if isinstance(section_model, BaseModel):
-                        prepared_overrides[key] = _copy_model(section_model, value)
+                        prepared_overrides[key] = _copy_model(
+                            section_model, value
+                        )
                     else:
                         prepared_overrides[key] = value
             else:
@@ -336,7 +366,9 @@ _PIPELINE_CONFIG_PROXY_FIELDS: tuple[ProxyDefinition, ...] = (
     ),
 )
 
-for _attr, _descriptor in build_section_proxies(_PIPELINE_CONFIG_PROXY_FIELDS).items():
+for _attr, _descriptor in build_section_proxies(
+    _PIPELINE_CONFIG_PROXY_FIELDS
+).items():
     setattr(PipelineConfig, _attr, _descriptor)
 
 
@@ -420,5 +452,7 @@ _PIPELINE_COMMON_PROXY_FIELDS: tuple[ProxyDefinition, ...] = (
     ),
 )
 
-for _attr, _descriptor in build_section_proxies(_PIPELINE_COMMON_PROXY_FIELDS).items():
+for _attr, _descriptor in build_section_proxies(
+    _PIPELINE_COMMON_PROXY_FIELDS
+).items():
     setattr(PipelineCommonCompat, _attr, _descriptor)

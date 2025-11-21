@@ -25,7 +25,9 @@ from bioetl.chembl.common.descriptor import (
 )
 from bioetl.pipelines.base import PipelineBase
 
-TransformCallable: TypeAlias = Callable[[Mapping[str, Any], BatchExtractionContext], Mapping[str, Any]]
+TransformCallable: TypeAlias = Callable[
+    [Mapping[str, Any], BatchExtractionContext], Mapping[str, Any]
+]
 NormalizerCallable: TypeAlias = Callable[[Any], tuple[str | None, Any]]
 SortKeyCallable: TypeAlias = Callable[[tuple[str, Any]], Any]
 
@@ -113,7 +115,9 @@ class BatchExtractionPlan:
             if self.finalize_context is not None:
                 self.finalize_context(self.context)
 
-            if self.stats_attribute and hasattr(self.pipeline, self.stats_attribute):
+            if self.stats_attribute and hasattr(
+                self.pipeline, self.stats_attribute
+            ):
                 override = self.context.extra.get("stats_attribute_override")
                 payload = override if override is not None else stats.as_dict()
                 setattr(self.pipeline, self.stats_attribute, payload)
@@ -156,9 +160,13 @@ class SimpleNormalizationStrategy(IdNormalizationStrategy):
             canonical_pairs = canonical_pairs[:effective_limit]
 
         unique_ids = tuple(identifier for identifier, _ in canonical_pairs)
-        metadata_map = {identifier: payload for identifier, payload in canonical_pairs}
+        metadata_map = {
+            identifier: payload for identifier, payload in canonical_pairs
+        }
         stats = BatchExtractionStats(requested=len(unique_ids))
-        return IdNormalizationResult(unique_ids=unique_ids, metadata=metadata_map, stats=stats)
+        return IdNormalizationResult(
+            unique_ids=unique_ids, metadata=metadata_map, stats=stats
+        )
 
     @staticmethod
     def _default_normalizer(raw: Any) -> tuple[str | None, Any]:
@@ -183,9 +191,13 @@ class SimpleBatchSizingStrategy(BatchSizingStrategy):
     ) -> BatchSizingResult:
         batch_size_value = requested_batch_size
         if batch_size_value is None:
-            resolve_source_config = getattr(pipeline, "_resolve_source_config", None)
+            resolve_source_config = getattr(
+                pipeline, "_resolve_source_config", None
+            )
             resolve_batch_size = getattr(pipeline, "_resolve_batch_size", None)
-            if callable(resolve_source_config) and callable(resolve_batch_size):
+            if callable(resolve_source_config) and callable(
+                resolve_batch_size
+            ):
                 try:
                     source_config = resolve_source_config("chembl")
                     batch_size_value = resolve_batch_size(source_config)
@@ -225,7 +237,9 @@ class BaseFetchStrategy:
             )
 
         if not dataframe.empty and plan.id_column in dataframe.columns:
-            dataframe = dataframe.sort_values(plan.id_column).reset_index(drop=True)
+            dataframe = dataframe.sort_values(plan.id_column).reset_index(
+                drop=True
+            )
 
         if plan.finalize is not None:
             dataframe = plan.finalize(dataframe, plan.context)
@@ -252,9 +266,13 @@ class BaseFetchStrategy:
         context.extra.setdefault("delegated_summary", dict(summary))
         if "batches" in summary and isinstance(summary.get("batches"), int):
             stats.batches = int(summary["batches"])
-        if "api_calls" in summary and isinstance(summary.get("api_calls"), int):
+        if "api_calls" in summary and isinstance(
+            summary.get("api_calls"), int
+        ):
             stats.api_calls = int(summary["api_calls"])
-        if "cache_hits" in summary and isinstance(summary.get("cache_hits"), int):
+        if "cache_hits" in summary and isinstance(
+            summary.get("cache_hits"), int
+        ):
             stats.cache_hits = int(summary["cache_hits"])
         extra_payload = {
             key: value
@@ -280,18 +298,24 @@ class DefaultFetchStrategy(BaseFetchStrategy, FetchStrategy):
         if not context.ids:
             dataframe = self._finalize_records(plan, records)
             stats.rows = int(dataframe.shape[0])
-            stats.duration_ms = (time.perf_counter() - plan.started_at) * 1000.0
+            stats.duration_ms = (
+                time.perf_counter() - plan.started_at
+            ) * 1000.0
             return dataframe, stats
 
         for start_idx in range(0, len(context.ids), context.chunk_size):
-            batch_ids = tuple(context.ids[start_idx : start_idx + context.chunk_size])
+            batch_ids = tuple(
+                context.ids[start_idx : start_idx + context.chunk_size]
+            )
             context.increment_batches()
             fetch_output = plan.fetcher(batch_ids, context)
             batch_iter: Iterable[Mapping[str, Any]]
             summary: Mapping[str, Any] | None = None
             if isinstance(fetch_output, tuple) and fetch_output:
                 batch_iter = fetch_output[0]
-                if len(fetch_output) > 1 and isinstance(fetch_output[1], Mapping):
+                if len(fetch_output) > 1 and isinstance(
+                    fetch_output[1], Mapping
+                ):
                     summary = fetch_output[1]
             else:
                 batch_iter = fetch_output
@@ -333,7 +357,9 @@ class DelegatedFetchStrategy(BaseFetchStrategy, FetchStrategy):
         if not context.ids:
             dataframe = self._finalize_records(plan, [])
             stats.rows = int(dataframe.shape[0])
-            stats.duration_ms = (time.perf_counter() - plan.started_at) * 1000.0
+            stats.duration_ms = (
+                time.perf_counter() - plan.started_at
+            ) * 1000.0
             return dataframe, stats
 
         fetch_result = plan.fetcher(context.ids, context)

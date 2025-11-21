@@ -29,7 +29,9 @@ class FlattenNestedMixin:
 
         return ()
 
-    def _flatten_nested_structures(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+    def _flatten_nested_structures(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:
         """Flatten configured nested columns using :class:`FlattenSpec` entries."""
 
         if df.empty:
@@ -40,10 +42,16 @@ class FlattenNestedMixin:
             if spec.source_column not in working.columns:
                 continue
 
-            normalized = pd.json_normalize(working[spec.source_column].tolist())
+            normalized = pd.json_normalize(
+                working[spec.source_column].tolist()
+            )
             cols = spec.cols or list(normalized.columns)
             for col in cols:
-                target_col = f"{spec.source_column}__{col}" if spec.prefix is None else f"{spec.prefix}{col}"
+                target_col = (
+                    f"{spec.source_column}__{col}"
+                    if spec.prefix is None
+                    else f"{spec.prefix}{col}"
+                )
                 working[target_col] = normalized.get(col)
 
             if spec.drop_source:

@@ -22,7 +22,9 @@ def normalize_select_fields(
     if value is None:
         return tuple(default) if default else None
 
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+    if isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    ):
         normalized: list[str] = []
         for raw in value:
             if raw is None:
@@ -86,5 +88,7 @@ def build_filters_payload(
     if parameters:
         payload["parameters"] = dict(parameters)
 
-    compact = {key: value for key, value in payload.items() if value is not None}
+    compact = {
+        key: value for key, value in payload.items() if value is not None
+    }
     return payload, compact

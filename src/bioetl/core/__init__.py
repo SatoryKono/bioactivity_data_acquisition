@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import warnings
 from importlib import import_module
+from typing import TYPE_CHECKING
 
 from .common import ChemblReleaseMixin
 from .http import (
@@ -68,7 +69,15 @@ from .schema import (
     normalize_string_columns,
     summarize_schema_errors,
 )
-from .utils import clear_vocab_store_cache, get_ids, join_activity_with_molecule, load_vocab_store
+from .utils import (
+    clear_vocab_store_cache,
+    get_ids,
+    join_activity_with_molecule,
+    load_vocab_store,
+)
+
+if TYPE_CHECKING:  # pragma: no cover - imports for static analyzers only
+    from bioetl.base_classes import BaseApiClient, INormalizer, IParser
 
 __all__ = [
     # Common
@@ -126,9 +135,9 @@ __all__ = [
     # Schema
     "IdentifierRule",
     "IdentifierStats",
+    "SchemaColumnFactory",
     "StringRule",
     "StringStats",
-    "SchemaColumnFactory",
     "normalize_identifier_columns",
     "normalize_string_columns",
     "format_failure_cases",
@@ -152,17 +161,27 @@ _DEPRECATED_EXPORTS: dict[str, tuple[str, str, str]] = {
     "BaseApiClient": (
         "bioetl.base_classes",
         "BaseApiClient",
-        "'BaseApiClient' is now provided via 'bioetl.base_classes'. Importing it from 'bioetl.core' is deprecated and will be removed in a future release.",
+        (
+            "'BaseApiClient' is now provided via 'bioetl.base_classes'. "
+            "Importing it from 'bioetl.core' is deprecated and will be "
+            "removed in a future release."
+        ),
     ),
     "IParser": (
         "bioetl.base_classes",
         "IParser",
-        "'IParser' moved to 'bioetl.base_classes'. Importing it from 'bioetl.core' is deprecated.",
+        (
+            "'IParser' moved to 'bioetl.base_classes'. "
+            "Importing it from 'bioetl.core' is deprecated."
+        ),
     ),
     "INormalizer": (
         "bioetl.base_classes",
         "INormalizer",
-        "'INormalizer' moved to 'bioetl.base_classes'. Importing it from 'bioetl.core' is deprecated.",
+        (
+            "'INormalizer' moved to 'bioetl.base_classes'. "
+            "Importing it from 'bioetl.core' is deprecated."
+        ),
     ),
 }
 

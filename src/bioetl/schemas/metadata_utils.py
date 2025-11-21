@@ -28,7 +28,9 @@ def normalize_sequence(value: Any) -> tuple[str, ...]:
     return ()
 
 
-def metadata_dict(*sources: Mapping[str, Any] | None, **updates: Any) -> dict[str, Any]:
+def metadata_dict(
+    *sources: Mapping[str, Any] | None, **updates: Any
+) -> dict[str, Any]:
     """Merge ``sources`` into a shallow copy suitable for metadata operations."""
 
     merged: dict[str, Any] = {}

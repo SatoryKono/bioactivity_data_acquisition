@@ -7,11 +7,21 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import pandas as pd
-from bioetl.chembl.common.descriptor import ChemblContextSpec, ChemblDescriptorSpec
-from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
+from bioetl.chembl.common.descriptor import (
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
+)
+from bioetl.clients.chembl_entity_factory import (
+    ChemblClientBundle,
+    ChemblEntityClientFactory,
+)
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
-from bioetl.pipelines.chembl.mixins import EnrichmentMixin, NormalizationMixin, ValidationMixin
+from bioetl.pipelines.chembl.mixins import (
+    EnrichmentMixin,
+    NormalizationMixin,
+    ValidationMixin,
+)
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .helpers import build_dataframe
@@ -19,7 +29,9 @@ from .io import ChemblIO
 from bioetl.clients.client_chembl import _resolve_status_endpoint
 
 
-class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixin, ValidationMixin):
+class BaseChemblPipeline(
+    UnifiedPipelineBase, NormalizationMixin, EnrichmentMixin, ValidationMixin
+):
     """Базовый класс, инкапсулирующий повторяемый цикл fetch→normalize→enrich→validate→write."""
 
     entity_name: str = ""
@@ -48,11 +60,15 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
             )
         return self._source
 
-    def _normalize(self, chunk: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    def _normalize(
+        self, chunk: Sequence[Mapping[str, Any]]
+    ) -> list[dict[str, Any]]:
         rules = self.get_normalization_rules()
         return self.normalize_records(chunk, **rules)
 
-    def _enrich(self, records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    def _enrich(
+        self, records: Sequence[Mapping[str, Any]]
+    ) -> list[dict[str, Any]]:
         return self.enrich_records(records, self.get_enrichment_rules())
 
     def _validate(self, df: pd.DataFrame) -> None:
@@ -82,16 +98,18 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
             return None
         return getattr(self.config.domain, "sources", {}).get(name)
 
-    def _resolve_batch_size(self, name: str | Any, fallback: int = 1000) -> int:
+    def _resolve_batch_size(
+        self, name: str | Any, fallback: int = 1000
+    ) -> int:
         """Resolve batch size from source name or SourceConfig object.
-        
+
         Parameters
         ----------
         name
             Either a source name (str) or a SourceConfig object.
         fallback
             Default batch size if not found.
-            
+
         Returns
         -------
         int
@@ -127,7 +145,9 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
             msg = f"{type(self).__name__} must define id_column to build descriptor"
             raise RuntimeError(msg)
 
-        entity = (getattr(self, "entity_name", None) or "").strip() or self.pipeline_code
+        entity = (
+            getattr(self, "entity_name", None) or ""
+        ).strip() or self.pipeline_code
         descriptor_name = f"chembl_{entity}"
 
         def _source_config_factory(source_cfg: SourceConfig[Any]) -> Any:
@@ -164,10 +184,14 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
         factory = ChemblEntityClientFactory(self.config)
         source_config = self._resolve_source_config("chembl")
         return factory.build(
-            self.entity_name or "", source_name="chembl", source_config=source_config
+            self.entity_name or "",
+            source_name="chembl",
+            source_config=source_config,
         )
 
-    def fetch_chembl_release(self, client: Any, log: Any | None = None) -> str | None:
+    def fetch_chembl_release(
+        self, client: Any, log: Any | None = None
+    ) -> str | None:
         """Fetch ChEMBL release from a bundle or API client.
 
         Accept either a ChemblClientBundle (with .chembl_client) or a
@@ -180,26 +204,40 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
             # Use getattr to avoid auto-creating attributes in Mock objects
             original_handshake = getattr(client, "handshake", None)
             original_get = getattr(client, "get", None)
-            original_has_handshake = original_handshake is not None and callable(original_handshake)
-            original_has_get = original_get is not None and callable(original_get)
-            
+            original_has_handshake = (
+                original_handshake is not None and callable(original_handshake)
+            )
+            original_has_get = original_get is not None and callable(
+                original_get
+            )
+
             # Unwrap bundle if necessary (only if original client doesn't have methods)
             if not (original_has_handshake or original_has_get):
                 unwrapped = None
-                if hasattr(client, "__dict__") and "chembl_client" in client.__dict__:
+                if (
+                    hasattr(client, "__dict__")
+                    and "chembl_client" in client.__dict__
+                ):
                     unwrapped = client.__dict__["chembl_client"]
                 if unwrapped is not None:
                     unwrapped_handshake = getattr(unwrapped, "handshake", None)
                     unwrapped_get = getattr(unwrapped, "get", None)
-                    unwrapped_has_handshake = unwrapped_handshake is not None and callable(unwrapped_handshake)
-                    unwrapped_has_get = unwrapped_get is not None and callable(unwrapped_get)
+                    unwrapped_has_handshake = (
+                        unwrapped_handshake is not None
+                        and callable(unwrapped_handshake)
+                    )
+                    unwrapped_has_get = unwrapped_get is not None and callable(
+                        unwrapped_get
+                    )
                     if unwrapped_has_handshake or unwrapped_has_get:
                         client = unwrapped
-            
+
             # Final check: ensure client has at least one of the required methods
             final_handshake = getattr(client, "handshake", None)
             final_get = getattr(client, "get", None)
-            has_handshake = final_handshake is not None and callable(final_handshake)
+            has_handshake = final_handshake is not None and callable(
+                final_handshake
+            )
             has_get = final_get is not None and callable(final_get)
             if not (has_handshake or has_get):
                 return None
@@ -233,7 +271,9 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
                             self.__dict__["api_version"] = api_value
                     else:
                         api_value = None
-                metadata_update: dict[str, Any] = {"chembl_db_version": release_value}
+                metadata_update: dict[str, Any] = {
+                    "chembl_db_version": release_value
+                }
                 if api_value is not None:
                     metadata_update["api_version"] = api_value
                 if hasattr(self, "update_chembl_release_metadata"):
@@ -249,9 +289,9 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
                 if callable(json_candidate):
                     payload = json_candidate()
                     if isinstance(payload, dict):
-                        candidate = payload.get("chembl_db_version") or payload.get(
-                            "chembl_release"
-                        )
+                        candidate = payload.get(
+                            "chembl_db_version"
+                        ) or payload.get("chembl_release")
                         if candidate is not None:
                             release_raw = str(candidate)
                             release_value = release_raw.strip()
@@ -265,16 +305,24 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
                                 candidate_api = str(api_version).strip()
                                 if candidate_api:
                                     api_value = candidate_api
-                                    api_setter = getattr(self, "_set_api_version", None)
+                                    api_setter = getattr(
+                                        self, "_set_api_version", None
+                                    )
                                     if callable(api_setter):
                                         api_setter(api_value)
                                     else:
-                                        self.__dict__["api_version"] = api_value
-                            metadata_update = {"chembl_db_version": release_value}
+                                        self.__dict__["api_version"] = (
+                                            api_value
+                                        )
+                            metadata_update = {
+                                "chembl_db_version": release_value
+                            }
                             if api_value is not None:
                                 metadata_update["api_version"] = api_value
                             if hasattr(self, "update_chembl_release_metadata"):
-                                self.update_chembl_release_metadata(**metadata_update)
+                                self.update_chembl_release_metadata(
+                                    **metadata_update
+                                )
                             return release_raw
             return None
         except Exception as exc:
@@ -285,7 +333,9 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
 
     def _get_entity_client(self, bundle: ChemblClientBundle) -> Any:
         """Get entity client from bundle, with special handling for document entity."""
-        if self.entity_name == "document" and hasattr(self, "_build_document_client"):
+        if self.entity_name == "document" and hasattr(
+            self, "_build_document_client"
+        ):
             try:
                 return self._build_document_client(bundle)
             except Exception:
@@ -303,7 +353,9 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
             return pd.DataFrame()
         if self.config and getattr(self.config.cli, "dry_run", False):
             return pd.DataFrame()
-        limit = getattr(self.config.cli, "limit", None) if self.config else None
+        limit = (
+            getattr(self.config.cli, "limit", None) if self.config else None
+        )
         if limit is not None:
             unique_ids = unique_ids[: int(limit)]
         bundle = self.build_chembl_entity_bundle(
@@ -316,14 +368,18 @@ class BaseChemblPipeline(UnifiedPipelineBase, NormalizationMixin, EnrichmentMixi
         )
         self.fetch_chembl_release(bundle)
         entity_client = self._get_entity_client(bundle)
-        if entity_client is None or not hasattr(entity_client, "iterate_by_ids"):
+        if entity_client is None or not hasattr(
+            entity_client, "iterate_by_ids"
+        ):
             msg = "Entity client does not support iterate_by_ids"
             raise RuntimeError(msg)
         batch_size = self._resolve_batch_size("chembl", len(unique_ids))
         results: list[Mapping[str, Any]] = []
         for start in range(0, len(unique_ids), batch_size):
             batch = unique_ids[start : start + batch_size]
-            fetched = entity_client.iterate_by_ids(batch, select_fields=select_fields)
+            fetched = entity_client.iterate_by_ids(
+                batch, select_fields=select_fields
+            )
             results.extend(list(fetched))
         return build_dataframe(results)
 

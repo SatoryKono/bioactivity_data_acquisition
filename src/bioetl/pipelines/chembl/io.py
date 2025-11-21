@@ -1,4 +1,5 @@
 """IO-примитивы для Chembl пайплайнов."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
@@ -15,7 +16,9 @@ class ChemblIO:
 
     def chunked_fetch(
         self,
-        source: Iterable[dict[str, Any]] | Callable[[], Iterable[dict[str, Any]]],
+        source: (
+            Iterable[dict[str, Any]] | Callable[[], Iterable[dict[str, Any]]]
+        ),
     ) -> Iterator[list[dict[str, Any]]]:
         """Разбить входной источник на чанки фиксированного размера."""
 
@@ -29,7 +32,9 @@ class ChemblIO:
         if batch:
             yield batch
 
-    def write_dataframe(self, df: pd.DataFrame, writer: Callable[[pd.DataFrame], Any]) -> Any:
+    def write_dataframe(
+        self, df: pd.DataFrame, writer: Callable[[pd.DataFrame], Any]
+    ) -> Any:
         """Записать ``DataFrame`` через переданный writer-коллбек."""
 
         return writer(df)

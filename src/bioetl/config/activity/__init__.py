@@ -28,7 +28,9 @@ class ActivitySourceParameters(SourceParameters):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any] | None = None) -> ActivitySourceParameters:
+    def from_mapping(
+        cls, params: Mapping[str, Any] | None = None
+    ) -> ActivitySourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -47,7 +49,9 @@ class ActivitySourceParameters(SourceParameters):
         normalized = dict(cls._normalize_mapping(params))
         normalized.pop("max_url_length", None)
 
-        normalized["select_fields"] = normalize_select_fields(normalized.get("select_fields"))
+        normalized["select_fields"] = normalize_select_fields(
+            normalized.get("select_fields")
+        )
 
         return cls(**normalized)
 
@@ -67,7 +71,9 @@ class ActivitySourceConfig(SourceConfig[ActivitySourceParameters]):
         default=2000,
         description="Upper bound for paginated URL length when building endpoints.",
     )
-    parameters: ActivitySourceParameters = Field(default_factory=ActivitySourceParameters)
+    parameters: ActivitySourceParameters = Field(
+        default_factory=ActivitySourceParameters
+    )
 
     parameters_model = ActivitySourceParameters
     batch_field = "batch_size"
@@ -98,5 +104,7 @@ class ActivitySourceConfig(SourceConfig[ActivitySourceParameters]):
         """Extend the base payload with activity-specific fields."""
 
         payload = super()._build_payload(config=config, parameters=parameters)
-        payload["max_url_length"] = coerce_max_url_length(config.parameters_mapping())
+        payload["max_url_length"] = coerce_max_url_length(
+            config.parameters_mapping()
+        )
         return payload

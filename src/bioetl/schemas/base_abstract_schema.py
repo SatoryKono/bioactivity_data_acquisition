@@ -42,12 +42,18 @@ def create_schema(
     schema_columns = dict(columns)
     if column_order:
         normalized_order = list(column_order)
-        missing_columns = [column for column in normalized_order if column not in schema_columns]
+        missing_columns = [
+            column
+            for column in normalized_order
+            if column not in schema_columns
+        ]
         if missing_columns:
             msg = f"column_order references missing columns: {missing_columns}"
             raise ValueError(msg)
         duplicate_columns = {
-            column for column in normalized_order if normalized_order.count(column) > 1
+            column
+            for column in normalized_order
+            if normalized_order.count(column) > 1
         }
         if duplicate_columns:
             msg = f"column_order contains duplicates: {sorted(duplicate_columns)}"

@@ -10,7 +10,9 @@ from typing import Any, NoReturn, cast
 import typer
 from structlog.stdlib import BoundLogger
 
-from bioetl.config.environment import load_environment_settings as _load_environment_settings
+from bioetl.config.environment import (
+    load_environment_settings as _load_environment_settings,
+)
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.pipeline import PipelineBase
 from bioetl.core.pipeline.errors import (
@@ -41,7 +43,11 @@ from bioetl.core.runtime.cli_pipeline_runner import (
 
 load_environment_settings = _load_environment_settings
 
-__all__ = ["create_pipeline_command", "CommonOptions", "load_environment_settings"]
+__all__ = [
+    "create_pipeline_command",
+    "CommonOptions",
+    "load_environment_settings",
+]
 
 
 class CommonOptions:
@@ -116,17 +122,23 @@ class PipelineCliCommand(CliCommandBase):
         """Execute the pipeline workflow with normalized options."""
         dry_run = cast(bool, coerce_option_value(dry_run))
         verbose = cast(bool, coerce_option_value(verbose))
-        override_values = cast(list[str], coerce_option_value(set_overrides, default=[]))
+        override_values = cast(
+            list[str], coerce_option_value(set_overrides, default=[])
+        )
         sample = cast(int | None, coerce_option_value(sample))
         limit = cast(int | None, coerce_option_value(limit))
         extended = cast(bool, coerce_option_value(extended))
-        fail_on_schema_drift = cast(bool, coerce_option_value(fail_on_schema_drift))
+        fail_on_schema_drift = cast(
+            bool, coerce_option_value(fail_on_schema_drift)
+        )
         validate_columns = cast(bool, coerce_option_value(validate_columns))
         golden = cast(Path | None, coerce_option_value(golden))
         input_file = cast(Path | None, coerce_option_value(input_file))
 
         if limit is not None and sample is not None:
-            raise typer.BadParameter("--limit and --sample are mutually exclusive")
+            raise typer.BadParameter(
+                "--limit and --sample are mutually exclusive"
+            )
 
         try:
             config = validate_config_path(config)
@@ -153,7 +165,9 @@ class PipelineCliCommand(CliCommandBase):
             )
 
         try:
-            cli_overrides = parse_set_overrides(override_values) if override_values else {}
+            cli_overrides = (
+                parse_set_overrides(override_values) if override_values else {}
+            )
         except ValueError as exc:
             raise typer.BadParameter(str(exc)) from exc
 
@@ -206,7 +220,9 @@ class PipelineCliCommand(CliCommandBase):
             typer.echo("Configuration validated successfully (dry-run mode)")
             self.exit(0)
 
-        if not isinstance(plan, PipelineExecutionPlan):  # pragma: no cover - defensive guard
+        if not isinstance(
+            plan, PipelineExecutionPlan
+        ):  # pragma: no cover - defensive guard
             self.emit_error(
                 template=CLI_ERROR_INTERNAL,
                 message="Invalid pipeline execution plan generated",
@@ -244,7 +260,9 @@ class PipelineCliCommand(CliCommandBase):
             self.handle_exception(exc)
             return
 
-        typer.echo(f"Pipeline completed successfully: {result.write_result.dataset}")
+        typer.echo(
+            f"Pipeline completed successfully: {result.write_result.dataset}"
+        )
         self.exit(0)
 
     def handle_exception(self, exc: Exception) -> NoReturn:
@@ -436,7 +454,11 @@ def _resolve_pipeline_class(
                 message="Pipeline type mismatch. Expected PipelineBase subclass.",
                 logger=log,
                 event=LogEvents.CLI_PIPELINE_CLASS_INVALID,
-                context={"pipeline": command_name, "module": module_name, "class_name": class_name},
+                context={
+                    "pipeline": command_name,
+                    "module": module_name,
+                    "class_name": class_name,
+                },
                 exit_code=2,
             )
     elif not callable(pipeline_cls):
@@ -445,7 +467,11 @@ def _resolve_pipeline_class(
             message="Pipeline entry is not callable.",
             logger=log,
             event=LogEvents.CLI_PIPELINE_CLASS_INVALID,
-            context={"pipeline": command_name, "module": module_name, "class_name": class_name},
+            context={
+                "pipeline": command_name,
+                "module": module_name,
+                "class_name": class_name,
+            },
             exit_code=2,
         )
 
@@ -475,7 +501,9 @@ def _handle_pipeline_exception(
             context=context,
         )
 
-    if isinstance(exc, (PipelineTimeoutError, PipelineHTTPError, PipelineNetworkError)):
+    if isinstance(
+        exc, (PipelineTimeoutError, PipelineHTTPError, PipelineNetworkError)
+    ):
         _emit_external_api_failure(
             exc=exc,
             log=log,
@@ -526,6 +554,8 @@ def _is_requests_api_error(exc: Exception) -> bool:
     """Return True when the exception originates from requests API errors."""
     try:
         from requests import exceptions as requests_exceptions
-    except ModuleNotFoundError:  # pragma: no cover - requests is a required runtime dep
+    except (
+        ModuleNotFoundError
+    ):  # pragma: no cover - requests is a required runtime dep
         return False
     return isinstance(exc, requests_exceptions.RequestException)

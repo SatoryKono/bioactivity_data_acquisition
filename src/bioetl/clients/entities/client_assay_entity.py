@@ -13,7 +13,9 @@ from bioetl.clients.client_chembl_entity_base import (
 __all__ = ["ChemblAssayEntityClient"]
 
 
-class ChemblAssayEntityClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
+class ChemblAssayEntityClient(
+    ChemblEntityConfigMixin, ChemblEntityFetcherBase
+):
     """Client for fetching assay entries from the ChEMBL API."""
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("assay")

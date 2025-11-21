@@ -9,7 +9,9 @@ from typing import Any
 __all__ = ["signature_from_callable", "signature_from_docs"]
 
 
-def _format_annotation(annotation: Any, *, empty_value: str | None) -> str | None:
+def _format_annotation(
+    annotation: Any, *, empty_value: str | None
+) -> str | None:
     """Convert an annotation object to a comparable string representation."""
 
     if (
@@ -71,12 +73,16 @@ def signature_from_callable(
     }
 
     if include_abstract_flag:
-        payload["is_abstract"] = bool(getattr(callable_obj, "__isabstractmethod__", False))
+        payload["is_abstract"] = bool(
+            getattr(callable_obj, "__isabstractmethod__", False)
+        )
 
     return payload
 
 
-def _annotation_from_ast(annotation: ast.AST | None, *, empty_value: str | None) -> str | None:
+def _annotation_from_ast(
+    annotation: ast.AST | None, *, empty_value: str | None
+) -> str | None:
     if annotation is None:
         return empty_value
     return ast.unparse(annotation).strip()
@@ -105,8 +111,12 @@ def signature_from_docs(
             text = text + ":"
         module = ast.parse(f"{text}\n    ...")
         node = module.body[0]
-        if not isinstance(node, ast.FunctionDef):  # pragma: no cover - defensive
-            raise ValueError("Provided definition does not describe a function")
+        if not isinstance(
+            node, ast.FunctionDef
+        ):  # pragma: no cover - defensive
+            raise ValueError(
+                "Provided definition does not describe a function"
+            )
         function_node = node
 
     parameters: list[dict[str, Any]] = []
@@ -120,7 +130,11 @@ def signature_from_docs(
         default_node = None
         if total_defaults and index >= defaults_start:
             default_node = function_node.args.defaults[index - defaults_start]
-        kind = "POSITIONAL_ONLY" if index < len(positional_only) else "POSITIONAL_OR_KEYWORD"
+        kind = (
+            "POSITIONAL_ONLY"
+            if index < len(positional_only)
+            else "POSITIONAL_OR_KEYWORD"
+        )
         parameters.append(
             {
                 "name": argument.arg,
@@ -138,20 +152,25 @@ def signature_from_docs(
                 "name": function_node.args.vararg.arg,
                 "kind": "VAR_POSITIONAL",
                 "annotation": _annotation_from_ast(
-                    function_node.args.vararg.annotation, empty_value=empty_annotation
+                    function_node.args.vararg.annotation,
+                    empty_value=empty_annotation,
                 ),
                 "default": None,
             }
         )
 
     for kw_arg, default in zip(
-        function_node.args.kwonlyargs, function_node.args.kw_defaults, strict=False
+        function_node.args.kwonlyargs,
+        function_node.args.kw_defaults,
+        strict=False,
     ):
         parameters.append(
             {
                 "name": kw_arg.arg,
                 "kind": "KEYWORD_ONLY",
-                "annotation": _annotation_from_ast(kw_arg.annotation, empty_value=empty_annotation),
+                "annotation": _annotation_from_ast(
+                    kw_arg.annotation, empty_value=empty_annotation
+                ),
                 "default": _default_from_ast(default),
             }
         )
@@ -162,7 +181,8 @@ def signature_from_docs(
                 "name": function_node.args.kwarg.arg,
                 "kind": "VAR_KEYWORD",
                 "annotation": _annotation_from_ast(
-                    function_node.args.kwarg.annotation, empty_value=empty_annotation
+                    function_node.args.kwarg.annotation,
+                    empty_value=empty_annotation,
                 ),
                 "default": None,
             }

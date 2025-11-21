@@ -63,14 +63,20 @@ class QCReportsConfig(BaseModel):
     quality_template: str = Field(default="{stem}_quality_report.csv")
     correlation_template: str = Field(default="{stem}_correlation_report.csv")
     metrics_template: str = Field(default="{stem}_qc.csv")
-    pipelines: dict[str, QCPipelineReportOverride] = Field(default_factory=dict)
+    pipelines: dict[str, QCPipelineReportOverride] = Field(
+        default_factory=dict
+    )
 
-    def build(self, *, pipeline: str, materialization_root: Path) -> QCReportRuntimeOptions:
+    def build(
+        self, *, pipeline: str, materialization_root: Path
+    ) -> QCReportRuntimeOptions:
         """Return resolved report options for ``pipeline``."""
 
         override = self.pipelines.get(pipeline)
         directory_template = (
-            override.directory if override and override.directory else self.directory
+            override.directory
+            if override and override.directory
+            else self.directory
         )
         quality_template = (
             override.quality_template
@@ -93,7 +99,9 @@ class QCReportsConfig(BaseModel):
             "materialization_root": str(materialization_root),
             "output_root": str(materialization_root),
         }
-        directory = Path(directory_template.format(**mapping)).expanduser().resolve()
+        directory = (
+            Path(directory_template.format(**mapping)).expanduser().resolve()
+        )
 
         return QCReportRuntimeOptions(
             pipeline_code=pipeline,
@@ -121,7 +129,9 @@ class QCThresholdValues(BaseModel):
 
     @field_validator("pipelines", mode="before")
     @classmethod
-    def _coerce_pipeline_thresholds(cls, value: Any) -> dict[str, dict[str, float]]:
+    def _coerce_pipeline_thresholds(
+        cls, value: Any
+    ) -> dict[str, dict[str, float]]:
         if value is None:
             return {}
         if not isinstance(value, Mapping):
@@ -132,7 +142,9 @@ class QCThresholdValues(BaseModel):
             if not isinstance(payload, Mapping):
                 msg = f"threshold override for pipeline {pipeline!r} must be a mapping"
                 raise TypeError(msg)
-            normalized[pipeline] = {str(key): float(val) for key, val in payload.items()}
+            normalized[pipeline] = {
+                str(key): float(val) for key, val in payload.items()
+            }
         return normalized
 
     def base_thresholds(self) -> dict[str, float]:
@@ -157,7 +169,9 @@ class QCThresholdValues(BaseModel):
             return merged
         overrides = self.pipelines.get(pipeline)
         if overrides:
-            merged.update({key: float(value) for key, value in overrides.items()})
+            merged.update(
+                {key: float(value) for key, value in overrides.items()}
+            )
         return merged
 
 
@@ -174,8 +188,12 @@ class QCConfig(BaseModel):
     def thresholds_for(self, pipeline: str | None = None) -> dict[str, float]:
         return self.thresholds.for_pipeline(pipeline)
 
-    def reports_for(self, pipeline: str, *, materialization_root: Path) -> QCReportRuntimeOptions:
-        return self.reports.build(pipeline=pipeline, materialization_root=materialization_root)
+    def reports_for(
+        self, pipeline: str, *, materialization_root: Path
+    ) -> QCReportRuntimeOptions:
+        return self.reports.build(
+            pipeline=pipeline, materialization_root=materialization_root
+        )
 
     @property
     def duplicate_ratio(self) -> float:
@@ -235,10 +253,14 @@ class Config(BaseModel):
 
         return self.qc.thresholds_for(pipeline)
 
-    def reports_for(self, pipeline: str, *, materialization_root: Path) -> QCReportRuntimeOptions:
+    def reports_for(
+        self, pipeline: str, *, materialization_root: Path
+    ) -> QCReportRuntimeOptions:
         """Return QC report layout for ``pipeline``."""
 
-        return self.qc.reports_for(pipeline, materialization_root=materialization_root)
+        return self.qc.reports_for(
+            pipeline, materialization_root=materialization_root
+        )
 
 
 __all__ = [

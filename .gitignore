@@ -4,6 +4,11 @@
 __pycache__/
 *.py[cod]
 *$py.class
+mcp-shell
+package.json
+package-lock.json
+full_report.md
+requirements-dev.txt
 
 # C extensions
 *.so
@@ -16,6 +21,14 @@ dist/
 downloads/
 eggs/
 .eggs/
+mcp-failesystem/
+mcp-memory/
+mcp-shell/
+mcp-sequential-thinking/
+mcp-text/
+mcp-web/
+mcp-ai/
+mcp_modules/
 lib/
 lib64/
 parts/

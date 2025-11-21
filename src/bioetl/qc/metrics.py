@@ -84,7 +84,9 @@ def compute_duplicate_stats(
 
     deduplicated_count = int(len(deduplicated))
     duplicate_count = total_rows - deduplicated_count
-    duplicate_ratio = float(duplicate_count / total_rows) if total_rows else 0.0
+    duplicate_ratio = (
+        float(duplicate_count / total_rows) if total_rows else 0.0
+    )
 
     return DuplicateStats(
         row_count=total_rows,
@@ -188,7 +190,9 @@ def _ensure_ratio_sum(
         quantized.append(quantized_ratio)
 
     adjusted: list[tuple[str, int, float]] = []
-    for (value, count, _), ratio_decimal in zip(ordered_items, quantized, strict=True):
+    for (value, count, _), ratio_decimal in zip(
+        ordered_items, quantized, strict=True
+    ):
         adjusted.append((value, count, float(ratio_decimal)))
     return adjusted
 
@@ -226,7 +230,9 @@ def compute_categorical_distributions(
         msg = "ratio_precision must be non-negative"
         raise ValueError(msg)
 
-    normalizer: Callable[[Scalar | None], str] = value_normalizer or _default_value_normalizer
+    normalizer: Callable[[Scalar | None], str] = (
+        value_normalizer or _default_value_normalizer
+    )
 
     matched_columns = [
         column
@@ -241,7 +247,9 @@ def compute_categorical_distributions(
         if non_null_count == 0:
             continue
 
-        raw_counts = series.astype("object").value_counts(dropna=False, sort=False)
+        raw_counts = series.astype("object").value_counts(
+            dropna=False, sort=False
+        )
         aggregated: dict[str, int] = defaultdict(int)
         for raw_value, raw_count in raw_counts.items():
             normalized_value = normalizer(cast(Scalar | None, raw_value))
@@ -258,7 +266,9 @@ def compute_categorical_distributions(
             remainder_count = sum(count for _, count in prioritized[top_n:])
             merged: dict[str, int] = dict(retained)
             if remainder_count > 0:
-                merged[other_bucket_label] = merged.get(other_bucket_label, 0) + remainder_count
+                merged[other_bucket_label] = (
+                    merged.get(other_bucket_label, 0) + remainder_count
+                )
             final_items = merged.items()
         else:
             final_items = aggregated.items()
@@ -269,7 +279,8 @@ def compute_categorical_distributions(
             continue
 
         ratio_entries: list[tuple[str, int, Decimal]] = [
-            (value, count, Decimal(count) / Decimal(total_count)) for value, count in ordered
+            (value, count, Decimal(count) / Decimal(total_count))
+            for value, count in ordered
         ]
         quantized = _ensure_ratio_sum(ratio_entries, precision=ratio_precision)
 
@@ -288,7 +299,8 @@ def compute_categorical_distributions(
                 raise ValueError(msg)
 
         inner: dict[str, CategoricalDistributionEntry] = {
-            value: {"count": count, "ratio": ratio} for value, count, ratio in quantized
+            value: {"count": count, "ratio": ratio}
+            for value, count, ratio in quantized
         }
         distributions[column] = inner
 
@@ -328,7 +340,9 @@ def compute_missingness(df: pd.DataFrame) -> MissingnessStats:
     result = pd.DataFrame(
         {
             "column": column_array,
-            "missing_count": pd.Series(missing_count_int.values, dtype="int64"),
+            "missing_count": pd.Series(
+                missing_count_int.values, dtype="int64"
+            ),
             "missing_ratio": pd.Series(missing_ratio.values, dtype="float64"),
         }
     )
@@ -361,7 +375,9 @@ def compute_correlation_matrix(df: pd.DataFrame) -> CorrelationMatrix | None:
     correlation = numeric_df.corr(numeric_only=True)
     if correlation.empty:
         return None
-    final_matrix = correlation.reindex(index=ordered_columns, columns=ordered_columns)
+    final_matrix = correlation.reindex(
+        index=ordered_columns, columns=ordered_columns
+    )
     return CorrelationMatrix(table=final_matrix)
 
 

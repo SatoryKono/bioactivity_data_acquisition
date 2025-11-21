@@ -10,16 +10,31 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from bioetl.clients.client_chembl_entity_base import ChemblEntityClientProtocol
-from bioetl.clients.client_exceptions import ConnectionError, HTTPError, RequestException, Timeout
-from bioetl.clients.entities.client_assay_class_map import ChemblAssayClassMapEntityClient
+from bioetl.clients.client_exceptions import (
+    ConnectionError,
+    HTTPError,
+    RequestException,
+    Timeout,
+)
+from bioetl.clients.entities.client_assay_class_map import (
+    ChemblAssayClassMapEntityClient,
+)
 from bioetl.clients.entities.client_assay_classification import (
     ChemblAssayClassificationEntityClient,
 )
 from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
-from bioetl.clients.entities.client_assay_parameters import ChemblAssayParametersEntityClient
-from bioetl.clients.entities.client_compound_record import ChemblCompoundRecordEntityClient
-from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
-from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient
+from bioetl.clients.entities.client_assay_parameters import (
+    ChemblAssayParametersEntityClient,
+)
+from bioetl.clients.entities.client_compound_record import (
+    ChemblCompoundRecordEntityClient,
+)
+from bioetl.clients.entities.client_data_validity import (
+    ChemblDataValidityEntityClient,
+)
+from bioetl.clients.entities.client_document_term import (
+    ChemblDocumentTermEntityClient,
+)
 from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.clients.http import PageResult, Paginator, RetryingSession
 from bioetl.config.loader import _load_yaml
@@ -32,7 +47,12 @@ if TYPE_CHECKING:
 __all__ = ["ChemblClient", "_resolve_status_endpoint"]
 
 _DEFAULT_STATUS_ENDPOINT = "/status"
-_CHEMBL_DEFAULTS_PATH = Path(__file__).resolve().parents[3] / "configs" / "defaults" / "chembl.yaml"
+_CHEMBL_DEFAULTS_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "configs"
+    / "defaults"
+    / "chembl.yaml"
+)
 
 
 @lru_cache(maxsize=1)
@@ -101,7 +121,9 @@ class ChemblClient:
         self._document_term_entity = ChemblDocumentTermEntityClient(self)
         self._assay_class_map_entity = ChemblAssayClassMapEntityClient(self)
         self._assay_parameters_entity = ChemblAssayParametersEntityClient(self)
-        self._assay_classification_entity = ChemblAssayClassificationEntityClient(self)
+        self._assay_classification_entity = (
+            ChemblAssayClassificationEntityClient(self)
+        )
         self._compound_record_entity = ChemblCompoundRecordEntityClient(self)
 
     def circuit_breaker_time_until_half_open(self) -> float | None:
@@ -130,12 +152,19 @@ class ChemblClient:
         effective endpoint is used verbatim; no path normalization is applied.
         """
 
-        resolved_endpoint = endpoint if endpoint is not None else _resolve_status_endpoint()
+        resolved_endpoint = (
+            endpoint if endpoint is not None else _resolve_status_endpoint()
+        )
         if resolved_endpoint not in self._status_cache:
             try:
                 response = self._client.get(resolved_endpoint)
                 payload = response.json()
-            except (ConnectionError, Timeout, HTTPError, RequestException) as exc:
+            except (
+                ConnectionError,
+                Timeout,
+                HTTPError,
+                RequestException,
+            ) as exc:
                 self._log.error(
                     LogEvents.HTTP_REQUEST_FAILED,
                     endpoint=resolved_endpoint,
@@ -187,7 +216,9 @@ class ChemblClient:
         """
 
         self.handshake()
-        query: dict[str, Any] | None = dict(params) if params is not None else None
+        query: dict[str, Any] | None = (
+            dict(params) if params is not None else None
+        )
         load_meta_id: str | None = None
         store = self._load_meta_store
         records_fetched = 0
@@ -237,7 +268,9 @@ class ChemblClient:
         if endpoint.startswith(("http://", "https://")):
             return endpoint.split("?", 1)[0]
         base = self._client.base_url or ""
-        combined = f"{base.rstrip('/')}/{endpoint.lstrip('/')}" if base else endpoint
+        combined = (
+            f"{base.rstrip('/')}/{endpoint.lstrip('/')}" if base else endpoint
+        )
         return combined.split("?", 1)[0]
 
     def _record_pagination_snapshot(
@@ -274,7 +307,9 @@ class ChemblClient:
 
         attr_name = f"_{entity}_entity"
         try:
-            entity_client: ChemblEntityClientProtocol = getattr(self, attr_name)
+            entity_client: ChemblEntityClientProtocol = getattr(
+                self, attr_name
+            )
         except AttributeError as exc:  # pragma: no cover - defensive branch
             msg = f"ChemblClient does not define entity adapter '{entity}'."
             raise AttributeError(msg) from exc
@@ -395,11 +430,12 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """DEPRECATED: This endpoint does not exist in ChEMBL API.
-        
+
         Use data from /assay.json response (assay_classifications field) instead.
         This method will raise an error to prevent accidental usage.
         """
         import warnings
+
         warnings.warn(
             "fetch_assay_class_map_by_assay_ids is deprecated. "
             "The /assay_class_map.json endpoint does not exist in ChEMBL API. "
@@ -459,7 +495,7 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``assay_class`` entries by ``assay_class_id`` from /assay_class.json.
-        
+
         Legacy method name - now uses /assay_class.json endpoint.
         """
         return self.fetch_assay_classes_by_class_ids(

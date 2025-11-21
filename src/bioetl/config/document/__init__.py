@@ -47,7 +47,9 @@ class DocumentSourceParameters(SourceParameters):
         data = dict(params or {})
         select_fields = normalize_select_fields(data.get("select_fields"))
         if select_fields is not None:
-            select_fields = [field for field in select_fields if field != "document_term"]
+            select_fields = [
+                field for field in select_fields if field != "document_term"
+            ]
 
         payload: dict[str, Any] = {}
         if "base_url" in data:
@@ -58,7 +60,9 @@ class DocumentSourceParameters(SourceParameters):
         return cls.model_validate(payload)
 
 
-class DocumentSourceConfig(BatchSizeLimitMixin, SourceConfig[DocumentSourceParameters]):
+class DocumentSourceConfig(
+    BatchSizeLimitMixin, SourceConfig[DocumentSourceParameters]
+):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -69,7 +73,9 @@ class DocumentSourceConfig(BatchSizeLimitMixin, SourceConfig[DocumentSourceParam
         default=25,
         description="Effective batch size for pagination requests (capped at 25).",
     )
-    parameters: DocumentSourceParameters = Field(default_factory=DocumentSourceParameters)
+    parameters: DocumentSourceParameters = Field(
+        default_factory=DocumentSourceParameters
+    )
 
     parameters_model = DocumentSourceParameters
     batch_field = "batch_size"

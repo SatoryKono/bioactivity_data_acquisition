@@ -4,7 +4,9 @@ import pandas as pd
 from pandas import Series
 
 
-def ensure_columns(df: pd.DataFrame, columns: tuple[tuple[str, str], ...]) -> pd.DataFrame:
+def ensure_columns(
+    df: pd.DataFrame, columns: tuple[tuple[str, str], ...]
+) -> pd.DataFrame:
     """Ensure that columns with the specified data types exist in the DataFrame.
 
     Args:

@@ -28,7 +28,9 @@ class QCUnits:
 
         return cls._from_dataframe(
             df,
-            match=lambda column: any(column.endswith(suffix) for suffix in cls.UNITS_SUFFIXES),
+            match=lambda column: any(
+                column.endswith(suffix) for suffix in cls.UNITS_SUFFIXES
+            ),
         )
 
     @classmethod
@@ -37,7 +39,9 @@ class QCUnits:
 
         return cls._from_dataframe(
             df,
-            match=lambda column: any(column.endswith(suffix) for suffix in cls.RELATION_SUFFIXES),
+            match=lambda column: any(
+                column.endswith(suffix) for suffix in cls.RELATION_SUFFIXES
+            ),
         )
 
     @classmethod
@@ -49,7 +53,9 @@ class QCUnits:
         suffixes: tuple[str, ...] = tuple(column_suffixes)
         return cls._from_dataframe(
             df,
-            match=lambda column: any(column.endswith(suffix) for suffix in suffixes),
+            match=lambda column: any(
+                column.endswith(suffix) for suffix in suffixes
+            ),
         )
 
     @classmethod

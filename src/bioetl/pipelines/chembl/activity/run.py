@@ -9,6 +9,7 @@ import pandas as pd
 
 import bioetl.vocab.service as vocab_service
 from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
+from bioetl.chembl.common.normalize import add_row_metadata
 from bioetl.clients.chembl_entity_factory import (
     ChemblClientBundle,
     ChemblEntityClientFactory,
@@ -84,8 +85,14 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             DeterminismSortingConfig,
         )
         from bioetl.config.models.domain import PipelineDomainConfig
-        from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-        from bioetl.config.models.infrastructure import PipelineInfrastructureConfig
+        from bioetl.config.models.http import (
+            HTTPClientConfig,
+            HTTPConfig,
+            RetryConfig,
+        )
+        from bioetl.config.models.infrastructure import (
+            PipelineInfrastructureConfig,
+        )
         from bioetl.config.models.models import PipelineConfig
         from bioetl.config.models.paths import MaterializationConfig
         from bioetl.config.models.postprocess import PostprocessConfig
@@ -112,7 +119,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             effective_run_id = run_id
         else:
             # Тестовый путь: первый аргумент трактуем как source iterable.
-            effective_source = source if source is not None else config_or_source
+            effective_source = (
+                source if source is not None else config_or_source
+            )
 
             # Сконструировать минимальный детерминированный PipelineConfig.
             http_config = HTTPConfig(
@@ -120,7 +129,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                     timeout_sec=30.0,
                     connect_timeout_sec=10.0,
                     read_timeout_sec=30.0,
-                    retries=RetryConfig(total=3, backoff_multiplier=2.0, backoff_max=10.0),
+                    retries=RetryConfig(
+                        total=3, backoff_multiplier=2.0, backoff_max=10.0
+                    ),
                 ),
             )
 
@@ -154,7 +165,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             from bioetl.config.models.transform import TransformConfig
 
             domain_config = PipelineDomainConfig(
-                validation=ValidationConfig(schema_out=None, strict=True, coerce=True),
+                validation=ValidationConfig(
+                    schema_out=None, strict=True, coerce=True
+                ),
                 transform=TransformConfig(),
                 postprocess=PostprocessConfig(),
                 fallbacks=FallbacksConfig(),
@@ -191,7 +204,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             # Если run_id не передан, используем фиксированное значение для тестов.
             effective_run_id = run_id or "test-run"
 
-        super().__init__(config, effective_run_id, effective_source, writer=writer)
+        super().__init__(
+            config, effective_run_id, effective_source, writer=writer
+        )
         self.writer = writer
 
     def extract(
@@ -203,7 +218,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
     ) -> pd.DataFrame:
         """Extract records, rejecting entity-specific keyword arguments."""
         # Check for entity-specific keyword arguments that should not be used
-        invalid_kwargs = {k: v for k, v in kwargs.items() if k.endswith("_ids")}
+        invalid_kwargs = {
+            k: v for k, v in kwargs.items() if k.endswith("_ids")
+        }
         if invalid_kwargs:
             invalid_key = next(iter(invalid_kwargs))
             msg = (
@@ -222,7 +239,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         **extra: Any,
     ) -> Any:
         """Return a logger bound to the pipeline and stage context."""
-        return self._make_pipeline_logger(stage=stage, component=component, **extra)
+        return self._make_pipeline_logger(
+            stage=stage, component=component, **extra
+        )
 
     def _build_activity_enrichment_bundle(
         self,
@@ -237,7 +256,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             raise ValueError(msg)
 
         factory = ChemblEntityClientFactory(self.config)
-        source_config = getattr(self.config.domain, "sources", {}).get("chembl")
+        source_config = getattr(self.config.domain, "sources", {}).get(
+            "chembl"
+        )
         bundle = factory.build(
             entity_name,
             source_name="chembl",
@@ -258,24 +279,39 @@ class ChemblActivityPipeline(BaseChemblPipeline):
     ) -> pd.DataFrame:
         """Hydrate assay metadata columns deterministically for extract tests."""
 
-        base_log = log or UnifiedLogger.get(__name__).bind(stage="extract_assay_fields")
+        base_log = log or UnifiedLogger.get(__name__).bind(
+            stage="extract_assay_fields"
+        )
         required_columns: tuple[tuple[str, str], ...] = (
             ("assay_organism", "string"),
             ("assay_tax_id", "Int64"),
         )
         working_df = ensure_columns(df.copy(), required_columns)
         if working_df.empty:
-            base_log.debug(LogEvents.EXTRACT_ASSAY_FIELDS_COMPLETE, rows=0, matched=0)
+            base_log.debug(
+                LogEvents.EXTRACT_ASSAY_FIELDS_COMPLETE, rows=0, matched=0
+            )
             return working_df
 
         if "assay_chembl_id" not in working_df.columns:
             base_log.warning(
-                LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS, missing_columns=["assay_chembl_id"]
+                LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
+                missing_columns=["assay_chembl_id"],
             )
             return working_df
 
-        assay_ids = working_df["assay_chembl_id"].dropna().astype("string").str.strip().str.upper()
-        valid_ids = assay_ids[assay_ids.ne("")].drop_duplicates().sort_values(kind="mergesort")
+        assay_ids = (
+            working_df["assay_chembl_id"]
+            .dropna()
+            .astype("string")
+            .str.strip()
+            .str.upper()
+        )
+        valid_ids = (
+            assay_ids[assay_ids.ne("")]
+            .drop_duplicates()
+            .sort_values(kind="mergesort")
+        )
         if valid_ids.empty:
             base_log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
             return working_df
@@ -294,25 +330,39 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 LogEvents.EXTRACT_ASSAY_FIELDS_FETCH_ERROR,
                 error=str(exc),
             )
-            working_df["assay_organism"] = working_df["assay_organism"].astype("string")
-            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype("Int64")
+            working_df["assay_organism"] = working_df["assay_organism"].astype(
+                "string"
+            )
+            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype(
+                "Int64"
+            )
             return working_df
 
         if not isinstance(records_df, pd.DataFrame) or records_df.empty:
             base_log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
-            working_df["assay_organism"] = working_df["assay_organism"].astype("string")
-            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype("Int64")
+            working_df["assay_organism"] = working_df["assay_organism"].astype(
+                "string"
+            )
+            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype(
+                "Int64"
+            )
             return working_df
 
         payload = (
-            records_df.loc[:, ["assay_chembl_id", "assay_organism", "assay_tax_id"]]
+            records_df.loc[
+                :, ["assay_chembl_id", "assay_organism", "assay_tax_id"]
+            ]
             .dropna(subset=["assay_chembl_id"])
             .copy()
         )
         if payload.empty:
             base_log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
-            working_df["assay_organism"] = working_df["assay_organism"].astype("string")
-            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype("Int64")
+            working_df["assay_organism"] = working_df["assay_organism"].astype(
+                "string"
+            )
+            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype(
+                "Int64"
+            )
             return working_df
 
         payload["assay_chembl_id"] = (
@@ -325,7 +375,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             .reset_index(drop=True)
         )
 
-        payload["assay_tax_id"] = pd.to_numeric(payload["assay_tax_id"], errors="coerce")
+        payload["assay_tax_id"] = pd.to_numeric(
+            payload["assay_tax_id"], errors="coerce"
+        )
         payload.loc[payload["assay_tax_id"] < 1, "assay_tax_id"] = pd.NA
         payload["assay_tax_id"] = payload["assay_tax_id"].astype("Int64")
         payload["assay_organism"] = payload["assay_organism"].astype("string")
@@ -340,7 +392,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         for column in ("assay_organism", "assay_tax_id"):
             enrich_column = f"{column}_enrich"
             if enrich_column in merged.columns:
-                merged[column] = merged[enrich_column].combine_first(merged[column])
+                merged[column] = merged[enrich_column].combine_first(
+                    merged[column]
+                )
                 merged = merged.drop(columns=[enrich_column])
 
         merged["assay_organism"] = merged["assay_organism"].astype("string")
@@ -372,7 +426,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         pd.DataFrame
             DataFrame with comment fields guaranteed to exist
         """
-        base_log = log or UnifiedLogger.get(__name__).bind(stage="ensure_comment_fields")
+        base_log = log or UnifiedLogger.get(__name__).bind(
+            stage="ensure_comment_fields"
+        )
 
         comment_columns: tuple[tuple[str, str], ...] = (
             ("activity_comment", "string"),
@@ -385,7 +441,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         base_log.debug(
             LogEvents.COMMENT_FIELDS_ENSURED,
             rows=len(result),
-            columns_added=[col for col, _ in comment_columns if col not in df.columns],
+            columns_added=[
+                col for col, _ in comment_columns if col not in df.columns
+            ],
         )
 
         return result
@@ -406,12 +464,18 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         """
         from collections import Counter
 
-        base_log = log or UnifiedLogger.get(__name__).bind(stage="log_validity_comments_metrics")
+        base_log = log or UnifiedLogger.get(__name__).bind(
+            stage="log_validity_comments_metrics"
+        )
 
         if df.empty:
             return
 
-        comment_fields = ["activity_comment", "data_validity_comment", "data_validity_description"]
+        comment_fields = [
+            "activity_comment",
+            "data_validity_comment",
+            "data_validity_description",
+        ]
 
         # Compute NA rates
         metrics: dict[str, Any] = {}
@@ -437,13 +501,17 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 allowed_values = vocab_service.required_vocab_ids(
                     "data_validity_comment", allowed_statuses=("active",)
                 )
-                non_na_values = df["data_validity_comment"].dropna().astype(str)
+                non_na_values = (
+                    df["data_validity_comment"].dropna().astype(str)
+                )
                 unknown_values = set(non_na_values) - set(allowed_values)
                 if unknown_values:
                     base_log.warning(
                         LogEvents.UNKNOWN_DATA_VALIDITY_COMMENTS_DETECTED,
                         unknown_count=len(unknown_values),
-                        unknown_values=list(unknown_values)[:10],  # Limit to first 10
+                        unknown_values=list(unknown_values)[
+                            :10
+                        ],  # Limit to first 10
                     )
             except Exception as exc:  # noqa: BLE001
                 # If vocabulary service fails, log and skip unknown value detection
@@ -502,8 +570,12 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         """Return enrichment config block for data_validity lookups."""
 
         chembl_cfg = getattr(self.config, "chembl", None)
-        activity_cfg = getattr(chembl_cfg, "activity", None) if chembl_cfg else None
-        enrich_cfg = getattr(activity_cfg, "enrich", None) if activity_cfg else None
+        activity_cfg = (
+            getattr(chembl_cfg, "activity", None) if chembl_cfg else None
+        )
+        enrich_cfg = (
+            getattr(activity_cfg, "enrich", None) if activity_cfg else None
+        )
 
         candidate: Any = None
         if isinstance(enrich_cfg, Mapping):
@@ -528,7 +600,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
     ) -> pd.DataFrame:
         """Hydrate ``data_validity_description`` via ChEMBL lookup API."""
 
-        base_log = log or UnifiedLogger.get(__name__).bind(stage="data_validity_lookup")
+        base_log = log or UnifiedLogger.get(__name__).bind(
+            stage="data_validity_lookup"
+        )
         config = self._data_validity_config()
 
         try:
@@ -538,7 +612,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
                 error=str(exc),
             )
-            return ensure_columns(df.copy(), (("data_validity_description", "string"),))
+            return ensure_columns(
+                df.copy(), (("data_validity_description", "string"),)
+            )
 
         base_log.info(
             LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_COMPLETE,
@@ -550,7 +626,11 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         """Return identifier normalization rules for ChEMBL and BAO identifiers."""
         return (
             IdentifierRule(
-                columns=("molecule_chembl_id", "assay_chembl_id", "target_chembl_id"),
+                columns=(
+                    "molecule_chembl_id",
+                    "assay_chembl_id",
+                    "target_chembl_id",
+                ),
                 pattern=r"^CHEMBL\d+$",
                 uppercase=True,
                 strip=True,
@@ -602,7 +682,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             },
         }
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _normalize_string_fields(
+        self, df: pd.DataFrame, log: Any
+    ) -> pd.DataFrame:
         """Normalize string fields and check invariants."""
         from structlog.stdlib import BoundLogger
 
@@ -614,7 +696,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             "data_validity_description" in result.columns
             and "data_validity_comment" in result.columns
         ):
-            mask_description_filled = result["data_validity_description"].notna()
+            mask_description_filled = result[
+                "data_validity_description"
+            ].notna()
             mask_comment_empty = result["data_validity_comment"].isna()
             violations = mask_description_filled & mask_comment_empty
 
@@ -651,7 +735,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             "assay_id": lambda series: series.notna(),
         }
 
-    def _normalize_measurements(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _normalize_measurements(
+        self, df: pd.DataFrame, log: Any
+    ) -> pd.DataFrame:
         """Normalize measurement fields: standard_value, standard_relation, standard_type, standard_units."""
         from bioetl.schemas._validators import RELATIONS
 
@@ -725,7 +811,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             # Preserve canonical values that are already correct (nM, μM, mM, %)
             canonical_values = {"nM", "μM", "mM", "%"}
             mask_canonical = original.isin(canonical_values)
-            normalized = normalized.where(~mask_canonical, original.where(mask_canonical))
+            normalized = normalized.where(
+                ~mask_canonical, original.where(mask_canonical)
+            )
             result["standard_units"] = normalized.astype("string")
 
         return result
@@ -783,7 +871,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                     parsed = [parsed]
                 # Recursively process
                 if isinstance(parsed, list):
-                    return self._normalize_activity_properties_items(parsed, log)
+                    return self._normalize_activity_properties_items(
+                        parsed, log
+                    )
             except (json.JSONDecodeError, TypeError):
                 # Invalid JSON - treat as text_value
                 text_item: dict[str, Any] = {}
@@ -801,7 +891,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         )
         return None
 
-    def _serialize_activity_properties(self, payload: list[dict[str, Any]] | None) -> str | None:
+    def _serialize_activity_properties(
+        self, payload: list[dict[str, Any]] | None
+    ) -> str | None:
         """Serialize normalized activity_properties to canonical JSON string.
 
         Parameters
@@ -824,7 +916,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         except (TypeError, ValueError):
             return None
 
-    def _normalize_data_types(self, df: pd.DataFrame, schema: Any, log: Any) -> pd.DataFrame:
+    def _normalize_data_types(
+        self, df: pd.DataFrame, schema: Any, log: Any
+    ) -> pd.DataFrame:
         """Convert data types according to the schema for activity pipeline."""
         import pandera as pa
 
@@ -861,7 +955,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                     or dtype_type_name == "Int64"
                 ):
                     # Convert to numeric first, then to Int64
-                    numeric_series = pd.to_numeric(column_series, errors="coerce")
+                    numeric_series = pd.to_numeric(
+                        column_series, errors="coerce"
+                    )
                     result[column_name] = numeric_series.astype("Int64")
                 # Handle Float64/float64
                 elif (
@@ -883,19 +979,30 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                     mask = column_series.notna()
                     if mask.any():
                         # Convert numeric/string to boolean: 0/False -> False, 1/True -> True
-                        numeric_values = pd.to_numeric(column_series, errors="coerce")
+                        numeric_values = pd.to_numeric(
+                            column_series, errors="coerce"
+                        )
                         result[column_name] = numeric_values.astype("boolean")
                     else:
                         result[column_name] = column_series.astype("boolean")
                 # Handle strings
-                elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "string":
+                elif (
+                    hasattr(column_def.dtype, "name")
+                    and column_def.dtype.name == "string"
+                ):
                     mask = column_series.notna()
                     if mask.any():
-                        result.loc[mask, column_name] = result.loc[mask, column_name].astype(str)
+                        result.loc[mask, column_name] = result.loc[
+                            mask, column_name
+                        ].astype(str)
             except (ValueError, TypeError) as exc:
                 from bioetl.core.logging import LogEvents
 
-                log.warning(LogEvents.TYPE_CONVERSION_FAILED, field=column_name, error=str(exc))
+                log.warning(
+                    LogEvents.TYPE_CONVERSION_FAILED,
+                    field=column_name,
+                    error=str(exc),
+                )
 
         return result
 
@@ -910,30 +1017,35 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         if "assay_id" in working_df.columns:
             if "assay_chembl_id" in working_df.columns:
                 # Both exist: combine values, preferring assay_chembl_id
-                working_df["assay_chembl_id"] = working_df["assay_chembl_id"].combine_first(
-                    working_df["assay_id"]
-                )
+                working_df["assay_chembl_id"] = working_df[
+                    "assay_chembl_id"
+                ].combine_first(working_df["assay_id"])
                 # Drop old column
                 working_df = working_df.drop(columns=["assay_id"])
             else:
                 # Only assay_id exists: rename it
-                working_df = working_df.rename(columns={"assay_id": "assay_chembl_id"})
+                working_df = working_df.rename(
+                    columns={"assay_id": "assay_chembl_id"}
+                )
         # Rename testitem_id -> testitem_chembl_id
         if "testitem_id" in working_df.columns:
             if "testitem_chembl_id" in working_df.columns:
                 # Both exist: combine values, preferring testitem_chembl_id
-                working_df["testitem_chembl_id"] = working_df["testitem_chembl_id"].combine_first(
-                    working_df["testitem_id"]
-                )
+                working_df["testitem_chembl_id"] = working_df[
+                    "testitem_chembl_id"
+                ].combine_first(working_df["testitem_id"])
                 # Drop old column
                 working_df = working_df.drop(columns=["testitem_id"])
             else:
                 # Only testitem_id exists: rename it
-                working_df = working_df.rename(columns={"testitem_id": "testitem_chembl_id"})
+                working_df = working_df.rename(
+                    columns={"testitem_id": "testitem_chembl_id"}
+                )
 
         # Convert DataFrame to records for processing
         records: list[dict[str, Any]] = [
-            {str(k): v for k, v in record.items()} for record in working_df.to_dict("records")
+            {str(k): v for k, v in record.items()}
+            for record in working_df.to_dict("records")
         ]
         normalized = self._normalize(records)
         # Convert back to DataFrame for enrichment stages
@@ -941,7 +1053,16 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         # Ensure enrichment columns are present (even if enrichment is disabled)
         normalized_df = ensure_columns(normalized_df, _COMPOUND_COLUMNS)
         # Apply enrichment stages (using EnrichmentScenarioEngine)
-        return self.execute_enrichment_stages(normalized_df)
+        enriched_df = self.execute_enrichment_stages(normalized_df)
+
+        # Ensure standard row metadata columns exist for determinism and hashing
+        enriched_df, _ = add_row_metadata(
+            enriched_df,
+            subtype=self.pipeline_code,
+            copy=False,
+        )
+
+        return enriched_df
 
     def execute_enrichment_stages(
         self,
@@ -958,7 +1079,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         for scenario in scenarios.values():
             engine.register(scenario)
 
-        default_order = getattr(self.__class__, "_DEFAULT_ENRICHMENT_ORDER", None)
+        default_order = getattr(
+            self.__class__, "_DEFAULT_ENRICHMENT_ORDER", None
+        )
         selected = stages if stages is not None else default_order
         return engine.execute(self, df, selected=selected)
 
@@ -973,8 +1096,12 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         include_qc_metrics: bool | None = None,
     ) -> Any:
         # Convert None to False for IOArtifactsMixin compatibility
-        include_correlation_val: bool = include_correlation if include_correlation is not None else False
-        include_qc_metrics_val: bool = include_qc_metrics if include_qc_metrics is not None else False
+        include_correlation_val: bool = (
+            include_correlation if include_correlation is not None else False
+        )
+        include_qc_metrics_val: bool = (
+            include_qc_metrics if include_qc_metrics is not None else False
+        )
         return super().save_results(
             df,
             output_dir,

@@ -109,13 +109,17 @@ def is_valid_activity_property_item(item: object) -> bool:
 
     if not isinstance(item, Mapping):
         return False
-    return is_activity_property_item(dict(item), allowed_keys=ACTIVITY_PROPERTY_KEYS)
+    return is_activity_property_item(
+        dict(item), allowed_keys=ACTIVITY_PROPERTY_KEYS
+    )
 
 
 def is_valid_activity_properties(value: object) -> bool:
     """Return True when value stores a JSON array/dict with normalized items."""
 
-    return validate_activity_properties(value, allowed_keys=ACTIVITY_PROPERTY_KEYS)
+    return validate_activity_properties(
+        value, allowed_keys=ACTIVITY_PROPERTY_KEYS
+    )
 
 
 def activity_properties_validator(value: object) -> bool:
@@ -149,7 +153,11 @@ ActivitySchema = create_schema(
         "type": CF.string(),
         "relation": Column(
             pa.String,
-            Check(lambda series: validate_relation_series(series, allowed=RELATIONS)),
+            Check(
+                lambda series: validate_relation_series(
+                    series, allowed=RELATIONS
+                )
+            ),
             nullable=True,
         ),
         "value": CF.object(),
@@ -160,7 +168,11 @@ ActivitySchema = create_schema(
         ),
         "standard_relation": Column(
             pa.String,
-            Check(lambda series: validate_relation_series(series, allowed=RELATIONS)),
+            Check(
+                lambda series: validate_relation_series(
+                    series, allowed=RELATIONS
+                )
+            ),
             nullable=True,
         ),
         "standard_value": CF.float64(ge=0),

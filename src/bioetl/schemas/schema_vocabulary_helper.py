@@ -63,7 +63,9 @@ def required_vocab_ids(
     """Return identifiers for ``name`` ensuring the dictionary is non-empty."""
 
     try:
-        values = _get_ids(_load_cached_store(), name, allowed_statuses=allowed_statuses)
+        values = _get_ids(
+            _load_cached_store(), name, allowed_statuses=allowed_statuses
+        )
     except VocabStoreError as exc:
         message = (
             f"Unable to load vocabulary '{name}'. "

@@ -85,4 +85,8 @@ def write_inventory(
         hashes=str(hashes_path),
     )
 
-    return InventoryResult(files=docs_files, inventory_path=inventory_path, hashes_path=hashes_path)
+    return InventoryResult(
+        files=docs_files,
+        inventory_path=inventory_path,
+        hashes_path=hashes_path,
+    )

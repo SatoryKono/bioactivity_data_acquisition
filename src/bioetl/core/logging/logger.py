@@ -122,8 +122,12 @@ class _SafeStreamHandler(logging.StreamHandler[TextIO]):
     def __init__(self) -> None:
         super().__init__(stream=sys.stderr)
 
-    def setStream(self, stream: TextIO | None) -> None:  # noqa: N802 - match logging API
-        target_stream: TextIO = stream if stream is not None else cast(TextIO, sys.stderr)
+    def setStream(
+        self, stream: TextIO | None
+    ) -> None:  # noqa: N802 - match logging API
+        target_stream: TextIO = (
+            stream if stream is not None else cast(TextIO, sys.stderr)
+        )
         current = cast(TextIO | None, getattr(self, "stream", None))
         if current is not None and getattr(current, "closed", False):
             self.stream = target_stream
@@ -137,7 +141,9 @@ class _SafeStreamHandler(logging.StreamHandler[TextIO]):
             raise
 
     def emit(self, record: logging.LogRecord) -> None:
-        stream: TextIO | None = cast(TextIO | None, getattr(self, "stream", None))
+        stream: TextIO | None = cast(
+            TextIO | None, getattr(self, "stream", None)
+        )
         if stream is None or getattr(stream, "closed", False):
             self.setStream(cast(TextIO, sys.stderr))
         try:
@@ -150,7 +156,9 @@ class _SafeStreamHandler(logging.StreamHandler[TextIO]):
 
 
 def _shared_processors(config: LogConfig) -> list[Any]:
-    exception_printer = structlog.processors.ExceptionPrettyPrinter(file=sys.stderr)
+    exception_printer = structlog.processors.ExceptionPrettyPrinter(
+        file=sys.stderr
+    )
 
     def _safe_exception_pretty_printer(
         logger: Any,
@@ -158,7 +166,9 @@ def _shared_processors(config: LogConfig) -> list[Any]:
         event_dict: MutableMapping[str, Any],
     ) -> MutableMapping[str, Any]:
         try:
-            processed_event = exception_printer(logger, method_name, event_dict)
+            processed_event = exception_printer(
+                logger, method_name, event_dict
+            )
             if isinstance(processed_event, MutableMapping):
                 return processed_event
             return event_dict
@@ -201,7 +211,9 @@ def _renderer_for(format: LogFormat) -> Any:
             sort_keys=False,
             drop_missing=True,
         )
-    return structlog.processors.JSONRenderer(sort_keys=True, ensure_ascii=False)
+    return structlog.processors.JSONRenderer(
+        sort_keys=True, ensure_ascii=False
+    )
 
 
 def configure_logging(
@@ -235,7 +247,9 @@ def configure_logging(
     handler = _SafeStreamHandler()
     handler.setFormatter(formatter)
 
-    logging.basicConfig(handlers=[handler], level=_coerce_log_level(cfg.level), force=True)
+    logging.basicConfig(
+        handlers=[handler], level=_coerce_log_level(cfg.level), force=True
+    )
 
     structlog.configure(
         processors=[
@@ -323,7 +337,9 @@ class UnifiedLogger:
         @contextmanager
         def _scope() -> Iterator[None]:
             existing = get_contextvars()
-            previous = {key: existing[key] for key in context if key in existing}
+            previous = {
+                key: existing[key] for key in context if key in existing
+            }
             bind_contextvars(**context)
             try:
                 yield None

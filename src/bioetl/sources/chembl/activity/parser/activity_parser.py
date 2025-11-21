@@ -34,10 +34,14 @@ class ChemblActivityParser(IParser):
             # Treat mapping without nested items as a single record.
             yield self._coerce_mapping(raw)
             return
-        if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes, bytearray)):
+        if isinstance(raw, Sequence) and not isinstance(
+            raw, (str, bytes, bytearray)
+        ):
             yield from self._normalize_iterable(raw)
             return
-        if isinstance(raw, Iterable) and not isinstance(raw, (str, bytes, bytearray)):
+        if isinstance(raw, Iterable) and not isinstance(
+            raw, (str, bytes, bytearray)
+        ):
             yield from self._normalize_iterable(raw)
 
     def _normalize_iterable(self, records: Any) -> Iterator[dict[str, Any]]:
@@ -46,11 +50,15 @@ class ChemblActivityParser(IParser):
         if isinstance(records, Mapping):
             yield self._coerce_mapping(records)
             return
-        if isinstance(records, Sequence) and not isinstance(records, (str, bytes, bytearray)):
+        if isinstance(records, Sequence) and not isinstance(
+            records, (str, bytes, bytearray)
+        ):
             for record in records:
                 yield from self._normalize_iterable(record)
             return
-        if isinstance(records, Iterable) and not isinstance(records, (str, bytes, bytearray)):
+        if isinstance(records, Iterable) and not isinstance(
+            records, (str, bytes, bytearray)
+        ):
             for record in records:
                 yield from self._normalize_iterable(record)
 

@@ -43,6 +43,8 @@ def ensure_directory(path: Path, *, exist_ok: bool = True) -> Path:
             if exist_ok:
                 return path
             raise FileExistsError(f"Directory already exists: {path}") from exc
-        raise NotADirectoryError(f"Path exists and is not a directory: {path}") from exc
+        raise NotADirectoryError(
+            f"Path exists and is not a directory: {path}"
+        ) from exc
 
     return path

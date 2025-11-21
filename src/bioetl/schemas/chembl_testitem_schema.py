@@ -113,10 +113,14 @@ TestItemSchema = create_schema(
         "molecule_structures__canonical_smiles": CF.string(),
         "molecule_structures__molfile": CF.string(),
         "molecule_structures__standard_inchi": CF.string(),
-        "molecule_structures__standard_inchi_key": CF.string(length=(27, 27), unique=True),
+        "molecule_structures__standard_inchi_key": CF.string(
+            length=(27, 27), unique=True
+        ),
         # Flattened from molecule_properties
         "molecule_properties__alogp": CF.float64(),
-        "molecule_properties__aromatic_rings": CF.int64(pandas_nullable=True, ge=0),
+        "molecule_properties__aromatic_rings": CF.int64(
+            pandas_nullable=True, ge=0
+        ),
         "molecule_properties__cx_logd": CF.float64(),
         "molecule_properties__cx_logp": CF.float64(),
         "molecule_properties__cx_most_apka": CF.float64(),
@@ -124,18 +128,30 @@ TestItemSchema = create_schema(
         "molecule_properties__full_molformula": CF.string(),
         "molecule_properties__full_mwt": CF.float64(ge=0),
         "molecule_properties__hba": CF.int64(pandas_nullable=True, ge=0),
-        "molecule_properties__hba_lipinski": CF.int64(pandas_nullable=True, ge=0),
+        "molecule_properties__hba_lipinski": CF.int64(
+            pandas_nullable=True, ge=0
+        ),
         "molecule_properties__hbd": CF.int64(pandas_nullable=True, ge=0),
-        "molecule_properties__hbd_lipinski": CF.int64(pandas_nullable=True, ge=0),
-        "molecule_properties__heavy_atoms": CF.int64(pandas_nullable=True, ge=0),
+        "molecule_properties__hbd_lipinski": CF.int64(
+            pandas_nullable=True, ge=0
+        ),
+        "molecule_properties__heavy_atoms": CF.int64(
+            pandas_nullable=True, ge=0
+        ),
         "molecule_properties__molecular_species": CF.string(),
         "molecule_properties__mw_freebase": CF.float64(ge=0),
         "molecule_properties__mw_monoisotopic": CF.float64(ge=0),
-        "molecule_properties__num_lipinski_ro5_violations": CF.int64(pandas_nullable=True, ge=0),
-        "molecule_properties__num_ro5_violations": CF.int64(pandas_nullable=True, ge=0),
+        "molecule_properties__num_lipinski_ro5_violations": CF.int64(
+            pandas_nullable=True, ge=0
+        ),
+        "molecule_properties__num_ro5_violations": CF.int64(
+            pandas_nullable=True, ge=0
+        ),
         "molecule_properties__psa": CF.float64(ge=0),
         "molecule_properties__qed_weighted": CF.float64(ge=0),
-        "molecule_properties__ro3_pass": CF.int64(pandas_nullable=True, isin={0, 1}),
+        "molecule_properties__ro3_pass": CF.int64(
+            pandas_nullable=True, isin={0, 1}
+        ),
         "molecule_properties__rtb": CF.int64(pandas_nullable=True, ge=0),
         # Serialized arrays
         "atc_classifications": CF.string(),

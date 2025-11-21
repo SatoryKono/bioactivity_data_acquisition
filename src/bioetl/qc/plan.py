@@ -95,7 +95,9 @@ class QCMetricRegistry:
         self._entries: MutableMapping[str, QCMetricCallable] = {}
         self._lock = RLock()
 
-    def register(self, name: str, func: QCMetricCallable, *, override: bool = False) -> None:
+    def register(
+        self, name: str, func: QCMetricCallable, *, override: bool = False
+    ) -> None:
         """Register a new QC metric callable."""
 
         if not name:
@@ -133,7 +135,9 @@ class QCMetricRegistry:
 QC_METRIC_REGISTRY = QCMetricRegistry()
 
 
-def register_qc_metric(name: str, func: QCMetricCallable, *, override: bool = False) -> None:
+def register_qc_metric(
+    name: str, func: QCMetricCallable, *, override: bool = False
+) -> None:
     """Convenience wrapper around :class:`QCMetricRegistry.register`."""
 
     QC_METRIC_REGISTRY.register(name, func, override=override)
@@ -165,12 +169,24 @@ class QCMetricsExecutor:
             if effective_plan.duplicates
             else None
         )
-        missingness = compute_missingness(df) if effective_plan.missingness else None
-        units_distribution = _QCUnits.for_units(df) if effective_plan.units_distribution else None
-        relation_distribution = (
-            _QCUnits.for_relation(df) if effective_plan.relation_distribution else None
+        missingness = (
+            compute_missingness(df) if effective_plan.missingness else None
         )
-        correlation = compute_correlation_matrix(df) if effective_plan.correlation else None
+        units_distribution = (
+            _QCUnits.for_units(df)
+            if effective_plan.units_distribution
+            else None
+        )
+        relation_distribution = (
+            _QCUnits.for_relation(df)
+            if effective_plan.relation_distribution
+            else None
+        )
+        correlation = (
+            compute_correlation_matrix(df)
+            if effective_plan.correlation
+            else None
+        )
         outliers = (
             detect_iqr_outliers(
                 df,

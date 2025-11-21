@@ -38,9 +38,18 @@ def _iter_markdown_files() -> Iterable[Path]:
     sources = [
         PROJECT_ROOT / "README.md",
         DOCS_ROOT / "cli" / "01-cli-commands.md",
-        DOCS_ROOT / "pipelines" / "activity-chembl" / "00-activity-chembl-overview.md",
-        DOCS_ROOT / "pipelines" / "activity-chembl" / "16-activity-chembl-cli.md",
-        DOCS_ROOT / "pipelines" / "assay-chembl" / "00-assay-chembl-overview.md",
+        DOCS_ROOT
+        / "pipelines"
+        / "activity-chembl"
+        / "00-activity-chembl-overview.md",
+        DOCS_ROOT
+        / "pipelines"
+        / "activity-chembl"
+        / "16-activity-chembl-cli.md",
+        DOCS_ROOT
+        / "pipelines"
+        / "assay-chembl"
+        / "00-assay-chembl-overview.md",
         DOCS_ROOT / "pipelines" / "assay-chembl" / "16-assay-chembl-cli.md",
     ]
     for source in sources:
@@ -71,7 +80,10 @@ def extract_bash_commands(content: str, file_path: Path) -> list[CLIExample]:
         if not in_code_block or code_block_lang not in ("bash", "sh", ""):
             continue
 
-        if "python -m bioetl.cli.cli_app" not in stripped and "bioetl.cli.cli_app" not in stripped:
+        if (
+            "python -m bioetl.cli.cli_app" not in stripped
+            and "bioetl.cli.cli_app" not in stripped
+        ):
             continue
 
         cmd_lines = [stripped]
@@ -173,7 +185,9 @@ def _write_report(results: list[CLIExampleResult]) -> Path:
 
     with tmp.open("w", encoding="utf-8") as handle:
         handle.write("# CLI Doctest Report\n\n")
-        handle.write("**Purpose**: Run CLI examples from documentation with --dry-run.\n\n")
+        handle.write(
+            "**Purpose**: Run CLI examples from documentation with --dry-run.\n\n"
+        )
         handle.write(f"**Total examples tested**: {len(results)}\n\n")
         handle.write(f"- ✅ Passed: {passed}\n")
         handle.write(f"- ❌ Failed: {failed}\n\n")
@@ -183,19 +197,31 @@ def _write_report(results: list[CLIExampleResult]) -> Path:
             for item in results:
                 if item.exit_code == 0:
                     continue
-                handle.write(f"### {item.example.source_file.name}:{item.example.line_number}\n\n")
-                handle.write(f"**Command**:\n```bash\n{item.example.command}\n```\n\n")
+                handle.write(
+                    f"### {item.example.source_file.name}:{item.example.line_number}\n\n"
+                )
+                handle.write(
+                    f"**Command**:\n```bash\n{item.example.command}\n```\n\n"
+                )
                 handle.write(f"**Exit Code**: {item.exit_code}\n\n")
                 if item.stderr:
-                    handle.write(f"**Stderr**:\n```\n{item.stderr[:500]}\n```\n\n")
+                    handle.write(
+                        f"**Stderr**:\n```\n{item.stderr[:500]}\n```\n\n"
+                    )
                 if item.stdout:
-                    handle.write(f"**Stdout**:\n```\n{item.stdout[:500]}\n```\n\n")
+                    handle.write(
+                        f"**Stdout**:\n```\n{item.stdout[:500]}\n```\n\n"
+                    )
 
         handle.write("## All Examples\n\n")
         handle.write("| Source | Line | Command | Status |\n")
         handle.write("|--------|------|---------|--------|\n")
         for item in results:
-            status = "✅ PASS" if item.exit_code == 0 else f"❌ FAIL ({item.exit_code})"
+            status = (
+                "✅ PASS"
+                if item.exit_code == 0
+                else f"❌ FAIL ({item.exit_code})"
+            )
             cmd_short = (
                 item.example.command[:60] + "..."
                 if len(item.example.command) > 60
@@ -209,7 +235,9 @@ def _write_report(results: list[CLIExampleResult]) -> Path:
     return report_path
 
 
-def run_examples(examples: list[CLIExample] | None = None) -> tuple[list[CLIExampleResult], Path]:
+def run_examples(
+    examples: list[CLIExample] | None = None,
+) -> tuple[list[CLIExampleResult], Path]:
     """Run CLI examples and return their results alongside the report path."""
 
     UnifiedLogger.configure()

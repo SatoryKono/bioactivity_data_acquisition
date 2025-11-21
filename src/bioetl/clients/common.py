@@ -29,7 +29,9 @@ class BaseEntityFetcher:
         self._log = logger or logging.getLogger(self.__class__.__name__)
 
     @retry_backoff((requests.RequestException,))
-    def fetch_page(self, url: str, params: Mapping[str, Any] | None = None) -> Any:
+    def fetch_page(
+        self, url: str, params: Mapping[str, Any] | None = None
+    ) -> Any:
         """Выполнить запрос страницы и вернуть JSON-пayload."""
 
         response = self._session.get(url, params=params)
@@ -39,13 +41,21 @@ class BaseEntityFetcher:
     def _extract_records(self, payload: Any) -> list[Mapping[str, Any]]:
         if payload is None:
             return []
-        if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes, bytearray)):
-            return [dict(item) for item in payload if isinstance(item, Mapping)]
+        if isinstance(payload, Sequence) and not isinstance(
+            payload, (str, bytes, bytearray)
+        ):
+            return [
+                dict(item) for item in payload if isinstance(item, Mapping)
+            ]
         if isinstance(payload, Mapping):
             for key in ("items", "results", "data", "records"):
                 raw = payload.get(key)
-                if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes, bytearray)):
-                    return [dict(item) for item in raw if isinstance(item, Mapping)]
+                if isinstance(raw, Sequence) and not isinstance(
+                    raw, (str, bytes, bytearray)
+                ):
+                    return [
+                        dict(item) for item in raw if isinstance(item, Mapping)
+                    ]
         return []
 
     def chunked_fetch(
@@ -57,7 +67,9 @@ class BaseEntityFetcher:
     ) -> Generator[Mapping[str, Any], None, None]:
         """Итерироваться по записям, выгружая их странично."""
 
-        effective_chunk = chunk_size if chunk_size is not None else self._default_chunk_size
+        effective_chunk = (
+            chunk_size if chunk_size is not None else self._default_chunk_size
+        )
         offset = 0
         while True:
             page_params: dict[str, Any] = dict(params or {})
@@ -97,5 +109,7 @@ class BaseEntityFetcher:
         if dtype_map:
             for column, caster in dtype_map.items():
                 if column in frame.columns:
-                    frame[column] = frame[column].apply(lambda value: safe_cast(value, caster))
+                    frame[column] = frame[column].apply(
+                        lambda value: safe_cast(value, caster)
+                    )
         return frame

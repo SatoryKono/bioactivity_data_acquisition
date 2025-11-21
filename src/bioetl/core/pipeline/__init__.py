@@ -28,17 +28,35 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "PipelineBase": ("bioetl.core.pipeline.base", "PipelineBase"),
-    "PipelineExtractionMode": ("bioetl.core.pipeline.common", "PipelineExtractionMode"),
-    "PipelineStageCommand": ("bioetl.core.pipeline.common", "PipelineStageCommand"),
-    "PipelineStagesProtocol": ("bioetl.core.pipeline.common", "PipelineStagesProtocol"),
+    "PipelineExtractionMode": (
+        "bioetl.core.pipeline.common",
+        "PipelineExtractionMode",
+    ),
+    "PipelineStageCommand": (
+        "bioetl.core.pipeline.common",
+        "PipelineStageCommand",
+    ),
+    "PipelineStagesProtocol": (
+        "bioetl.core.pipeline.common",
+        "PipelineStagesProtocol",
+    ),
     "RunResult": ("bioetl.core.pipeline.common", "RunResult"),
     "StageContext": ("bioetl.core.pipeline.common", "StageContext"),
-    "StageExecutionOptions": ("bioetl.core.pipeline.common", "StageExecutionOptions"),
+    "StageExecutionOptions": (
+        "bioetl.core.pipeline.common",
+        "StageExecutionOptions",
+    ),
     "StageFactory": ("bioetl.core.pipeline.common", "StageFactory"),
     "PipelineError": ("bioetl.core.pipeline.errors", "PipelineError"),
     "PipelineHTTPError": ("bioetl.core.pipeline.errors", "PipelineHTTPError"),
-    "PipelineNetworkError": ("bioetl.core.pipeline.errors", "PipelineNetworkError"),
-    "PipelineTimeoutError": ("bioetl.core.pipeline.errors", "PipelineTimeoutError"),
+    "PipelineNetworkError": (
+        "bioetl.core.pipeline.errors",
+        "PipelineNetworkError",
+    ),
+    "PipelineTimeoutError": (
+        "bioetl.core.pipeline.errors",
+        "PipelineTimeoutError",
+    ),
     "map_client_exc": ("bioetl.core.pipeline.errors", "map_client_exc"),
 }
 
@@ -51,6 +69,7 @@ def __getattr__(name: str) -> Any:
     value = getattr(module, attr_name)
     globals()[name] = value
     return value
+
 
 __all__ = [
     "PipelineBase",

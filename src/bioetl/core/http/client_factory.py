@@ -21,7 +21,9 @@ class APIClientFactory:
 
     def __init__(self, config: PipelineConfig) -> None:
         self._config = config
-        self._log = UnifiedLogger.get(__name__).bind(component="client_factory")
+        self._log = UnifiedLogger.get(__name__).bind(
+            component="client_factory"
+        )
 
     def build(
         self,
@@ -34,7 +36,9 @@ class APIClientFactory:
     ) -> UnifiedAPIClient:
         """Return a :class:`UnifiedAPIClient` for the given settings."""
 
-        http_config = self._resolve_http_config(profile=profile, overrides=overrides)
+        http_config = self._resolve_http_config(
+            profile=profile, overrides=overrides
+        )
         client_name = name or source or profile or "default"
         self._log.debug(
             LogEvents.CLIENT_FACTORY_BUILD,
@@ -42,9 +46,13 @@ class APIClientFactory:
             profile=profile or "default",
             base_url=base_url,
         )
-        return UnifiedAPIClient(http_config, base_url=base_url, name=client_name)
+        return UnifiedAPIClient(
+            http_config, base_url=base_url, name=client_name
+        )
 
-    def for_source(self, source_name: str, *, base_url: str) -> UnifiedAPIClient:
+    def for_source(
+        self, source_name: str, *, base_url: str
+    ) -> UnifiedAPIClient:
         """Build a client using the configuration for ``source_name``."""
 
         source_config = self._get_source(source_name)
@@ -54,7 +62,9 @@ class APIClientFactory:
         max_url_length = parameters.get("max_url_length")
         if isinstance(max_url_length, int) and max_url_length > 0:
             if overrides is not None:
-                overrides = overrides.model_copy(update={"max_url_length": max_url_length})
+                overrides = overrides.model_copy(
+                    update={"max_url_length": max_url_length}
+                )
             else:
                 overrides = HTTPClientConfig(max_url_length=max_url_length)
         return self.build(

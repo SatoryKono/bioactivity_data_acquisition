@@ -13,22 +13,30 @@ import yaml
 DEFAULT_CONFIG_ROOT = Path(__file__).resolve().parents[3] / "configs"
 
 
-def default_schema_path(entity: str, base_path: str | Path | None = None) -> Path:
+def default_schema_path(
+    entity: str, base_path: str | Path | None = None
+) -> Path:
     """Return absolute path to the requested entity under the configuration tree."""
 
     root = Path(base_path) if base_path is not None else DEFAULT_CONFIG_ROOT
     return root.expanduser().resolve() / entity
 
 
-def _resolve_schema_path(path_or_name: str | Path, base_path: str | Path | None) -> Path:
+def _resolve_schema_path(
+    path_or_name: str | Path, base_path: str | Path | None
+) -> Path:
     candidate = Path(path_or_name)
     if not candidate.is_absolute():
-        base = Path(base_path) if base_path is not None else DEFAULT_CONFIG_ROOT
+        base = (
+            Path(base_path) if base_path is not None else DEFAULT_CONFIG_ROOT
+        )
         candidate = base / candidate
     return candidate.expanduser().resolve()
 
 
-def load_schema(path_or_name: str | Path, base_path: str | Path | None = None) -> dict[str, Any]:
+def load_schema(
+    path_or_name: str | Path, base_path: str | Path | None = None
+) -> dict[str, Any]:
     """Load a YAML schema definition from the provided path or relative name."""
 
     resolved = _resolve_schema_path(path_or_name, base_path)
@@ -59,8 +67,12 @@ def refresh_vocabulary(
             if etag:
                 headers["If-None-Match"] = etag
         else:
-            last_modified = datetime.fromtimestamp(cache_file.stat().st_mtime, tz=timezone.utc)
-            headers["If-Modified-Since"] = format_datetime(last_modified, usegmt=True)
+            last_modified = datetime.fromtimestamp(
+                cache_file.stat().st_mtime, tz=timezone.utc
+            )
+            headers["If-Modified-Since"] = format_datetime(
+                last_modified, usegmt=True
+            )
 
     response = requests.get(source_url, headers=headers, timeout=30)
     if response.status_code == 304:

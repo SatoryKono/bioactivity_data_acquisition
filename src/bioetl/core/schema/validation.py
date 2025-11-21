@@ -31,7 +31,8 @@ def summarize_schema_errors(exc: SchemaErrors) -> dict[str, Any]:
 
         if "schema_context" in failure_cases.columns:
             context_counter: Counter[str] = Counter(
-                str(value) for value in failure_cases["schema_context"].dropna()
+                str(value)
+                for value in failure_cases["schema_context"].dropna()
             )
             summary["error_types"] = dict(context_counter)
 
@@ -93,7 +94,9 @@ def format_failure_cases(
         sample = failure_cases.head(sample_size)
         sample_records: list[dict[str, Any]] = []
         for _, row in sample.iterrows():
-            record: dict[str, Any] = {str(column): row[column] for column in sample.columns}
+            record: dict[str, Any] = {
+                str(column): row[column] for column in sample.columns
+            }
             sample_records.append(record)
         formatted["sample"] = sample_records
 

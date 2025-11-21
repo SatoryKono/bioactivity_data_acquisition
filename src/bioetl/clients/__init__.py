@@ -12,7 +12,10 @@ from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
     from bioetl.clients.chembl_config import EntityConfig
-    from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
+    from bioetl.clients.chembl_entity_factory import (
+        ChemblClientBundle,
+        ChemblEntityClientFactory,
+    )
     from bioetl.clients.chembl_entity_registry import (
         ChemblEntityDefinition,
         ChemblEntityRegistryError,
@@ -21,7 +24,9 @@ if TYPE_CHECKING:
         register_entity_definition,
     )
     from bioetl.clients.client_chembl import ChemblClient
-    from bioetl.clients.client_chembl_entity_base import ChemblEntityFetcherBase
+    from bioetl.clients.client_chembl_entity_base import (
+        ChemblEntityFetcherBase,
+    )
     from bioetl.clients.entities.client_activity import ChemblActivityClient
     from bioetl.clients.entities.client_assay import ChemblAssayClient
     from bioetl.clients.entities.client_assay_class_map import (
@@ -30,7 +35,9 @@ if TYPE_CHECKING:
     from bioetl.clients.entities.client_assay_classification import (
         ChemblAssayClassificationEntityClient,
     )
-    from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
+    from bioetl.clients.entities.client_assay_entity import (
+        ChemblAssayEntityClient,
+    )
     from bioetl.clients.entities.client_assay_parameters import (
         ChemblAssayParametersEntityClient,
     )
@@ -44,7 +51,9 @@ if TYPE_CHECKING:
     from bioetl.clients.entities.client_document_term import (
         ChemblDocumentTermEntityClient,
     )
-    from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
+    from bioetl.clients.entities.client_molecule import (
+        ChemblMoleculeEntityClient,
+    )
     from bioetl.clients.entities.client_target import ChemblTargetClient
     from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 
@@ -76,7 +85,10 @@ __all__ = [
 
 _ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
     "ChemblClient": ("bioetl.clients.client_chembl", "ChemblClient"),
-    "ChemblAssayClient": ("bioetl.clients.entities.client_assay", "ChemblAssayClient"),
+    "ChemblAssayClient": (
+        "bioetl.clients.entities.client_assay",
+        "ChemblAssayClient",
+    ),
     "ChemblAssayEntityClient": (
         "bioetl.clients.entities.client_assay_entity",
         "ChemblAssayEntityClient",
@@ -86,10 +98,22 @@ _ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
         "ChemblEntityFetcherBase",
     ),
     "EntityConfig": ("bioetl.clients.chembl_config", "EntityConfig"),
-    "ChemblActivityClient": ("bioetl.clients.entities.client_activity", "ChemblActivityClient"),
-    "ChemblDocumentClient": ("bioetl.clients.entities.client_document", "ChemblDocumentClient"),
-    "ChemblTargetClient": ("bioetl.clients.entities.client_target", "ChemblTargetClient"),
-    "ChemblTestitemClient": ("bioetl.clients.entities.client_testitem", "ChemblTestitemClient"),
+    "ChemblActivityClient": (
+        "bioetl.clients.entities.client_activity",
+        "ChemblActivityClient",
+    ),
+    "ChemblDocumentClient": (
+        "bioetl.clients.entities.client_document",
+        "ChemblDocumentClient",
+    ),
+    "ChemblTargetClient": (
+        "bioetl.clients.entities.client_target",
+        "ChemblTargetClient",
+    ),
+    "ChemblTestitemClient": (
+        "bioetl.clients.entities.client_testitem",
+        "ChemblTestitemClient",
+    ),
     "ChemblMoleculeEntityClient": (
         "bioetl.clients.entities.client_molecule",
         "ChemblMoleculeEntityClient",
@@ -154,7 +178,9 @@ def __getattr__(name: str) -> Any:
     try:
         module_path, attr_name = _ATTR_MAP[name]
     except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+        raise AttributeError(
+            f"module {__name__!r} has no attribute {name!r}"
+        ) from exc
 
     module = import_module(module_path)
     value = getattr(module, attr_name)

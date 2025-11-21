@@ -50,7 +50,9 @@ def _apply_runtime_overrides_safely(settings: EnvironmentSettings) -> None:
 class PipelineFactory(Protocol):
     """Contract for pipeline factories used by the CLI layer."""
 
-    def __call__(self, config: PipelineConfig, run_id: str) -> PipelineBase: ...
+    def __call__(
+        self, config: PipelineConfig, run_id: str
+    ) -> PipelineBase: ...
 
 
 class PipelineCommandError(RuntimeError):
@@ -68,7 +70,9 @@ class EnvironmentSetupError(PipelineCommandError):
 class ConfigLoadError(PipelineCommandError):
     """Pipeline configuration loading error."""
 
-    def __init__(self, original: Exception, *, missing_reference: bool = False) -> None:
+    def __init__(
+        self, original: Exception, *, missing_reference: bool = False
+    ) -> None:
         super().__init__(str(original))
         self.original = original
         self.missing_reference = missing_reference
@@ -132,7 +136,9 @@ def parse_set_overrides(set_overrides: list[str]) -> dict[str, Any]:
     parsed: dict[str, Any] = {}
     for override in set_overrides:
         if "=" not in override:
-            raise ValueError(f"Invalid --set format: {override}. Expected KEY=VALUE")
+            raise ValueError(
+                f"Invalid --set format: {override}. Expected KEY=VALUE"
+            )
         key, value = override.split("=", 1)
         parsed[key] = value
     return parsed
@@ -156,7 +162,9 @@ def validate_output_dir(output_dir: Path) -> Path:
     try:
         resolved_path.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        raise OSError(f"Cannot create output directory: {resolved_path}. {exc}") from exc
+        raise OSError(
+            f"Cannot create output directory: {resolved_path}. {exc}"
+        ) from exc
     return resolved_path
 
 
@@ -166,8 +174,12 @@ class PipelineConfigFactory:
     def __init__(
         self,
         *,
-        environment_loader: Callable[[], EnvironmentSettings] = load_environment_settings,
-        environment_runtime_applier: Callable[[EnvironmentSettings], object] | None = None,
+        environment_loader: Callable[
+            [], EnvironmentSettings
+        ] = load_environment_settings,
+        environment_runtime_applier: (
+            Callable[[EnvironmentSettings], object] | None
+        ) = None,
         config_loader: Callable[..., PipelineConfig] | None = None,
     ) -> None:
         self._environment_loader = environment_loader
@@ -247,7 +259,9 @@ class PipelineCommandRunner:
     def _get_runtime_config(self) -> RuntimeConfig:
         if self._runtime_config is None:
             try:
-                self._runtime_config = RuntimeConfig.load(self._runtime_config_path)
+                self._runtime_config = RuntimeConfig.load(
+                    self._runtime_config_path
+                )
             except FileNotFoundError as exc:
                 raise ConfigLoadError(exc, missing_reference=True) from exc
             except ValueError as exc:
@@ -302,9 +316,13 @@ class PipelineCommandRunner:
     ) -> dict[str, Any]:
         postprocess_config = getattr(config, "postprocess", None)
         correlation_section = getattr(postprocess_config, "correlation", None)
-        correlation_enabled = bool(getattr(correlation_section, "enabled", False))
+        correlation_enabled = bool(
+            getattr(correlation_section, "enabled", False)
+        )
 
-        effective_extended = bool(options.extended or getattr(config.cli, "extended", False))
+        effective_extended = bool(
+            options.extended or getattr(config.cli, "extended", False)
+        )
 
         pipeline_code = config.pipeline.name
         materialization_root = Path(config.materialization.root)

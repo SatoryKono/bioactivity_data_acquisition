@@ -63,23 +63,32 @@ def extract_pipeline_base_signatures() -> dict[str, Any]:
 
     import inspect
 
-    for name, method in inspect.getmembers(PipelineBase, predicate=inspect.isfunction):
+    for name, method in inspect.getmembers(
+        PipelineBase, predicate=inspect.isfunction
+    ):
         if name.startswith("_"):
             continue
-        signatures[name] = signature_from_callable(method, include_abstract_flag=True)
+        signatures[name] = signature_from_callable(
+            method, include_abstract_flag=True
+        )
 
-    for name, bound_method in inspect.getmembers(PipelineBase, predicate=inspect.ismethod):
+    for name, bound_method in inspect.getmembers(
+        PipelineBase, predicate=inspect.ismethod
+    ):
         if name.startswith("_"):
             continue
         signatures.setdefault(
-            name, signature_from_callable(bound_method, include_abstract_flag=True)
+            name,
+            signature_from_callable(bound_method, include_abstract_flag=True),
         )
 
     for name, attr in PipelineBase.__dict__.items():
         if name.startswith("_"):
             continue
         if inspect.isfunction(attr) or inspect.ismethod(attr):
-            signatures.setdefault(name, signature_from_callable(attr, include_abstract_flag=True))
+            signatures.setdefault(
+                name, signature_from_callable(attr, include_abstract_flag=True)
+            )
 
     return signatures
 
@@ -88,7 +97,10 @@ def extract_config_models() -> dict[str, Any]:
     """Collect Pydantic config model metadata."""
 
     try:
-        from bioetl.config.models.models import PipelineConfig, PipelineMetadata
+        from bioetl.config.models.models import (
+            PipelineConfig,
+            PipelineMetadata,
+        )
         from bioetl.config.models.policies import DeterminismConfig
     except ImportError as exc:  # pragma: no cover - infrastructure failure
         return {"error": f"Failed to import config models: {exc}"}
@@ -99,9 +111,11 @@ def extract_config_models() -> dict[str, Any]:
             for field_name, field_info in model.model_fields.items():
                 fields[field_name] = {
                     "type": str(getattr(field_info, "annotation", None)),
-                    "required": field_info.is_required()
-                    if hasattr(field_info, "is_required")
-                    else None,
+                    "required": (
+                        field_info.is_required()
+                        if hasattr(field_info, "is_required")
+                        else None
+                    ),
                     "default": (
                         str(field_info.default)
                         if getattr(field_info, "default", None) is not None
@@ -144,7 +158,11 @@ def catalog_code_symbols(artifacts_dir: Path | None = None) -> CodeCatalog:
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)
 
-    target_dir = artifacts_dir if artifacts_dir is not None else PROJECT_ROOT / "artifacts"
+    target_dir = (
+        artifacts_dir
+        if artifacts_dir is not None
+        else PROJECT_ROOT / "artifacts"
+    )
     _ensure_dir(target_dir)
 
     log.info(LogEvents.CATALOG_EXTRACT_START)

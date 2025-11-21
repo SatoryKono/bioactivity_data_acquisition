@@ -54,13 +54,19 @@ class Paginator:
         default_items_keys: Sequence[str] | None = None,
     ) -> None:
         self._session = session
-        self._log = logger or UnifiedLogger.get(__name__).bind(component="clients.paginator")
+        self._log = logger or UnifiedLogger.get(__name__).bind(
+            component="clients.paginator"
+        )
         self._limit_param_name = limit_param_name
         self._default_items_keys = (
-            tuple(dict.fromkeys(default_items_keys)) if default_items_keys else _DEFAULT_ITEMS_KEYS
+            tuple(dict.fromkeys(default_items_keys))
+            if default_items_keys
+            else _DEFAULT_ITEMS_KEYS
         )
         self._base_url = session.base_url or ""
-        self._base_path = urlparse(self._base_url).path.rstrip("/") if self._base_url else ""
+        self._base_path = (
+            urlparse(self._base_url).path.rstrip("/") if self._base_url else ""
+        )
 
     def iterate_pages(
         self,
@@ -87,9 +93,12 @@ class Paginator:
                 if parsed.query:
                     # Check if we need to override limit with page_size
                     # Only override if page_size is specified and limit exists in URL
-                    query_params = parse_qs(parsed.query, keep_blank_values=True)
+                    query_params = parse_qs(
+                        parsed.query, keep_blank_values=True
+                    )
                     has_limit_in_url = (
-                        self._limit_param_name and self._limit_param_name in query_params
+                        self._limit_param_name
+                        and self._limit_param_name in query_params
                     )
                     needs_limit_override = (
                         has_limit_in_url
@@ -100,8 +109,10 @@ class Paginator:
 
                     if needs_limit_override:
                         # Extract and update params from URL to override limit
-                        extracted_params = self._extract_and_update_params_from_url(
-                            next_endpoint, page_size
+                        extracted_params = (
+                            self._extract_and_update_params_from_url(
+                                next_endpoint, page_size
+                            )
                         )
                         if extracted_params is not None:
                             pending_params = extracted_params
@@ -112,7 +123,9 @@ class Paginator:
                                 page_size=page_size,
                             )
                         # Remove query string from endpoint since we're passing params separately
-                        next_endpoint = parsed.path or next_endpoint.split("?")[0]
+                        next_endpoint = (
+                            parsed.path or next_endpoint.split("?")[0]
+                        )
                     else:
                         # Keep query string in endpoint, don't extract params
                         # This preserves the original next link as-is
@@ -143,7 +156,9 @@ class Paginator:
             page_length = len(page_items)
             emitted += page_length
             # Log params for all pages to verify limit override is working
-            params_snapshot = pending_params.copy() if pending_params is not None else None
+            params_snapshot = (
+                pending_params.copy() if pending_params is not None else None
+            )
             log_kwargs: dict[str, Any] = {
                 "endpoint": normalized_endpoint,
                 "page_index": page_index,
@@ -161,7 +176,11 @@ class Paginator:
                 page_index=page_index,
                 items=page_items,
                 payload=payload,
-                params=pending_params.copy() if pending_params is not None else None,
+                params=(
+                    pending_params.copy()
+                    if pending_params is not None
+                    else None
+                ),
             )
 
             page_index += 1
@@ -207,7 +226,11 @@ class Paginator:
         page_size: int | None,
     ) -> dict[str, Any] | None:
         if params is None:
-            if self._limit_param_name and page_size is not None and page_size > 0:
+            if (
+                self._limit_param_name
+                and page_size is not None
+                and page_size > 0
+            ):
                 return {self._limit_param_name: page_size}
             return None
 
@@ -231,7 +254,9 @@ class Paginator:
 
         for key in candidate_keys:
             items = payload.get(key)
-            if isinstance(items, Sequence) and not isinstance(items, (str, bytes, bytearray)):
+            if isinstance(items, Sequence) and not isinstance(
+                items, (str, bytes, bytearray)
+            ):
                 collected: list[dict[str, Any]] = []
                 for item in items:
                     if isinstance(item, Mapping):
@@ -243,7 +268,9 @@ class Paginator:
         for key, value in payload.items():
             if key == "page_meta":
                 continue
-            if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            if isinstance(value, Sequence) and not isinstance(
+                value, (str, bytes, bytearray)
+            ):
                 for item in value:
                     if isinstance(item, Mapping):
                         fallback.append(dict(item))
@@ -319,7 +346,11 @@ class Paginator:
         parsed = urlparse(endpoint)
         if not parsed.query:
             # No query params in URL, return page_size as limit if specified
-            if self._limit_param_name and page_size is not None and page_size > 0:
+            if (
+                self._limit_param_name
+                and page_size is not None
+                and page_size > 0
+            ):
                 return {self._limit_param_name: page_size}
             return None
 

@@ -86,7 +86,9 @@ def _create_command_registry(
     for spec in specs:
         names = (spec.code, *spec.aliases)
         for command_name in names:
-            registry[command_name] = _make_config_factory(spec, command_name=command_name)
+            registry[command_name] = _make_config_factory(
+                spec, command_name=command_name
+            )
     return registry
 
 
@@ -97,7 +99,10 @@ def _make_config_factory(
 ) -> Callable[[], CommandConfig]:
     pipeline_path = spec.pipeline_path
     if pipeline_path is None:
-        message = spec.not_implemented_message or f"{spec.code} pipeline not yet implemented"
+        message = (
+            spec.not_implemented_message
+            or f"{spec.code} pipeline not yet implemented"
+        )
 
         def _not_implemented() -> CommandConfig:
             raise NotImplementedError(message)
@@ -200,6 +205,6 @@ PLACEHOLDER_PIPELINES: tuple[PipelineCommandSpec, ...] = (
 )
 
 
-COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = _create_command_registry(
-    PIPELINE_REGISTRY
+COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = (
+    _create_command_registry(PIPELINE_REGISTRY)
 )

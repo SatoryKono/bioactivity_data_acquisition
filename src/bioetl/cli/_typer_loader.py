@@ -47,7 +47,9 @@ def _load_typer() -> TyperModule:
     global _typer_module
     helpers_module = _get_helpers_module()
     helper_cache = (
-        getattr(helpers_module, "_typer_module", _SENTINEL) if helpers_module else _SENTINEL
+        getattr(helpers_module, "_typer_module", _SENTINEL)
+        if helpers_module
+        else _SENTINEL
     )
     if helper_cache is None:
         _typer_module = None

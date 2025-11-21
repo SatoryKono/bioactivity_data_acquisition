@@ -12,7 +12,9 @@ HTTP_URL_PATTERN: str = r"^https?://"
 def resolve_row_hash_fields(column_order: Sequence[str]) -> tuple[str, ...]:
     """Return columns contributing to row-level hashes in deterministic order."""
 
-    return tuple(column for column in column_order if column not in HASH_COLUMN_NAMES)
+    return tuple(
+        column for column in column_order if column not in HASH_COLUMN_NAMES
+    )
 
 
 __all__ = [

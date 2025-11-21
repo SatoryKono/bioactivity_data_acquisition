@@ -31,7 +31,9 @@ _CLASSIFICATION_COLUMNS: tuple[tuple[str, str], ...] = (
     ("assay_class_id", "string"),
 )
 
-_PARAMETERS_COLUMNS: tuple[tuple[str, str], ...] = (("assay_parameters", "string"),)
+_PARAMETERS_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("assay_parameters", "string"),
+)
 
 
 def _should_nullify_string_value(value: Any) -> bool:
@@ -50,7 +52,9 @@ def _stringify_record_keys(record: Mapping[Any, Any]) -> dict[str, Any]:
     return {str(key): value for key, value in record.items()}
 
 
-def _stringify_records(records: Iterable[Mapping[Any, Any]]) -> list[dict[str, Any]]:
+def _stringify_records(
+    records: Iterable[Mapping[Any, Any]]
+) -> list[dict[str, Any]]:
     """Return list of dictionaries that only use string keys."""
     return [_stringify_record_keys(record) for record in records]
 
@@ -105,17 +109,23 @@ def enrich_with_assay_classifications(
 
     if df_assay.empty:
         log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
-        return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
+        return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(
+            df_assay, lazy=True
+        )
 
     # Ensure required columns are present.
     required_cols = ["assay_chembl_id"]
-    missing_cols = [col for col in required_cols if col not in df_assay.columns]
+    missing_cols = [
+        col for col in required_cols if col not in df_assay.columns
+    ]
     if missing_cols:
         log.warning(
             LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=missing_cols,
         )
-        return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
+        return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(
+            df_assay, lazy=True
+        )
 
     # Retrieve configuration.
     classification_fields = cfg.get(
@@ -145,7 +155,10 @@ def enrich_with_assay_classifications(
         classifications_raw = row.get("assay_classifications")
 
         # Handle already serialized string
-        if isinstance(classifications_raw, str) and classifications_raw.strip():
+        if (
+            isinstance(classifications_raw, str)
+            and classifications_raw.strip()
+        ):
             try:
                 parsed = json.loads(classifications_raw)
                 if isinstance(parsed, list):
@@ -158,7 +171,14 @@ def enrich_with_assay_classifications(
                 continue
 
         # Handle None/NA/empty
-        if classifications_raw is None or classifications_raw is pd.NA or (isinstance(classifications_raw, float) and pd.isna(classifications_raw)):
+        if (
+            classifications_raw is None
+            or classifications_raw is pd.NA
+            or (
+                isinstance(classifications_raw, float)
+                and pd.isna(classifications_raw)
+            )
+        ):
             df_assay.at[row_key, "assay_classifications"] = pd.NA
             df_assay.at[row_key, "assay_class_id"] = pd.NA
             continue
@@ -200,7 +220,9 @@ def enrich_with_assay_classifications(
     class_details: dict[str, dict[str, Any]] = {}
     if all_class_ids:
         # Check if we need additional fields that might not be in the main response
-        fields_to_fetch = [f for f in classification_fields if f != "assay_class_id"]
+        fields_to_fetch = [
+            f for f in classification_fields if f != "assay_class_id"
+        ]
         if fields_to_fetch:
             log.info(
                 LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASSIFICATIONS,
@@ -208,10 +230,12 @@ def enrich_with_assay_classifications(
             )
             try:
                 # Use fetch_assay_classifications_by_class_ids which now points to /assay_class.json
-                class_details_df = client.fetch_assay_classifications_by_class_ids(
-                    list(all_class_ids),
-                    fields=classification_fields,
-                    page_limit=page_limit,
+                class_details_df = (
+                    client.fetch_assay_classifications_by_class_ids(
+                        list(all_class_ids),
+                        fields=classification_fields,
+                        page_limit=page_limit,
+                    )
                 )
                 if not class_details_df.empty:
                     for _, class_row in class_details_df.iterrows():
@@ -276,12 +300,16 @@ def enrich_with_assay_classifications(
             enriched_classifications.append(class_record)
 
         if enriched_classifications:
-            serialized = json.dumps(enriched_classifications, ensure_ascii=False)
+            serialized = json.dumps(
+                enriched_classifications, ensure_ascii=False
+            )
             df_assay.at[row_key, "assay_classifications"] = serialized
 
     log.info(
         LogEvents.ENRICHMENT_CLASSIFICATIONS_COMPLETE,
-        assays_with_classifications=len(df_assay[df_assay["assay_classifications"].notna()]),
+        assays_with_classifications=len(
+            df_assay[df_assay["assay_classifications"].notna()]
+        ),
     )
     return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
@@ -329,13 +357,17 @@ def enrich_with_assay_parameters(
 
     if df_assay.empty:
         if "assay_parameters" in df_assay.columns:
-            df_assay["assay_parameters"] = df_assay["assay_parameters"].astype("string")
+            df_assay["assay_parameters"] = df_assay["assay_parameters"].astype(
+                "string"
+            )
         log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
     # Validate presence of required columns
     required_cols = ["assay_chembl_id"]
-    missing_cols = [col for col in required_cols if col not in df_assay.columns]
+    missing_cols = [
+        col for col in required_cols if col not in df_assay.columns
+    ]
     if missing_cols:
         log.warning(
             LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
@@ -385,20 +417,34 @@ def enrich_with_assay_parameters(
 
         if needs_fetch:
             try:
-                assay_ids = df_assay["assay_chembl_id"].dropna().astype("string").tolist()
+                assay_ids = (
+                    df_assay["assay_chembl_id"]
+                    .dropna()
+                    .astype("string")
+                    .tolist()
+                )
                 # Filter out empty strings
-                assay_ids = [aid for aid in assay_ids if aid and str(aid).strip()]
+                assay_ids = [
+                    aid for aid in assay_ids if aid and str(aid).strip()
+                ]
                 if assay_ids:
                     # Temporarily change column type to object to allow setting list values
                     if "assay_parameters" in df_assay.columns:
-                        df_assay["assay_parameters"] = df_assay["assay_parameters"].astype("object")
-                    fetched_params = client.fetch_assay_parameters_by_assay_ids(
-                        assay_ids,
-                        page_limit=cfg.get("page_limit"),
-                        active_only=active_only,
+                        df_assay["assay_parameters"] = df_assay[
+                            "assay_parameters"
+                        ].astype("object")
+                    fetched_params = (
+                        client.fetch_assay_parameters_by_assay_ids(
+                            assay_ids,
+                            page_limit=cfg.get("page_limit"),
+                            active_only=active_only,
+                        )
                     )
                     # Handle both DataFrame (from real API) and Mapping (from mocks in tests)
-                    if isinstance(fetched_params, pd.DataFrame) and not fetched_params.empty:
+                    if (
+                        isinstance(fetched_params, pd.DataFrame)
+                        and not fetched_params.empty
+                    ):
                         # Group by assay_chembl_id and convert to list of dicts
                         if "assay_chembl_id" in fetched_params.columns:
                             for idx, row in df_assay.iterrows():
@@ -406,10 +452,17 @@ def enrich_with_assay_parameters(
                                 if pd.isna(assay_id) or assay_id is None:
                                     continue
                                 assay_id_str = str(assay_id).strip()
-                                assay_params = fetched_params[fetched_params["assay_chembl_id"] == assay_id_str]
+                                assay_params = fetched_params[
+                                    fetched_params["assay_chembl_id"]
+                                    == assay_id_str
+                                ]
                                 if not assay_params.empty:
-                                    params_list = assay_params.to_dict(orient="records")
-                                    df_assay.at[idx, "assay_parameters"] = params_list
+                                    params_list = assay_params.to_dict(
+                                        orient="records"
+                                    )
+                                    df_assay.at[idx, "assay_parameters"] = (
+                                        params_list
+                                    )
                     elif isinstance(fetched_params, Mapping):
                         # Fill assay_parameters column with fetched data (from mocks in tests)
                         for idx, row in df_assay.iterrows():
@@ -420,7 +473,9 @@ def enrich_with_assay_parameters(
                             if assay_id_str in fetched_params:
                                 params_list = fetched_params[assay_id_str]
                                 if isinstance(params_list, list):
-                                    df_assay.at[idx, "assay_parameters"] = params_list
+                                    df_assay.at[idx, "assay_parameters"] = (
+                                        params_list
+                                    )
             except HTTPError as exc:
                 # Re-raise non-404 HTTP errors
                 response = getattr(exc, "response", None)
@@ -457,7 +512,11 @@ def enrich_with_assay_parameters(
             continue
 
         # Handle None/NA/empty
-        if params_raw is None or params_raw is pd.NA or (isinstance(params_raw, float) and pd.isna(params_raw)):
+        if (
+            params_raw is None
+            or params_raw is pd.NA
+            or (isinstance(params_raw, float) and pd.isna(params_raw))
+        ):
             continue
 
         # Parse if it's a list/dict (from API response)
@@ -470,25 +529,39 @@ def enrich_with_assay_parameters(
                 if active_only:
                     active_value = param.get("active")
                     # If active field is missing, include the parameter (default to active)
-                    if active_value is not None and active_value not in (1, "1", True, "True"):
+                    if active_value is not None and active_value not in (
+                        1,
+                        "1",
+                        True,
+                        "True",
+                    ):
                         continue
                 # Extract requested fields
                 param_record: dict[str, Any] = {}
                 for field in fields:
                     if field != "assay_chembl_id":
-                        param_record[field] = _normalize_parameter_value(param.get(field))
+                        param_record[field] = _normalize_parameter_value(
+                            param.get(field)
+                        )
                 params_list.append(param_record)
         elif isinstance(params_raw, dict):
             # Single parameter as dict
             if active_only:
                 active_value = params_raw.get("active")
                 # If active field is missing, include the parameter (default to active)
-                if active_value is not None and active_value not in (1, "1", True, "True"):
+                if active_value is not None and active_value not in (
+                    1,
+                    "1",
+                    True,
+                    "True",
+                ):
                     continue
             param_record: dict[str, Any] = {}
             for field in fields:
                 if field != "assay_chembl_id":
-                    param_record[field] = _normalize_parameter_value(params_raw.get(field))
+                    param_record[field] = _normalize_parameter_value(
+                        params_raw.get(field)
+                    )
             params_list.append(param_record)
 
         # Serialize the array into a JSON string
@@ -504,10 +577,14 @@ def enrich_with_assay_parameters(
             df_assay.loc[index_label, "assay_parameters"] = pd.NA
 
     # Ensure string type for all values
-    df_assay["assay_parameters"] = df_assay["assay_parameters"].astype("string")
+    df_assay["assay_parameters"] = df_assay["assay_parameters"].astype(
+        "string"
+    )
 
     log.info(
         LogEvents.ENRICHMENT_PARAMETERS_COMPLETE,
-        assays_with_parameters=len(df_assay[df_assay["assay_parameters"].notna()]),
+        assays_with_parameters=len(
+            df_assay[df_assay["assay_parameters"].notna()]
+        ),
     )
     return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)

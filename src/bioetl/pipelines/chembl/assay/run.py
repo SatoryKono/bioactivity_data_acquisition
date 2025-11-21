@@ -122,7 +122,10 @@ class ChemblAssayPipeline(BaseChemblPipeline):
                         if class_id_str.startswith("BAO_"):
                             # Already in correct format: BAO_0000015
                             pass
-                        elif class_id_str.startswith("BAO") and len(class_id_str) > 3:
+                        elif (
+                            class_id_str.startswith("BAO")
+                            and len(class_id_str) > 3
+                        ):
                             # BAO0000015 -> BAO_0000015
                             class_id_str = "BAO_" + class_id_str[3:]
                         elif class_id_str and class_id_str.isdigit():
@@ -222,12 +225,18 @@ class ChemblAssayPipeline(BaseChemblPipeline):
 
         # Coerce confidence_score to nullable Int64 to match schema expectations
         if "confidence_score" in transformed_df.columns:
-            numeric = pd.to_numeric(transformed_df["confidence_score"], errors="coerce")
+            numeric = pd.to_numeric(
+                transformed_df["confidence_score"], errors="coerce"
+            )
             transformed_df["confidence_score"] = numeric.astype("Int64")
 
         # Ensure all required schema columns are present
-        schema_columns = list(self.get_schema().keys()) if self.get_schema() else []
-        transformed_df = self._ensure_schema_columns(transformed_df, schema_columns)
+        schema_columns = (
+            list(self.get_schema().keys()) if self.get_schema() else []
+        )
+        transformed_df = self._ensure_schema_columns(
+            transformed_df, schema_columns
+        )
 
         # Ensure assay_type_description column exists
         if "assay_type_description" not in transformed_df.columns:

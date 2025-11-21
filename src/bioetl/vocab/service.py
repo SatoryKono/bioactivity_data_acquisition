@@ -55,7 +55,9 @@ def refresh_vocab_cache() -> None:
     _load_store.cache_clear()
 
 
-def vocab_ids(name: str, *, allowed_statuses: Iterable[str] | None = None) -> set[str]:
+def vocab_ids(
+    name: str, *, allowed_statuses: Iterable[str] | None = None
+) -> set[str]:
     """Return identifiers for ``name`` without enforcing presence."""
 
     result = _get_ids(vocab_store(), name, allowed_statuses=allowed_statuses)
@@ -95,7 +97,9 @@ class VocabularyService:
 
         return self._store_cache()
 
-    def ids(self, name: str, *, allowed_statuses: Iterable[str] | None = None) -> set[str]:
+    def ids(
+        self, name: str, *, allowed_statuses: Iterable[str] | None = None
+    ) -> set[str]:
         """Return identifiers for ``name`` without enforcing presence."""
 
         return vocab_ids(name, allowed_statuses=allowed_statuses)

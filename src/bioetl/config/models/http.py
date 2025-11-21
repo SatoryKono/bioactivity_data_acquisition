@@ -93,7 +93,9 @@ class HTTPClientConfig(BaseModel):
         default=True,
         description="Whether to add jitter to rate limited calls to avoid thundering herds.",
     )
-    circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
+    circuit_breaker: CircuitBreakerConfig = Field(
+        default_factory=CircuitBreakerConfig
+    )
     headers: Mapping[str, str] = Field(
         default_factory=lambda: {
             "User-Agent": "BioETL/1.0 (UnifiedAPIClient)",
@@ -118,7 +120,8 @@ class HTTPConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     default: HTTPClientConfig = Field(
-        ..., description="Baseline client settings applied unless a profile overrides them."
+        ...,
+        description="Baseline client settings applied unless a profile overrides them.",
     )
     profiles: MutableMapping[str, HTTPClientConfig] = Field(
         default_factory=dict,

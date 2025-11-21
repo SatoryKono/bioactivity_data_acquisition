@@ -110,7 +110,12 @@ columns: dict[str, Column] = {
     ),  # type: ignore[assignment]
     "pagination_meta": Column(
         pa.String,  # type: ignore[arg-type]
-        checks=[Check(partial(validate_json_series, optional=True), element_wise=False)],
+        checks=[
+            Check(
+                partial(validate_json_series, optional=True),
+                element_wise=False,
+            )
+        ],
         nullable=True,
     ),  # type: ignore[assignment]
     "request_started_at": Column(
@@ -126,7 +131,9 @@ columns: dict[str, Column] = {
         nullable=False,
     ),  # type: ignore[assignment]
     "records_fetched": Column(pa.Int64, checks=[Check.ge(0)], nullable=False),  # type: ignore[arg-type,assignment]
-    "status": CF.string(nullable=False, vocabulary="status", isin=STATUS_VALUES),
+    "status": CF.string(
+        nullable=False, vocabulary="status", isin=STATUS_VALUES
+    ),
     "error_message_opt": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "retry_count": Column(pa.Int64, checks=[Check.ge(0)], nullable=False),  # type: ignore[arg-type,assignment]
     "job_id": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
@@ -143,7 +150,12 @@ _BASE_SCHEMA = create_schema(
     strict=True,
     column_order=COLUMN_ORDER,
     checks=[
-        Check(_time_window_consistent, axis=1, name="time_window_consistency", element_wise=False)
+        Check(
+            _time_window_consistent,
+            axis=1,
+            name="time_window_consistency",
+            element_wise=False,
+        )
     ],
 )
 LoadMetaSchema = _BASE_SCHEMA

@@ -12,7 +12,9 @@ import pandas as pd
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.io import ensure_columns
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.schemas.chembl_document_enrichment_schema import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
+from bioetl.schemas.chembl_document_enrichment_schema import (
+    DOCUMENT_TERMS_ENRICHMENT_SCHEMA,
+)
 
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]
 
@@ -92,7 +94,9 @@ def aggregate_terms(
         if sort == "weight_desc":
             items.sort(
                 key=lambda x: (
-                    float(x[1]) if x[1] not in (None, "") and _is_numeric(x[1]) else float("-inf")
+                    float(x[1])
+                    if x[1] not in (None, "") and _is_numeric(x[1])
+                    else float("-inf")
                 ),
                 reverse=True,
             )
@@ -168,12 +172,16 @@ def enrich_with_document_terms(
                     dtype="string",
                 )
             else:
-                result_frame[column_name] = result_frame[column_name].astype("string")
+                result_frame[column_name] = result_frame[column_name].astype(
+                    "string"
+                )
 
             na_mask = result_frame[column_name].isna()
             if bool(na_mask.any()):
                 result_frame.loc[na_mask, column_name] = ""
-            result_frame[column_name] = result_frame[column_name].astype("string")
+            result_frame[column_name] = result_frame[column_name].astype(
+                "string"
+            )
         return result_frame
 
     df_docs = _ensure_columns(df_docs, _DOCUMENT_TERM_COLUMNS)
@@ -181,7 +189,9 @@ def enrich_with_document_terms(
     if df_docs.empty:
         log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         prepared_empty = _ensure_term_columns(df_docs)
-        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared_empty, lazy=True)
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(
+            prepared_empty, lazy=True
+        )
 
     # Ensure required columns are present.
     required_cols = ["document_chembl_id"]
@@ -192,7 +202,9 @@ def enrich_with_document_terms(
             missing_columns=missing_cols,
         )
         prepared_missing = _ensure_term_columns(df_docs)
-        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared_missing, lazy=True)
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(
+            prepared_missing, lazy=True
+        )
 
     # Retrieve configuration.
     fields = cfg.get("select_fields", ["document_chembl_id", "term", "weight"])
@@ -211,12 +223,17 @@ def enrich_with_document_terms(
     if bool(df_docs["document_term"].isna().all()):
         try:
             fetched_terms = client.fetch_document_terms_by_ids(
-                df_docs["document_chembl_id"].dropna().astype("string").tolist(),
+                df_docs["document_chembl_id"]
+                .dropna()
+                .astype("string")
+                .tolist(),
                 fields=fields,
                 page_limit=cfg.get("page_limit"),
             )
         except Exception as exc:  # pragma: no cover - defensive
-            log.warning(LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID, error=str(exc))
+            log.warning(
+                LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID, error=str(exc)
+            )
             fetched_terms = pd.DataFrame()
 
         if isinstance(fetched_terms, Mapping):
@@ -226,11 +243,17 @@ def enrich_with_document_terms(
                 for record in records:
                     if not isinstance(record, dict):
                         continue
-                    all_term_records.append({"document_chembl_id": doc_id, **record})
-        elif hasattr(fetched_terms, "empty") and not fetched_terms.empty and "document_chembl_id" in fetched_terms.columns:
+                    all_term_records.append(
+                        {"document_chembl_id": doc_id, **record}
+                    )
+        elif (
+            hasattr(fetched_terms, "empty")
+            and not fetched_terms.empty
+            and "document_chembl_id" in fetched_terms.columns
+        ):
             for record in fetched_terms.to_dict(orient="records"):
                 all_term_records.append(record)
-    
+
     for idx, row in df_docs.iterrows():
         doc_id = row.get("document_chembl_id")
         if pd.isna(doc_id) or doc_id is None:
@@ -254,7 +277,11 @@ def enrich_with_document_terms(
                 continue
 
         # Handle None/NA/empty
-        if terms_raw is None or terms_raw is pd.NA or (isinstance(terms_raw, float) and pd.isna(terms_raw)):
+        if (
+            terms_raw is None
+            or terms_raw is pd.NA
+            or (isinstance(terms_raw, float) and pd.isna(terms_raw))
+        ):
             continue
 
         # Parse if it's a list (from API response)
@@ -288,7 +315,10 @@ def enrich_with_document_terms(
                 )
                 # Handle both DataFrame (real API) and dict (mocked in tests)
                 if isinstance(fetched_result, pd.DataFrame):
-                    if not fetched_result.empty and "document_chembl_id" in fetched_result.columns:
+                    if (
+                        not fetched_result.empty
+                        and "document_chembl_id" in fetched_result.columns
+                    ):
                         all_term_records = cast(
                             list[dict[str, Any]],
                             fetched_result.to_dict(orient="records"),
@@ -304,7 +334,9 @@ def enrich_with_document_terms(
                                     }
                                     for field in fields:
                                         if field != "document_chembl_id":
-                                            term_record[field] = term_item.get(field)
+                                            term_record[field] = term_item.get(
+                                                field
+                                            )
                                     all_term_records.append(term_record)
             except Exception as exc:  # noqa: BLE001
                 log.debug(
@@ -335,7 +367,9 @@ def enrich_with_document_terms(
         )
 
     # Flatten DataFrame into rows for aggregate_terms.
-    all_records = cast(Sequence[Mapping[str, Any]], records_df.to_dict(orient="records"))
+    all_records = cast(
+        Sequence[Mapping[str, Any]], records_df.to_dict(orient="records")
+    )
 
     # Aggregate terms.
     agg_result = aggregate_terms(all_records, sort=sort)
@@ -369,10 +403,16 @@ def enrich_with_document_terms(
             base_series = (
                 df_result[col]
                 if col in df_result.columns
-                else pd.Series([pd.NA] * len(df_result), index=df_result.index, dtype="object")
+                else pd.Series(
+                    [pd.NA] * len(df_result),
+                    index=df_result.index,
+                    dtype="object",
+                )
             )
             enrich_series = df_result[enrich_col]
-            df_result[col] = base_series.where(pd.notna(base_series), enrich_series)
+            df_result[col] = base_series.where(
+                pd.notna(base_series), enrich_series
+            )
             df_result = df_result.drop(columns=[enrich_col])
 
     # Ensure all expected columns exist (fill NA where missing).

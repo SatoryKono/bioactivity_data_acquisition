@@ -19,7 +19,9 @@ __all__ = [
 
 
 ScalarValue: TypeAlias = str | int | float | bool
-SerializableSimpleList: TypeAlias = Iterable[Any] | Mapping[str, Any] | ScalarValue | None
+SerializableSimpleList: TypeAlias = (
+    Iterable[Any] | Mapping[str, Any] | ScalarValue | None
+)
 
 
 def escape_delims(value: str) -> str:
@@ -85,7 +87,9 @@ def header_rows_serialize(items: Any) -> str:
             if value is None:
                 row_values.append("")
             elif isinstance(value, (list, dict)):
-                json_str = json.dumps(value, ensure_ascii=False, sort_keys=True)
+                json_str = json.dumps(
+                    value, ensure_ascii=False, sort_keys=True
+                )
                 row_values.append(escape_delims(json_str))
             else:
                 row_values.append(escape_delims(str(value)))
@@ -98,14 +102,18 @@ def header_rows_serialize(items: Any) -> str:
     return header + "/" + "/".join(rows)
 
 
-def serialize_array_fields(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
+def serialize_array_fields(
+    df: pd.DataFrame, columns: Sequence[str]
+) -> pd.DataFrame:
     """Serialize array-of-object columns of ``df`` using ``header_rows_serialize``."""
 
     df_result = df.copy()
     for column in columns:
         if column in df_result.columns:
             original_series = df_result[column]
-            serialized = original_series.map(header_rows_serialize).astype("string")
+            serialized = original_series.map(header_rows_serialize).astype(
+                "string"
+            )
             df_result[column] = serialized
 
             def _should_preserve_na(value: Any) -> bool:
@@ -144,7 +152,9 @@ def serialize_simple_list(values: SerializableSimpleList) -> str:
     if not values:
         return ""
 
-    escaped = [escape_delims("" if value is None else str(value)) for value in values]
+    escaped = [
+        escape_delims("" if value is None else str(value)) for value in values
+    ]
     return "|".join(escaped) + "|"
 
 

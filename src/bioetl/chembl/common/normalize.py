@@ -29,7 +29,14 @@ class RowMetadataChanges:
     def has_changes(self) -> bool:
         """Return ``True`` when any metadata column was modified."""
 
-        return any((self.subtype_added, self.subtype_filled, self.index_added, self.index_filled))
+        return any(
+            (
+                self.subtype_added,
+                self.subtype_filled,
+                self.index_added,
+                self.index_filled,
+            )
+        )
 
 
 def normalize_identifiers(
@@ -113,7 +120,9 @@ def add_row_metadata(
     else:
         series = result[index_column]
         if series.isna().all():
-            result[index_column] = pd.RangeIndex(start=0, stop=len(result), step=1)
+            result[index_column] = pd.RangeIndex(
+                start=0, stop=len(result), step=1
+            )
             changes.index_filled = True
 
     return result, changes

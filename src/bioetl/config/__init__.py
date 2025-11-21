@@ -49,7 +49,9 @@ _LAZY_ATTRS = {
 
 
 _CACHEABLE_EXPORTS = frozenset(_LAZY_ATTRS.keys())
-_lazy_resolver = resolve_lazy_attr(globals(), _LAZY_ATTRS, cache=_CACHEABLE_EXPORTS)
+_lazy_resolver = resolve_lazy_attr(
+    globals(), _LAZY_ATTRS, cache=_CACHEABLE_EXPORTS
+)
 
 
 def __getattr__(name: str) -> Any:

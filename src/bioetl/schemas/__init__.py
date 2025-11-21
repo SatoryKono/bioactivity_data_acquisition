@@ -145,7 +145,9 @@ class SchemaDescriptor:
     row_hash_fields: tuple[str, ...] = field(default_factory=tuple)
     description: str | None = None
     dataset_type: str | None = None
-    vocabulary_bindings: tuple[SchemaVocabularyBinding, ...] = field(default_factory=tuple)
+    vocabulary_bindings: tuple[SchemaVocabularyBinding, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         if not self.identifier:
@@ -163,17 +165,19 @@ class SchemaDescriptor:
 
         order = self.column_order
         if not order:
-            object.__setattr__(self, "column_order", tuple(self.schema.columns.keys()))
+            object.__setattr__(
+                self, "column_order", tuple(self.schema.columns.keys())
+            )
             order = self.column_order
 
         duplicates = {column for column in order if order.count(column) > 1}
         if duplicates:
-            msg = (
-                f"Schema '{self.identifier}' column order contains duplicates: {sorted(duplicates)}"
-            )
+            msg = f"Schema '{self.identifier}' column order contains duplicates: {sorted(duplicates)}"
             raise ValueError(msg)
 
-        missing_columns = [column for column in order if column not in self.schema.columns]
+        missing_columns = [
+            column for column in order if column not in self.schema.columns
+        ]
         if missing_columns:
             msg = (
                 f"Schema '{self.identifier}' column order references missing columns: "
@@ -191,7 +195,10 @@ class SchemaDescriptor:
             raise ValueError(msg)
 
         metadata_version = metadata.get("version")
-        if metadata_version is not None and str(metadata_version) != self.version:
+        if (
+            metadata_version is not None
+            and str(metadata_version) != self.version
+        ):
             msg = (
                 f"Schema '{self.identifier}' metadata version '{metadata_version}' "
                 f"does not match declared version '{self.version}'."
@@ -200,13 +207,13 @@ class SchemaDescriptor:
 
         metadata_order = metadata.get("column_order")
         if metadata_order is not None and tuple(metadata_order) != order:
-            msg = (
-                f"Schema '{self.identifier}' metadata column_order does not match registered order."
-            )
+            msg = f"Schema '{self.identifier}' metadata column_order does not match registered order."
             raise ValueError(msg)
 
         if "business_key_fields" in metadata:
-            metadata_business = normalize_sequence(metadata["business_key_fields"])
+            metadata_business = normalize_sequence(
+                metadata["business_key_fields"]
+            )
             if metadata_business != self.business_key_fields:
                 msg = (
                     f"Schema '{self.identifier}' metadata business_key_fields "
@@ -274,7 +281,9 @@ class SchemaDescriptor:
     def vocabulary_requirements(self) -> tuple[str, ...]:
         """Return unique vocabulary identifiers declared by the schema."""
 
-        identifiers = {binding.vocabulary_id for binding in self.vocabulary_bindings}
+        identifiers = {
+            binding.vocabulary_id for binding in self.vocabulary_bindings
+        }
         return tuple(sorted(identifiers))
 
     @property
@@ -308,12 +317,17 @@ class SchemaDescriptor:
         metadata = metadata_dict(schema.metadata, extra_metadata)
 
         resolved_name = (
-            name or str(metadata.get("name")) or schema.name or identifier.split(".")[-1]
+            name
+            or str(metadata.get("name"))
+            or schema.name
+            or identifier.split(".")[-1]
         )
         metadata["name"] = resolved_name
 
         metadata_version = metadata.get("version")
-        if metadata_version is not None and str(metadata_version) != str(version):
+        if metadata_version is not None and str(metadata_version) != str(
+            version
+        ):
             msg = (
                 f"Schema '{identifier}' metadata version '{metadata_version}' "
                 f"does not match declared version '{version}'."
@@ -321,7 +335,9 @@ class SchemaDescriptor:
             raise ValueError(msg)
         metadata["version"] = str(version)
 
-        resolved_column_order = _resolve_column_order(schema, column_order, identifier)
+        resolved_column_order = _resolve_column_order(
+            schema, column_order, identifier
+        )
         metadata["column_order"] = resolved_column_order
 
         resolved_business_keys = _resolve_descriptor_sequence(
@@ -352,7 +368,9 @@ class SchemaDescriptor:
         elif "vocabulary_bindings" in metadata:
             metadata["vocabulary_bindings"] = []
 
-        normalized_schema = schema.set_metadata(metadata)  # pyright: ignore[reportAttributeAccessIssue]
+        normalized_schema = schema.set_metadata(
+            metadata
+        )  # pyright: ignore[reportAttributeAccessIssue]
 
         description_value = metadata.get("description")
         dataset_type_value = metadata.get("dataset_type")
@@ -366,8 +384,16 @@ class SchemaDescriptor:
             business_key_fields=resolved_business_keys,
             required_fields=resolved_required_fields,
             row_hash_fields=resolved_row_hash_fields,
-            description=str(description_value) if isinstance(description_value, str) else None,
-            dataset_type=str(dataset_type_value) if isinstance(dataset_type_value, str) else None,
+            description=(
+                str(description_value)
+                if isinstance(description_value, str)
+                else None
+            ),
+            dataset_type=(
+                str(dataset_type_value)
+                if isinstance(dataset_type_value, str)
+                else None
+            ),
             vocabulary_bindings=resolved_bindings,
         )
 
@@ -404,14 +430,18 @@ def _resolve_vocabulary_bindings(
 ) -> tuple[SchemaVocabularyBinding, ...]:
     bindings_by_column: dict[str, SchemaVocabularyBinding] = {}
     existing = metadata.get("vocabulary_bindings")
-    if isinstance(existing, Iterable) and not isinstance(existing, (str, bytes)):
+    if isinstance(existing, Iterable) and not isinstance(
+        existing, (str, bytes)
+    ):
         for payload in existing:
             binding = _binding_from_metadata(payload)
             if binding is not None:
                 bindings_by_column[binding.column] = binding
 
     for column_name, column in schema.columns.items():
-        binding = SchemaVocabularyBinding.from_column_metadata(column_name, column.metadata)
+        binding = SchemaVocabularyBinding.from_column_metadata(
+            column_name, column.metadata
+        )
         if binding is not None:
             bindings_by_column[binding.column] = binding
 
@@ -440,11 +470,15 @@ def _resolve_column_order(
     if column_order is None:
         column_order = tuple(schema.columns.keys())
     normalized = tuple(column_order)
-    duplicates = {column for column in normalized if normalized.count(column) > 1}
+    duplicates = {
+        column for column in normalized if normalized.count(column) > 1
+    }
     if duplicates:
         msg = f"Schema '{identifier}' column order contains duplicates: {sorted(duplicates)}"
         raise ValueError(msg)
-    missing_columns = [column for column in normalized if column not in schema.columns]
+    missing_columns = [
+        column for column in normalized if column not in schema.columns
+    ]
     if missing_columns:
         msg = f"Schema '{identifier}' column order references missing columns: {missing_columns}"
         raise ValueError(msg)
@@ -488,7 +522,9 @@ class SchemaRegistry:
         schema_columns = list(descriptor.schema.columns.keys())
         column_order = list(descriptor.column_order)
 
-        duplicates = {column for column in column_order if column_order.count(column) > 1}
+        duplicates = {
+            column for column in column_order if column_order.count(column) > 1
+        }
         if duplicates:
             msg = (
                 f"Schema '{descriptor.identifier}' column order contains duplicates: "
@@ -506,7 +542,10 @@ class SchemaRegistry:
 
         metadata = metadata_dict(descriptor.schema.metadata)
         metadata_version = metadata.get("version")
-        if metadata_version is not None and str(metadata_version) != descriptor.version:
+        if (
+            metadata_version is not None
+            and str(metadata_version) != descriptor.version
+        ):
             msg = (
                 f"Schema '{descriptor.identifier}' metadata version '{metadata_version}' "
                 f"does not match declared version '{descriptor.version}'."
@@ -514,7 +553,9 @@ class SchemaRegistry:
             raise ValueError(msg)
 
         metadata_order = metadata.get("column_order")
-        if metadata_order is not None and tuple(metadata_order) != tuple(column_order):
+        if metadata_order is not None and tuple(metadata_order) != tuple(
+            column_order
+        ):
             msg = f"Schema '{descriptor.identifier}' metadata column_order does not match registered order."
             raise ValueError(msg)
 
@@ -527,9 +568,14 @@ class SchemaRegistry:
             raise ValueError(msg)
 
         hashed_columns_declared = [
-            name for name in HASH_COLUMN_NAMES if name in schema_columns or name in column_order
+            name
+            for name in HASH_COLUMN_NAMES
+            if name in schema_columns or name in column_order
         ]
-        if descriptor.identifier.startswith("bioetl.") and not hashed_columns_declared:
+        if (
+            descriptor.identifier.startswith("bioetl.")
+            and not hashed_columns_declared
+        ):
             hashed_columns_declared = list(HASH_COLUMN_NAMES)
 
         for hashed_column in hashed_columns_declared:
@@ -583,7 +629,11 @@ class SchemaRegistry:
             column_order=getattr(
                 module,
                 "COLUMN_ORDER",
-                schema.metadata.get("column_order") if schema.metadata else None,
+                (
+                    schema.metadata.get("column_order")
+                    if schema.metadata
+                    else None
+                ),
             ),
             business_key_fields=getattr(module, "BUSINESS_KEY_FIELDS", None),
             required_fields=getattr(module, "REQUIRED_FIELDS", None),
@@ -692,7 +742,9 @@ _register_builtin_schema(
 register_legacy_schema_modules()
 
 
-def get_schema(identifier: str, *, version: str | None = None) -> SchemaDescriptor:
+def get_schema(
+    identifier: str, *, version: str | None = None
+) -> SchemaDescriptor:
     """Return the schema descriptor identified by ``identifier``."""
 
     descriptor = SCHEMA_REGISTRY.get(identifier)

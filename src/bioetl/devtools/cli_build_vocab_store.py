@@ -9,7 +9,11 @@ from typing import Any, cast
 
 from bioetl.cli._io import atomic_write_yaml
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.core.utils.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
+from bioetl.core.utils.vocab_store import (
+    VocabStoreError,
+    clear_vocab_store_cache,
+    load_vocab_store,
+)
 
 __all__ = ["build_vocab_store"]
 
@@ -30,7 +34,9 @@ def _extract_release(
     if meta is None:
         return current
     if not isinstance(meta, Mapping):
-        raise VocabStoreError(f"Dictionary '{name}' meta section must be a mapping")
+        raise VocabStoreError(
+            f"Dictionary '{name}' meta section must be a mapping"
+        )
     release = meta.get("chembl_release")
     if release is None:
         return current
@@ -72,7 +78,9 @@ def build_vocab_store(
     for name in dictionary_names:
         block_raw = store[name]
         if not isinstance(block_raw, Mapping):
-            raise VocabStoreError(f"Dictionary '{name}' payload must be a mapping")
+            raise VocabStoreError(
+                f"Dictionary '{name}' payload must be a mapping"
+            )
 
         block = cast(Mapping[str, Any], block_raw)
         meta_section_raw: Any = block.get("meta")
@@ -93,7 +101,9 @@ def build_vocab_store(
         aggregated[name] = dict(block)
 
     if chembl_release is None:
-        raise VocabStoreError("chembl_release metadata is missing across dictionaries")
+        raise VocabStoreError(
+            "chembl_release metadata is missing across dictionaries"
+        )
 
     aggregated_with_meta: dict[str, Any] = {
         "meta": {
@@ -104,5 +114,9 @@ def build_vocab_store(
     aggregated_with_meta.update(aggregated)
 
     atomic_write_yaml(aggregated_with_meta, resolved_output)
-    log.info(LogEvents.VOCAB_STORE_BUILT, source=str(resolved_src), output=str(resolved_output))
+    log.info(
+        LogEvents.VOCAB_STORE_BUILT,
+        source=str(resolved_src),
+        output=str(resolved_output),
+    )
     return resolved_output

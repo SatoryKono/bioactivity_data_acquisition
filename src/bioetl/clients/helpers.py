@@ -11,7 +11,11 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
-def safe_cast(value: Any, target_type: Callable[[Any], U] | type[U], default: U | None = None) -> U | None:
+def safe_cast(
+    value: Any,
+    target_type: Callable[[Any], U] | type[U],
+    default: U | None = None,
+) -> U | None:
     """Безопасно привести значение к заданному типу.
 
     При ошибке преобразования возвращается ``default`` (по умолчанию ``None``).
@@ -25,7 +29,9 @@ def safe_cast(value: Any, target_type: Callable[[Any], U] | type[U], default: U 
         return default
 
 
-def flatten_dict(mapping: Mapping[str, Any], *, parent_key: str = "", sep: str = ".") -> dict[str, Any]:
+def flatten_dict(
+    mapping: Mapping[str, Any], *, parent_key: str = "", sep: str = "."
+) -> dict[str, Any]:
     """Свести вложенный словарь к плоскому представлению с разделителем ``sep``."""
 
     items: dict[str, Any] = {}
@@ -38,7 +44,9 @@ def flatten_dict(mapping: Mapping[str, Any], *, parent_key: str = "", sep: str =
     return items
 
 
-def batch_iterator(iterable: Iterable[T], batch_size: int) -> Iterator[tuple[T, ...]]:
+def batch_iterator(
+    iterable: Iterable[T], batch_size: int
+) -> Iterator[tuple[T, ...]]:
     """Итерировать по последовательности батчами фиксированного размера."""
 
     if batch_size <= 0:
@@ -63,4 +71,6 @@ def retry_backoff(
 ):
     """Декоратор экспоненциального backoff для повторов HTTP-запросов."""
 
-    return backoff.on_exception(backoff.expo, exc_types, max_tries=max_tries, factor=factor, base=base)
+    return backoff.on_exception(
+        backoff.expo, exc_types, max_tries=max_tries, factor=factor, base=base
+    )

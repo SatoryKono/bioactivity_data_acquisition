@@ -54,7 +54,9 @@ def make_empty_frame_factory(
 def make_dry_run_handler(
     log_event: LogEvents,
     get_metadata: Callable[[PipelineT], Mapping[str, Any]],
-) -> Callable[[PipelineT, ChemblExtractionContext, BoundLogger, float], pd.DataFrame]:
+) -> Callable[
+    [PipelineT, ChemblExtractionContext, BoundLogger, float], pd.DataFrame
+]:
     """Create a dry_run_handler function for a given log event and metadata extractor.
 
     Parameters

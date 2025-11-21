@@ -30,14 +30,16 @@ def common_options(func: Callable[..., Any]) -> Callable[..., Any]:
 
     def wrapper(
         config: Path | None = option_config(),
-        verbose: bool = typer.Option(False, "--verbose", "-v", help="Подробный вывод."),
+        verbose: bool = typer.Option(
+            False, "--verbose", "-v", help="Подробный вывод."
+        ),
     ) -> Any:
         return func(config=config, verbose=verbose)
 
     wrapper.__name__ = getattr(func, "__name__", wrapper.__name__)
     wrapper.__doc__ = getattr(func, "__doc__", wrapper.__doc__)
     wrapper.__qualname__ = getattr(func, "__qualname__", wrapper.__qualname__)
-    
+
     return wrapper
 
 

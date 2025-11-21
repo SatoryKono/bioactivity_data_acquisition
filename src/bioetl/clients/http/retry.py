@@ -18,9 +18,13 @@ __all__ = ["RetryingSession"]
 class RetryingSession:
     """Provide guarded HTTP execution with normalized exception semantics."""
 
-    def __init__(self, client: UnifiedAPIClient, *, logger: BoundLogger | None = None) -> None:
+    def __init__(
+        self, client: UnifiedAPIClient, *, logger: BoundLogger | None = None
+    ) -> None:
         self._client = client
-        self._log = logger or UnifiedLogger.get(__name__).bind(component="clients.retrying_session")
+        self._log = logger or UnifiedLogger.get(__name__).bind(
+            component="clients.retrying_session"
+        )
 
     @property
     def base_url(self) -> str | None:
@@ -52,7 +56,9 @@ class RetryingSession:
     ) -> Response:
         try:
             return self._client.get(endpoint, params=params)
-        except CircuitBreakerOpenError as exc:  # pragma: no cover - exercised via integration tests
+        except (
+            CircuitBreakerOpenError
+        ) as exc:  # pragma: no cover - exercised via integration tests
             self._log.warning(
                 LogEvents.CLIENT_CIRCUIT_OPEN,
                 endpoint=endpoint,
@@ -73,7 +79,9 @@ class RetryingSession:
         try:
             payload = response.json()
         except ValueError as exc:
-            raise RequestException(f"Unable to decode JSON response from {response.url!s}") from exc
+            raise RequestException(
+                f"Unable to decode JSON response from {response.url!s}"
+            ) from exc
         if isinstance(payload, Mapping):
             return payload
         raise RequestException(

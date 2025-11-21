@@ -78,7 +78,9 @@ class _ChemblResourceAdapter:
     def filter(self, **filters: Any) -> _ChemblQueryAdapter:
         limit = _safe_int(filters.get("limit"), 0)
         offset = _safe_int(filters.get("offset"), 0)
-        params = {k: v for k, v in filters.items() if k not in {"limit", "offset"}}
+        params = {
+            k: v for k, v in filters.items() if k not in {"limit", "offset"}
+        }
         records = self._collect_records(params, limit, offset)
         return _ChemblQueryAdapter(records)
 
@@ -174,8 +176,18 @@ FIELD_SPECS: tuple[FieldSpec, ...] = (
         field="standard_relation",
         only="standard_relation",
     ),
-    FieldSpec(dictionary="assay_type", resource="assay", field="assay_type", only="assay_type"),
-    FieldSpec(dictionary="target_type", resource="target", field="target_type", only="target_type"),
+    FieldSpec(
+        dictionary="assay_type",
+        resource="assay",
+        field="assay_type",
+        only="assay_type",
+    ),
+    FieldSpec(
+        dictionary="target_type",
+        resource="target",
+        field="target_type",
+        only="target_type",
+    ),
     FieldSpec(
         dictionary="data_validity_comment",
         resource="data_validity_lookup",
@@ -183,9 +195,17 @@ FIELD_SPECS: tuple[FieldSpec, ...] = (
         only="data_validity_comment",
     ),
     FieldSpec(
-        dictionary="action_type", resource="mechanism", field="action_type", only="action_type"
+        dictionary="action_type",
+        resource="mechanism",
+        field="action_type",
+        only="action_type",
     ),
-    FieldSpec(dictionary="bao_format", resource="activity", field="bao_format", only="bao_format"),
+    FieldSpec(
+        dictionary="bao_format",
+        resource="activity",
+        field="bao_format",
+        only="bao_format",
+    ),
 )
 
 
@@ -207,11 +227,15 @@ def _load_store(path: Path) -> Mapping[str, object]:
     try:
         store = load_vocab_store(path)
     except VocabStoreError as exc:
-        raise RuntimeError(f"Failed to load vocabulary store at {path}: {exc}") from exc
+        raise RuntimeError(
+            f"Failed to load vocabulary store at {path}: {exc}"
+        ) from exc
     return cast(Mapping[str, object], store)
 
 
-def _select_mapping_entries(values: list[object]) -> list[Mapping[str, object]]:
+def _select_mapping_entries(
+    values: list[object],
+) -> list[Mapping[str, object]]:
     """Return only mapping entries from a mixed list."""
     typed_entries: list[Mapping[str, object]] = []
     for entry in values:
@@ -270,7 +294,9 @@ def _classify(status: str | None) -> str:
     return lowered
 
 
-def _fetch_unique_values(spec: FieldSpec, *, page_size: int, pages: int) -> Counter[str]:
+def _fetch_unique_values(
+    spec: FieldSpec, *, page_size: int, pages: int
+) -> Counter[str]:
     """Fetch unique values for a dictionary field using the ChEMBL client."""
     resource = cast(_ResourceProtocol, getattr(new_client, spec.resource))
     counter: Counter[str] = Counter()
@@ -300,7 +326,14 @@ def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:
     """Write audit rows to CSV atomically."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
-    fieldnames = ["dictionary", "resource", "field", "value", "status", "occurrences"]
+    fieldnames = [
+        "dictionary",
+        "resource",
+        "field",
+        "value",
+        "status",
+        "occurrences",
+    ]
     with tmp_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
@@ -418,7 +451,9 @@ def audit_vocabularies(
                 }
             )
 
-    audit_rows.sort(key=lambda row: (row["dictionary"], row["status"], row["value"]))
+    audit_rows.sort(
+        key=lambda row: (row["dictionary"], row["status"], row["value"])
+    )
 
     output_path = (output or DEFAULT_OUTPUT).expanduser().resolve()
     meta_path = (meta or DEFAULT_META).expanduser().resolve()
@@ -427,10 +462,16 @@ def audit_vocabularies(
 
     checksum = hash_file(output_path)
     business_key_hash = _compute_business_key_hash(audit_rows)
-    generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    generated_at = (
+        datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    )
     release = _extract_release(vocab_store)
-    config_payload = f"store={resolved_store}|pages={pages}|page_size={page_size}"
-    config_hash = hashlib.blake2b(config_payload.encode("utf-8"), digest_size=32).hexdigest()
+    config_payload = (
+        f"store={resolved_store}|pages={pages}|page_size={page_size}"
+    )
+    config_hash = hashlib.blake2b(
+        config_payload.encode("utf-8"), digest_size=32
+    ).hexdigest()
 
     meta_payload = {
         "pipeline_version": PIPELINE_VERSION,
@@ -457,4 +498,6 @@ def audit_vocabularies(
         meta=str(meta_path),
     )
 
-    return VocabAuditResult(rows=tuple(audit_rows), output=output_path, meta=meta_path)
+    return VocabAuditResult(
+        rows=tuple(audit_rows), output=output_path, meta=meta_path
+    )

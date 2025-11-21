@@ -1,4 +1,5 @@
 """Утилиты для пометки объектов как устаревающих."""
+
 from __future__ import annotations
 
 import functools

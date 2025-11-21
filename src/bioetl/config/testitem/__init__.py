@@ -31,7 +31,9 @@ class TestItemSourceParameters(SourceParameters):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any] | None) -> TestItemSourceParameters:
+    def from_mapping(
+        cls, params: Mapping[str, Any] | None
+    ) -> TestItemSourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -49,7 +51,9 @@ class TestItemSourceParameters(SourceParameters):
 
         normalized = cls._normalize_mapping(params)
 
-        select_fields = normalize_select_fields(normalized.get("select_fields"))
+        select_fields = normalize_select_fields(
+            normalized.get("select_fields")
+        )
 
         max_pages_raw = normalized.get("max_pages")
         max_pages: PositiveInt | None = None
@@ -79,7 +83,9 @@ class TestItemSourceConfig(SourceConfig[TestItemSourceParameters]):
         default=200,
         description="Effective page size for pagination requests.",
     )
-    parameters: TestItemSourceParameters = Field(default_factory=TestItemSourceParameters)
+    parameters: TestItemSourceParameters = Field(
+        default_factory=TestItemSourceParameters
+    )
 
     parameters_model = TestItemSourceParameters
     batch_field = "page_size"

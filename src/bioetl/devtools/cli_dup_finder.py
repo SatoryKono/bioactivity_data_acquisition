@@ -31,7 +31,16 @@ _VALID_FORMATS = ("md", "csv")
 
 Kind = Literal["func", "class", "method"]
 Role = Literal[
-    "extract", "transform", "validate", "write", "run", "client", "schema", "util", "log", "cli"
+    "extract",
+    "transform",
+    "validate",
+    "write",
+    "run",
+    "client",
+    "schema",
+    "util",
+    "log",
+    "cli",
 ]
 
 
@@ -63,7 +72,9 @@ class CodeUnit:
 
     @property
     def reference(self) -> str:
-        return f"{self.rel_path.as_posix()}#L{self.start_line}-L{self.end_line}"
+        return (
+            f"{self.rel_path.as_posix()}#L{self.start_line}-L{self.end_line}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,7 +122,16 @@ def strip_docstrings(body: list[ast.stmt]) -> list[ast.stmt]:
 class _ASTNormalizer(ast.NodeTransformer):
     """Canonicalise AST nodes by stripping noise, sorting inputs, and normalising literals."""
 
-    _LOG_ATTRS = {"debug", "info", "warning", "error", "exception", "critical", "trace", "log"}
+    _LOG_ATTRS = {
+        "debug",
+        "info",
+        "warning",
+        "error",
+        "exception",
+        "critical",
+        "trace",
+        "log",
+    }
 
     def visit_Module(self, node: ast.Module) -> ast.Module:
         node = cast(ast.Module, self.generic_visit(node))
@@ -156,7 +176,9 @@ class _ASTNormalizer(ast.NodeTransformer):
         sortable: list[tuple[str, ast.expr | None, ast.expr]] = []
         fallback: list[tuple[ast.expr | None, ast.expr]] = []
         for key_expr, value_expr in zip(node.keys, node.values, strict=False):
-            if isinstance(key_expr, ast.Constant) and isinstance(key_expr.value, str):
+            if isinstance(key_expr, ast.Constant) and isinstance(
+                key_expr.value, str
+            ):
                 sortable.append((key_expr.value, key_expr, value_expr))
             else:
                 fallback.append((key_expr, value_expr))
@@ -164,7 +186,9 @@ class _ASTNormalizer(ast.NodeTransformer):
         new_keys: list[ast.expr | None] = [item[1] for item in sortable] + [
             item[0] for item in fallback
         ]
-        new_values: list[ast.expr] = [item[2] for item in sortable] + [item[1] for item in fallback]
+        new_values: list[ast.expr] = [item[2] for item in sortable] + [
+            item[1] for item in fallback
+        ]
         node.keys = new_keys
         node.values = new_values
         return node
@@ -202,7 +226,11 @@ def _lcs_ratio(seq_a: Sequence[str], seq_b: Sequence[str]) -> float:
             if seq_a[i] == seq_b[j]:
                 dp[i + 1][j + 1] = dp[i][j] + 1
             else:
-                dp[i + 1][j + 1] = dp[i + 1][j] if dp[i + 1][j] >= dp[i][j + 1] else dp[i][j + 1]
+                dp[i + 1][j + 1] = (
+                    dp[i + 1][j]
+                    if dp[i + 1][j] >= dp[i][j + 1]
+                    else dp[i][j + 1]
+                )
     lcs_length = dp[len_a][len_b]
     denominator = max(len_a, len_b)
     return lcs_length / denominator if denominator else 0.0
@@ -222,7 +250,9 @@ def _escape_html(text: str) -> str:
     return html.escape(text, quote=False)
 
 
-def _make_snippet(lines: Sequence[str], start_line: int, end_line: int, max_lines: int = 5) -> str:
+def _make_snippet(
+    lines: Sequence[str], start_line: int, end_line: int, max_lines: int = 5
+) -> str:
     lower = max(0, start_line - 1)
     upper = min(len(lines), start_line - 1 + max_lines, end_line)
     clamped = lines[lower:upper]
@@ -235,10 +265,17 @@ def _tokenize_norm_source(norm_src: str) -> tuple[str, ...]:
     for tok in tokenize.generate_tokens(reader.readline):
         tok_type = tok.type
         tok_string = tok.string
-        if tok_type in {tokenize.NEWLINE, tokenize.NL, tokenize.INDENT, tokenize.DEDENT}:
+        if tok_type in {
+            tokenize.NEWLINE,
+            tokenize.NL,
+            tokenize.INDENT,
+            tokenize.DEDENT,
+        }:
             continue
         if tok_type == tokenize.NAME:
-            if tok_string in {"NUM", "STR", "NAME"} or keyword.iskeyword(tok_string):
+            if tok_string in {"NUM", "STR", "NAME"} or keyword.iskeyword(
+                tok_string
+            ):
                 tokens.append(tok_string)
             else:
                 tokens.append("NAME")
@@ -251,7 +288,9 @@ def _tokenize_norm_source(norm_src: str) -> tuple[str, ...]:
     return tuple(tokens)
 
 
-def _normalise_node(node: ast.AST) -> tuple[str, str, tuple[str, ...], Counter[str]]:
+def _normalise_node(
+    node: ast.AST,
+) -> tuple[str, str, tuple[str, ...], Counter[str]]:
     node_copy = copy.deepcopy(node)
     module = ast.Module(body=[cast(ast.stmt, node_copy)], type_ignores=[])
     normalizer = _ASTNormalizer()
@@ -268,7 +307,9 @@ def _normalise_node(node: ast.AST) -> tuple[str, str, tuple[str, ...], Counter[s
 class _CodeUnitVisitor(ast.NodeVisitor):
     """Collect functional units from the AST."""
 
-    def __init__(self, *, file_path: Path, rel_path: Path, source_lines: Sequence[str]) -> None:
+    def __init__(
+        self, *, file_path: Path, rel_path: Path, source_lines: Sequence[str]
+    ) -> None:
         self._file_path = file_path
         self._rel_path = rel_path
         self._source_lines = source_lines
@@ -292,13 +333,21 @@ class _CodeUnitVisitor(ast.NodeVisitor):
         self._class_stack.pop()
         return None
 
-    def _register_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def _register_function(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
         kind: Kind = "method" if self._class_stack else "func"
-        symbol = ".".join([*self._class_stack, node.name]) if self._class_stack else node.name
+        symbol = (
+            ".".join([*self._class_stack, node.name])
+            if self._class_stack
+            else node.name
+        )
         unit = self._make_code_unit(symbol=symbol, kind=kind, node=node)
         self.units.append(unit)
 
-    def _make_code_unit(self, *, symbol: str, kind: Kind, node: ast.AST) -> CodeUnit:
+    def _make_code_unit(
+        self, *, symbol: str, kind: Kind, node: ast.AST
+    ) -> CodeUnit:
         norm_src, ast_hash, tokens, token_multiset = _normalise_node(node)
         norm_loc = sum(1 for line in norm_src.splitlines() if line.strip())
         start_line = getattr(node, "lineno", 0)
@@ -335,17 +384,25 @@ def _classify_role(rel_path: Path, symbol: str) -> Role:
     if "logger" in parts or lowered_symbol.startswith("log_"):
         return "log"
     if "pipelines" in parts:
-        if filename == "run.py" or lowered_symbol.startswith(("run", "execute")):
+        if filename == "run.py" or lowered_symbol.startswith(
+            ("run", "execute")
+        ):
             return "run"
         if any(key in parts for key in {"extract", "loader"}):
             return "extract"
         if lowered_symbol.startswith("extract"):
             return "extract"
-        if any(keyword_piece in parts for keyword_piece in {"transform", "transformers"}):
+        if any(
+            keyword_piece in parts
+            for keyword_piece in {"transform", "transformers"}
+        ):
             return "transform"
         if lowered_symbol.startswith("transform"):
             return "transform"
-        if any(keyword_piece in parts for keyword_piece in {"validate", "validator"}):
+        if any(
+            keyword_piece in parts
+            for keyword_piece in {"validate", "validator"}
+        ):
             return "validate"
         if lowered_symbol.startswith("validate"):
             return "validate"
@@ -388,7 +445,9 @@ def _parse_code_units(
     except SyntaxError as exc:
         message = f"{exc.msg} (line {exc.lineno})"
         return [], [ParseError(path=file_path, message=message)]
-    visitor = _CodeUnitVisitor(file_path=file_path, rel_path=rel_path, source_lines=source_lines)
+    visitor = _CodeUnitVisitor(
+        file_path=file_path, rel_path=rel_path, source_lines=source_lines
+    )
     visitor.visit(module)
     return visitor.units, []
 
@@ -401,14 +460,27 @@ def _build_clusters(units: Sequence[CodeUnit]) -> list[DuplicateCluster]:
     for ast_hash, members in buckets.items():
         if len(members) > 1:
             ordered = tuple(
-                sorted(members, key=lambda item: (item.rel_path.as_posix(), item.start_line))
+                sorted(
+                    members,
+                    key=lambda item: (
+                        item.rel_path.as_posix(),
+                        item.start_line,
+                    ),
+                )
             )
-            clusters.append(DuplicateCluster(ast_hash=ast_hash, members=ordered))
-    clusters.sort(key=lambda cluster: (len(cluster.members), cluster.ast_hash), reverse=True)
+            clusters.append(
+                DuplicateCluster(ast_hash=ast_hash, members=ordered)
+            )
+    clusters.sort(
+        key=lambda cluster: (len(cluster.members), cluster.ast_hash),
+        reverse=True,
+    )
     return clusters
 
 
-def _build_near_duplicates(units: Sequence[CodeUnit]) -> list[NearDuplicatePair]:
+def _build_near_duplicates(
+    units: Sequence[CodeUnit],
+) -> list[NearDuplicatePair]:
     candidates = [unit for unit in units if "tests" not in unit.rel_path.parts]
     pairs: list[NearDuplicatePair] = []
     for left, right in combinations(candidates, 2):
@@ -425,10 +497,14 @@ def _build_near_duplicates(units: Sequence[CodeUnit]) -> list[NearDuplicatePair]
             divergences.append(f"norm_loc:{left.norm_loc}->{right.norm_loc}")
         counter_a = left.token_multiset
         counter_b = right.token_multiset
-        sym_diff = sum((counter_a - counter_b).values()) + sum((counter_b - counter_a).values())
+        sym_diff = sum((counter_a - counter_b).values()) + sum(
+            (counter_b - counter_a).values()
+        )
         if sym_diff:
             divergences.append(f"token_delta:{sym_diff}")
-        divergence_str = ", ".join(sorted(divergences)) if divergences else "equal"
+        divergence_str = (
+            ", ".join(sorted(divergences)) if divergences else "equal"
+        )
         pairs.append(
             NearDuplicatePair(
                 unit_a=left,
@@ -469,10 +545,20 @@ def _format_pair_reference(pair: NearDuplicatePair) -> str:
     )
 
 
-_CSV_FIELDNAMES = ("symbol", "path", "lines", "kind", "role", "norm_loc", "ast_hash")
+_CSV_FIELDNAMES = (
+    "symbol",
+    "path",
+    "lines",
+    "kind",
+    "role",
+    "norm_loc",
+    "ast_hash",
+)
 
 
-def _generate_csv_rows(units: Sequence[CodeUnit]) -> list[dict[str, str | int]]:
+def _generate_csv_rows(
+    units: Sequence[CodeUnit],
+) -> list[dict[str, str | int]]:
     rows: list[dict[str, str | int]] = []
     for unit in units:
         rows.append(
@@ -517,7 +603,9 @@ def _render_markdown(
     buffer.write("# Shared code map\n\n")
     if not tests_present:
         buffer.write("> ARCHIVE_TESTS: missing in branch\n\n")
-    buffer.write("| Symbol | Kind | Role | Lines | Norm LOC | AST Hash | Reference |\n")
+    buffer.write(
+        "| Symbol | Kind | Role | Lines | Norm LOC | AST Hash | Reference |\n"
+    )
     buffer.write("| --- | --- | --- | --- | --- | --- | --- |\n")
     for unit in units:
         reference_cell = _format_reference_cell(unit)
@@ -530,7 +618,9 @@ def _render_markdown(
         buffer.write("No duplicates found.\n\n")
     else:
         for cluster in clusters:
-            buffer.write(f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} entries\n\n")
+            buffer.write(
+                f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} entries\n\n"
+            )
             for cluster_member in cluster.members:
                 buffer.write(
                     f"- `{cluster_member.symbol}` ({cluster_member.kind}, {cluster_member.role}) — "
@@ -579,7 +669,9 @@ def _write_errors(path: Path, errors: Sequence[ParseError]) -> None:
         writer = csv.DictWriter(handle, fieldnames=["path", "error"])
         writer.writeheader()
         for error in errors:
-            writer.writerow({"path": error.path.as_posix(), "error": error.message})
+            writer.writerow(
+                {"path": error.path.as_posix(), "error": error.message}
+            )
     os.replace(tmp, path)
 
 
@@ -614,12 +706,16 @@ def _render_to_stdout(
         _write_stream_block(handle, "# dup_map.csv")
         _write_stream_block(handle, csv_content.rstrip())
     if "md" in formats:
-        markdown_content = _render_markdown(units, clusters, pairs, tests_present)
+        markdown_content = _render_markdown(
+            units, clusters, pairs, tests_present
+        )
         _write_stream_block(handle, "# dup_map.md")
         _write_stream_block(handle, markdown_content.rstrip())
 
 
-def run_dup_finder(root: Path, out_dir: Path | None, formats: Sequence[str]) -> None:
+def run_dup_finder(
+    root: Path, out_dir: Path | None, formats: Sequence[str]
+) -> None:
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)
     UnifiedLogger.bind(
@@ -640,24 +736,38 @@ def run_dup_finder(root: Path, out_dir: Path | None, formats: Sequence[str]) -> 
                 code_units.extend(units)
             if errors:
                 parse_errors.extend(errors)
-        code_units.sort(key=lambda item: (item.rel_path.as_posix(), item.start_line))
-        log.info(LogEvents.SCAN_COMPLETE, units=len(code_units), errors=len(parse_errors))
+        code_units.sort(
+            key=lambda item: (item.rel_path.as_posix(), item.start_line)
+        )
+        log.info(
+            LogEvents.SCAN_COMPLETE,
+            units=len(code_units),
+            errors=len(parse_errors),
+        )
         clusters = _build_clusters(code_units)
         near_duplicates = _build_near_duplicates(code_units)
         tests_present = (root / "tests").exists()
         if not out_dir or str(out_dir) == "-":
-            _render_to_stdout(formats, code_units, clusters, near_duplicates, tests_present)
+            _render_to_stdout(
+                formats, code_units, clusters, near_duplicates, tests_present
+            )
             if parse_errors:
                 log.warning(LogEvents.PARSE_ERRORS, count=len(parse_errors))
             if directory_warnings:
-                log.warning(LogEvents.DIRECTORY_WARNINGS, count=len(directory_warnings))
+                log.warning(
+                    LogEvents.DIRECTORY_WARNINGS, count=len(directory_warnings)
+                )
             return
         out_dir.mkdir(parents=True, exist_ok=True)
         if "csv" in formats:
             _write_csv(out_dir / "dup_map.csv", code_units)
         if "md" in formats:
             _write_markdown(
-                out_dir / "dup_map.md", code_units, clusters, near_duplicates, tests_present
+                out_dir / "dup_map.md",
+                code_units,
+                clusters,
+                near_duplicates,
+                tests_present,
             )
         if parse_errors:
             _write_errors(out_dir / "errors.csv", parse_errors)
@@ -677,10 +787,14 @@ def run_dup_finder(root: Path, out_dir: Path | None, formats: Sequence[str]) -> 
 
 def _parse_formats(option: str) -> tuple[str, ...]:
     normalized = tuple(
-        dict.fromkeys(item.strip().lower() for item in option.split(",") if item.strip())
+        dict.fromkeys(
+            item.strip().lower() for item in option.split(",") if item.strip()
+        )
     )
     if not normalized:
-        raise ValueError("At least one output format must be specified (md,csv).")
+        raise ValueError(
+            "At least one output format must be specified (md,csv)."
+        )
     invalid = [item for item in normalized if item not in _VALID_FORMATS]
     if invalid:
         raise ValueError(f"Invalid formats: {', '.join(sorted(set(invalid)))}")

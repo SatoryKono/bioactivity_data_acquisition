@@ -1,4 +1,5 @@
 """Mixin-классы для нормализации, обогащения и валидации."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -22,14 +23,18 @@ class NormalizationMixin:
         filtered_records = list(records)
         if filters:
             for predicate in filters:
-                filtered_records = [record for record in filtered_records if predicate(record)]
+                filtered_records = [
+                    record for record in filtered_records if predicate(record)
+                ]
 
         value_normalizers = value_normalizers or {}
         normalized: list[dict[str, Any]] = []
         for record in filtered_records:
             row: dict[str, Any] = {}
             for target_field, source in field_mappings.items():
-                value = source(record) if callable(source) else record.get(source)
+                value = (
+                    source(record) if callable(source) else record.get(source)
+                )
                 normalizer = value_normalizers.get(target_field)
                 row[target_field] = normalizer(value) if normalizer else value
             normalized.append(row)
@@ -43,7 +48,9 @@ class EnrichmentMixin:
     def enrich_records(
         self,
         records: Sequence[Mapping[str, Any]],
-        enrichment_rules: Iterable[Callable[[Mapping[str, Any]], Mapping[str, Any]]],
+        enrichment_rules: Iterable[
+            Callable[[Mapping[str, Any]], Mapping[str, Any]]
+        ],
     ) -> list[dict[str, Any]]:
         enriched: list[dict[str, Any]] = []
         for record in records:
@@ -60,12 +67,16 @@ class ValidationMixin:
     def validate_dataframe(
         self,
         df: pd.DataFrame,
-        schema: Mapping[str, Callable[[pd.Series], pd.Series | bool]] | None = None,
+        schema: (
+            Mapping[str, Callable[[pd.Series], pd.Series | bool]] | None
+        ) = None,
     ) -> None:
         if schema is None:
             return
 
-        missing = [column for column in schema.keys() if column not in df.columns]
+        missing = [
+            column for column in schema.keys() if column not in df.columns
+        ]
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
 
@@ -73,6 +84,8 @@ class ValidationMixin:
             result = validator(df[column])
             if isinstance(result, pd.Series):
                 if not result.all():
-                    raise ValueError(f"Validation failed for column '{column}'")
+                    raise ValueError(
+                        f"Validation failed for column '{column}'"
+                    )
             elif not result:
                 raise ValueError(f"Validation failed for column '{column}'")

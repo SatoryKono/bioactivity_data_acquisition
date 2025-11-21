@@ -146,7 +146,9 @@ class ChemblEntityConfigMixin:
         resolved_max_url_length = max_url_length
         if resolved_max_url_length is None:
             resolved_max_url_length = self.DEFAULT_MAX_URL_LENGTH
-        resolved_max_url_length = self._normalize_max_url_length(resolved_max_url_length)
+        resolved_max_url_length = self._normalize_max_url_length(
+            resolved_max_url_length
+        )
 
         if self.REQUIRE_MAX_URL_LENGTH and resolved_max_url_length is None:
             msg = "max_url_length обязателен для данного клиента"
@@ -167,7 +169,9 @@ class ChemblEntityConfigMixin:
     def _normalize_batch_size(self, batch_size: int | None) -> int | None:
         return batch_size
 
-    def _normalize_max_url_length(self, max_url_length: int | None) -> int | None:
+    def _normalize_max_url_length(
+        self, max_url_length: int | None
+    ) -> int | None:
         return max_url_length
 
 
@@ -254,7 +258,9 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
             return {}
 
         payload = self._chembl_client.handshake(endpoint)
-        release = payload.get("chembl_db_version") or payload.get("chembl_release")
+        release = payload.get("chembl_db_version") or payload.get(
+            "chembl_release"
+        )
         if isinstance(release, str):
             self._set_chembl_release(release)
         self._log.info(
@@ -289,7 +295,9 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         projection = normalize_select_fields(fields)
         page_size = self._resolve_page_size(page_limit, None)
         records: list[Mapping[str, Any]] = []
-        for chunk in self._chunk_identifiers(identifiers, select_fields=projection):
+        for chunk in self._chunk_identifiers(
+            identifiers, select_fields=projection
+        ):
             params = self._build_chunk_params(chunk, fields=projection)
             chunk_records = list(
                 self.iterate_records(
@@ -367,7 +375,9 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.fetch_by_ids(ids, fields=fields, page_limit=page_limit).frame
+        return self.fetch_by_ids(
+            ids, fields=fields, page_limit=page_limit
+        ).frame
 
     def fetch_all_dataframe(
         self,
@@ -383,7 +393,9 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.fetch_all(limit=limit, fields=fields, page_size=page_size).frame
+        return self.fetch_all(
+            limit=limit, fields=fields, page_size=page_size
+        ).frame
 
     def iterate_all(
         self,
@@ -418,7 +430,9 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
 
         projection = normalize_select_fields(select_fields)
         page_size = self._resolve_page_size(None, None)
-        for chunk in self._chunk_identifiers(identifiers, select_fields=projection):
+        for chunk in self._chunk_identifiers(
+            identifiers, select_fields=projection
+        ):
             params = self._build_chunk_params(chunk, fields=projection)
             yield from self.iterate_records(
                 params=params,
@@ -525,11 +539,15 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         *,
         select_fields: Sequence[str] | None,
     ) -> int:
-        params_dict: dict[str, str] = {self._config.filter_param: ",".join(identifiers)}
+        params_dict: dict[str, str] = {
+            self._config.filter_param: ",".join(identifiers)
+        }
         if select_fields:
             params_dict["only"] = ",".join(sorted(select_fields))
         encoded = urlencode(params_dict)
-        base_length = self._config.base_endpoint_length or len(self._config.endpoint)
+        base_length = self._config.base_endpoint_length or len(
+            self._config.endpoint
+        )
         return base_length + 1 + len(encoded)
 
     def _compose_params(
@@ -553,7 +571,10 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         limit: int | None,
     ) -> int:
         candidate = (
-            requested or self._config.max_page_size or self._batch_size or self._DEFAULT_PAGE_SIZE
+            requested
+            or self._config.max_page_size
+            or self._batch_size
+            or self._DEFAULT_PAGE_SIZE
         )
         if candidate <= 0:
             candidate = self._DEFAULT_PAGE_SIZE
@@ -573,10 +594,16 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         if not records:
             return self._empty_frame(fields)
         frame = pd.DataFrame.from_records(records)
-        ordered_columns = self._resolve_column_order(frame.columns.tolist(), fields)
+        ordered_columns = self._resolve_column_order(
+            frame.columns.tolist(), fields
+        )
         frame = frame.reindex(columns=ordered_columns)
         if self._config.ordering:
-            sort_columns = [column for column in self._config.ordering if column in frame.columns]
+            sort_columns = [
+                column
+                for column in self._config.ordering
+                if column in frame.columns
+            ]
             if sort_columns:
                 frame = frame.sort_values(by=sort_columns, kind="mergesort")
         return frame.reset_index(drop=True)
@@ -607,7 +634,9 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         return ordered
 
     def _empty_frame(self, fields: Sequence[str] | None) -> pd.DataFrame:
-        column_order = list(fields) if fields else list(self._config.default_fields)
+        column_order = (
+            list(fields) if fields else list(self._config.default_fields)
+        )
         if not column_order:
             column_order = list(self._config.ordering)
         return pd.DataFrame(columns=column_order)

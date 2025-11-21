@@ -129,7 +129,9 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Serialize uniprot_accessions as JSON array
     unique_accessions = sorted(set(accessions))
     if unique_accessions:
-        result["uniprot_accessions"] = json.dumps(unique_accessions, ensure_ascii=False)
+        result["uniprot_accessions"] = json.dumps(
+            unique_accessions, ensure_ascii=False
+        )
         result["component_count"] = len(unique_accessions)
     else:
         # Fallback to top-level component_count if available
@@ -143,7 +145,9 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Serialize target_component_synonyms
     if all_synonyms:
         canonical_synonyms = _canonicalize_dicts(all_synonyms)
-        result["target_component_synonyms__flat"] = header_rows_serialize(canonical_synonyms)
+        result["target_component_synonyms__flat"] = header_rows_serialize(
+            canonical_synonyms
+        )
 
     # Serialize target_components
     if comps:
@@ -229,7 +233,9 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
         flattened_data: list[dict[str, Any]] = []
         for _, row in df.iterrows():
             # Convert row to dict, handling NaN values
-            row_dict: dict[str, Any] = row.to_dict()  # pyright: ignore[reportUnknownMemberType]
+            row_dict: dict[str, Any] = (
+                row.to_dict()
+            )  # pyright: ignore[reportUnknownMemberType]
             # Replace NaN with None for proper dict handling
             for key, value in row_dict.items():
                 # Handle array-like values: check if it's an array first
@@ -241,7 +247,9 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
                     else:
                         # Check if all values are NaN using numpy's isnan
                         try:
-                            nan_mask = np.asarray(pd.isna(array_value), dtype=bool)
+                            nan_mask = np.asarray(
+                                pd.isna(array_value), dtype=bool
+                            )
                             if bool(np.all(nan_mask)):
                                 row_dict[key] = None
                         except (TypeError, ValueError):

@@ -65,7 +65,13 @@ def run_link_check(timeout_seconds: int = 300) -> int:
 
     try:
         result = subprocess.run(
-            ["lychee", "--config", str(config_file), "--output", str(output_file)],
+            [
+                "lychee",
+                "--config",
+                str(config_file),
+                "--output",
+                str(output_file),
+            ],
             capture_output=True,
             text=True,
             timeout=timeout_seconds,

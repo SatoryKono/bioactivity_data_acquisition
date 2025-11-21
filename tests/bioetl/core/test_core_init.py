@@ -83,7 +83,6 @@ def test_core_public_exports_are_available() -> None:
         "bioetl.core.errors",
         "bioetl.core.load_meta_store",
         "bioetl.core.base_pipeline",
-        "bioetl.core.config",
         "bioetl.core.config.base_source",
         "bioetl.core.interfaces",
         "bioetl.core.runtime.base_pipeline_compat",

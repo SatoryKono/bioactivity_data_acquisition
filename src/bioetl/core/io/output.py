@@ -87,7 +87,9 @@ class WriteResult:
     extras: dict[str, Path] = field(default_factory=dict)
 
 
-def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
+def ensure_hash_columns(
+    df: pd.DataFrame, *, config: PipelineConfig
+) -> pd.DataFrame:
     """Return ``df`` with integrity hash columns populated."""
 
     # Early return for empty DataFrame - no need to compute hashes
@@ -114,13 +116,17 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
     else:
         row_fields = [col for col in df.columns if col not in exclude]
 
-    missing_row_fields = [field for field in row_fields if field not in df.columns]
+    missing_row_fields = [
+        field for field in row_fields if field not in df.columns
+    ]
     if missing_row_fields:
         missing_str = ", ".join(missing_row_fields)
         raise KeyError(f"Field(s) {missing_str} is missing from dataframe")
 
     business_fields = list(hashing_config.business_key_fields)
-    missing_business_fields = [field for field in business_fields if field not in df.columns]
+    missing_business_fields = [
+        field for field in business_fields if field not in df.columns
+    ]
     if missing_business_fields:
         missing_str = ", ".join(missing_business_fields)
         raise KeyError(f"Field(s) {missing_str} is missing from dataframe")
@@ -131,7 +137,9 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
         if series.empty:
             return True
         as_string = series.astype("string")
-        return bool(as_string.isna().any() or (as_string.str.strip() == "").any())
+        return bool(
+            as_string.isna().any() or (as_string.str.strip() == "").any()
+        )
 
     if row_column in result.columns:
         row_needs_recompute = _needs_recompute(result[row_column])
@@ -141,29 +149,40 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
     if row_needs_recompute:
         row_fields = list(row_fields)  # ensure deterministic ordering
         row_records: list[dict[str, Any]] = []
-        for tuple_values in result[row_fields].itertuples(index=False, name=None):
+        for tuple_values in result[row_fields].itertuples(
+            index=False, name=None
+        ):
             record = dict(zip(row_fields, tuple_values, strict=True))
             row_records.append(record)
         row_hashes = [
-            hash_from_mapping(record, row_fields, algorithm=algorithm) for record in row_records
+            hash_from_mapping(record, row_fields, algorithm=algorithm)
+            for record in row_records
         ]
-        result[row_column] = pd.Series(row_hashes, index=result.index, dtype="string")
+        result[row_column] = pd.Series(
+            row_hashes, index=result.index, dtype="string"
+        )
 
     if business_fields:
         if business_column in result.columns:
-            business_needs_recompute = _needs_recompute(result[business_column])
+            business_needs_recompute = _needs_recompute(
+                result[business_column]
+            )
         else:
             business_needs_recompute = True
         if business_needs_recompute:
             business_records: list[dict[str, Any]] = []
-            for tuple_values in result[business_fields].itertuples(index=False, name=None):
+            for tuple_values in result[business_fields].itertuples(
+                index=False, name=None
+            ):
                 record = dict(zip(business_fields, tuple_values, strict=True))
                 business_records.append(record)
             business_hashes = [
                 hash_from_mapping(record, business_fields, algorithm=algorithm)
                 for record in business_records
             ]
-            result[business_column] = pd.Series(business_hashes, index=result.index, dtype="string")
+            result[business_column] = pd.Series(
+                business_hashes, index=result.index, dtype="string"
+            )
 
     return result
 
@@ -186,7 +205,9 @@ def _stable_sort(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
         raise KeyError(msg)
 
     ascending_list: list[bool] = (
-        list(sort_config.ascending) if sort_config.ascending else [True] * len(sort_config.by)
+        list(sort_config.ascending)
+        if sort_config.ascending
+        else [True] * len(sort_config.by)
     )
     if sort_config.na_position == "first" or sort_config.na_position == "last":
         na_pos_str = sort_config.na_position
@@ -202,7 +223,9 @@ def _stable_sort(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
     ).reset_index(drop=True)
 
 
-def _enforce_column_order(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
+def _enforce_column_order(
+    df: pd.DataFrame, *, config: PipelineConfig
+) -> pd.DataFrame:
     order = list(config.determinism.column_order)
     if not order:
         return df
@@ -214,7 +237,9 @@ def _enforce_column_order(df: pd.DataFrame, *, config: PipelineConfig) -> pd.Dat
     return df[[*order, *extra]]
 
 
-def prepare_dataframe(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
+def prepare_dataframe(
+    df: pd.DataFrame, *, config: PipelineConfig
+) -> pd.DataFrame:
     """Apply determinism rules (column order + sort) to ``df``."""
 
     prepared = _enforce_column_order(df, config=config)
@@ -245,7 +270,9 @@ def _csv_quoting(config: PipelineConfig) -> CSVQuotingLiteral:
         raise ValueError(msg) from exc
 
 
-def write_dataset_atomic(df: pd.DataFrame, path: Path, *, config: PipelineConfig) -> None:
+def write_dataset_atomic(
+    df: pd.DataFrame, path: Path, *, config: PipelineConfig
+) -> None:
     """Write ``df`` deterministically to ``path`` using an atomic replace."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -269,7 +296,9 @@ def write_dataset_atomic(df: pd.DataFrame, path: Path, *, config: PipelineConfig
 
 
 def _write_mapping_atomic(
-    payload: Mapping[str, Any], path: Path, serializer: Callable[[Mapping[str, Any], TextIO], None]
+    payload: Mapping[str, Any],
+    path: Path,
+    serializer: Callable[[Mapping[str, Any], TextIO], None],
 ) -> None:
     """Persist ``payload`` using ``serializer`` via an atomic replace."""
 
@@ -302,16 +331,23 @@ def write_yaml_atomic(payload: Mapping[str, Any], path: Path) -> None:
     _write_mapping_atomic(
         payload,
         path,
-        lambda data, handle: yaml.safe_dump(data, handle, sort_keys=True, allow_unicode=True),
+        lambda data, handle: yaml.safe_dump(
+            data, handle, sort_keys=True, allow_unicode=True
+        ),
     )
 
 
 def write_frame_like(
-    frame: pd.DataFrame | Mapping[str, Any], path: Path, *, config: PipelineConfig
+    frame: pd.DataFrame | Mapping[str, Any],
+    path: Path,
+    *,
+    config: PipelineConfig,
 ) -> None:
     """Write optional QC artefacts respecting deterministic CSV settings."""
 
-    dataset = frame if isinstance(frame, pd.DataFrame) else pd.DataFrame([frame])
+    dataset = (
+        frame if isinstance(frame, pd.DataFrame) else pd.DataFrame([frame])
+    )
     write_dataset_atomic(dataset, path, config=config)
 
 
@@ -330,7 +366,9 @@ def serialise_metadata(
     base_metadata: dict[str, Any] = {
         "pipeline": pipeline_code,
         "run_id": run_id,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at_utc": datetime.now(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "row_count": int(len(df)),
         "columns": list(df.columns),
         "dataset_path": str(dataset_path),
@@ -341,13 +379,16 @@ def serialise_metadata(
         "sorting": {
             "by": list(config.determinism.sort.by),
             "ascending": list(
-                config.determinism.sort.ascending or [True] * len(config.determinism.sort.by)
+                config.determinism.sort.ascending
+                or [True] * len(config.determinism.sort.by)
             ),
             "na_position": config.determinism.sort.na_position,
         },
         "hashing": {
             "algorithm": hashing.algorithm,
-            "row_fields": list(hashing.row_fields) if hashing.row_fields else [],
+            "row_fields": (
+                list(hashing.row_fields) if hashing.row_fields else []
+            ),
             "business_key_fields": list(hashing.business_key_fields),
             "row_column": hashing.row_hash_column,
             "business_key_column": hashing.business_key_column,
@@ -375,9 +416,13 @@ def serialise_metadata(
     row_column = hashing.row_hash_column
     business_column = hashing.business_key_column
     if row_column in df.columns and not df.empty:
-        base_metadata["hashing"]["sample_hash_row"] = str(df.iloc[0][row_column])
+        base_metadata["hashing"]["sample_hash_row"] = str(
+            df.iloc[0][row_column]
+        )
     if business_column in df.columns and not df.empty:
-        base_metadata["hashing"]["sample_hash_business_key"] = str(df.iloc[0][business_column])
+        base_metadata["hashing"]["sample_hash_business_key"] = str(
+            df.iloc[0][business_column]
+        )
     return base_metadata
 
 
@@ -459,7 +504,9 @@ def build_run_manifest_payload(
         "manifest_version": 1,
         "pipeline": pipeline_code,
         "run_id": run_id,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "generated_at_utc": datetime.now(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
         "run_directory": run_directory.as_posix(),
         "artifacts": entries,
         "total_artifacts": len(entries),
@@ -478,7 +525,11 @@ def emit_qc_artifact(
 
     if frame is None or target_path is None:
         return None
-    log.debug(LogEvents.WRITING_QC_ARTIFACT, artifact=artifact_name, path=str(target_path))
+    log.debug(
+        LogEvents.WRITING_QC_ARTIFACT,
+        artifact=artifact_name,
+        path=str(target_path),
+    )
     write_frame_like(frame, target_path, config=config)
     return target_path
 
@@ -503,12 +554,22 @@ def plan_run_artifacts(
     dataset = run_directory / f"{stem}.{dataset_extension}"
     quality = run_directory / f"{stem}_quality_report.{qc_extension}"
     correlation = (
-        run_directory / f"{stem}_correlation_report.{qc_extension}" if include_correlation else None
+        run_directory / f"{stem}_correlation_report.{qc_extension}"
+        if include_correlation
+        else None
     )
-    qc_metrics = run_directory / f"{stem}_qc.{qc_extension}" if include_qc_metrics else None
-    metadata = run_directory / f"{stem}_meta.yaml" if include_metadata else None
+    qc_metrics = (
+        run_directory / f"{stem}_qc.{qc_extension}"
+        if include_qc_metrics
+        else None
+    )
+    metadata = (
+        run_directory / f"{stem}_meta.yaml" if include_metadata else None
+    )
     manifest = (
-        run_directory / f"{stem}_run_manifest.{manifest_extension}" if include_manifest else None
+        run_directory / f"{stem}_run_manifest.{manifest_extension}"
+        if include_manifest
+        else None
     )
     log_file = logs_directory / f"{stem}.{log_extension}"
 

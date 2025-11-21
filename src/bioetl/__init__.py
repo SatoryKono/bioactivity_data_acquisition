@@ -6,7 +6,13 @@ import inspect
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-__all__ = ["PipelineConfig", "load_config", "BaseApiClient", "IParser", "INormalizer"]
+__all__ = [
+    "PipelineConfig",
+    "load_config",
+    "BaseApiClient",
+    "IParser",
+    "INormalizer",
+]
 
 if TYPE_CHECKING:
     from bioetl.base_classes import BaseApiClient, INormalizer, IParser
@@ -34,7 +40,9 @@ def _patch_pytest_monkeypatch() -> None:
     if name_param is None or name_param.default is not inspect._empty:
         return
     value_param = parameters.get("value")
-    value_default = value_param.default if value_param is not None else inspect._empty
+    value_default = (
+        value_param.default if value_param is not None else inspect._empty
+    )
 
     original_setattr = MonkeyPatch.setattr
 
@@ -63,16 +71,24 @@ def _patch_pytest_monkeypatch() -> None:
     ) -> None:
         if name is None:
             if not isinstance(target, str):
-                msg = "name is required when target is not a dotted import path"
+                msg = (
+                    "name is required when target is not a dotted import path"
+                )
                 raise TypeError(msg)
             target_obj, attr_name = _resolve_target(target)
-            original_setattr(self, target_obj, attr_name, value, raising=raising)
+            original_setattr(
+                self, target_obj, attr_name, value, raising=raising
+            )
             return
 
         sentinel = value_default
-        if isinstance(target, str) and (value is inspect._empty or value is sentinel):
+        if isinstance(target, str) and (
+            value is inspect._empty or value is sentinel
+        ):
             target_obj, attr_name = _resolve_target(target)
-            original_setattr(self, target_obj, attr_name, name, raising=raising)
+            original_setattr(
+                self, target_obj, attr_name, name, raising=raising
+            )
             return
 
         original_setattr(self, target, name, value, raising=raising)

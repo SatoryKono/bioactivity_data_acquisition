@@ -10,9 +10,12 @@ class PathsConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    input_root: str = Field(default="data/input", description="Default directory for input assets.")
+    input_root: str = Field(
+        default="data/input", description="Default directory for input assets."
+    )
     output_root: str = Field(
-        default="data/output", description="Default directory for pipeline outputs."
+        default="data/output",
+        description="Default directory for pipeline outputs.",
     )
     samples_root: str = Field(
         default="data/samples",
@@ -23,7 +26,8 @@ class PathsConfig(BaseModel):
         description="External object storage location for production-scale outputs (e.g., S3 URI).",
     )
     cache_root: str = Field(
-        default=".cache", description="Root directory for transient cache files."
+        default=".cache",
+        description="Root directory for transient cache files.",
     )
 
 
@@ -33,7 +37,8 @@ class MaterializationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     root: str = Field(
-        default="data/output", description="Base directory for materialized datasets."
+        default="data/output",
+        description="Base directory for materialized datasets.",
     )
     default_format: str = Field(
         default="parquet",

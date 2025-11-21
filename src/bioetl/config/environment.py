@@ -33,7 +33,9 @@ class _EnvOverrideSpec:
 
     __slots__ = ("attr", "prefixed_key", "config_path")
 
-    def __init__(self, attr: str, prefixed_key: str, config_path: Iterable[str]) -> None:
+    def __init__(
+        self, attr: str, prefixed_key: str, config_path: Iterable[str]
+    ) -> None:
         self.attr = attr
         self.prefixed_key = prefixed_key
         self.config_path = tuple(config_path)
@@ -86,14 +88,20 @@ class EnvironmentSettings(BaseSettings):
     bioetl_env: str | None = Field(default=None, alias="BIOETL_ENV")
     pubmed_tool: str | None = Field(default=None, alias="PUBMED_TOOL")
     pubmed_email: str | None = Field(default=None, alias="PUBMED_EMAIL")
-    pubmed_api_key: SecretStr | None = Field(default=None, alias="PUBMED_API_KEY")
+    pubmed_api_key: SecretStr | None = Field(
+        default=None, alias="PUBMED_API_KEY"
+    )
     crossref_mailto: str | None = Field(default=None, alias="CROSSREF_MAILTO")
     semantic_scholar_api_key: SecretStr | None = Field(
         default=None, alias="SEMANTIC_SCHOLAR_API_KEY"
     )
-    iuphar_api_key: SecretStr | None = Field(default=None, alias="IUPHAR_API_KEY")
+    iuphar_api_key: SecretStr | None = Field(
+        default=None, alias="IUPHAR_API_KEY"
+    )
     vocab_store: Path | None = Field(default=None, alias="VOCAB_STORE")
-    offline_chembl_client: bool = Field(default=False, alias="BIOETL_OFFLINE_CHEMBL_CLIENT")
+    offline_chembl_client: bool = Field(
+        default=False, alias="BIOETL_OFFLINE_CHEMBL_CLIENT"
+    )
 
     @field_validator("bioetl_env")
     @classmethod
@@ -150,7 +158,9 @@ class EnvironmentSettings(BaseSettings):
         return normalized
 
 
-def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSettings:
+def load_environment_settings(
+    *, env_file: Path | None = None
+) -> EnvironmentSettings:
     """Load and validate BioETL environment settings.
 
     Parameters
@@ -166,7 +176,9 @@ def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSet
     return EnvironmentSettings(**init_kwargs)
 
 
-def build_env_override_mapping(settings: EnvironmentSettings) -> dict[str, Any]:
+def build_env_override_mapping(
+    settings: EnvironmentSettings,
+) -> dict[str, Any]:
     """Return nested overrides derived from short environment variables."""
 
     pairs: list[tuple[Sequence[str], str]] = []
@@ -235,7 +247,9 @@ def _extract_plain_value(value: str | SecretStr | None) -> str | None:
     return plain or None
 
 
-def _build_prefixed_runtime_variables(settings: EnvironmentSettings) -> dict[str, str]:
+def _build_prefixed_runtime_variables(
+    settings: EnvironmentSettings,
+) -> dict[str, str]:
     """Return mapping of ``BIOETL__...`` keys derived from short variables."""
     overrides: dict[str, str] = {}
     for spec in _ENV_OVERRIDE_SPECS:

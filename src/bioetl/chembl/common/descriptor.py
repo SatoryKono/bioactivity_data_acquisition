@@ -30,7 +30,10 @@ from bioetl.clients.base import (
     merge_select_fields,
     normalize_select_fields,
 )
-from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
+from bioetl.clients.chembl_entity_factory import (
+    ChemblClientBundle,
+    ChemblEntityClientFactory,
+)
 from bioetl.clients.client_chembl import _resolve_status_endpoint
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory
@@ -47,7 +50,9 @@ PipelineT = TypeVar(
     bound="ChemblPipelineBase",
     contravariant=True,
 )  # noqa: UP037
-FetcherCallable = Callable[[Sequence[str], "BatchExtractionContext"], Any]  # noqa: UP037
+FetcherCallable = Callable[
+    [Sequence[str], "BatchExtractionContext"], Any
+]  # noqa: UP037
 FetcherFactory = Callable[
     ["ChemblExtractionContext", BoundLogger],
     FetcherCallable,
@@ -60,7 +65,9 @@ FinalizeFactory = Callable[
     ["ChemblExtractionContext", BoundLogger],
     FinalizeCallable,
 ]  # noqa: UP037
-FinalizeContextCallable = Callable[["BatchExtractionContext"], None]  # noqa: UP037
+FinalizeContextCallable = Callable[
+    ["BatchExtractionContext"], None
+]  # noqa: UP037
 FinalizeContextFactory = Callable[
     ["ChemblExtractionContext", BoundLogger],
     FinalizeContextCallable,
@@ -81,18 +88,31 @@ class ChemblContextSpec(Generic[PipelineT]):
 
     entity_name: str
     entity_client_type: type[Any] | None = None
-    release_resolver: Callable[[PipelineT, Any, BoundLogger, Any | None], str | None] | None = None
-    select_fields_resolver: Callable[[PipelineT, Any], Sequence[str] | None] | None = None
-    extra_filters_factory: Callable[[Any, PipelineT], dict[str, Any]] | None = None
+    release_resolver: (
+        Callable[[PipelineT, Any, BoundLogger, Any | None], str | None] | None
+    ) = None
+    select_fields_resolver: (
+        Callable[[PipelineT, Any], Sequence[str] | None] | None
+    ) = None
+    extra_filters_factory: (
+        Callable[[Any, PipelineT], dict[str, Any]] | None
+    ) = None
     client_registry_name: str | Callable[[PipelineT], str | None] | None = None
-    chembl_release_override: str | Callable[[PipelineT], str | None] | None = None
+    chembl_release_override: str | Callable[[PipelineT], str | None] | None = (
+        None
+    )
     page_size_resolver: Callable[[Any], int | None] | None = None
     pre_release_hook: Callable[[PipelineT, Any, Any], None] | None = None
     after_build: (
-        Callable[[PipelineT, ChemblExtractionContext, Any, BoundLogger], ChemblExtractionContext]
+        Callable[
+            [PipelineT, ChemblExtractionContext, Any, BoundLogger],
+            ChemblExtractionContext,
+        ]
         | None
     ) = None
-    builder: Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext] | None = None
+    builder: (
+        Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext] | None
+    ) = None
 
 
 @dataclass(slots=True)
@@ -115,10 +135,15 @@ class ChemblDescriptorSpec(Generic[PipelineT]):
         | None
     ) = None
     post_processors: Sequence[
-        Callable[[PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
+        Callable[
+            [PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger],
+            pd.DataFrame,
+        ]
     ] = ()
     sort_by: Sequence[str] | str | None = None
-    empty_frame_factory: Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None = None
+    empty_frame_factory: (
+        Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None
+    ) = None
     dry_run_handler: (
         Callable[
             [PipelineT, ChemblExtractionContext, BoundLogger, float],
@@ -157,7 +182,10 @@ class ChemblExtractionContext:
     iterate_all_kwargs: dict[str, Any] = field(default_factory=dict)
     stats: dict[str, Any] = field(default_factory=dict)
     release_resolver: (
-        Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None] | None
+        Callable[
+            [ChemblPipelineBase, Any, BoundLogger, Any | None], str | None
+        ]
+        | None
     ) = None
 
 
@@ -168,14 +196,24 @@ def build_standard_chembl_context(
     log: BoundLogger,
     *,
     entity_client_type: type[Any] | None = None,
-    release_resolver: Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None]
-    | None = None,
-    select_fields_resolver: Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None = None,
-    extra_filters_factory: Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None = None,
+    release_resolver: (
+        Callable[
+            [ChemblPipelineBase, Any, BoundLogger, Any | None], str | None
+        ]
+        | None
+    ) = None,
+    select_fields_resolver: (
+        Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None
+    ) = None,
+    extra_filters_factory: (
+        Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None
+    ) = None,
     client_registry_name: str | None = None,
     chembl_release_override: str | None = None,
     page_size_resolver: Callable[[Any], int | None] | None = None,
-    pre_release_hook: Callable[[ChemblPipelineBase, Any, Any], None] | None = None,
+    pre_release_hook: (
+        Callable[[ChemblPipelineBase, Any, Any], None] | None
+    ) = None,
 ) -> ChemblExtractionContext:
     """Унифицированная фабрика для создания ChemblExtractionContext.
 
@@ -306,7 +344,9 @@ class ChemblExtractionDescriptor(Generic[PipelineT]):
     name: str
     source_name: str
     source_config_factory: Callable[[SourceConfig[Any]], Any]
-    build_context: Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext]
+    build_context: Callable[
+        [PipelineT, Any, BoundLogger], ChemblExtractionContext
+    ]
     id_column: str
     summary_event: str
     must_have_fields: Sequence[str] = ()
@@ -319,10 +359,15 @@ class ChemblExtractionDescriptor(Generic[PipelineT]):
         | None
     ) = None
     post_processors: Sequence[
-        Callable[[PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
+        Callable[
+            [PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger],
+            pd.DataFrame,
+        ]
     ] = ()
     sort_by: Sequence[str] | str | None = None
-    empty_frame_factory: Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None = None
+    empty_frame_factory: (
+        Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None
+    ) = None
     dry_run_handler: (
         Callable[
             [PipelineT, ChemblExtractionContext, BoundLogger, float],
@@ -340,7 +385,9 @@ class ChemblExtractionDescriptor(Generic[PipelineT]):
     ) = None
 
 
-class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[reportInvalidTypeArguments, reportArgumentType]
+class ChemblDescriptorBuilderMixin(
+    Generic[PipelineT]
+):  # pyright: ignore[reportInvalidTypeArguments, reportArgumentType]
     """Mixin providing declarative descriptor construction for Chembl pipelines.
 
     Note: mypy errors about "erased type of self" are suppressed because SelfDescriptorT
@@ -348,22 +395,35 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
     ChemblPipelineBase and ChemblDescriptorBuilderMixin (e.g., UnifiedPipelineBase).
     """
 
-    def descriptor_spec(self: SelfDescriptorT) -> ChemblDescriptorSpec[SelfDescriptorT]:  # pyright: ignore[reportInvalidTypeArguments, reportGeneralTypeIssues]; type: ignore
+    def descriptor_spec(
+        self: SelfDescriptorT,
+    ) -> ChemblDescriptorSpec[
+        SelfDescriptorT
+    ]:  # pyright: ignore[reportInvalidTypeArguments, reportGeneralTypeIssues]; type: ignore
         """Return the specification consumed by :meth:`build_descriptor`."""
 
         msg = f"{type(self).__name__} must implement descriptor_spec()"
         raise NotImplementedError(msg)
 
-    def build_descriptor(self: SelfDescriptorT) -> ChemblExtractionDescriptor[SelfDescriptorT]:  # pyright: ignore[reportInvalidTypeArguments, reportGeneralTypeIssues]; type: ignore
+    def build_descriptor(
+        self: SelfDescriptorT,
+    ) -> ChemblExtractionDescriptor[
+        SelfDescriptorT
+    ]:  # pyright: ignore[reportInvalidTypeArguments, reportGeneralTypeIssues]; type: ignore
         """Construct a descriptor instance based on :meth:`descriptor_spec`."""
 
         spec = self.descriptor_spec()  # type: ignore[attr-defined]
         build_context = self._build_context_callable(spec)  # type: ignore[attr-defined]
-        empty_frame_factory = spec.empty_frame_factory or self._default_empty_frame_factory(  # type: ignore[attr-defined]
-            spec.id_column
+        empty_frame_factory = (
+            spec.empty_frame_factory
+            or self._default_empty_frame_factory(  # type: ignore[attr-defined]
+                spec.id_column
+            )
         )
 
-        return ChemblExtractionDescriptor[SelfDescriptorT](  # pyright: ignore[reportInvalidTypeArguments, reportArgumentType]; type: ignore[type-arg, arg-type]
+        return ChemblExtractionDescriptor[
+            SelfDescriptorT
+        ](  # pyright: ignore[reportInvalidTypeArguments, reportArgumentType]; type: ignore[type-arg, arg-type]
             name=spec.name,
             source_name=spec.source_name,
             source_config_factory=spec.source_config_factory,
@@ -387,8 +447,12 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
 
     def _build_context_callable(  # type: ignore
         self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
-        spec: ChemblDescriptorSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore
-    ) -> Callable[[ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext]:
+        spec: ChemblDescriptorSpec[
+            SelfDescriptorT
+        ],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore
+    ) -> Callable[
+        [ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext
+    ]:
         context_spec = spec.context
 
         def build_context(
@@ -399,7 +463,9 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
             typed_pipeline = cast(SelfDescriptorT, pipeline)
 
             if context_spec.builder is not None:
-                context = context_spec.builder(typed_pipeline, source_config, log)
+                context = context_spec.builder(
+                    typed_pipeline, source_config, log
+                )
             else:
                 release_resolver = self._wrap_release_resolver(context_spec)  # type: ignore[attr-defined]
                 select_fields_resolver = self._wrap_select_fields_resolver(context_spec)  # type: ignore[attr-defined]
@@ -443,8 +509,15 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
 
     def _wrap_release_resolver(  # type: ignore
         self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
-        context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore
-    ) -> Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None] | None:
+        context_spec: ChemblContextSpec[
+            SelfDescriptorT
+        ],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore
+    ) -> (
+        Callable[
+            [ChemblPipelineBase, Any, BoundLogger, Any | None], str | None
+        ]
+        | None
+    ):
         resolver = context_spec.release_resolver
         if resolver is None:
             return None
@@ -455,49 +528,71 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
             log: BoundLogger,
             entity_client: Any | None,
         ) -> str | None:
-            typed_pipeline = cast(SelfDescriptorT, pipeline)  # pyright: ignore[reportInvalidTypeArguments]
+            typed_pipeline = cast(
+                SelfDescriptorT, pipeline
+            )  # pyright: ignore[reportInvalidTypeArguments]
             return resolver(typed_pipeline, client, log, entity_client)
 
         return wrapper
 
     def _wrap_select_fields_resolver(  # type: ignore
         self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
-        context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
+        context_spec: ChemblContextSpec[
+            SelfDescriptorT
+        ],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None:
         resolver = context_spec.select_fields_resolver
         if resolver is None:
             return None
 
-        def wrapper(pipeline: ChemblPipelineBase, source_config: Any) -> Sequence[str] | None:
-            typed_pipeline = cast(SelfDescriptorT, pipeline)  # pyright: ignore[reportInvalidTypeArguments]
+        def wrapper(
+            pipeline: ChemblPipelineBase, source_config: Any
+        ) -> Sequence[str] | None:
+            typed_pipeline = cast(
+                SelfDescriptorT, pipeline
+            )  # pyright: ignore[reportInvalidTypeArguments]
             return resolver(typed_pipeline, source_config)
 
         return wrapper
 
     def _wrap_extra_filters_factory(  # type: ignore
         self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
-        context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
+        context_spec: ChemblContextSpec[
+            SelfDescriptorT
+        ],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None:
         factory = context_spec.extra_filters_factory
         if factory is None:
             return None
 
-        def wrapper(source_config: Any, pipeline: ChemblPipelineBase) -> dict[str, Any]:
-            typed_pipeline = cast(SelfDescriptorT, pipeline)  # pyright: ignore[reportInvalidTypeArguments]
+        def wrapper(
+            source_config: Any, pipeline: ChemblPipelineBase
+        ) -> dict[str, Any]:
+            typed_pipeline = cast(
+                SelfDescriptorT, pipeline
+            )  # pyright: ignore[reportInvalidTypeArguments]
             return factory(source_config, typed_pipeline)
 
         return wrapper
 
     def _wrap_pre_release_hook(  # type: ignore
         self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
-        context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
+        context_spec: ChemblContextSpec[
+            SelfDescriptorT
+        ],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[ChemblPipelineBase, Any, Any], None] | None:
         hook = context_spec.pre_release_hook
         if hook is None:
             return None
 
-        def wrapper(pipeline: ChemblPipelineBase, source_config: Any, entity_client: Any) -> None:
-            typed_pipeline = cast(SelfDescriptorT, pipeline)  # pyright: ignore[reportInvalidTypeArguments]
+        def wrapper(
+            pipeline: ChemblPipelineBase,
+            source_config: Any,
+            entity_client: Any,
+        ) -> None:
+            typed_pipeline = cast(
+                SelfDescriptorT, pipeline
+            )  # pyright: ignore[reportInvalidTypeArguments]
             hook(typed_pipeline, source_config, entity_client)
 
         return wrapper
@@ -667,11 +762,15 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_schema_cache: dict[str, Any] = {}
         self._chembl_release_metadata: dict[str, Any] = {}
         if TYPE_CHECKING:
-            from bioetl.pipelines.mixins.descriptor_builder import DescriptorStrategyFactory
+            from bioetl.pipelines.mixins.descriptor_builder import (
+                DescriptorStrategyFactory,
+            )
         else:
             DescriptorStrategyFactory = Any  # type: ignore[assignment, misc, unused-ignore]  # noqa: N806
 
-        self._descriptor_strategy_factory: DescriptorStrategyFactory | None = None  # pyright: ignore[reportInvalidTypeArguments]
+        self._descriptor_strategy_factory: DescriptorStrategyFactory | None = (
+            None  # pyright: ignore[reportInvalidTypeArguments]
+        )
 
         # Initialize output schema based on pipeline_code
         from contextlib import suppress
@@ -691,13 +790,17 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_schema_entry = schema_entry
         self._output_schema = cast(Any, schema_entry.schema)
         self._output_column_order = tuple(schema_entry.column_order)
-        self._output_schema_cache = dict(extra_cache) if extra_cache is not None else {}
+        self._output_schema_cache = (
+            dict(extra_cache) if extra_cache is not None else {}
+        )
 
     def get_descriptor_strategy_factory(self) -> Any:
         """Return (and lazily construct) the batching strategy factory."""
 
         if self._descriptor_strategy_factory is None:
-            from bioetl.pipelines.mixins.descriptor_builder import DescriptorStrategyFactory
+            from bioetl.pipelines.mixins.descriptor_builder import (
+                DescriptorStrategyFactory,
+            )
 
             self._descriptor_strategy_factory = DescriptorStrategyFactory()
         return self._descriptor_strategy_factory
@@ -715,7 +818,11 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         candidates: list[str] = []
 
         actor = getattr(self, "actor", None)
-        actor_code = stripped if isinstance(actor, str) and (stripped := actor.strip()) else None
+        actor_code = (
+            stripped
+            if isinstance(actor, str) and (stripped := actor.strip())
+            else None
+        )
 
         pipeline_code = self.pipeline_code.strip()
 
@@ -764,7 +871,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     # Normalization helpers
     # ------------------------------------------------------------------
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+    def _normalize_identifiers(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:
         """Normalize identifier columns.
 
         Subclasses are expected to override this method with domain specific
@@ -774,7 +883,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         return df
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+    def _normalize_string_fields(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:
         """Normalize free-text columns.
 
         Subclasses are expected to override this method. The default
@@ -841,11 +952,15 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     @property
     def api_version(self) -> str | None:
         """Return the cached API version captured during extraction."""
-        return self._get_optional_string_value("_api_version", field_name="api_version")
+        return self._get_optional_string_value(
+            "_api_version", field_name="api_version"
+        )
 
     def _set_api_version(self, value: str | None) -> None:
         """Update the cached API version used by the pipeline."""
-        self._set_optional_string_value("_api_version", value, field_name="api_version")
+        self._set_optional_string_value(
+            "_api_version", value, field_name="api_version"
+        )
         self.update_chembl_release_metadata(api_version=value)
 
     def extract(
@@ -857,19 +972,31 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     ) -> pd.DataFrame:
         """Dispatch between batch and full extraction modes."""
 
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+        log = UnifiedLogger.get(__name__).bind(
+            component=self._component_for_stage("extract")
+        )
         entity_raw = getattr(self, "entity_name", "") or ""
         entity_key = str(entity_raw).strip().lower()
-        default_event = f"chembl_{entity_key}.extract_mode" if entity_key else f"{self.pipeline_code}.extract_mode"
+        default_event = (
+            f"chembl_{entity_key}.extract_mode"
+            if entity_key
+            else f"{self.pipeline_code}.extract_mode"
+        )
         event_name = self.extract_event_name or default_event
         id_column_name = self.id_column or self._get_id_column_name()
-        normalized_ids: tuple[str, ...] = tuple(str(item) for item in ids) if ids else ()
+        normalized_ids: tuple[str, ...] = (
+            tuple(str(item) for item in ids) if ids else ()
+        )
 
         if mode is PipelineExtractionMode.BATCH:
             if not normalized_ids:
                 msg = "batch extraction requires non-empty ids"
                 raise PipelineError(msg)
-            source = "cli_input" if getattr(self.config.cli, "input_file", None) else "runtime"
+            source = (
+                "cli_input"
+                if getattr(self.config.cli, "input_file", None)
+                else "runtime"
+            )
             log.info(
                 event_name,
                 mode="batch",
@@ -883,7 +1010,11 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             return self.extract_all()
 
         if normalized_ids:
-            source = "cli_input" if getattr(self.config.cli, "input_file", None) else "runtime"
+            source = (
+                "cli_input"
+                if getattr(self.config.cli, "input_file", None)
+                else "runtime"
+            )
             log.info(
                 event_name,
                 mode="batch",
@@ -892,7 +1023,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             )
             return self.extract_by_ids(normalized_ids)
 
-        legacy_resolver: Callable[[BoundLogger], Sequence[str] | None] | None = None
+        legacy_resolver: (
+            Callable[[BoundLogger], Sequence[str] | None] | None
+        ) = None
         if legacy_kwargs and not self.has_legacy_extract_support():
             unexpected = ", ".join(sorted(legacy_kwargs))
             msg = (
@@ -904,7 +1037,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         if self.has_legacy_extract_support():
 
             def _legacy(bound_log: BoundLogger) -> Sequence[str] | None:
-                return self.resolve_legacy_extract_ids(bound_log, **legacy_kwargs)
+                return self.resolve_legacy_extract_ids(
+                    bound_log, **legacy_kwargs
+                )
 
             legacy_resolver = _legacy
 
@@ -990,7 +1125,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         if callable(parameters_mapping):
             mapping_candidate = parameters_mapping()
             if isinstance(mapping_candidate, Mapping):
-                return {str(key): value for key, value in mapping_candidate.items()}
+                return {
+                    str(key): value for key, value in mapping_candidate.items()
+                }
 
         if isinstance(parameters, Mapping):
             mapping = cast(Mapping[object, Any], parameters)
@@ -1013,7 +1150,11 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         attrs = getattr(parameters, "__dict__", None)
         if isinstance(attrs, dict):
             attr_mapping = cast(dict[str, Any], attrs)
-            return {key: value for key, value in attr_mapping.items() if not key.startswith("_")}
+            return {
+                key: value
+                for key, value in attr_mapping.items()
+                if not key.startswith("_")
+            }
 
         return {}
 
@@ -1037,14 +1178,20 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             If base_url is not a non-empty string.
         """
         params = ChemblPipelineBase._normalize_parameters(parameters)
-        base_url = params.get("base_url") or "https://www.ebi.ac.uk/chembl/api/data"
+        base_url = (
+            params.get("base_url") or "https://www.ebi.ac.uk/chembl/api/data"
+        )
         if not isinstance(base_url, str) or not base_url.strip():
-            msg = "sources.chembl.parameters.base_url must be a non-empty string"
+            msg = (
+                "sources.chembl.parameters.base_url must be a non-empty string"
+            )
             raise ValueError(msg)
         return base_url.rstrip("/")
 
     @staticmethod
-    def _resolve_page_size(batch_size: int, limit: int | None, *, hard_cap: int = 25) -> int:
+    def _resolve_page_size(
+        batch_size: int, limit: int | None, *, hard_cap: int = 25
+    ) -> int:
         """Return deterministic page size respecting limit and API hard cap."""
 
         effective = min(max(int(batch_size), 1), hard_cap)
@@ -1124,7 +1271,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         batch_callback: Callable[[Sequence[str]], pd.DataFrame],
         full_callback: Callable[[], pd.DataFrame],
         id_column_name: str | None = None,
-        legacy_id_resolver: Callable[[BoundLogger], Sequence[str] | None] | None = None,
+        legacy_id_resolver: (
+            Callable[[BoundLogger], Sequence[str] | None] | None
+        ) = None,
         legacy_source: str = "legacy",
     ) -> pd.DataFrame:
         """Dispatch extraction mode between batch and full strategies.
@@ -1200,7 +1349,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     ) -> pd.DataFrame:
         """Execute a descriptor-driven extraction loop with uniform metadata."""
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        log = UnifiedLogger.get(__name__).bind(
+            component=f"{self.pipeline_code}.extract"
+        )
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config(descriptor.source_name)
@@ -1209,18 +1360,27 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         context = descriptor.build_context(self, source_config, log)
         context.source_config = source_config
 
-        resolved_release, release_metadata = self.ensure_chembl_release(context, log)
+        resolved_release, release_metadata = self.ensure_chembl_release(
+            context, log
+        )
 
         limit = self.config.cli.limit
 
         configured_select: Sequence[str] | None = context.select_fields
-        if configured_select is None and descriptor.default_select_fields is not None:
+        if (
+            configured_select is None
+            and descriptor.default_select_fields is not None
+        ):
             configured_select = descriptor.default_select_fields
-        merged_select = merge_select_fields(configured_select, descriptor.must_have_fields)
+        merged_select = merge_select_fields(
+            configured_select, descriptor.must_have_fields
+        )
         select_fields_list = list(merged_select) if merged_select else None
         context.select_fields = select_fields_list
 
-        batch_size_candidate: int | None = getattr(source_config, "batch_size", None)
+        batch_size_candidate: int | None = getattr(
+            source_config, "batch_size", None
+        )
         if batch_size_candidate is None:
             batch_size_candidate = getattr(source_config, "page_size", None)
         if batch_size_candidate is None:
@@ -1232,12 +1392,18 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         page_size = context.page_size
         if page_size is None:
-            base_size = batch_size_candidate if batch_size_candidate is not None else 25
+            base_size = (
+                batch_size_candidate
+                if batch_size_candidate is not None
+                else 25
+            )
             cap = hard_cap if hard_cap is not None else base_size
             page_size = self._resolve_page_size(base_size, limit, hard_cap=cap)
         context.page_size = page_size
 
-        normalised_parameters = self._normalize_parameters(source_config.parameters)
+        normalised_parameters = self._normalize_parameters(
+            source_config.parameters
+        )
 
         filters_payload, compact_filters = build_filters_payload(
             limit=limit,
@@ -1261,7 +1427,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         if self.config.cli.dry_run:
             if descriptor.dry_run_handler is not None:
-                return descriptor.dry_run_handler(self, context, log, stage_start)
+                return descriptor.dry_run_handler(
+                    self, context, log, stage_start
+                )
 
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
             if descriptor.empty_frame_factory is not None:
@@ -1279,7 +1447,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 metadata=release_metadata,
             )
             if descriptor.summary_extra is not None:
-                dry_run_summary.update(descriptor.summary_extra(self, dataframe, context))
+                dry_run_summary.update(
+                    descriptor.summary_extra(self, dataframe, context)
+                )
             if context.stats:
                 dry_run_summary.update(context.stats)
             log.info(descriptor.summary_event, **dry_run_summary)
@@ -1295,7 +1465,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             **iterator_kwargs,
         ):
             if descriptor.record_transform is not None:
-                record_mapping = descriptor.record_transform(self, payload, context)
+                record_mapping = descriptor.record_transform(
+                    self, payload, context
+                )
             else:
                 record_mapping = self._coerce_mapping(payload)
             records.append(dict(record_mapping))
@@ -1305,7 +1477,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         elif descriptor.empty_frame_factory is not None:
             dataframe = descriptor.empty_frame_factory(self, context)
         else:
-            dataframe = pd.DataFrame({descriptor.id_column: pd.Series(dtype="object")})
+            dataframe = pd.DataFrame(
+                {descriptor.id_column: pd.Series(dtype="object")}
+            )
 
         if descriptor.sort_by and not dataframe.empty:
             if isinstance(descriptor.sort_by, Sequence) and not isinstance(
@@ -1314,7 +1488,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 sort_columns = list(descriptor.sort_by)
             else:
                 sort_columns = [str(descriptor.sort_by)]
-            dataframe = dataframe.sort_values(sort_columns).reset_index(drop=True)
+            dataframe = dataframe.sort_values(sort_columns).reset_index(
+                drop=True
+            )
 
         for processor in descriptor.post_processors:
             dataframe = processor(self, dataframe, context, log)
@@ -1332,7 +1508,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         if context.stats:
             summary_payload.update(context.stats)
         if descriptor.summary_extra is not None:
-            summary_payload.update(descriptor.summary_extra(self, dataframe, context))
+            summary_payload.update(
+                descriptor.summary_extra(self, dataframe, context)
+            )
 
         log.info(descriptor.summary_event, **summary_payload)
         return dataframe
@@ -1433,8 +1611,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         with logger_cm as log:
             if source_config is None:
-                source_raw = self._resolve_source_config(descriptor.source_name)
-                typed_source_config = descriptor.source_config_factory(source_raw)
+                source_raw = self._resolve_source_config(
+                    descriptor.source_name
+                )
+                typed_source_config = descriptor.source_config_factory(
+                    source_raw
+                )
             else:
                 typed_source_config = source_config
 
@@ -1443,7 +1625,10 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
             descriptor_empty_factory = descriptor.empty_frame_factory
             effective_empty_factory = empty_frame_factory
-            if effective_empty_factory is None and descriptor_empty_factory is not None:
+            if (
+                effective_empty_factory is None
+                and descriptor_empty_factory is not None
+            ):
 
                 def _descriptor_empty_factory() -> pd.DataFrame:
                     return descriptor_empty_factory(self, context)
@@ -1455,7 +1640,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 effective_fetcher = fetcher_factory(context, log)
             if effective_fetcher is None:
                 entity_client = context.iterator
-                iterate_candidate = getattr(entity_client, "iterate_by_ids", None)
+                iterate_candidate = getattr(
+                    entity_client, "iterate_by_ids", None
+                )
                 if not callable(iterate_candidate):
                     msg = "Descriptor context does not expose iterate_by_ids()"
                     raise RuntimeError(msg)
@@ -1478,15 +1665,25 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 effective_finalize = finalize_factory(context, log)
 
             effective_finalize_context = finalize_context
-            if effective_finalize_context is None and finalize_context_factory is not None:
-                effective_finalize_context = finalize_context_factory(context, log)
+            if (
+                effective_finalize_context is None
+                and finalize_context_factory is not None
+            ):
+                effective_finalize_context = finalize_context_factory(
+                    context, log
+                )
 
-            resolved_release, release_metadata = self.ensure_chembl_release(context, log)
+            resolved_release, release_metadata = self.ensure_chembl_release(
+                context, log
+            )
 
             if chembl_release_override is not None:
                 resolved_release = chembl_release_override
 
-            if resolved_release is not None and self.chembl_release != resolved_release:
+            if (
+                resolved_release is not None
+                and self.chembl_release != resolved_release
+            ):
                 self._set_chembl_release(resolved_release)
 
             if self.config.cli.dry_run:
@@ -1513,9 +1710,15 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 return dataframe, stats
 
             batch_args = dict(batch_kwargs)
-            if "id_column" not in batch_args or batch_args["id_column"] is None:
+            if (
+                "id_column" not in batch_args
+                or batch_args["id_column"] is None
+            ):
                 batch_args["id_column"] = descriptor.id_column
-            if batch_args.get("select_fields") is None and context.select_fields is not None:
+            if (
+                batch_args.get("select_fields") is None
+                and context.select_fields is not None
+            ):
                 batch_args["select_fields"] = context.select_fields
             if metadata_filters is not None:
                 batch_args["metadata_filters"] = metadata_filters
@@ -1596,10 +1799,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         source_config = self._resolve_source_config(source_name)
         options = {"base_url": base_url} if base_url else None
-        client, resolved_base_url, _ = self._chembl_entity_factory.build_http_client(
-            source_name=source_name,
-            source_config=source_config,
-            options=options,
+        client, resolved_base_url, _ = (
+            self._chembl_entity_factory.build_http_client(
+                source_name=source_name,
+                source_config=source_config,
+                options=options,
+            )
         )
         if client_name:
             self.register_client(client_name, client)
@@ -1617,7 +1822,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     ) -> ChemblClientBundle:
         """Создать сущностный клиент ChEMBL с общими параметрами пайплайна."""
 
-        effective_source = source_config or self._resolve_source_config(source_name)
+        effective_source = source_config or self._resolve_source_config(
+            source_name
+        )
         kwargs = self._default_chembl_client_kwargs()
         if chembl_client_kwargs:
             kwargs.update(dict(chembl_client_kwargs))
@@ -1678,7 +1885,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         if include_metadata:
             metadata_payload = self.chembl_release_metadata()
             if metadata:
-                metadata_payload.update({k: v for k, v in metadata.items() if v is not None})
+                metadata_payload.update(
+                    {k: v for k, v in metadata.items() if v is not None}
+                )
             if metadata_payload:
                 merged.update(metadata_payload)
 
@@ -1698,9 +1907,13 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         if resolved_release is None and callable(resolver):
             try:
-                release_candidate = resolver(self, chembl_client, log, entity_client)
+                release_candidate = resolver(
+                    self, chembl_client, log, entity_client
+                )
             except Exception as exc:  # noqa: BLE001
-                log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
+                log.warning(
+                    LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc)
+                )
             else:
                 if release_candidate:
                     resolved_release = release_candidate
@@ -1751,7 +1964,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             The ChEMBL release version, or None if unavailable.
         """
         if log is None:
-            log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+            log = UnifiedLogger.get(__name__).bind(
+                component=f"{self.pipeline_code}.extract"
+            )
 
         release_value: str | None = None
 
@@ -1764,18 +1979,23 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 status = handshake()
                 if isinstance(status, Mapping):
                     status_mapping = cast(Mapping[str, Any], status)
-                    candidate = status_mapping.get("chembl_db_version") or status_mapping.get(
-                        "chembl_release"
-                    )
+                    candidate = status_mapping.get(
+                        "chembl_db_version"
+                    ) or status_mapping.get("chembl_release")
                     if isinstance(candidate, str):
                         release_value = candidate
-                        log.info(LogEvents.CHEMBL_DESCRIPTOR_STATUS, chembl_release=release_value)
+                        log.info(
+                            LogEvents.CHEMBL_DESCRIPTOR_STATUS,
+                            chembl_release=release_value,
+                        )
                     # Extract and set api_version if present
                     api_version_candidate = status_mapping.get("api_version")
                     if api_version_candidate is not None:
                         self._set_api_version(str(api_version_candidate))
             except Exception as exc:
-                log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
+                log.warning(
+                    LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc)
+                )
             finally:
                 self.record_extract_metadata(
                     chembl_release=release_value,
@@ -1795,21 +2015,30 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 if callable(json_candidate):
                     status_payload_raw = json_candidate()
                     status_payload = self._coerce_mapping(status_payload_raw)
-                    release_value = self._extract_chembl_release(status_payload)
-                    log.info(LogEvents.CHEMBL_DESCRIPTOR_STATUS, chembl_release=release_value)
+                    release_value = self._extract_chembl_release(
+                        status_payload
+                    )
+                    log.info(
+                        LogEvents.CHEMBL_DESCRIPTOR_STATUS,
+                        chembl_release=release_value,
+                    )
                     # Extract and set api_version if present
                     api_version_candidate = status_payload.get("api_version")
                     if api_version_candidate is not None:
                         self._set_api_version(str(api_version_candidate))
             except Exception as exc:
-                log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
+                log.warning(
+                    LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc)
+                )
             finally:
                 self.record_extract_metadata(
                     chembl_release=release_value,
                     requested_at_utc=request_timestamp,
                 )
             return release_value
-        self.record_extract_metadata(requested_at_utc=datetime.now(timezone.utc))
+        self.record_extract_metadata(
+            requested_at_utc=datetime.now(timezone.utc)
+        )
         return None
 
     def resolve_chembl_release(
@@ -1848,7 +2077,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         try:
             release_value = self.fetch_chembl_release(chembl_client, log)
         except Exception as exc:  # noqa: BLE001
-            log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
+            log.warning(
+                LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc)
+            )
             return None, {}
 
         if metadata:
@@ -1870,7 +2101,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         return self.fetch_chembl_release(client, log)
 
     @staticmethod
-    def _extract_chembl_release(payload: Mapping[str, Any] | None) -> str | None:
+    def _extract_chembl_release(
+        payload: Mapping[str, Any] | None
+    ) -> str | None:
         """Extract ChEMBL release version from status payload.
 
         Parameters
@@ -1886,7 +2119,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         if not payload:
             return None
 
-        for key in ("chembl_release", "chembl_db_version", "release", "version"):
+        for key in (
+            "chembl_release",
+            "chembl_db_version",
+            "release",
+            "version",
+        ):
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
                 return value
@@ -1942,13 +2180,17 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         for key in items_keys:
             value = payload.get(key)
-            if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            if isinstance(value, Sequence) and not isinstance(
+                value, (str, bytes, bytearray)
+            ):
                 candidates: list[dict[str, Any]] = []
                 sequence_items = cast(Sequence[object], value)
                 for item in sequence_items:
                     if isinstance(item, Mapping):
                         mapping = cast(Mapping[object, Any], item)
-                        candidates.append(ChemblPipelineBase._stringify_mapping(mapping))
+                        candidates.append(
+                            ChemblPipelineBase._stringify_mapping(mapping)
+                        )
                 if candidates:
                     return candidates
 
@@ -1956,13 +2198,17 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         for key, value in payload.items():
             if key == "page_meta":
                 continue
-            if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            if isinstance(value, Sequence) and not isinstance(
+                value, (str, bytes, bytearray)
+            ):
                 candidates = []
                 sequence_items = cast(Sequence[object], value)
                 for item in sequence_items:
                     if isinstance(item, Mapping):
                         mapping = cast(Mapping[object, Any], item)
-                        candidates.append(ChemblPipelineBase._stringify_mapping(mapping))
+                        candidates.append(
+                            ChemblPipelineBase._stringify_mapping(mapping)
+                        )
                 if candidates:
                     return candidates
         return []
@@ -2007,7 +2253,11 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
             # If paths match, return just the path with query
             if path == base_path or path.startswith(f"{base_path}/"):
-                relative_path = path[len(base_path) :] if path.startswith(base_path) else path
+                relative_path = (
+                    path[len(base_path) :]
+                    if path.startswith(base_path)
+                    else path
+                )
                 if parsed.query:
                     return f"{relative_path}?{parsed.query}"
                 return relative_path
@@ -2040,21 +2290,36 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         chembl_release: str | None = None,
         id_normalizer: Callable[[Any], tuple[str | None, Any]] | None = None,
         sort_key: Callable[[tuple[str, Any]], Any] | None = None,
-        transform_item: Callable[[Mapping[str, Any], BatchExtractionContext], Mapping[str, Any]]
-        | None = None,
-        finalize: Callable[[pd.DataFrame, BatchExtractionContext], pd.DataFrame] | None = None,
-        finalize_context: Callable[[BatchExtractionContext], None] | None = None,
+        transform_item: (
+            Callable[
+                [Mapping[str, Any], BatchExtractionContext], Mapping[str, Any]
+            ]
+            | None
+        ) = None,
+        finalize: (
+            Callable[[pd.DataFrame, BatchExtractionContext], pd.DataFrame]
+            | None
+        ) = None,
+        finalize_context: (
+            Callable[[BatchExtractionContext], None] | None
+        ) = None,
         empty_frame_factory: Callable[[], pd.DataFrame] | None = None,
         stats_attribute: str | None = None,
         fetch_mode: Literal["default", "delegated"] = "default",
     ) -> tuple[pd.DataFrame, BatchExtractionStats]:
         """Execute a reusable batch extraction routine with deterministic semantics."""
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        log = UnifiedLogger.get(__name__).bind(
+            component=f"{self.pipeline_code}.extract"
+        )
         method_start = time.perf_counter()
 
-        merged_select_fields = self._merge_select_fields(select_fields, required_fields)
-        select_fields_tuple: tuple[str, ...] = tuple(merged_select_fields or ())
+        merged_select_fields = self._merge_select_fields(
+            select_fields, required_fields
+        )
+        select_fields_tuple: tuple[str, ...] = tuple(
+            merged_select_fields or ()
+        )
 
         strategy_factory = self.get_descriptor_strategy_factory()
         plan = strategy_factory.build_plan(
@@ -2150,7 +2415,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         pd.DataFrame
             DataFrame containing extracted records, sorted by ID column.
         """
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        log = UnifiedLogger.get(__name__).bind(
+            component=f"{self.pipeline_code}.extract"
+        )
         method_start = time.perf_counter()
 
         if batch_size is None:
@@ -2162,7 +2429,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         batch_size = max(batch_size, 1)
 
         # Extract unique IDs, filter out NaN, sort for determinism
-        unique_ids = sorted({str(id_val) for id_val in ids if id_val and str(id_val).strip()})
+        unique_ids = sorted(
+            {str(id_val) for id_val in ids if id_val and str(id_val).strip()}
+        )
 
         if not unique_ids:
             log.debug(LogEvents.EXTRACT_IDS_PAGINATED_NO_VALID_IDS)
@@ -2188,11 +2457,15 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 response = client.get(endpoint, params=params)
                 api_calls += 1
                 payload = self._coerce_mapping(response.json())
-                page_items = self._extract_page_items(payload, items_keys=items_keys)
+                page_items = self._extract_page_items(
+                    payload, items_keys=items_keys
+                )
 
                 for item in page_items:
                     item_dict = dict(item)
-                    processed_item = process_item(item_dict) if process_item else item_dict
+                    processed_item = (
+                        process_item(item_dict) if process_item else item_dict
+                    )
                     all_records.append(processed_item)
 
                 if limit is not None and len(all_records) >= limit:
@@ -2207,7 +2480,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     exc_info=True,
                 )
 
-        dataframe = pd.DataFrame.from_records(all_records)  # pyright: ignore[reportUnknownMemberType]
+        dataframe = pd.DataFrame.from_records(
+            all_records
+        )  # pyright: ignore[reportUnknownMemberType]
         if dataframe.empty:
             dataframe = pd.DataFrame({id_column: pd.Series(dtype="string")})
         elif id_column in dataframe.columns:

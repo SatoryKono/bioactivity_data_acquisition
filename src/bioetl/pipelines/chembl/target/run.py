@@ -1,4 +1,5 @@
 """Упрощённый Target-пайплайн."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
@@ -42,7 +43,9 @@ class ChemblTargetPipeline(BaseChemblPipeline):
         if df.empty:
             return df
 
-        log = UnifiedLogger.get(__name__).bind(component="target_chembl.transform")
+        log = UnifiedLogger.get(__name__).bind(
+            component="target_chembl.transform"
+        )
 
         # Start with a copy to preserve all fields
         working_df = df.copy()
@@ -81,8 +84,12 @@ class ChemblTargetPipeline(BaseChemblPipeline):
         include_qc_metrics: bool | None = None,
     ) -> Any:
         # Convert None to False for IOArtifactsMixin compatibility
-        include_correlation_val = include_correlation if include_correlation is not None else False
-        include_qc_metrics_val = include_qc_metrics if include_qc_metrics is not None else False
+        include_correlation_val = (
+            include_correlation if include_correlation is not None else False
+        )
+        include_qc_metrics_val = (
+            include_qc_metrics if include_qc_metrics is not None else False
+        )
         return super().save_results(
             df,
             output_dir,
@@ -91,24 +98,30 @@ class ChemblTargetPipeline(BaseChemblPipeline):
             include_qc_metrics=include_qc_metrics_val,
         )
 
-    def preprocess_identifier_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+    def preprocess_identifier_columns(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:
         """Harmonize identifier column names (e.g., target_id -> target_chembl_id)."""
         working_df = df.copy()
         # Rename target_id -> target_chembl_id
         if "target_id" in working_df.columns:
             if "target_chembl_id" in working_df.columns:
                 # Both exist: combine values, preferring target_chembl_id
-                working_df["target_chembl_id"] = working_df["target_chembl_id"].combine_first(
-                    working_df["target_id"]
-                )
+                working_df["target_chembl_id"] = working_df[
+                    "target_chembl_id"
+                ].combine_first(working_df["target_id"])
                 # Drop old column
                 working_df = working_df.drop(columns=["target_id"])
             else:
                 # Only target_id exists: rename it
-                working_df = working_df.rename(columns={"target_id": "target_chembl_id"})
+                working_df = working_df.rename(
+                    columns={"target_id": "target_chembl_id"}
+                )
         return working_df
 
-    def _harmonize_identifier_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+    def _harmonize_identifier_columns(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:
         """Alias for preprocess_identifier_columns for backward compatibility."""
         return self.preprocess_identifier_columns(df, log)
 
@@ -129,11 +142,17 @@ class ChemblTargetPipeline(BaseChemblPipeline):
         """Return string normalization rules for target pipeline fields."""
         return {
             "pref_name": StringRule(trim=True, empty_to_null=True),
-            "organism": StringRule(trim=True, empty_to_null=True, title_case=True),
-            "target_type": StringRule(trim=True, empty_to_null=True, uppercase=True),
+            "organism": StringRule(
+                trim=True, empty_to_null=True, title_case=True
+            ),
+            "target_type": StringRule(
+                trim=True, empty_to_null=True, uppercase=True
+            ),
         }
 
-    def _normalize_data_types(self, df: pd.DataFrame, schema: Any, log: Any) -> pd.DataFrame:
+    def _normalize_data_types(
+        self, df: pd.DataFrame, schema: Any, log: Any
+    ) -> pd.DataFrame:
         """Convert data types according to the schema for target pipeline."""
         import pandera as pa
 
@@ -169,7 +188,9 @@ class ChemblTargetPipeline(BaseChemblPipeline):
                     or dtype_type_name == "Int64"
                 ):
                     # Convert to numeric first, then to Int64
-                    numeric_series = pd.to_numeric(column_series, errors="coerce")
+                    numeric_series = pd.to_numeric(
+                        column_series, errors="coerce"
+                    )
                     result[column_name] = numeric_series.astype("Int64")
                 # Handle Float64/float64
                 elif (
@@ -191,17 +212,28 @@ class ChemblTargetPipeline(BaseChemblPipeline):
                     mask = column_series.notna()
                     if mask.any():
                         # Convert numeric/string to boolean: 0/False -> False, 1/True -> True
-                        numeric_values = pd.to_numeric(column_series, errors="coerce")
+                        numeric_values = pd.to_numeric(
+                            column_series, errors="coerce"
+                        )
                         result[column_name] = numeric_values.astype("boolean")
                     else:
                         result[column_name] = column_series.astype("boolean")
                 # Handle strings
-                elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "string":
+                elif (
+                    hasattr(column_def.dtype, "name")
+                    and column_def.dtype.name == "string"
+                ):
                     mask = column_series.notna()
                     if mask.any():
-                        result.loc[mask, column_name] = result.loc[mask, column_name].astype(str)
+                        result.loc[mask, column_name] = result.loc[
+                            mask, column_name
+                        ].astype(str)
             except (ValueError, TypeError) as exc:
-                log.warning(LogEvents.TYPE_CONVERSION_FAILED, field=column_name, error=str(exc))
+                log.warning(
+                    LogEvents.TYPE_CONVERSION_FAILED,
+                    field=column_name,
+                    error=str(exc),
+                )
 
         return result
 

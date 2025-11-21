@@ -84,4 +84,6 @@ def collect_cli_qc_boundary_report(
             )
         )
     normalized_tuple = tuple(normalized)
-    return QCBoundaryReport(package=effective_package, violations=normalized_tuple)
+    return QCBoundaryReport(
+        package=effective_package, violations=normalized_tuple
+    )

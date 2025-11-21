@@ -6,7 +6,13 @@ import random
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import (
+    Callable,
+    Iterator,
+    Mapping,
+    MutableMapping,
+    Sequence,
+)
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -51,7 +57,9 @@ class _RetryState:
 class TokenBucketLimiter:
     """Simple token bucket limiter enforcing max calls per period."""
 
-    def __init__(self, max_calls: int, period: float, *, jitter: bool = True) -> None:
+    def __init__(
+        self, max_calls: int, period: float, *, jitter: bool = True
+    ) -> None:
         if max_calls <= 0:
             msg = "max_calls must be > 0"
             raise ValueError(msg)
@@ -72,7 +80,10 @@ class TokenBucketLimiter:
         while True:
             with self._lock:
                 now = time.monotonic()
-                while self._timestamps and now - self._timestamps[0] >= self.period:
+                while (
+                    self._timestamps
+                    and now - self._timestamps[0] >= self.period
+                ):
                     self._timestamps.popleft()
                 if len(self._timestamps) < self.max_calls:
                     self._timestamps.append(now)
@@ -176,7 +187,10 @@ class CircuitBreaker:
         except Exception as exc:
             # Check if this is an HTTPError with a status code we should ignore
             status_code = self._extract_status_code(exc)
-            if status_code is not None and status_code in self._ignore_status_codes:
+            if (
+                status_code is not None
+                and status_code in self._ignore_status_codes
+            ):
                 # Don't count this as a failure - these are expected errors (e.g., 404 for missing resources)
                 raise
             self._on_failure()
@@ -298,7 +312,11 @@ def _deep_merge(
     base: MutableMapping[str, Any], override: Mapping[str, Any]
 ) -> MutableMapping[str, Any]:
     for key, value in override.items():
-        if key in base and isinstance(base[key], MutableMapping) and isinstance(value, Mapping):
+        if (
+            key in base
+            and isinstance(base[key], MutableMapping)
+            and isinstance(value, Mapping)
+        ):
             # Type narrowing: we've confirmed base[key] is MutableMapping and value is Mapping
             base_value = cast(MutableMapping[str, Any], base[key])
             override_value = cast(Mapping[str, Any], value)
@@ -419,7 +437,9 @@ class UnifiedAPIClient(BaseApiClient):
     ) -> Response:
         params_dict: dict[str, Any] = dict(params or {})
         full_url: str | None = None
-        if params_dict and (self.base_url or endpoint.startswith(("http://", "https://"))):
+        if params_dict and (
+            self.base_url or endpoint.startswith(("http://", "https://"))
+        ):
             full_url = self._prepare_full_url(endpoint, params_dict)
             if self._max_url_length and len(full_url) > self._max_url_length:
                 override_headers = dict(headers or {})
@@ -437,7 +457,9 @@ class UnifiedAPIClient(BaseApiClient):
                     data=params_dict,
                     headers=override_headers,
                 )
-        return self.request("GET", endpoint, params=params_dict or None, headers=headers)
+        return self.request(
+            "GET", endpoint, params=params_dict or None, headers=headers
+        )
 
     def request(
         self,
@@ -494,13 +516,17 @@ class UnifiedAPIClient(BaseApiClient):
                     )
                     if attempt >= max_attempts:
                         raise
-                    sleep_for = self._compute_backoff(_RetryState(attempt=attempt, error=exc))
+                    sleep_for = self._compute_backoff(
+                        _RetryState(attempt=attempt, error=exc)
+                    )
                     self._sleep(sleep_for)
                     continue
 
                 duration_ms = (time.perf_counter() - start) * 1000
                 status_code = response.status_code
-                retry_after = _parse_retry_after(response.headers.get("Retry-After"))
+                retry_after = _parse_retry_after(
+                    response.headers.get("Retry-After")
+                )
                 if self._should_retry(status_code):
                     self._logger.warning(
                         LogEvents.HTTP_REQUEST_RETRY,
@@ -514,7 +540,11 @@ class UnifiedAPIClient(BaseApiClient):
                     if attempt >= max_attempts:
                         response.raise_for_status()
                     sleep_for = self._compute_backoff(
-                        _RetryState(attempt=attempt, response=response, retry_after=retry_after)
+                        _RetryState(
+                            attempt=attempt,
+                            response=response,
+                            retry_after=retry_after,
+                        )
                     )
                     self._sleep(sleep_for)
                     continue
@@ -548,7 +578,9 @@ class UnifiedAPIClient(BaseApiClient):
                     raise
             if last_error:
                 raise last_error
-            raise Timeout(f"Request to {url} failed after {max_attempts} attempts")
+            raise Timeout(
+                f"Request to {url} failed after {max_attempts} attempts"
+            )
 
         # Execute with circuit breaker protection
         result: Response = self._circuit_breaker.call(_execute_with_retries)
@@ -578,7 +610,9 @@ class UnifiedAPIClient(BaseApiClient):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _apply_headers(self, extra: Mapping[str, str] | None) -> Mapping[str, str]:
+    def _apply_headers(
+        self, extra: Mapping[str, str] | None
+    ) -> Mapping[str, str]:
         # Convert headers to str-only dict, handling both str and bytes values
         session_headers: dict[str, str] = {}
         for k, v in self._session.headers.items():
@@ -611,7 +645,9 @@ class UnifiedAPIClient(BaseApiClient):
         )
         return resolved
 
-    def _prepare_full_url(self, endpoint: str, params: Mapping[str, Any]) -> str:
+    def _prepare_full_url(
+        self, endpoint: str, params: Mapping[str, Any]
+    ) -> str:
         url = self._resolve_url(endpoint)
         prepared = requests.Request("GET", url, params=params).prepare()
         return prepared.url or url

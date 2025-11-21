@@ -50,7 +50,10 @@ _DEFAULT_FLATTEN_OBJECTS: dict[str, tuple[str, ...]] = {
     ),
 }
 _DEFAULT_ARRAYS_SIMPLE: tuple[str, ...] = ("atc_classifications",)
-_DEFAULT_ARRAYS_OBJECTS: tuple[str, ...] = ("cross_references", "molecule_synonyms")
+_DEFAULT_ARRAYS_OBJECTS: tuple[str, ...] = (
+    "cross_references",
+    "molecule_synonyms",
+)
 
 
 def flatten_object_col(
@@ -143,9 +146,15 @@ def transform(df: pd.DataFrame, cfg: Any) -> pd.DataFrame:
         transform_cfg = getattr(cfg.domain, "transform", None)
 
     # Check if flattening is enabled
-    enable_flatten = getattr(transform_cfg, "enable_flatten", True) if transform_cfg else True
+    enable_flatten = (
+        getattr(transform_cfg, "enable_flatten", True)
+        if transform_cfg
+        else True
+    )
     enable_serialization = (
-        getattr(transform_cfg, "enable_serialization", True) if transform_cfg else True
+        getattr(transform_cfg, "enable_serialization", True)
+        if transform_cfg
+        else True
     )
 
     # Flatten nested objects
@@ -166,14 +175,20 @@ def transform(df: pd.DataFrame, cfg: Any) -> pd.DataFrame:
     if enable_flatten:
         objects_to_flatten = flatten_objects or _DEFAULT_FLATTEN_OBJECTS
         for obj_col, fields in objects_to_flatten.items():
-            if isinstance(fields, Sequence) and not isinstance(fields, (str, bytes)):
-                df = flatten_object_col(df, obj_col, fields, prefix=f"{obj_col}__")
+            if isinstance(fields, Sequence) and not isinstance(
+                fields, (str, bytes)
+            ):
+                df = flatten_object_col(
+                    df, obj_col, fields, prefix=f"{obj_col}__"
+                )
 
     # Serialize simple arrays
     arrays_simple: Sequence[str] = ()
     if transform_cfg and hasattr(transform_cfg, "arrays_simple_to_pipe"):
         candidate = transform_cfg.arrays_simple_to_pipe
-        if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
+        if isinstance(candidate, Sequence) and not isinstance(
+            candidate, (str, bytes)
+        ):
             arrays_simple = candidate
     if enable_serialization:
         simple_targets = arrays_simple or _DEFAULT_ARRAYS_SIMPLE
@@ -183,9 +198,13 @@ def transform(df: pd.DataFrame, cfg: Any) -> pd.DataFrame:
 
     # Serialize arrays of objects
     arrays_objects: Sequence[str] = ()
-    if transform_cfg and hasattr(transform_cfg, "arrays_objects_to_header_rows"):
+    if transform_cfg and hasattr(
+        transform_cfg, "arrays_objects_to_header_rows"
+    ):
         candidate = transform_cfg.arrays_objects_to_header_rows
-        if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
+        if isinstance(candidate, Sequence) and not isinstance(
+            candidate, (str, bytes)
+        ):
             arrays_objects = candidate
 
     if enable_serialization:

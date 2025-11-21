@@ -125,7 +125,9 @@ def get_business_key_fields(pipeline_code: str) -> tuple[str, ...]:
     """Return declared business-key fields for the pipeline output schema."""
 
     contract = get_pipeline_contract(pipeline_code)
-    return resolve_contract_sequence(contract, "business_key_fields", "business_key_fields")
+    return resolve_contract_sequence(
+        contract, "business_key_fields", "business_key_fields"
+    )
 
 
 def get_column_order(pipeline_code: str) -> tuple[str, ...]:

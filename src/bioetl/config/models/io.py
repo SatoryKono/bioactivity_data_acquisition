@@ -12,9 +12,16 @@ class IOInputConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    format: str = Field(default="csv", description="Input file format (csv, parquet, json).")
-    encoding: str = Field(default="utf-8", description="Encoding for input files.")
-    header: bool = Field(default=True, description="Whether the input file contains a header row.")
+    format: str = Field(
+        default="csv", description="Input file format (csv, parquet, json)."
+    )
+    encoding: str = Field(
+        default="utf-8", description="Encoding for input files."
+    )
+    header: bool = Field(
+        default=True,
+        description="Whether the input file contains a header row.",
+    )
     path: str | None = Field(
         default=None,
         description="Explicit path to the local input file, when provided.",
@@ -26,7 +33,9 @@ class IOOutputConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    format: str = Field(default="parquet", description="Output data format (parquet, csv).")
+    format: str = Field(
+        default="parquet", description="Output data format (parquet, csv)."
+    )
     partition_by: Sequence[str] = Field(
         default_factory=tuple,
         description="Columns used to partition the dataset.",

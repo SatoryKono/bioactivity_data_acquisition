@@ -6,7 +6,10 @@ from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
 from typing import Any
 
-from bioetl.clients.chembl_entity_registry import ChemblEntityDefinition, get_entity_definition
+from bioetl.clients.chembl_entity_registry import (
+    ChemblEntityDefinition,
+    get_entity_definition,
+)
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
@@ -117,9 +120,15 @@ class ChemblEntityClientFactory:
             Фабрика для создания HTTP-клиентов. По умолчанию None.
         """
         self._config = pipeline_config
-        self._api_factory = api_client_factory or APIClientFactory(pipeline_config)
-        self._log = UnifiedLogger.get(__name__).bind(component="chembl_entity_factory")
-        self._http_cache: MutableMapping[tuple[str, str], UnifiedAPIClient] = {}
+        self._api_factory = api_client_factory or APIClientFactory(
+            pipeline_config
+        )
+        self._log = UnifiedLogger.get(__name__).bind(
+            component="chembl_entity_factory"
+        )
+        self._http_cache: MutableMapping[tuple[str, str], UnifiedAPIClient] = (
+            {}
+        )
 
     def build(
         self,
@@ -193,7 +202,9 @@ class ChemblEntityClientFactory:
         ... )
         """
         definition = get_entity_definition(entity_name)
-        resolved_source = source_config or self._resolve_source_config(source_name)
+        resolved_source = source_config or self._resolve_source_config(
+            source_name
+        )
         base_url = self._resolve_base_url(resolved_source, options)
         http_client = self._get_http_client(
             source_name,
@@ -212,8 +223,13 @@ class ChemblEntityClientFactory:
             entity=entity_name,
             source=source_name,
             base_url=base_url,
-            cached_http=not fresh_http_client and (source_name, base_url) in self._http_cache,
-            entity_client_type=type(entity_client).__name__ if entity_client is not None else None,
+            cached_http=not fresh_http_client
+            and (source_name, base_url) in self._http_cache,
+            entity_client_type=(
+                type(entity_client).__name__
+                if entity_client is not None
+                else None
+            ),
         )
 
         return ChemblClientBundle(
@@ -269,7 +285,9 @@ class ChemblEntityClientFactory:
         ValueError
             Если base_url пуст.
         """
-        resolved_source = source_config or self._resolve_source_config(source_name)
+        resolved_source = source_config or self._resolve_source_config(
+            source_name
+        )
         base_url = self._resolve_base_url(resolved_source, options)
         http_client = self._get_http_client(
             source_name,
@@ -290,7 +308,9 @@ class ChemblEntityClientFactory:
             cached = self._http_cache.get(cache_key)
             if cached is not None:
                 return cached
-        http_client = self._api_factory.for_source(source_name, base_url=base_url)
+        http_client = self._api_factory.for_source(
+            source_name, base_url=base_url
+        )
         self._http_cache[cache_key] = http_client
         return http_client
 
@@ -298,7 +318,9 @@ class ChemblEntityClientFactory:
         try:
             return self._config.sources[source_name]
         except KeyError as exc:
-            msg = f"Источник '{source_name}' не найден в конфигурации пайплайна"
+            msg = (
+                f"Источник '{source_name}' не найден в конфигурации пайплайна"
+            )
             raise KeyError(msg) from exc
 
     @staticmethod
@@ -310,7 +332,9 @@ class ChemblEntityClientFactory:
         if options is not None and "base_url" in options:
             candidate = options["base_url"]
         if candidate is None and source_config is not None:
-            parameters = ChemblEntityClientFactory._normalize_parameters(source_config)
+            parameters = ChemblEntityClientFactory._normalize_parameters(
+                source_config
+            )
             candidate = parameters.get("base_url")
         if candidate is None:
             candidate = "https://www.ebi.ac.uk/chembl/api/data"
@@ -325,7 +349,9 @@ class ChemblEntityClientFactory:
         return normalized.rstrip("/")
 
     @staticmethod
-    def _normalize_parameters(source_config: SourceConfig[Any] | None) -> Mapping[str, Any]:
+    def _normalize_parameters(
+        source_config: SourceConfig[Any] | None,
+    ) -> Mapping[str, Any]:
         if source_config is None:
             return {}
         return source_config.parameters_mapping()
@@ -338,7 +364,9 @@ class ChemblEntityClientFactory:
         options: Mapping[str, Any] | None,
     ) -> Any:
         try:
-            return definition.build_client(chembl_client, source_config, options)
+            return definition.build_client(
+                chembl_client, source_config, options
+            )
         except Exception as exc:  # pragma: no cover - защитный блок
             msg = f"Не удалось создать клиент для сущности '{definition.name}'"
             raise RuntimeError(msg) from exc

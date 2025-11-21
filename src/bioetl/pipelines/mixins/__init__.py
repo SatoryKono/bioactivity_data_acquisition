@@ -30,7 +30,7 @@ from bioetl.chembl.common.descriptor import (
 from bioetl.chembl.common.normalize import normalize_identifiers
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
-from bioetl.core.pipeline import RunResult
+from bioetl.core.pipeline.orchestration import RunResult
 from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
@@ -38,7 +38,10 @@ from bioetl.core.schema import (
 )
 from bioetl.core.schema.normalizers import IdentifierStats, StringStats
 from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
-from bioetl.pipelines.mixins.flatten_nested import FlattenNestedMixin, FlattenSpec
+from bioetl.pipelines.mixins.flatten_nested import (
+    FlattenNestedMixin,
+    FlattenSpec,
+)
 
 
 class LoggingMixin:
@@ -82,7 +85,9 @@ class LoggingMixin:
         **extra: Any,
     ) -> BoundLogger:
         """Return a logger bound to the pipeline and stage context."""
-        return self._make_pipeline_logger(stage=stage, component=component, **extra)
+        return self._make_pipeline_logger(
+            stage=stage, component=component, **extra
+        )
 
 
 class ReleaseHandshakeMixin:
@@ -109,10 +114,14 @@ class ReleaseHandshakeMixin:
     ) -> Mapping[str, Any]:
         """Fetch and cache the ChEMBL status payload for the endpoint."""
         if not enabled:
-            self.logger_for(stage="handshake").info("handshake_skipped", endpoint=endpoint)
+            self.logger_for(stage="handshake").info(
+                "handshake_skipped", endpoint=endpoint
+            )
             return {}
 
-        cache: dict[str, tuple[float, Mapping[str, Any]]] = getattr(self, "_handshake_cache", {})
+        cache: dict[str, tuple[float, Mapping[str, Any]]] = getattr(
+            self, "_handshake_cache", {}
+        )
         now = time.monotonic()
         cached = cache.get(endpoint)
         if cached and cached[0] > now:
@@ -169,7 +178,9 @@ class PaginatedExtractorMixin:
         while next_endpoint:
             page_params = dict(params)
             page_params.setdefault("limit", page_size)
-            with self.stage_logger("extract", component="pagination", page=page_index) as log:
+            with self.stage_logger(
+                "extract", component="pagination", page=page_index
+            ) as log:
                 log.info("page_started", page=page_index)
                 response = client.get(next_endpoint, params=page_params)
                 payload = response.json()
@@ -210,8 +221,12 @@ class SchemaValidationMixin:
         schema_identifier = self.config.validation.schema_out
         if not schema_identifier:
             return None
-        expected_version = getattr(self.config.validation, "schema_out_version", None)
-        allow_migration = bool(getattr(self.config.validation, "allow_schema_migration", False))
+        expected_version = getattr(
+            self.config.validation, "schema_out_version", None
+        )
+        allow_migration = bool(
+            getattr(self.config.validation, "allow_schema_migration", False)
+        )
         schema_entry, _, _ = self._resolve_schema_entry(
             schema_identifier,
             expected_version=expected_version,
@@ -232,10 +247,14 @@ class RecordNormalizationMixin:
     identifier_log_event: LogEvents | None = LogEvents.IDENTIFIERS_NORMALIZED
     string_log_event: LogEvents | None = LogEvents.STRING_FIELDS_NORMALIZED
 
-    def identifier_rules(self) -> Sequence[IdentifierRule]:  # pragma: no cover - hook
+    def identifier_rules(
+        self,
+    ) -> Sequence[IdentifierRule]:  # pragma: no cover - hook
         return ()
 
-    def string_rules(self) -> Mapping[str, StringRule]:  # pragma: no cover - hook
+    def string_rules(
+        self,
+    ) -> Mapping[str, StringRule]:  # pragma: no cover - hook
         return {}
 
     def preprocess_identifier_columns(
@@ -277,18 +296,26 @@ class RecordNormalizationMixin:
             )
         return df
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+    def _normalize_identifiers(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:
         working_df = df.copy()
         working_df = self.preprocess_identifier_columns(working_df, log)
         rules = tuple(self.identifier_rules())
-        normalized_df, stats = normalize_identifiers(working_df, rules, copy=False)
+        normalized_df, stats = normalize_identifiers(
+            working_df, rules, copy=False
+        )
         return self.postprocess_identifier_columns(normalized_df, stats, log)
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+    def _normalize_string_fields(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:
         working_df = df.copy()
         working_df = self.preprocess_string_columns(working_df, log)
         rules = dict(self.string_rules())
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+        normalized_df, stats = normalize_string_columns(
+            working_df, rules, copy=False
+        )
         return self.postprocess_string_columns(normalized_df, stats, log)
 
 
@@ -309,7 +336,9 @@ class NestedSerializerMixin:
 
     nested_log_event: LogEvents | None = LogEvents.ARRAY_FIELDS_SERIALIZED
 
-    def nested_column_specs(self) -> Sequence[NestedColumnSpec]:  # pragma: no cover - hook
+    def nested_column_specs(
+        self,
+    ) -> Sequence[NestedColumnSpec]:  # pragma: no cover - hook
         return ()
 
     def preprocess_nested_columns(
@@ -317,7 +346,9 @@ class NestedSerializerMixin:
     ) -> pd.DataFrame:  # pragma: no cover - optional hook
         return df
 
-    def _serialize_nested_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+    def _serialize_nested_columns(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:
         specs = tuple(self.nested_column_specs())
         if not specs:
             return df
@@ -334,7 +365,9 @@ class NestedSerializerMixin:
             original_series = working_df[source_column]
 
             try:
-                na_mask = original_series.isna() if spec.preserve_null_like else None
+                na_mask = (
+                    original_series.isna() if spec.preserve_null_like else None
+                )
             except Exception:
                 na_mask = None
 
@@ -436,6 +469,7 @@ class BatchIdExtractionMixin:
     сохраняя единое логирование и Dry-run режим. Результаты автоматически
     публикуются через ``record_extract_metadata`` и доступны в `meta.yaml`.
     """
+
     """Provide a shared ``extract_by_ids`` implementation for ChEMBL pipelines."""
 
     id_extraction_summary_event: str | None = None
@@ -448,23 +482,34 @@ class BatchIdExtractionMixin:
 
         descriptor = self.build_descriptor()
         plan = self.id_extraction_defaults(descriptor)
-        fetcher_factory = plan.fetcher_factory or self.id_extraction_fetcher_factory(
-            descriptor,
-            plan.source_config,
+        fetcher_factory = (
+            plan.fetcher_factory
+            or self.id_extraction_fetcher_factory(
+                descriptor,
+                plan.source_config,
+            )
         )
         finalize_callable = plan.finalize_callable
         if finalize_callable is None:
             finalize_callable = self.id_extraction_finalize_callable()
-        finalize_factory = plan.finalize_factory or self.id_extraction_finalize_factory(
-            descriptor,
-            plan.source_config,
+        finalize_factory = (
+            plan.finalize_factory
+            or self.id_extraction_finalize_factory(
+                descriptor,
+                plan.source_config,
+            )
         )
         finalize_context_callable = plan.finalize_context_callable
         if finalize_context_callable is None:
-            finalize_context_callable = self.id_extraction_finalize_context_callable()
-        finalize_context_factory = plan.finalize_context_factory or self.id_extraction_finalize_context_factory(
-            descriptor,
-            plan.source_config,
+            finalize_context_callable = (
+                self.id_extraction_finalize_context_callable()
+            )
+        finalize_context_factory = (
+            plan.finalize_context_factory
+            or self.id_extraction_finalize_context_factory(
+                descriptor,
+                plan.source_config,
+            )
         )
 
         dataframe, _ = self.run_descriptor_extraction(
@@ -511,9 +556,13 @@ class BatchIdExtractionMixin:
             typed_source_config,
             descriptor,
         )
-        batch_size = self.id_extraction_batch_size(typed_source_config, descriptor)
+        batch_size = self.id_extraction_batch_size(
+            typed_source_config, descriptor
+        )
         chunk_size = self.id_extraction_chunk_size(batch_size, descriptor)
-        max_batch_size = self.id_extraction_max_batch_size_value(batch_size, descriptor)
+        max_batch_size = self.id_extraction_max_batch_size_value(
+            batch_size, descriptor
+        )
         run_kwargs: dict[str, Any] = {
             "batch_size": batch_size,
             "chunk_size": chunk_size,
@@ -537,7 +586,9 @@ class BatchIdExtractionMixin:
         )
         if empty_frame_factory is not None:
             run_kwargs["empty_frame_factory"] = empty_frame_factory
-        extra_kwargs = self.id_extraction_run_kwargs(descriptor, typed_source_config)
+        extra_kwargs = self.id_extraction_run_kwargs(
+            descriptor, typed_source_config
+        )
         if extra_kwargs:
             run_kwargs.update(extra_kwargs)
 
@@ -725,7 +776,9 @@ class BatchIdExtractionMixin:
     def id_extraction_finalize_callable(self) -> FinalizeCallable | None:
         """Return callable invoked once all batches are materialised."""
 
-        def finalize(dataframe: pd.DataFrame, context: BatchExtractionContext) -> pd.DataFrame:
+        def finalize(
+            dataframe: pd.DataFrame, context: BatchExtractionContext
+        ) -> pd.DataFrame:
             return self.finalize_batch(dataframe, context)
 
         return finalize
@@ -739,7 +792,9 @@ class BatchIdExtractionMixin:
 
         return None
 
-    def id_extraction_finalize_context_callable(self) -> FinalizeContextCallable | None:
+    def id_extraction_finalize_context_callable(
+        self,
+    ) -> FinalizeContextCallable | None:
         """Return callable invoked after batch extraction completes."""
 
         def finalize_context(context: BatchExtractionContext) -> None:
@@ -815,7 +870,9 @@ class TransformMixin:
         """Execute the default transform lifecycle with logging."""
         with self.stage_logger("transform", rows=len(df)) as log:
             working_df = self.pre_transform(df.copy())
-            column_order = getattr(self, "_output_column_order", tuple(working_df.columns))
+            column_order = getattr(
+                self, "_output_column_order", tuple(working_df.columns)
+            )
             working_df = self._normalize_and_enforce_schema(  # type: ignore[attr-defined]
                 working_df,
                 column_order,

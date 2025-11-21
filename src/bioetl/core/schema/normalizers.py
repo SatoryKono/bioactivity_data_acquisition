@@ -49,7 +49,9 @@ class IdentifierStats(_HasChangesMixin):
     invalid: int = 0
     per_column: dict[str, dict[str, int]] = field(default_factory=dict)
 
-    def add(self, column: str, normalized_count: int, invalid_count: int) -> None:
+    def add(
+        self, column: str, normalized_count: int, invalid_count: int
+    ) -> None:
         if normalized_count == 0 and invalid_count == 0:
             return
         self.per_column[column] = {
@@ -166,7 +168,9 @@ def normalize_string_columns(
         if rule.trim:
             normalized_series = normalized_series.str.strip()
         if rule.collapse_whitespace:
-            normalized_series = normalized_series.str.replace(r"\s+", " ", regex=True)
+            normalized_series = normalized_series.str.replace(
+                r"\s+", " ", regex=True
+            )
         if rule.uppercase:
             normalized_series = normalized_series.str.upper()
         if rule.lowercase:
@@ -174,7 +178,9 @@ def normalize_string_columns(
         if rule.title_case:
             normalized_series = normalized_series.str.title()
         if rule.max_length is not None:
-            normalized_series = normalized_series.str.slice(stop=rule.max_length)
+            normalized_series = normalized_series.str.slice(
+                stop=rule.max_length
+            )
 
         result.loc[mask, column] = normalized_series
 

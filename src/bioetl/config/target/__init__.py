@@ -32,7 +32,9 @@ class TargetSourceParameters(SourceParameters):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any] | None) -> TargetSourceParameters:
+    def from_mapping(
+        cls, params: Mapping[str, Any] | None
+    ) -> TargetSourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -49,7 +51,9 @@ class TargetSourceParameters(SourceParameters):
             return cls()
 
         normalized = dict(cls._normalize_mapping(params))
-        select_fields = normalize_select_fields(normalized.get("select_fields"))
+        select_fields = normalize_select_fields(
+            normalized.get("select_fields")
+        )
 
         component_limit = normalized.get("component_limit")
         if component_limit is not None:
@@ -62,7 +66,9 @@ class TargetSourceParameters(SourceParameters):
         )
 
 
-class TargetSourceConfig(SourceConfig[TargetSourceParameters], BatchSizeLimitMixin):
+class TargetSourceConfig(
+    SourceConfig[TargetSourceParameters], BatchSizeLimitMixin
+):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -73,7 +79,9 @@ class TargetSourceConfig(SourceConfig[TargetSourceParameters], BatchSizeLimitMix
         default=200,
         description="Effective batch size for pagination requests (capped at 25).",
     )
-    parameters: TargetSourceParameters = Field(default_factory=TargetSourceParameters)
+    parameters: TargetSourceParameters = Field(
+        default_factory=TargetSourceParameters
+    )
 
     parameters_model = TargetSourceParameters
     batch_field: ClassVar[str | None] = "batch_size"

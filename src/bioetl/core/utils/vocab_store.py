@@ -33,7 +33,9 @@ def _ensure_mapping(value: Any, *, context: str) -> Mapping[str, Any]:
     elif isinstance(value, Mapping):
         candidate_mapping = cast(Mapping[str, Any], value)
     else:
-        raise VocabStoreError(f"Expected mapping for {context}, got {type(value)!r}")
+        raise VocabStoreError(
+            f"Expected mapping for {context}, got {type(value)!r}"
+        )
 
     keys_view = cast(Iterable[Any], candidate_mapping.keys())
 
@@ -48,7 +50,9 @@ def _ensure_mapping(value: Any, *, context: str) -> Mapping[str, Any]:
 
 def _ensure_list(value: Any, *, context: str) -> list[Any]:
     if not is_list(value):
-        raise VocabStoreError(f"Expected list for {context}, got {type(value)!r}")
+        raise VocabStoreError(
+            f"Expected list for {context}, got {type(value)!r}"
+        )
 
     copied_list: list[Any] = list(value)
     return copied_list
@@ -57,7 +61,9 @@ def _ensure_list(value: Any, *, context: str) -> list[Any]:
 def _validate_block(name: str, block: Mapping[str, Any]) -> None:
     values_list = _ensure_list(block.get("values"), context=f"{name}.values")
     if not values_list:
-        raise VocabStoreError(f"Dictionary '{name}' must contain at least one value")
+        raise VocabStoreError(
+            f"Dictionary '{name}' must contain at least one value"
+        )
 
     seen_ids: set[str] = set()
     for index, entry_raw in enumerate(values_list):
@@ -70,7 +76,9 @@ def _validate_block(name: str, block: Mapping[str, Any]) -> None:
 
         normalized_id = entry_id.strip()
         if normalized_id in seen_ids:
-            raise VocabStoreError(f"Duplicate id '{normalized_id}' detected in dictionary '{name}'")
+            raise VocabStoreError(
+                f"Duplicate id '{normalized_id}' detected in dictionary '{name}'"
+            )
         seen_ids.add(normalized_id)
 
         status = entry.get("status", "active")
@@ -91,7 +99,9 @@ def _load_yaml(path: Path) -> Mapping[str, Any]:
     except FileNotFoundError as exc:
         raise VocabStoreError(f"Vocabulary file not found: {path}") from exc
     except yaml.YAMLError as exc:  # pragma: no cover - re-raising with context
-        raise VocabStoreError(f"Failed to parse vocabulary file {path}: {exc}") from exc
+        raise VocabStoreError(
+            f"Failed to parse vocabulary file {path}: {exc}"
+        ) from exc
 
     return _ensure_mapping(payload, context=f"YAML root from {path}")
 
@@ -172,7 +182,9 @@ def get_ids(
     try:
         block_raw = store[name]
     except KeyError as exc:  # pragma: no cover - defensive guard
-        raise VocabStoreError(f"Dictionary '{name}' not found in vocabulary store") from exc
+        raise VocabStoreError(
+            f"Dictionary '{name}' not found in vocabulary store"
+        ) from exc
 
     block = _ensure_mapping(block_raw, context=f"dictionary block '{name}'")
     values_raw = block.get("values")
@@ -187,7 +199,9 @@ def get_ids(
         values = []
         for index, entry_raw in enumerate(ids_list):
             if not isinstance(entry_raw, str):
-                raise VocabStoreError(f"Dictionary '{name}' id at position {index} is not a string")
+                raise VocabStoreError(
+                    f"Dictionary '{name}' id at position {index} is not a string"
+                )
             normalized_id = entry_raw.strip()
             values.append({"id": normalized_id, "status": "active"})
     else:
@@ -196,7 +210,9 @@ def get_ids(
     if allowed_statuses is None:
         allowed_statuses_set = DEFAULT_ALLOWED_STATUSES
     else:
-        allowed_statuses_set = {status.strip().lower() for status in allowed_statuses}
+        allowed_statuses_set = {
+            status.strip().lower() for status in allowed_statuses
+        }
 
     result: set[str] = set()
     for index, entry_raw in enumerate(values):
@@ -209,7 +225,9 @@ def get_ids(
 
         status_raw = entry.get("status", "active")
         if not isinstance(status_raw, str):
-            raise VocabStoreError(f"Dictionary '{name}' entry '{entry_id}' has non-string status")
+            raise VocabStoreError(
+                f"Dictionary '{name}' entry '{entry_id}' has non-string status"
+            )
 
         status = status_raw.strip().lower()
         if status in allowed_statuses_set:

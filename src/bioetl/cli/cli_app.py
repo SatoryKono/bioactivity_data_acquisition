@@ -49,7 +49,9 @@ _log = UnifiedLogger.get(__name__)
 __all__ = ["app", "create_app", "run"]
 
 
-def _render_config_payload(payload: MappingType[str, Any], format_name: str) -> str:
+def _render_config_payload(
+    payload: MappingType[str, Any], format_name: str
+) -> str:
     """Serialize a configuration mapping into YAML or JSON."""
 
     normalized = format_name.lower()
@@ -67,8 +69,12 @@ def create_app(
 ) -> TyperApp:
     """Create and configure the Typer application with all registered commands."""
     registry = dict(command_registry or COMMAND_REGISTRY)
-    specs: tuple[PipelineCommandSpec, ...] = tuple(pipeline_specs or PIPELINE_REGISTRY)
-    known_names: set[str] = {name for spec in specs for name in (spec.code, *spec.aliases)}
+    specs: tuple[PipelineCommandSpec, ...] = tuple(
+        pipeline_specs or PIPELINE_REGISTRY
+    )
+    known_names: set[str] = {
+        name for spec in specs for name in (spec.code, *spec.aliases)
+    }
 
     warning_messages: list[str] = []
 
@@ -93,7 +99,9 @@ def create_app(
             if build_config_func is None:
                 warning = f"Command '{command_name}' not found in registry definition"
                 warning_messages.append(warning)
-                cli_feedback.emit_list_item(command_name, "registry entry missing")
+                cli_feedback.emit_list_item(
+                    command_name, "registry entry missing"
+                )
                 continue
             try:
                 config = build_config_func()
@@ -110,7 +118,11 @@ def create_app(
                 cli_feedback.emit_list_item(command_name, f"ERROR: {exc}")
                 continue
 
-            alias_suffix = f" (aliases: {', '.join(spec.aliases)})" if spec.aliases else ""
+            alias_suffix = (
+                f" (aliases: {', '.join(spec.aliases)})"
+                if spec.aliases
+                else ""
+            )
             cli_feedback.emit_list_item(
                 command_name,
                 f"{config.description}{alias_suffix}",
@@ -217,7 +229,9 @@ def create_app(
         try:
             runtime_settings = RuntimeConfig.load(runtime_config)
         except FileNotFoundError as exc:
-            cli_feedback.emit_error(f"Runtime configuration not found: {runtime_config}")
+            cli_feedback.emit_error(
+                f"Runtime configuration not found: {runtime_config}"
+            )
             raise typer.Exit(code=2) from exc
         except ValueError as exc:
             cli_feedback.emit_error(f"Runtime configuration is invalid: {exc}")
@@ -256,9 +270,17 @@ def create_app(
         )
         cli_feedback.emit_line("QC report templates:", indent=1)
         cli_feedback.emit_kv("directory", report_options.directory, indent=2)
-        cli_feedback.emit_kv("quality_template", report_options.quality_template, indent=2)
-        cli_feedback.emit_kv("correlation_template", report_options.correlation_template, indent=2)
-        cli_feedback.emit_kv("metrics_template", report_options.metrics_template, indent=2)
+        cli_feedback.emit_kv(
+            "quality_template", report_options.quality_template, indent=2
+        )
+        cli_feedback.emit_kv(
+            "correlation_template",
+            report_options.correlation_template,
+            indent=2,
+        )
+        cli_feedback.emit_kv(
+            "metrics_template", report_options.metrics_template, indent=2
+        )
 
     @config_app.command(name="inspect")
     def config_inspect(
@@ -331,7 +353,9 @@ def create_app(
         """Load, merge, and print a typed configuration without executing a pipeline."""
 
         if limit is not None and sample is not None:
-            raise typer.BadParameter("--limit and --sample are mutually exclusive")
+            raise typer.BadParameter(
+                "--limit and --sample are mutually exclusive"
+            )
 
         try:
             config_path = validate_config_path(config)
@@ -344,7 +368,9 @@ def create_app(
             raise typer.BadParameter(str(exc)) from exc
 
         try:
-            cli_overrides = parse_set_overrides(set_overrides) if set_overrides else {}
+            cli_overrides = (
+                parse_set_overrides(set_overrides) if set_overrides else {}
+            )
         except ValueError as exc:
             raise typer.BadParameter(str(exc)) from exc
 
@@ -379,8 +405,12 @@ def create_app(
 
         cli_feedback.emit_section("Configuration summary")
         cli_feedback.emit_kv("config_path", str(config_path), indent=1)
-        cli_feedback.emit_kv("pipeline", pipeline_config.pipeline.name, indent=1)
-        cli_feedback.emit_kv("version", pipeline_config.pipeline.version, indent=1)
+        cli_feedback.emit_kv(
+            "pipeline", pipeline_config.pipeline.name, indent=1
+        )
+        cli_feedback.emit_kv(
+            "version", pipeline_config.pipeline.version, indent=1
+        )
         owner = pipeline_config.pipeline.owner or "n/a"
         cli_feedback.emit_kv("owner", owner, indent=1)
         cli_feedback.emit_kv("output_dir", str(resolved_output_dir), indent=1)
@@ -394,7 +424,9 @@ def create_app(
             for profile in pipeline_config.cli.environment_profiles:
                 cli_feedback.emit_line(f"- {profile}", indent=2)
         if pipeline_config.cli.environment:
-            cli_feedback.emit_kv("environment", pipeline_config.cli.environment, indent=1)
+            cli_feedback.emit_kv(
+                "environment", pipeline_config.cli.environment, indent=1
+            )
 
         cli_feedback.emit_line("Domain toggles:", indent=1)
         cli_feedback.emit_kv(
@@ -435,7 +467,9 @@ def create_app(
         command_name = spec.code
         build_config_func = registry.get(command_name)
         if build_config_func is None:
-            warning_message = f"Command '{command_name}' missing from registry definition"
+            warning_message = (
+                f"Command '{command_name}' missing from registry definition"
+            )
             warning_messages.append(warning_message)
             cli_feedback.emit_warning(warning_message)
             continue
@@ -474,7 +508,9 @@ def create_app(
                 continue
             alias_builder = registry.get(alias)
             if alias_builder is None:
-                warning_message = f"Alias '{alias}' missing from registry definition"
+                warning_message = (
+                    f"Alias '{alias}' missing from registry definition"
+                )
                 warning_messages.append(warning_message)
                 cli_feedback.emit_warning(warning_message)
                 continue

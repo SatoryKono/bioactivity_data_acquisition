@@ -188,7 +188,11 @@ def write_matrix(artifacts_dir: Path | None = None) -> DocCodeMatrix:
     log = UnifiedLogger.get(__name__)
 
     rows = build_matrix()
-    target_dir = artifacts_dir if artifacts_dir is not None else PROJECT_ROOT / "artifacts"
+    target_dir = (
+        artifacts_dir
+        if artifacts_dir is not None
+        else PROJECT_ROOT / "artifacts"
+    )
     target_dir.mkdir(parents=True, exist_ok=True)
 
     csv_path = target_dir / "matrix-doc-code.csv"
@@ -228,4 +232,6 @@ def write_matrix(artifacts_dir: Path | None = None) -> DocCodeMatrix:
         json=str(json_path),
     )
 
-    return DocCodeMatrix(rows=tuple(rows), csv_path=csv_path, json_path=json_path)
+    return DocCodeMatrix(
+        rows=tuple(rows), csv_path=csv_path, json_path=json_path
+    )

@@ -33,7 +33,11 @@ def _utcnow() -> datetime:
 
 def _canonical_json(payload: Any) -> str:
     return json.dumps(
-        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
     )
 
 
@@ -95,7 +99,9 @@ class _ActiveRecord:
 class LoadMetaStore:
     """Manage lifecycle of chembl_metadata_schema entries with deterministic persistence."""
 
-    def __init__(self, base_path: str | Path, *, dataset_format: str = "parquet") -> None:
+    def __init__(
+        self, base_path: str | Path, *, dataset_format: str = "parquet"
+    ) -> None:
         if dataset_format not in {"parquet", "delta"}:
             msg = f"Unsupported dataset format: {dataset_format}"
             raise ValueError(msg)
@@ -104,7 +110,9 @@ class LoadMetaStore:
         self._meta_dir = self._base_path / "load_meta"
         self._meta_dir.mkdir(parents=True, exist_ok=True)
         self._dataset_format = dataset_format
-        self._logger = UnifiedLogger.get(__name__).bind(component="load_meta_store")
+        self._logger = UnifiedLogger.get(__name__).bind(
+            component="load_meta_store"
+        )
         self._active: dict[str, _ActiveRecord] = {}
 
     # ------------------------------------------------------------------
@@ -203,10 +211,14 @@ class LoadMetaStore:
         record.request_finished_at = request_finished_at or _utcnow()
         record.ingested_at = ingested_at or _utcnow()
         if notes:
-            record.notes = notes if record.notes is None else f"{record.notes}; {notes}"
+            record.notes = (
+                notes if record.notes is None else f"{record.notes}; {notes}"
+            )
 
         payload = record.to_payload()
-        payload["hash_business_key"] = hash_from_mapping(payload, BUSINESS_KEY_FIELDS)
+        payload["hash_business_key"] = hash_from_mapping(
+            payload, BUSINESS_KEY_FIELDS
+        )
         payload["hash_row"] = hash_from_mapping(payload, ROW_HASH_FIELDS)
 
         df = pd.DataFrame([payload], columns=COLUMN_ORDER)
@@ -245,7 +257,9 @@ class LoadMetaStore:
             try:
                 frame.to_parquet(temp_path, index=False)
                 os.replace(temp_path, path)
-            except ImportError as exc:  # pragma: no cover - optional dependency guard
+            except (
+                ImportError
+            ) as exc:  # pragma: no cover - optional dependency guard
                 if temp_path.exists():
                     temp_path.unlink(missing_ok=True)
                 self._logger.warning(
@@ -278,7 +292,9 @@ def _write_spark_dataframe(frame: Any, path: Path, *, fmt: str) -> None:
     if SparkDataFrame is None or not isinstance(frame, SparkDataFrame):
         msg = "Spark DataFrame support is unavailable"
         raise RuntimeError(msg)
-    temp_dir = Path(tempfile.mkdtemp(prefix="load_meta_", dir=str(path.parent)))
+    temp_dir = Path(
+        tempfile.mkdtemp(prefix="load_meta_", dir=str(path.parent))
+    )
     try:
         writer = frame.write.mode("overwrite")
         if fmt == "delta":

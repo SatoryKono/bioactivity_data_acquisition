@@ -55,7 +55,9 @@ class ChemblEnrichmentScenario:
 
         return enrich_flag(config, self.flag_path())
 
-    def extract_config(self, config: Mapping[str, Any] | None, *, log: Any) -> dict[str, Any]:
+    def extract_config(
+        self, config: Mapping[str, Any] | None, *, log: Any
+    ) -> dict[str, Any]:
         """Extract a mutable enrichment configuration mapping for this scenario."""
 
         return _extract_enrich_config(config, self.config_path, log=log)
@@ -77,7 +79,9 @@ def enrich_flag(config: Mapping[str, Any] | None, path: Sequence[str]) -> bool:
     return bool(current) if current is not None else False
 
 
-def _enrich_flag(config: Mapping[str, Any] | None, path: Sequence[str]) -> bool:
+def _enrich_flag(
+    config: Mapping[str, Any] | None, path: Sequence[str]
+) -> bool:
     """Backward-compatible alias for :func:`enrich_flag`."""
 
     return enrich_flag(config, path)

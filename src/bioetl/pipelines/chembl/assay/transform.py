@@ -83,7 +83,9 @@ def validate_assay_parameters_truv(
     log = UnifiedLogger.get(__name__).bind(component="assay_transform")
 
     if column not in df.columns:
-        log.debug(LogEvents.TRUV_VALIDATION_SKIPPED_MISSING_COLUMN, column=column)
+        log.debug(
+            LogEvents.TRUV_VALIDATION_SKIPPED_MISSING_COLUMN, column=column
+        )
         return df
 
     # Collection of supported relation operators
@@ -98,7 +100,11 @@ def validate_assay_parameters_truv(
             continue
 
         try:
-            params_raw = json.loads(params_str) if isinstance(params_str, str) else params_str
+            params_raw = (
+                json.loads(params_str)
+                if isinstance(params_str, str)
+                else params_str
+            )
         except (json.JSONDecodeError, TypeError) as exc:
             errors.append(
                 f"Row {idx}: Invalid JSON in {column}: {exc}",
@@ -152,14 +158,26 @@ def validate_assay_parameters_truv(
             # Treat standard_value as NULL when None, NaN, or an empty string
             standard_value_is_null = (
                 standard_value is None
-                or (isinstance(standard_value, float) and pd.isna(standard_value))
-                or (isinstance(standard_value, str) and standard_value.strip() == "")
+                or (
+                    isinstance(standard_value, float)
+                    and pd.isna(standard_value)
+                )
+                or (
+                    isinstance(standard_value, str)
+                    and standard_value.strip() == ""
+                )
             )
             # Treat standard_text_value as NULL when None, NaN, or an empty string
             standard_text_value_is_null = (
                 standard_text_value is None
-                or (isinstance(standard_text_value, float) and pd.isna(standard_text_value))
-                or (isinstance(standard_text_value, str) and standard_text_value.strip() == "")
+                or (
+                    isinstance(standard_text_value, float)
+                    and pd.isna(standard_text_value)
+                )
+                or (
+                    isinstance(standard_text_value, str)
+                    and standard_text_value.strip() == ""
+                )
             )
 
             if not standard_value_is_null and not standard_text_value_is_null:
@@ -202,7 +220,9 @@ def validate_assay_parameters_truv(
 
             # Enforce relation ∈ {'=', '<', '≤', '>', '≥', '~', NULL}
             relation: Any = param_dict.get("relation")
-            if relation is not None and not (isinstance(relation, float) and pd.isna(relation)):
+            if relation is not None and not (
+                isinstance(relation, float) and pd.isna(relation)
+            ):
                 relation_str = str(relation).strip()
                 if relation_str and relation_str not in standard_relations:
                     warnings.append(
@@ -217,9 +237,13 @@ def validate_assay_parameters_truv(
 
     # Handle validation errors
     if errors:
-        error_msg = f"TRUV validation failed for {column}:\n" + "\n".join(errors)
+        error_msg = f"TRUV validation failed for {column}:\n" + "\n".join(
+            errors
+        )
         if fail_fast:
-            log.error(LogEvents.TRUV_VALIDATION_FAILED, error_count=len(errors))
+            log.error(
+                LogEvents.TRUV_VALIDATION_FAILED, error_count=len(errors)
+            )
             raise ValueError(error_msg)
         else:
             for error in errors:

@@ -43,29 +43,43 @@ _LOG = UnifiedLogger.get(__name__)
 class PipelineStagesProtocol(Protocol):
     """Protocol describing the minimal set of stage callables."""
 
-    def extract(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+    def extract(
+        self, *args: Any, **kwargs: Any
+    ) -> Any:  # pragma: no cover - Protocol hook
         ...
 
-    def extract_all(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+    def extract_all(
+        self, *args: Any, **kwargs: Any
+    ) -> Any:  # pragma: no cover - Protocol hook
         ...
 
-    def extract_by_ids(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+    def extract_by_ids(
+        self, *args: Any, **kwargs: Any
+    ) -> Any:  # pragma: no cover - Protocol hook
         ...
 
-    def transform(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+    def transform(
+        self, *args: Any, **kwargs: Any
+    ) -> Any:  # pragma: no cover - Protocol hook
         ...
 
-    def validate(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+    def validate(
+        self, *args: Any, **kwargs: Any
+    ) -> Any:  # pragma: no cover - Protocol hook
         ...
 
-    def write(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+    def write(
+        self, *args: Any, **kwargs: Any
+    ) -> Any:  # pragma: no cover - Protocol hook
         ...
 
 
 class _PipelineResolver(Protocol):
     """Protocol describing objects returning pipeline classes on demand."""
 
-    def resolve(self) -> type[PipelineBase]:  # pragma: no cover - structural protocol
+    def resolve(
+        self,
+    ) -> type[PipelineBase]:  # pragma: no cover - structural protocol
         """Return the concrete pipeline class."""
         ...
 
@@ -85,7 +99,9 @@ class PipelineReference:
     def resolve(self) -> type[PipelineBase]:
         if self._pipeline_cls is None:
             pipeline_cls = self.loader()
-            if not isinstance(pipeline_cls, type) or not issubclass(pipeline_cls, PipelineBase):
+            if not isinstance(pipeline_cls, type) or not issubclass(
+                pipeline_cls, PipelineBase
+            ):
                 msg = "Pipeline loader must return a PipelineBase subclass"
                 raise TypeError(msg)
             self._pipeline_cls = pipeline_cls
@@ -136,7 +152,9 @@ def _pipeline_identifier(pipeline_cls: type[PipelineBase]) -> str:
     return f"{pipeline_cls.__module__}.{pipeline_cls.__qualname__}"
 
 
-def _resolve_pipeline(pipeline: PipelineReference | type[PipelineBase]) -> tuple[type[PipelineBase], str]:
+def _resolve_pipeline(
+    pipeline: PipelineReference | type[PipelineBase],
+) -> tuple[type[PipelineBase], str]:
     if isinstance(pipeline, PipelineReference):
         pipeline_cls = pipeline.resolve()
         return pipeline_cls, pipeline.identifier()
@@ -163,8 +181,10 @@ def register_pipeline(
             msg = f"Pipeline '{identifier}' is already registered"
             raise ValueError(msg)
         _PIPELINE_REGISTRY[identifier] = pipeline
+
         def _loader() -> type[PipelineBase]:
             return pipeline
+
         return PipelineReference(
             loader=_loader,
             _identifier=identifier,
@@ -190,8 +210,15 @@ def build_stage_functions(
         _ensure_pipeline_compliance(pipeline_cls, stage_names)
         pipeline_ref = register_pipeline(pipeline_cls)
     elif callable(pipeline_cls):
-        def _loader(pipeline_loader: PipelineLoader | None = None) -> type[PipelineBase]:
-            loader = pipeline_loader if pipeline_loader is not None else pipeline_cls
+
+        def _loader(
+            pipeline_loader: PipelineLoader | None = None,
+        ) -> type[PipelineBase]:
+            loader = (
+                pipeline_loader
+                if pipeline_loader is not None
+                else pipeline_cls
+            )
             if not callable(loader):
                 msg = "Pipeline loader must be callable"
                 raise TypeError(msg)
@@ -224,12 +251,16 @@ def build_stage_functions(
                     raise TypeError(msg)
                 # Второй позиционный аргумент (run_id_or_arg) должен попадать в *args
                 # Собираем все аргументы для stage метода
-                stage_args = (run_id_or_arg,) if run_id_or_arg is not None else ()
+                stage_args = (
+                    (run_id_or_arg,) if run_id_or_arg is not None else ()
+                )
                 stage_args = stage_args + args
                 # partial_func уже имеет run_id=None, просто передаем context и аргументы
                 return partial_func(context_or_config, *stage_args, **kwargs)
             # Если передан PipelineConfig, второй позиционный аргумент - это run_id
-            return partial_func(context_or_config, run_id_or_arg, *args, **kwargs)
+            return partial_func(
+                context_or_config, run_id_or_arg, *args, **kwargs
+            )
 
         return stage_wrapper
 
@@ -247,12 +278,18 @@ def _normalize_stage_names(stages: Iterable[str] | None) -> tuple[str, ...]:
         msg = "build_stage_functions.stages must be an iterable of stage names"
         raise TypeError(msg)
 
-    normalized = tuple(dict.fromkeys(stage.strip() for stage in stages if stage))
+    normalized = tuple(
+        dict.fromkeys(stage.strip() for stage in stages if stage)
+    )
     if not normalized:
-        msg = "build_stage_functions.stages must include at least one stage name"
+        msg = (
+            "build_stage_functions.stages must include at least one stage name"
+        )
         raise ValueError(msg)
 
-    unknown = [stage for stage in normalized if stage not in _KNOWN_STAGE_NAMES]
+    unknown = [
+        stage for stage in normalized if stage not in _KNOWN_STAGE_NAMES
+    ]
     if unknown:
         msg = f"Unsupported stage name(s): {', '.join(sorted(unknown))}"
         raise ValueError(msg)
@@ -307,13 +344,21 @@ _STAGE_EVENT_ALIASES: dict[str, str] = {
 
 _STAGE_EVENTS: dict[str, tuple[LogEvents, LogEvents]] = {
     "extract": (LogEvents.STAGE_EXTRACT_START, LogEvents.STAGE_EXTRACT_FINISH),
-    "transform": (LogEvents.STAGE_TRANSFORM_START, LogEvents.STAGE_TRANSFORM_FINISH),
-    "validate": (LogEvents.STAGE_VALIDATE_START, LogEvents.STAGE_VALIDATE_FINISH),
+    "transform": (
+        LogEvents.STAGE_TRANSFORM_START,
+        LogEvents.STAGE_TRANSFORM_FINISH,
+    ),
+    "validate": (
+        LogEvents.STAGE_VALIDATE_START,
+        LogEvents.STAGE_VALIDATE_FINISH,
+    ),
     "write": (LogEvents.STAGE_WRITE_START, LogEvents.STAGE_WRITE_FINISH),
 }
 
 
-def _log_stage_event(log: BoundLogger, stage_alias: str, start: bool, **context: Any) -> None:
+def _log_stage_event(
+    log: BoundLogger, stage_alias: str, start: bool, **context: Any
+) -> None:
     events = _STAGE_EVENTS.get(stage_alias)
     if not events:
         return
@@ -341,13 +386,17 @@ def _coerce_stage_context(
         if not run_id:
             msg = "run_stage requires run_id when a PipelineConfig is provided"
             raise TypeError(msg)
-        return StageContext(config=context_or_config, run_id=run_id, stage=stage)
+        return StageContext(
+            config=context_or_config, run_id=run_id, stage=stage
+        )
 
     msg = "run_stage expects StageContext or PipelineConfig as the first argument"
     raise TypeError(msg)
 
 
-def _resolve_stage_callable(pipeline: PipelineBase, stage: str) -> StageCallable:
+def _resolve_stage_callable(
+    pipeline: PipelineBase, stage: str
+) -> StageCallable:
     try:
         callable_candidate = getattr(pipeline, stage)
     except AttributeError as exc:  # pragma: no cover - defensive guard
@@ -377,14 +426,21 @@ def run_stage(
 
     stage_context = _coerce_stage_context(stage, context_or_config, run_id)
     pipeline_cls, identifier = _resolve_pipeline(pipeline_ref)
-    pipeline = pipeline_cls(config=stage_context.config, run_id=stage_context.run_id)
+    pipeline = pipeline_cls(
+        config=stage_context.config, run_id=stage_context.run_id
+    )
     # Если pipeline_name установлен в StageContext, используем его для pipeline_code
     resolved_pipeline_name = stage_context.resolve_pipeline_name()
-    if stage_context.pipeline_name is not None and resolved_pipeline_name != pipeline.pipeline_code:
+    if (
+        stage_context.pipeline_name is not None
+        and resolved_pipeline_name != pipeline.pipeline_code
+    ):
         pipeline.pipeline_code = resolved_pipeline_name
     pipeline_name = resolved_pipeline_name
     stage_name = stage_context.stage or stage
-    log = get_pipeline_logger(pipeline=pipeline_name, run_id=stage_context.run_id, stage=stage_name)
+    log = get_pipeline_logger(
+        pipeline=pipeline_name, run_id=stage_context.run_id, stage=stage_name
+    )
 
     available_stages = _available_pipeline_stages(pipeline)
 

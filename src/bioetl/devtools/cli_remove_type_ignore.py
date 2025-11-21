@@ -43,5 +43,9 @@ def remove_type_ignore(root: Path | None = None) -> int:
     for file_path in _iter_python_files(target_root):
         total_removed += _cleanse_file(file_path)
 
-    log.info(LogEvents.TYPE_IGNORE_REMOVED, count=total_removed, root=str(target_root))
+    log.info(
+        LogEvents.TYPE_IGNORE_REMOVED,
+        count=total_removed,
+        root=str(target_root),
+    )
     return total_removed

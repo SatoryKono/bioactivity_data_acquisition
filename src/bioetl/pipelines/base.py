@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Pipeline orchestration layer reused across core and pipelines packages."""
 
-from bioetl.core.pipeline.common import (
+from bioetl.core.pipeline.orchestration import (
     PipelineBaseCommon,
     PipelineExtractionMode,
     PipelineStageCommand,

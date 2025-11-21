@@ -30,7 +30,9 @@ def extract_pipeline_base_methods() -> dict[str, Any]:
         if hasattr(PipelineBase, method_name):
             method = getattr(PipelineBase, method_name)
             if callable(method):
-                methods[method_name] = signature_from_callable(method, empty_annotation=None)
+                methods[method_name] = signature_from_callable(
+                    method, empty_annotation=None
+                )
     return methods
 
 
@@ -65,8 +67,10 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
                         if statement.name == "__init__":
                             has_init = True
                         if statement.name in target_method_names:
-                            class_methods[statement.name] = signature_from_docs(
-                                statement, empty_annotation=None
+                            class_methods[statement.name] = (
+                                signature_from_docs(
+                                    statement, empty_annotation=None
+                                )
                             )
 
                 if class_methods:
@@ -85,7 +89,9 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
         return {"error": "PipelineBase definition not found in documentation"}
 
     # Сначала ищем определение с __init__
-    preferred = next((defn for defn in all_class_definitions if defn["has_init"]), None)
+    preferred = next(
+        (defn for defn in all_class_definitions if defn["has_init"]), None
+    )
 
     # Если нет определения с __init__, выбираем с наибольшим количеством методов
     if preferred is None:
@@ -106,9 +112,11 @@ def extract_config_fields_from_code() -> dict[str, Any]:
         for field_name, field_info in PipelineConfig.model_fields.items():
             fields[field_name] = {
                 "type": str(getattr(field_info, "annotation", None)),
-                "required": field_info.is_required()
-                if hasattr(field_info, "is_required")
-                else None,
+                "required": (
+                    field_info.is_required()
+                    if hasattr(field_info, "is_required")
+                    else None
+                ),
                 "default": (
                     str(field_info.default)
                     if getattr(field_info, "default", None) is not None
@@ -135,8 +143,11 @@ def extract_config_fields_from_docs() -> dict[str, Any]:
         description = match.group(5).strip()
         fields[key] = {
             "type": field_type,
-            "required": required.lower() in ["yes", "required", "mandatory", "**yes**"],
-            "default": None if default.lower() in ["—", "n/a", "none"] else default,
+            "required": required.lower()
+            in ["yes", "required", "mandatory", "**yes**"],
+            "default": (
+                None if default.lower() in ["—", "n/a", "none"] else default
+            ),
             "description": description,
         }
     return fields
@@ -156,10 +167,16 @@ def extract_cli_flags_from_code() -> list[dict[str, Any]]:
 
         # Находим функцию create_pipeline_command
         for node in module.body:
-            if isinstance(node, ast.FunctionDef) and node.name == "create_pipeline_command":
+            if (
+                isinstance(node, ast.FunctionDef)
+                and node.name == "create_pipeline_command"
+            ):
                 # Ищем вложенную функцию command
                 for stmt in node.body:
-                    if isinstance(stmt, ast.FunctionDef) and stmt.name == "command":
+                    if (
+                        isinstance(stmt, ast.FunctionDef)
+                        and stmt.name == "command"
+                    ):
                         # Парсим параметры функции command
                         for arg in stmt.args.args:
                             if arg.annotation:
@@ -173,22 +190,34 @@ def extract_cli_flags_from_code() -> list[dict[str, Any]]:
                                 if (
                                     default_value
                                     and isinstance(default_value, ast.Call)
-                                    and isinstance(default_value.func, ast.Attribute)
-                                    and isinstance(default_value.func.value, ast.Name)
+                                    and isinstance(
+                                        default_value.func, ast.Attribute
+                                    )
+                                    and isinstance(
+                                        default_value.func.value, ast.Name
+                                    )
                                     and default_value.func.value.id == "typer"
                                     and default_value.func.attr == "Option"
                                 ):
-                                    flag_info = _parse_typer_option(default_value, arg.annotation)
+                                    flag_info = _parse_typer_option(
+                                        default_value, arg.annotation
+                                    )
                                     if flag_info:
                                         flags.append(flag_info)
                         break
 
-        return flags if flags else [{"error": "No CLI flags found in create_pipeline_command"}]
+        return (
+            flags
+            if flags
+            else [{"error": "No CLI flags found in create_pipeline_command"}]
+        )
     except Exception as exc:  # noqa: BLE001
         return [{"error": str(exc)}]
 
 
-def _parse_typer_option(call_node: ast.Call, annotation: ast.expr) -> dict[str, Any] | None:
+def _parse_typer_option(
+    call_node: ast.Call, annotation: ast.expr
+) -> dict[str, Any] | None:
     """Parse a typer.Option() call node and extract flag information."""
     try:
         # Первый позиционный аргумент - это default value
@@ -258,7 +287,9 @@ def extract_cli_flags_from_docs() -> list[dict[str, Any]]:
 
     content = doc_file.read_text(encoding="utf-8")
     flags: list[dict[str, Any]] = []
-    pattern = r"\|\s*`([^`]+)`\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|"
+    pattern = (
+        r"\|\s*`([^`]+)`\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|"
+    )
     for match in re.finditer(pattern, content):
         flag_name = match.group(1).strip()
         shorthand = match.group(2).strip()
@@ -275,7 +306,9 @@ def extract_cli_flags_from_docs() -> list[dict[str, Any]]:
     return flags
 
 
-def compare_methods(code_methods: dict[str, Any], doc_methods: dict[str, Any]) -> dict[str, Any]:
+def compare_methods(
+    code_methods: dict[str, Any], doc_methods: dict[str, Any]
+) -> dict[str, Any]:
     """Compare code signatures against documented signatures."""
     differences: dict[str, Any] = {}
     all_methods = set(code_methods.keys()) | set(doc_methods.keys())
@@ -298,7 +331,9 @@ def compare_methods(code_methods: dict[str, Any], doc_methods: dict[str, Any]) -
             continue
 
         issues = []
-        if code_method.get("return_annotation") != doc_method.get("return_annotation"):
+        if code_method.get("return_annotation") != doc_method.get(
+            "return_annotation"
+        ):
             issues.append(
                 "Return type mismatch: code="
                 f"{code_method.get('return_annotation')}, doc={doc_method.get('return_annotation')}"
@@ -347,7 +382,10 @@ def run_semantic_diff() -> Path:
 
     diff_report = {
         "methods": method_differences,
-        "config_fields": {"code": code_config_fields, "docs": doc_config_fields},
+        "config_fields": {
+            "code": code_config_fields,
+            "docs": doc_config_fields,
+        },
         "cli_flags": {"code": code_cli_flags, "docs": doc_cli_flags},
     }
 

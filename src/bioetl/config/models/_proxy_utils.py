@@ -79,7 +79,11 @@ def build_section_proxies(
 
     proxies: dict[str, property] = {}
     for definition in parsed:
-        read_only = default_read_only if definition.read_only is None else definition.read_only
+        read_only = (
+            default_read_only
+            if definition.read_only is None
+            else definition.read_only
+        )
         proxies[definition.attr] = _build_property(
             path=definition.path,
             setter=definition.setter,

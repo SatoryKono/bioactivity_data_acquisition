@@ -11,7 +11,11 @@ from collections.abc import Mapping
 from importlib import import_module
 from typing import Any
 
-from .metrics import compute_correlation_matrix, compute_duplicate_stats, compute_missingness
+from .metrics import (
+    compute_correlation_matrix,
+    compute_duplicate_stats,
+    compute_missingness,
+)
 
 _LAZY_EXPORTS: Mapping[str, str] = {
     "build_correlation_report": "bioetl.qc.report",

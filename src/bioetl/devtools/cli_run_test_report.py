@@ -42,7 +42,9 @@ def _load_pytest_summary(path: Path) -> tuple[int, dict[str, int]]:
     data = json.loads(path.read_text(encoding="utf-8"))
     summary = data.get("summary", {})
     collected = int(summary.get("collected", 0))
-    return collected, {str(k): int(v) for k, v in summary.items() if isinstance(v, int)}
+    return collected, {
+        str(k): int(v) for k, v in summary.items() if isinstance(v, int)
+    }
 
 
 def _compute_pipeline_version() -> str:
@@ -147,7 +149,11 @@ def generate_test_report(
         log.error(LogEvents.TARGET_DIRECTORY_EXISTS, path=str(final_root))
         return 1
 
-    log.info(LogEvents.PREPARING_DIRECTORIES, tmp_root=str(tmp_root), final_root=str(final_root))
+    log.info(
+        LogEvents.PREPARING_DIRECTORIES,
+        tmp_root=str(tmp_root),
+        final_root=str(final_root),
+    )
     tmp_root.mkdir(parents=True, exist_ok=True)
 
     artifacts = resolver(tmp_root)
@@ -174,10 +180,14 @@ def generate_test_report(
     status = "passed" if result.returncode == 0 else "failed"
     logger_type.bind(stage="post-processing")
     log = logger_type.get(__name__)
-    log.info(LogEvents.PYTEST_FINISHED, returncode=result.returncode, status=status)
+    log.info(
+        LogEvents.PYTEST_FINISHED, returncode=result.returncode, status=status
+    )
 
     if not artifacts.pytest_report.exists():
-        log.error(LogEvents.PYTEST_JSON_MISSING, path=str(artifacts.pytest_report))
+        log.error(
+            LogEvents.PYTEST_JSON_MISSING, path=str(artifacts.pytest_report)
+        )
         return max(result.returncode, 1)
 
     row_count, summary = _load_pytest_summary(artifacts.pytest_report)
@@ -231,7 +241,11 @@ def generate_test_report(
     if html_dir.exists():
         shutil.rmtree(html_dir)
 
-    log.info(LogEvents.FINALISING_OUTPUT, source=str(tmp_root), destination=str(final_root))
+    log.info(
+        LogEvents.FINALISING_OUTPUT,
+        source=str(tmp_root),
+        destination=str(final_root),
+    )
     tmp_root.rename(final_root)
 
     if status == "failed":

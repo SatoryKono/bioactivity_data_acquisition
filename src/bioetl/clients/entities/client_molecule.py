@@ -13,7 +13,9 @@ from bioetl.clients.client_chembl_entity_base import (
 __all__ = ["ChemblMoleculeEntityClient"]
 
 
-class ChemblMoleculeEntityClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
+class ChemblMoleculeEntityClient(
+    ChemblEntityConfigMixin, ChemblEntityFetcherBase
+):
     """Client for retrieving ``molecule`` records from the ChEMBL API."""
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("molecule")

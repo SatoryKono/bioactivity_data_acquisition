@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from bioetl.core.utils.release_tracker import ChemblReleaseMixin
+from bioetl.chembl.common.release_tracker import ChemblReleaseMixin
 
 __all__ = ["ChemblReleaseMixin"]

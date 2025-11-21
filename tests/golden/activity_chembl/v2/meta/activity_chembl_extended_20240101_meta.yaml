@@ -9,8 +9,8 @@ columns:
 - hash_business_key
 - load_meta_id
 config_version: 1
-dataset_path: C:\Users\Fedor\AppData\Local\Temp\pytest-of-Fedor\pytest-1298\test_activity_pipeline_golden_0\output\activity_chembl_extended_20240101.csv
-generated_at_utc: '2025-11-20T19:41:24.509123Z'
+dataset_path: C:\Users\Fedor\AppData\Local\Temp\pytest-of-Fedor\pytest-1412\test_activity_pipeline_golden_0\output\activity_chembl_extended_20240101.csv
+generated_at_utc: '2025-11-21T15:07:06.488797Z'
 hash_policy_version: 1.0.0
 hashing:
   algorithm: sha256
@@ -26,7 +26,7 @@ hashing:
   row_column: hash_row
   row_fields: []
   sample_hash_business_key: 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b
-  sample_hash_row: 9a1692527597e7280956d1059104b3e4e55a6979a81d6ad7b87ff59668ef1ff1
+  sample_hash_row: 4d00747db63242188cb623d441a1b25ebf9486768b723c15f9535a017630ad87
 pipeline: activity_chembl
 pipeline_version: 1.0.0
 quality:
@@ -51,7 +51,7 @@ sorting:
   - activity_id
   na_position: last
 stage_durations_ms:
-  validate: 259.4874999995227
+  validate: 59.31550000968855
 validation:
   coerce: true
   column_order:

@@ -20,7 +20,9 @@ class SourceParameters(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     @classmethod
-    def from_mapping(cls: type[ParametersT], params: Mapping[str, Any] | None) -> ParametersT:
+    def from_mapping(
+        cls: type[ParametersT], params: Mapping[str, Any] | None
+    ) -> ParametersT:
         """Build a parameter model from an arbitrary mapping."""
 
         if params is None:
@@ -52,7 +54,9 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(default=True, description="Toggle processing of this data source.")
+    enabled: bool = Field(
+        default=True, description="Toggle processing of this data source."
+    )
     description: str | None = Field(
         default=None, description="Human readable description of the source."
     )
@@ -94,7 +98,9 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
         return cls(**payload)
 
     @classmethod
-    def _build_parameters(cls, params: SourceParameters | Mapping[str, Any] | None) -> ParametersT:
+    def _build_parameters(
+        cls, params: SourceParameters | Mapping[str, Any] | None
+    ) -> ParametersT:
         model = cls.parameters_model
         if model is None:
             if params is None:
@@ -102,7 +108,10 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
             if isinstance(params, SourceParameters):
                 return cast(ParametersT, params)
             return cast(
-                ParametersT, SourceParameters(**SourceParameters._normalize_mapping(params))
+                ParametersT,
+                SourceParameters(
+                    **SourceParameters._normalize_mapping(params)
+                ),
             )
         if params is None:
             return cast(ParametersT, model())
@@ -139,7 +148,9 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
 
         batch_field = cls.batch_field
         if batch_field:
-            batch_value = cls._resolve_batch_value(config=config, parameters=parameters)
+            batch_value = cls._resolve_batch_value(
+                config=config, parameters=parameters
+            )
             if batch_value is not None:
                 payload[batch_field] = batch_value
 
@@ -170,7 +181,10 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
             return None
 
         default_value = field_info.default
-        if default_value is not None and default_value is not PydanticUndefined:
+        if (
+            default_value is not None
+            and default_value is not PydanticUndefined
+        ):
             return cast(int, default_value)
 
         default_factory = field_info.default_factory
@@ -190,7 +204,9 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
         dumped = self.parameters.model_dump()
         return {str(key): value for key, value in dumped.items()}
 
-    def get_parameter(self, key: str, default: Any | None = None) -> Any | None:
+    def get_parameter(
+        self, key: str, default: Any | None = None
+    ) -> Any | None:
         """Return a parameter value with a fallback."""
 
         return self.parameters_mapping().get(key, default)

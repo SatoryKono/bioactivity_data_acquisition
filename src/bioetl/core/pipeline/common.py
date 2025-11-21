@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# ruff: noqa: I001
+
 import hashlib
 import time
 import uuid
@@ -8,25 +10,25 @@ from abc import ABC, abstractmethod
 from builtins import ConnectionError as BuiltinConnectionError
 from builtins import TimeoutError as BuiltinTimeoutError
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, ContextManager, Protocol, TypeVar, cast, runtime_checkable
+from typing import Any, NoReturn, Protocol, TypeVar, cast, runtime_checkable
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pandera.errors
+import pandera.pandas as pa
 from pandas import Series
-from pandera import DataFrameSchema
 from structlog.stdlib import BoundLogger
 
 import bioetl.schemas.versioning as schema_versioning
 from bioetl.clients import client_exceptions
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.runtime import QCReportRuntimeOptions
-from bioetl.core import APIClientFactory
-from bioetl.core.http import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.io import (
     DeterministicWriteArtifacts,
     RunArtifacts,
@@ -35,7 +37,6 @@ from bioetl.core.io import (
     build_run_manifest_payload,
     build_write_artifacts,
     emit_qc_artifact,
-    ensure_hash_columns,
     write_dataset_atomic,
     write_json_atomic,
     write_yaml_atomic,
@@ -52,9 +53,14 @@ from bioetl.core.logging import (
 )
 from bioetl.core.runtime.load_meta_store import LoadMetaStore
 from bioetl.core.schema import format_failure_cases, summarize_schema_errors
-from bioetl.pipelines.common import ensure_directory
-from bioetl.pipelines.errors import PipelineError, map_client_exc
-from bioetl.qc.plan import QC_PLAN_DEFAULT, QCMetricsBundle, QCMetricsExecutor, QCPlan
+from bioetl.utils import ensure_directory
+from bioetl.core.pipeline.errors import PipelineError, map_client_exc
+from bioetl.qc.plan import (
+    QC_PLAN_DEFAULT,
+    QCMetricsBundle,
+    QCMetricsExecutor,
+    QCPlan,
+)
 from bioetl.qc.report import (
     build_correlation_report as build_default_correlation_report,
 )
@@ -71,7 +77,7 @@ from bioetl.schemas import (
     SchemaVersionMismatchError,
     get_schema,
 )
-from bioetl.pipelines.validation import (
+from bioetl.core.pipeline.validation import (
     CoerceRetryStep,
     FailOpenValidation,
     MigrationStep,
@@ -83,9 +89,11 @@ from bioetl.pipelines.validation import (
     ValidationStep,
     VocabularyValidationStep,
 )
-from bioetl.schemas.pipeline_contracts import get_business_key_fields as get_pipeline_business_keys
+from bioetl.schemas.pipeline_contracts import (
+    get_business_key_fields as get_pipeline_business_keys,
+)
 from bioetl.vocab import get_vocabulary_service
-from bioetl.vocab.exceptions import VocabularyValidationError, VocabularyViolation
+from bioetl.vocab.exceptions import VocabularyViolation
 
 SCHEMA_MIGRATION_REGISTRY = schema_versioning.SCHEMA_MIGRATION_REGISTRY
 
@@ -183,7 +191,8 @@ class RunResult:
 
     @property
     def dataframe(self) -> pd.DataFrame:
-        """Return a copy of the dataframe produced by the run when available."""
+        """Return a copy of the dataframe produced by the run when
+        available."""
 
         if self._dataframe is not None:
             return self._dataframe
@@ -215,7 +224,10 @@ class StageContext:
     data: dict[str, Any] = field(default_factory=dict)
     result: RunResult | None = None
 
-    def pipeline_stage(self, stage: str) -> ContextManager[BoundLogger]:
+    def pipeline_stage(
+        self,
+        stage: str,
+    ) -> AbstractContextManager[BoundLogger]:
         """Return structured logging context for ``stage``."""
 
         return pipeline_stage(
@@ -260,7 +272,7 @@ class BaseStageCommand(PipelineStageCommand):
     def should_run(self, options: StageExecutionOptions) -> bool:
         return True
 
-    def execute(self, context: StageContext) -> None:  # pragma: no cover - interface contract
+    def execute(self, context: StageContext) -> None:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -293,7 +305,10 @@ class _ExtractStageCommand(BaseStageCommand):
         options = context.options
         with context.pipeline_stage(self.name) as stage_log:
             stage_log.info(LogEvents.STAGE_EXTRACT_START)
-            extracted = self.pipeline.extract(mode=options.extract_mode, ids=options.extract_ids)
+            extracted = self.pipeline.extract(
+                mode=options.extract_mode,
+                ids=options.extract_ids,
+            )
             rows = self.pipeline._safe_len(extracted)
             stage_log.info(LogEvents.STAGE_EXTRACT_FINISH, rows=rows)
         context.set_payload(_EXTRACT_PAYLOAD_KEY, extracted)
@@ -336,17 +351,30 @@ class _WriteStageCommand(BaseStageCommand):
         validated = context.require_payload(_VALIDATE_PAYLOAD_KEY)
         options = context.options
         config = self.pipeline.config
-        effective_extended = bool(options.extended or getattr(config.cli, "extended", False))
+        effective_extended = bool(
+            options.extended or getattr(config.cli, "extended", False)
+        )
         postprocess_config = getattr(config, "postprocess", None)
         correlation_config = getattr(postprocess_config, "correlation", None)
-        correlation_default = bool(getattr(correlation_config, "enabled", False))
-        include_correlation_flag = (
-            bool(options.include_correlation) or effective_extended or correlation_default
+        correlation_default = bool(
+            getattr(correlation_config, "enabled", False)
         )
-        include_qc_metrics_flag = bool(options.include_qc_metrics) or effective_extended
-        self.pipeline._qc_fail_on_threshold = bool(options.fail_on_qc_violation)
+        include_correlation_flag = (
+            bool(options.include_correlation)
+            or effective_extended
+            or correlation_default
+        )
+        include_qc_metrics_flag = (
+            bool(options.include_qc_metrics) or effective_extended
+        )
+        self.pipeline._qc_fail_on_threshold = bool(
+            options.fail_on_qc_violation
+        )
         with context.pipeline_stage(self.name) as stage_log:
-            stage_log.info(LogEvents.STAGE_WRITE_START, output_path=str(context.output_dir))
+            stage_log.info(
+                LogEvents.STAGE_WRITE_START,
+                output_path=str(context.output_dir),
+            )
             result = self.pipeline.save_results(
                 validated,
                 context.output_dir,
@@ -371,15 +399,21 @@ class _CleanupStageCommand(BaseStageCommand):
             context.pipeline._cleanup_registered_clients()
             try:
                 context.pipeline.close_resources()
-            except Exception as cleanup_error:  # pragma: no cover - defensive cleanup path
-                cleanup_log.warning(LogEvents.STAGE_CLEANUP_ERROR, error=str(cleanup_error))
+            except Exception as cleanup_error:  # pragma: no cover
+                # defensive cleanup path
+                cleanup_log.warning(
+                    LogEvents.STAGE_CLEANUP_ERROR,
+                    error=str(cleanup_error),
+                )
             context.pipeline._qc_report_options = None
             context.pipeline._qc_thresholds = {}
             context.pipeline._qc_fail_on_threshold = False
-            cleanup_log.info(LogEvents.STAGE_CLEANUP_FINISH)
+            cleanup_log.info(
+                LogEvents.STAGE_CLEANUP_FINISH,
+            )
 
 
-T_qc = TypeVar("T_qc")
+T_QC = TypeVar("T_QC")
 
 
 class PipelineBaseCommon(ABC, PipelineStagesProtocol):
@@ -422,7 +456,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         self.logs_root = self.output_root.parent / "logs"
         self.retention_runs = 5
         self.pipeline_directory = self._ensure_pipeline_directory()
-        self.stage_plan: tuple[PipelineStageCommand, ...] = tuple()
+        self.stage_plan: tuple[PipelineStageCommand, ...] = ()
         self.logs_directory = self._ensure_logs_directory()
         self._stage_durations_ms: dict[str, float] = {}
         self._registered_clients: dict[str, Callable[[], None]] = {}
@@ -432,8 +466,12 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         self._validation_summary: dict[str, Any] | None = None
         self._extract_metadata: dict[str, Any] = {}
         self._vocabulary_service = get_vocabulary_service()
-        load_meta_root = self.output_root.parent / "load_meta" / self.pipeline_code
-        self.load_meta_store = LoadMetaStore(load_meta_root, dataset_format="parquet")
+        load_meta_root = (
+            self.output_root.parent / "load_meta" / self.pipeline_code
+        )
+        self.load_meta_store = LoadMetaStore(
+            load_meta_root, dataset_format="parquet"
+        )
         self._qc_executor = QCMetricsExecutor()
         self._qc_report_options: QCReportRuntimeOptions | None = None
         self._qc_thresholds: dict[str, float] = {}
@@ -450,7 +488,10 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         Does not create the directory. Use _ensure_pipeline_directory_exists()
         to create it when needed.
         """
-        return self.output_root / f"{self.deterministic_folder_prefix}{self.pipeline_code}"
+        return (
+            self.output_root
+            / f"{self.deterministic_folder_prefix}{self.pipeline_code}"
+        )
 
     def _ensure_pipeline_directory_exists(self) -> Path:
         """Ensure the deterministic output folder exists for the pipeline."""
@@ -501,7 +542,13 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
     ) -> None:
         """Log initial run metadata; override to add custom context."""
 
-        effective_mode = "extended" if (options.extended or getattr(self.config.cli, "extended", False)) else None
+        effective_mode = (
+            "extended"
+            if (
+                options.extended or getattr(self.config.cli, "extended", False)
+            )
+            else None
+        )
         bootstrap_log.info(
             LogEvents.STAGE_RUN_START,
             mode=effective_mode,
@@ -510,7 +557,12 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         )
 
     def _derive_trace_and_span(self) -> tuple[str, str]:
-        seed = "".join(character for character in self.run_id if character.isalnum()) or "0"
+        seed = (
+            "".join(
+                character for character in self.run_id if character.isalnum()
+            )
+            or "0"
+        )
         repeat_count = (32 // len(seed)) + 2
         expanded = seed * repeat_count
         trace_id = expanded[:32].ljust(32, "0")
@@ -542,7 +594,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 except ValueError:
                     continue
                 return parsed.strftime("%Y%m%d")
-            digits = "".join(character for character in trimmed if character.isdigit())
+            digits = "".join(
+                character for character in trimmed if character.isdigit()
+            )
             if len(digits) >= 8:
                 truncated = digits[:8]
                 try:
@@ -554,11 +608,15 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         timezone_name = self.config.determinism.environment.timezone
         try:
             tz = ZoneInfo(timezone_name)
-        except Exception:  # pragma: no cover - invalid timezone handled by defaults
+        except (
+            Exception
+        ):  # pragma: no cover - invalid timezone handled by defaults
             tz = ZoneInfo("UTC")
         return datetime.now(tz).strftime("%Y%m%d")
 
-    def build_run_stem(self, run_tag: str | None, mode: str | None = None) -> str:
+    def build_run_stem(
+        self, run_tag: str | None, mode: str | None = None
+    ) -> str:
         """Return the filename stem for artifacts in a run.
 
         The stem combines the pipeline code, optional mode (e.g. "all" or
@@ -566,7 +624,11 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         """
         tag = self._normalise_run_tag(run_tag)
         parts: Sequence[str]
-        parts = (self.pipeline_code, mode, tag) if mode else (self.pipeline_code, tag)
+        parts = (
+            (self.pipeline_code, mode, tag)
+            if mode
+            else (self.pipeline_code, tag)
+        )
         return "_".join(parts)
 
     def plan_run_artifacts(
@@ -588,7 +650,11 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         """
 
         stem = self.build_run_stem(run_tag=run_tag, mode=mode)
-        run_dir = run_directory if run_directory is not None else self.pipeline_directory
+        run_dir = (
+            run_directory
+            if run_directory is not None
+            else self.pipeline_directory
+        )
         artifacts = io_plan_run_artifacts(
             stem=stem,
             run_directory=run_dir,
@@ -609,7 +675,11 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             return artifacts
 
         write = artifacts.write
-        quality_path = options.quality_path(stem=stem) if write.quality_report is not None else None
+        quality_path = (
+            options.quality_path(stem=stem)
+            if write.quality_report is not None
+            else None
+        )
         correlation_path = (
             options.correlation_path(stem=stem)
             if include_correlation and write.correlation_report is not None
@@ -647,7 +717,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         dataset_files = sorted(
             (
                 path
-                for path in self.pipeline_directory.glob(f"{self.pipeline_code}_*{suffix}")
+                for path in self.pipeline_directory.glob(
+                    f"{self.pipeline_code}_*{suffix}"
+                )
                 if path.name.endswith(suffix)
                 and not path.stem.endswith("_quality_report")
                 and not path.stem.endswith("_correlation_report")
@@ -669,7 +741,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             for candidate in self._artifact_candidates(outdated_stem):
                 if candidate.exists():
                     candidate.unlink()
-            log_candidate = self.logs_directory / f"{outdated_stem}.{self.log_extension}"
+            log_candidate = (
+                self.logs_directory / f"{outdated_stem}.{self.log_extension}"
+            )
             if log_candidate.exists():
                 log_candidate.unlink()
 
@@ -691,7 +765,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
     ) -> pd.DataFrame:
         """Dispatch between ID-based and full extraction modes."""
 
-        normalized_ids: tuple[str, ...] = tuple(str(item) for item in ids) if ids else ()
+        normalized_ids: tuple[str, ...] = (
+            tuple(str(item) for item in ids) if ids else ()
+        )
 
         if mode is PipelineExtractionMode.BATCH:
             if not normalized_ids:
@@ -722,7 +798,8 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         Parameters
         ----------
         ids:
-            Sequence of identifiers to extract (e.g., assay_chembl_id, activity_id, molecule_chembl_id).
+            Sequence of identifiers to extract (for example ``assay_chembl_id``,
+            ``activity_id``, ``molecule_chembl_id``).
 
         Returns
         -------
@@ -732,8 +809,11 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
     @abstractmethod
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Subclasses transform raw payloads into normalized tabular data."""
-        # According to documentation, transform should accept df: pd.DataFrame and return pd.DataFrame
+        """Subclasses transform raw payloads into normalized tabular data.
+
+        According to documentation, ``transform`` should accept ``df: pd.DataFrame``
+        and return ``pd.DataFrame``.
+        """
 
     # ------------------------------------------------------------------
     # Optional hooks overridable by subclasses
@@ -759,7 +839,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
     def _business_key_fields(self) -> tuple[str, ...]:
         """Return configured business key fields."""
 
-        configured = getattr(self.config.determinism.hashing, "business_key_fields", None)
+        configured = getattr(
+            self.config.determinism.hashing, "business_key_fields", None
+        )
         if configured:
             return tuple(str(field) for field in configured if field)
         try:
@@ -769,11 +851,11 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
     def _build_qc_report(
         self,
-        factory: Callable[..., T_qc],
+        factory: Callable[..., T_QC],
         df: pd.DataFrame,
         *,
         bundle: QCMetricsBundle | None = None,
-    ) -> T_qc:
+    ) -> T_QC:
         """Execute a QC report factory with the pipeline defaults."""
 
         business_key = self._business_key_fields()
@@ -847,7 +929,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                     and isinstance(enriched[key], Mapping)
                     and isinstance(value, Mapping)
                 ):
-                    merged_filters = dict(cast(Mapping[str, Any], enriched[key]))
+                    merged_filters = dict(
+                        cast(Mapping[str, Any], enriched[key])
+                    )
                     merged_filters.update(cast(Mapping[str, Any], value))
                     enriched[key] = merged_filters
                 else:
@@ -883,7 +967,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                     normalised_items.append((key_as_str, normalised_value))
                 normalised_items.sort(key=lambda item: item[0])
                 return dict(normalised_items)
-            if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
+            if isinstance(candidate, Sequence) and not isinstance(
+                candidate, (str, bytes)
+            ):
                 normalised_sequence: list[Any] = []
                 sequence_items = cast(Sequence[object], candidate)
                 for item in sequence_items:
@@ -897,10 +983,14 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         if chembl_release is not None:
             metadata["chembl_release"] = chembl_release
         if filters is not None:
-            filters_mapping = dict(filters) if not isinstance(filters, Mapping) else filters
+            filters_mapping = (
+                dict(filters) if not isinstance(filters, Mapping) else filters
+            )
             metadata["filters"] = _normalise_value(filters_mapping)
         if requested_at_utc is not None:
-            metadata["requested_at_utc"] = _normalise_timestamp(requested_at_utc)
+            metadata["requested_at_utc"] = _normalise_timestamp(
+                requested_at_utc
+            )
         for key, value in extra.items():
             if value is None:
                 continue
@@ -935,7 +1025,10 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         else:
             candidate = getattr(client, close_method, None)
             if candidate is None or not callable(candidate):
-                msg = f"Client '{name}' does not expose callable '{close_method}' and is not itself callable"
+                msg = (
+                    f"Client '{name}' does not expose callable '{close_method}' "
+                    "and is not itself callable"
+                )
                 raise TypeError(msg)
 
             # Wrap to ensure return type is None
@@ -992,11 +1085,17 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         log.info(LogEvents.READING_INPUT, limit=limit, sample=sample)
 
         # Determine file format from extension
-        # Note: pandas read methods have complex overloads; type checker cannot fully infer return type
+        # Note: pandas read methods have complex overloads; type checker cannot
+        # fully infer return type
         df: pd.DataFrame = (
-            pd.read_parquet(resolved_path)  # pyright: ignore[reportUnknownMemberType]
+            pd.read_parquet(
+                resolved_path,
+            )  # pyright: ignore[reportUnknownMemberType]
             if resolved_path.suffix.lower() == ".parquet"
-            else pd.read_csv(resolved_path, low_memory=False)  # pyright: ignore[reportUnknownMemberType]
+            else pd.read_csv(
+                resolved_path,
+                low_memory=False,
+            )  # pyright: ignore[reportUnknownMemberType]
         )
         if df.empty:
             log.debug(LogEvents.INPUT_FILE_EMPTY)
@@ -1010,7 +1109,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         # Apply sample if specified
         if sample is not None and sample > 0 and sample < len(df):
             seed = self._deterministic_sample_seed()
-            df = df.sample(n=sample, random_state=seed, replace=False).sort_index()
+            df = df.sample(
+                n=sample, random_state=seed, replace=False
+            ).sort_index()
             log.info(
                 LogEvents.SAMPLE_APPLIED,
                 sample_size=sample,
@@ -1035,7 +1136,8 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         Parameters
         ----------
         id_column_name:
-            Name of the column containing IDs (e.g., 'assay_chembl_id', 'activity_id', 'molecule_chembl_id').
+            Name of the column containing IDs (for example ``assay_chembl_id``,
+            ``activity_id``, ``molecule_chembl_id``).
         limit:
             Optional limit on number of IDs to read.
         sample:
@@ -1060,7 +1162,10 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             input_file_str = str(input_path).replace("\\", "/")
             input_root_str = str(input_root).replace("\\", "/")
             # Normalize: ensure both use forward slashes for comparison
-            if input_file_str.startswith(input_root_str + "/") or input_file_str == input_root_str:
+            if (
+                input_file_str.startswith(input_root_str + "/")
+                or input_file_str == input_root_str
+            ):
                 # Path already contains input_root, use as-is (resolve to absolute)
                 input_path = input_path.resolve()
             else:
@@ -1072,7 +1177,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         df = self.read_input_table(input_path, limit=limit, sample=sample)
 
         if df.empty:
-            path_log.warning(LogEvents.INPUT_FILE_EMPTY_IDS, id_column=id_column_name)
+            path_log.warning(
+                LogEvents.INPUT_FILE_EMPTY_IDS, id_column=id_column_name
+            )
             return []
 
         if id_column_name not in df.columns:
@@ -1082,11 +1189,16 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 id_column=id_column_name,
                 available_columns=available_columns,
             )
-            msg = f"Input file {input_path} missing required column '{id_column_name}'. Available columns: {available_columns}"
+            msg = (
+                f"Input file {input_path} missing required column '{id_column_name}'. "
+                f"Available columns: {available_columns}"
+            )
             raise ValueError(msg)
 
         # Extract unique IDs, drop NaN, convert to string, sort for determinism
-        ids: list[str] = df[id_column_name].dropna().astype(str).unique().tolist()
+        ids: list[str] = (
+            df[id_column_name].dropna().astype(str).unique().tolist()
+        )
         ids.sort()  # Deterministic ordering
 
         path_log.info(
@@ -1099,7 +1211,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
         return ids
 
-    def _resolve_extract_invocation(self) -> tuple[PipelineExtractionMode, Sequence[str] | None]:
+    def _resolve_extract_invocation(
+        self,
+    ) -> tuple[PipelineExtractionMode, Sequence[str] | None]:
         """Return the effective extract mode and optional identifier list."""
 
         mode = PipelineExtractionMode.AUTO
@@ -1131,31 +1245,18 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         str:
             Name of the ID column (e.g., 'assay_chembl_id', 'activity_id', 'molecule_chembl_id').
         """
+        id_column = getattr(self, "id_column", None)
+        if isinstance(id_column, str):
+            stripped = id_column.strip()
+            if stripped:
+                return stripped
+
         pipeline_name = self.pipeline_code.lower()
 
-        # Map pipeline names to ID column names
-        id_column_map: dict[str, str] = {
-            "assay_chembl": "assay_chembl_id",
-            "activity_chembl": "activity_id",
-            "testitem_chembl": "molecule_chembl_id",
-            "target_chembl": "target_chembl_id",
-            "document_chembl": "document_chembl_id",
-        }
-
-        # Try exact match first
-        if pipeline_name in id_column_map:
-            return id_column_map[pipeline_name]
-
-        # Try partial match (e.g., "assay" -> "assay_chembl_id")
-        for key, value in id_column_map.items():
-            if key.startswith(pipeline_name) or pipeline_name.startswith(key.split("_")[0]):
-                return value
-
-        # Fallback: construct from pipeline name
-        # Convert "assay_chembl" -> "assay_chembl_id"
         if "_" in pipeline_name:
             parts = pipeline_name.split("_")
-            return "_".join(parts[:-1]) + "_id" if len(parts) > 1 else f"{pipeline_name}_id"
+            if len(parts) > 1:
+                return "_".join(parts[:-1]) + "_id"
 
         return f"{pipeline_name}_id"
 
@@ -1232,13 +1333,22 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             return df
 
         try:
-            configured_schema_in = getattr(self.config.validation, "schema_in", None)
+            configured_schema_in = getattr(
+                self.config.validation, "schema_in", None
+            )
             resolved_expected = expected_version
-            if resolved_expected is None and schema_identifier == configured_schema_in:
-                resolved_expected = getattr(self.config.validation, "schema_in_version", None)
+            if (
+                resolved_expected is None
+                and schema_identifier == configured_schema_in
+            ):
+                resolved_expected = getattr(
+                    self.config.validation, "schema_in_version", None
+                )
             if allow_migration is None:
                 resolved_allow_migration = bool(
-                    getattr(self.config.validation, "allow_schema_migration", False)
+                    getattr(
+                        self.config.validation, "allow_schema_migration", False
+                    )
                     if schema_identifier == configured_schema_in
                     else False
                 )
@@ -1259,10 +1369,12 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                     migrations=migrations,
                 )
 
-            schema: DataFrameSchema = schema_entry.schema
-            if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
+            schema: pa.DataFrameSchema = schema_entry.schema
+            if hasattr(schema, "replace") and callable(
+                getattr(schema, "replace", None)
+            ):
                 schema = cast(
-                    DataFrameSchema,
+                    pa.DataFrameSchema,
                     cast(Any, schema).replace(
                         strict=self.config.validation.strict,
                         coerce=self.config.validation.coerce,
@@ -1273,7 +1385,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             if not isinstance(validated_candidate, pd.DataFrame):
                 msg = "Schema validation did not return a DataFrame"
                 raise TypeError(msg)
-            validated = self._reorder_columns(validated_candidate, schema_entry.column_order)
+            validated = self._reorder_columns(
+                validated_candidate, schema_entry.column_order
+            )
             log.debug(
                 LogEvents.SCHEMA_VALIDATION_COMPLETED,
                 dataset=dataset_name,
@@ -1283,15 +1397,18 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             )
             return validated
         except pandera.errors.SchemaErrors as exc:
-            fail_open = (not getattr(self.config.cli, "fail_on_schema_drift", True)) or (
-                not getattr(self.config.cli, "validate_columns", True)
-            )
+            fail_open = (
+                not getattr(self.config.cli, "fail_on_schema_drift", True)
+            ) or (not getattr(self.config.cli, "validate_columns", True))
             if not fail_open:
                 raise
             summary = summarize_schema_errors(exc)
             failure_cases_df = getattr(exc, "failure_cases", None)
             failure_details: dict[str, Any] | None = None
-            if isinstance(failure_cases_df, pd.DataFrame) and not failure_cases_df.empty:
+            if (
+                isinstance(failure_cases_df, pd.DataFrame)
+                and not failure_cases_df.empty
+            ):
                 failure_details = format_failure_cases(failure_cases_df)
                 summary["failure_count"] = int(len(failure_cases_df))
 
@@ -1373,7 +1490,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         base_metadata["columns"] = list(df.columns)
 
         if self._validation_schema:
-            base_metadata["schema_identifier"] = self._validation_schema.identifier
+            base_metadata["schema_identifier"] = (
+                self._validation_schema.identifier
+            )
             base_metadata["schema_version"] = self._validation_schema_version
 
         return base_metadata
@@ -1430,56 +1549,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         stage:
             The stage name (e.g., "extract", "transform", "validate", "write").
         """
-        UnifiedLogger.bind(stage=stage, component=self._component_for_stage(stage))
-
-    def init_chembl_client(self, *, base_url: str | None = None) -> UnifiedAPIClient:
-        """Initialize and register a ChEMBL API client.
-
-        This method creates a ChEMBL client using the unified HTTP client
-        with default retry/backoff, throttling, and observability policies.
-        The client is automatically registered for cleanup during pipeline finalization.
-
-        Parameters
-        ----------
-        base_url:
-            Optional base URL for the ChEMBL API. If not provided, it will
-            be resolved from the source configuration.
-
-        Returns
-        -------
-        UnifiedAPIClient:
-            The configured ChEMBL API client.
-        """
-        factory = APIClientFactory(self.config)
-        source_config = self.config.sources.get("chembl")
-        if source_config is None:
-            msg = "ChEMBL source configuration not found"
-            raise ValueError(msg)
-
-        # Resolve base URL from source config if not provided
-        if base_url is None:
-            base_url = source_config.get_parameter(
-                "base_url",
-                "https://www.ebi.ac.uk/chembl/api/data",
-            )
-
-        # Ensure base_url is str (guaranteed by .get() with default, but type checker doesn't know)
-        if not isinstance(base_url, str):
-            msg = "base_url must be a string"
-            raise TypeError(msg)
-
-        try:
-            client = factory.for_source("chembl", base_url=base_url)
-        except Exception as exc:
-            if isinstance(exc, _NETWORK_ERROR_TYPES):
-                mapped = map_client_exc(exc)
-                raise mapped from exc
-            raise
-        self.register_client("chembl_client", client)
-
-        log = UnifiedLogger.get(__name__)
-        log.debug(LogEvents.CHEMBL_CLIENT_INITIALIZED, base_url=base_url)
-        return client
+        UnifiedLogger.bind(
+            stage=stage, component=self._component_for_stage(stage)
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -1563,11 +1635,13 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             )
 
         try:
-            migrations = schema_versioning.SCHEMA_MIGRATION_REGISTRY.resolve_path(
-                schema_identifier=schema_identifier,
-                current_version=expected_version,
-                target_version=actual_version,
-                max_hops=self.config.validation.max_schema_migration_hops,
+            migrations = (
+                schema_versioning.SCHEMA_MIGRATION_REGISTRY.resolve_path(
+                    schema_identifier=schema_identifier,
+                    current_version=expected_version,
+                    target_version=actual_version,
+                    max_hops=self.config.validation.max_schema_migration_hops,
+                )
             )
         except SchemaMigrationError as exc:
             raise SchemaVersionMismatchError(
@@ -1645,7 +1719,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             if isinstance(column_order_or_log, BoundLogger):
                 effective_log = column_order_or_log
                 schema_entry = self._default_validation_schema_entry()
-                column_order: Sequence[str] = schema_entry.column_order if schema_entry else ()
+                column_order: Sequence[str] = (
+                    schema_entry.column_order if schema_entry else ()
+                )
             else:
                 column_order = column_order_or_log
         else:
@@ -1670,28 +1746,37 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 factory = spec.get("factory")
                 if callable(factory):
                     produced = factory(row_count)
-                    if isinstance(produced, pd.Series) and len(produced) == row_count:
+                    if (
+                        isinstance(produced, pd.Series)
+                        and len(produced) == row_count
+                    ):
                         df[column] = produced
                         continue
                     if isinstance(produced, Sequence) and not isinstance(
                         produced, (str, bytes, bytearray)
                     ):
                         produced_sequence = cast(Sequence[object], produced)
-                        produced_list = [cast(Any, item) for item in produced_sequence]
+                        produced_list = [
+                            cast(Any, item) for item in produced_sequence
+                        ]
                         if len(produced_list) == row_count:
                             df[column] = produced_list
                             continue
                 default_value = spec.get("default", pd.NA)
                 dtype = spec.get("dtype")
                 if dtype is not None:
-                    df[column] = pd.Series([default_value] * row_count, dtype=dtype)
+                    df[column] = pd.Series(
+                        [default_value] * row_count, dtype=dtype
+                    )
                 else:
                     df[column] = pd.Series([default_value] * row_count)
             logger.debug(LogEvents.SCHEMA_COLUMNS_ADDED, columns=missing)
 
         return df
 
-    def _order_schema_columns(self, df: pd.DataFrame, column_order: Sequence[str]) -> pd.DataFrame:
+    def _order_schema_columns(
+        self, df: pd.DataFrame, column_order: Sequence[str]
+    ) -> pd.DataFrame:
         """Return DataFrame with schema columns ordered ahead of extras.
 
         Parameters
@@ -1706,9 +1791,13 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         pd.DataFrame
             DataFrame with columns ordered according to column_order, with extras appended.
         """
-        extras = [column for column in df.columns if column not in column_order]
+        extras = [
+            column for column in df.columns if column not in column_order
+        ]
         # Filter column_order to only include columns that exist in DataFrame
-        existing_schema_columns = [column for column in column_order if column in df.columns]
+        existing_schema_columns = [
+            column for column in column_order if column in df.columns
+        ]
         if self.config.validation.strict:
             # Only return schema columns that exist
             return df[existing_schema_columns]
@@ -1716,7 +1805,10 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         return df[[*existing_schema_columns, *extras]]
 
     def _normalize_data_types(
-        self, df: pd.DataFrame, schema: DataFrameSchema | None, log: Any
+        self,
+        df: pd.DataFrame,
+        schema: pa.DataFrameSchema | None,
+        log: Any,
     ) -> pd.DataFrame:
         """Convert data types according to the schema.
 
@@ -1745,8 +1837,16 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 return df
             schema = schema_entry.schema
 
+        if not isinstance(schema, pa.DataFrameSchema):
+            msg = (
+                "Validation schema must be a pandera DataFrameSchema instance"
+            )
+            raise PipelineError(msg)
+
         def _to_numeric_series(series: pd.Series[Any]) -> pd.Series[Any]:
-            to_numeric_series = cast(Callable[..., pd.Series[Any]], pd.to_numeric)
+            to_numeric_series = cast(
+                Callable[..., pd.Series[Any]], pd.to_numeric
+            )
             return to_numeric_series(series, errors="coerce")
 
         # Get column definitions from schema
@@ -1759,21 +1859,38 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
                 # Handle nullable integers
                 if column_def.dtype == pd.Int64Dtype() or (
-                    hasattr(column_def.dtype, "name") and column_def.dtype.name == "Int64"
+                    hasattr(column_def.dtype, "name")
+                    and column_def.dtype.name == "Int64"
                 ):
                     numeric_series = _to_numeric_series(column_series)
-                    df[column_name] = cast(Series, numeric_series.astype("Int64"))
+                    df[column_name] = cast(
+                        Series, numeric_series.astype("Int64")
+                    )
                 # Handle nullable floats
-                elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "Float64":
+                elif (
+                    hasattr(column_def.dtype, "name")
+                    and column_def.dtype.name == "Float64"
+                ):
                     numeric_series_float = _to_numeric_series(column_series)
-                    df[column_name] = cast(Series, numeric_series_float.astype("Float64"))
+                    df[column_name] = cast(
+                        Series, numeric_series_float.astype("Float64")
+                    )
                 # Handle strings - convert to string, preserving None values
-                elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "string":
+                elif (
+                    hasattr(column_def.dtype, "name")
+                    and column_def.dtype.name == "string"
+                ):
                     mask: pd.Series[bool] = column_series.notna()
                     if bool(mask.any()):
-                        df.loc[mask, column_name] = df.loc[mask, column_name].astype(str)
+                        df.loc[mask, column_name] = df.loc[
+                            mask, column_name
+                        ].astype(str)
             except (ValueError, TypeError) as exc:
-                log.warning(LogEvents.TYPE_CONVERSION_FAILED, field=column_name, error=str(exc))
+                log.warning(
+                    LogEvents.TYPE_CONVERSION_FAILED,
+                    field=column_name,
+                    error=str(exc),
+                )
 
         return df
 
@@ -1784,8 +1901,14 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         for name, closer in list(self._registered_clients.items())[::-1]:
             try:
                 closer()
-            except Exception as exc:  # pragma: no cover - defensive cleanup path
-                log.warning(LogEvents.CLIENT_CLEANUP_FAILED, client=name, error=str(exc))
+            except (
+                Exception
+            ) as exc:  # pragma: no cover - defensive cleanup path
+                log.warning(
+                    LogEvents.CLIENT_CLEANUP_FAILED,
+                    client=name,
+                    error=str(exc),
+                )
             finally:
                 self._registered_clients.pop(name, None)
 
@@ -1843,22 +1966,32 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
     ) -> RunResult:
         """Internal helper implementing the deterministic write flow."""
         log = UnifiedLogger.get(__name__)
-        if not isinstance(df, pd.DataFrame):  # pyright: ignore[reportUnnecessaryIsInstance]
+        if not isinstance(
+            df, pd.DataFrame
+        ):  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = f"write() expects a pandas DataFrame payload; received {type(df).__name__!s}"
             raise TypeError(msg)
         run_tag = self._normalise_run_tag(None)
-        effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
+        effective_extended = bool(
+            extended or getattr(self.config.cli, "extended", False)
+        )
         mode = "extended" if effective_extended else None
 
         postprocess_config = getattr(self.config, "postprocess", None)
         correlation_config = getattr(postprocess_config, "correlation", None)
-        correlation_default = bool(getattr(correlation_config, "enabled", False))
+        correlation_default = bool(
+            getattr(correlation_config, "enabled", False)
+        )
 
         # Run correlation report generation if enabled in the config or via extended mode.
         include_correlation_flag = (
-            bool(include_correlation) or effective_extended or correlation_default
+            bool(include_correlation)
+            or effective_extended
+            or correlation_default
         )
-        include_qc_metrics_flag = bool(include_qc_metrics) or effective_extended
+        include_qc_metrics_flag = (
+            bool(include_qc_metrics) or effective_extended
+        )
         include_metadata = bool(self.config.validation.schema_out)
         if effective_extended or self._extract_metadata:
             include_metadata = True
@@ -1888,7 +2021,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             stage_durations_ms=self._stage_durations_ms,
         )
 
-        metadata_payload = self.augment_metadata(prepared.metadata, prepared.dataframe)
+        metadata_payload = self.augment_metadata(
+            prepared.metadata, prepared.dataframe
+        )
         metadata = dict(metadata_payload)
 
         metrics_payload = self.build_qc_metrics(prepared.dataframe)
@@ -1896,7 +2031,10 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         if isinstance(metrics_payload, Mapping):
             metrics_summary = dict(metrics_payload)
         elif isinstance(metrics_payload, pd.DataFrame):
-            metrics_dict_result: dict[Any, dict[str, Any]] = metrics_payload.to_dict(orient="index")  # type: ignore[assignment]
+            metrics_dict_result: dict[Any, dict[str, Any]]
+            metrics_dict_result = metrics_payload.to_dict(
+                orient="index",
+            )  # type: ignore[assignment]
             metrics_summary = {
                 str(row.get("metric", index)): row.get("value")
                 for index, row in metrics_dict_result.items()
@@ -1905,20 +2043,29 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         if self._validation_summary:
             validation_default: dict[str, Any] = {}
             validation_dict = cast(
-                dict[str, Any], metadata.setdefault("validation", validation_default)
+                dict[str, Any],
+                metadata.setdefault("validation", validation_default),
             )
             validation_dict.update(self._validation_summary)
 
         quality_section: dict[str, Any] | None = None
         if metrics_summary or self._qc_thresholds:
-            quality_section = cast(dict[str, Any], metadata.setdefault("quality", {}))
+            quality_section = cast(
+                dict[str, Any], metadata.setdefault("quality", {})
+            )
         if metrics_summary and quality_section is not None:
-            metrics_dict = cast(dict[str, Any], quality_section.setdefault("metrics", {}))
+            metrics_dict = cast(
+                dict[str, Any], quality_section.setdefault("metrics", {})
+            )
             metrics_dict.update(metrics_summary)
         if self._qc_thresholds and quality_section is not None:
-            thresholds_dict = cast(dict[str, Any], quality_section.setdefault("thresholds", {}))
+            thresholds_dict = cast(
+                dict[str, Any], quality_section.setdefault("thresholds", {})
+            )
             thresholds_dict.update(self._qc_thresholds)
-            quality_section.setdefault("fail_on_violation", self._qc_fail_on_threshold)
+            quality_section.setdefault(
+                "fail_on_violation", self._qc_fail_on_threshold
+            )
 
         log.debug(
             LogEvents.WRITE_ARTIFACTS_PREPARED,
@@ -1929,12 +2076,16 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         record_count = int(prepared.dataframe.shape[0])
         dataframe_copy = prepared.dataframe.copy(deep=True)
 
-        write_dataset_atomic(prepared.dataframe, artifacts.write.dataset, config=self.config)
+        write_dataset_atomic(
+            prepared.dataframe, artifacts.write.dataset, config=self.config
+        )
         log.debug(LogEvents.DATASET_WRITTEN, path=str(artifacts.write.dataset))
         metadata_path: Path | None = None
         if artifacts.write.metadata is not None:
             write_yaml_atomic(metadata, artifacts.write.metadata)
-            log.debug(LogEvents.METADATA_WRITTEN, path=str(artifacts.write.metadata))
+            log.debug(
+                LogEvents.METADATA_WRITTEN, path=str(artifacts.write.metadata)
+            )
             metadata_path = artifacts.write.metadata
 
         quality_payload = self.build_quality_report(prepared.dataframe)
@@ -2005,11 +2156,13 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             _dataframe=dataframe_copy,
         )
 
-    def _handle_error(self, exc: Exception, stage: str) -> None:
+    def _handle_error(self, exc: Exception, stage: str) -> NoReturn:
         """Handle errors during run lifecycle allowing subclasses to override."""
 
         if isinstance(exc, PipelineError):
-            error_log = self._make_pipeline_logger(stage=stage, logger_name=__name__)
+            error_log = self._make_pipeline_logger(
+                stage=stage, logger_name=__name__
+            )
             error_log.error(
                 LogEvents.STAGE_RUN_ERROR,
                 error=str(exc),
@@ -2020,7 +2173,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
         if isinstance(exc, _NETWORK_ERROR_TYPES):
             mapped = map_client_exc(exc)
-            error_log = self._make_pipeline_logger(stage=stage, logger_name=__name__)
+            error_log = self._make_pipeline_logger(
+                stage=stage, logger_name=__name__
+            )
             error_log.error(
                 LogEvents.STAGE_RUN_ERROR,
                 error=str(mapped),
@@ -2029,7 +2184,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             )
             raise mapped from exc
 
-        error_log = self._make_pipeline_logger(stage=stage, logger_name=__name__)
+        error_log = self._make_pipeline_logger(
+            stage=stage, logger_name=__name__
+        )
         error_log.error(
             LogEvents.STAGE_RUN_ERROR,
             error=str(exc),
@@ -2073,7 +2230,10 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         """Hook executed after successful stage execution."""
 
         if bootstrap_log is not None:
-            bootstrap_log.info(LogEvents.STAGE_RUN_FINISH, stage_durations_ms=stage_durations_ms or {})
+            bootstrap_log.info(
+                LogEvents.STAGE_RUN_FINISH,
+                stage_durations_ms=stage_durations_ms or {},
+            )
 
         self.finalize_run(result)
         return result
@@ -2148,12 +2308,20 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
         stage_factory = self.create_stage_factory()
         self.stage_plan = tuple(stage_factory.build())
-        cleanup_commands = tuple(cmd for cmd in self.stage_plan if cmd.name == "cleanup")
-        execution_plan = tuple(cmd for cmd in self.stage_plan if cmd.name != "cleanup")
+        cleanup_commands = tuple(
+            cmd for cmd in self.stage_plan if cmd.name == "cleanup"
+        )
+        execution_plan = tuple(
+            cmd for cmd in self.stage_plan if cmd.name != "cleanup"
+        )
 
         current_stage = "bootstrap"
-        bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
-        bootstrap_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
+        bind_pipeline_context(
+            stage=current_stage, component=f"{self.pipeline_code}.pipeline"
+        )
+        bootstrap_log = self._make_pipeline_logger(
+            stage=current_stage, logger_name=__name__
+        )
         self._log_setup(bootstrap_log, options, output_dir, extract_mode)
 
         result: RunResult | None = None
@@ -2161,7 +2329,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
         try:
             self._pre_run_hook(stage_context)
-            current_stage = self._execute_stages(execution_plan, stage_context, stage_durations_ms)
+            current_stage = self._execute_stages(
+                execution_plan, stage_context, stage_durations_ms
+            )
             self.apply_retention_policy()
             result = self._post_run_hook(
                 stage_context.result,
@@ -2170,6 +2340,12 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 bootstrap_log=bootstrap_log,
             )
             finalize_invoked = True
+            if result is None:
+                msg = (
+                    "Pipeline run completed without a RunResult; "
+                    "check write stage and stage plan."
+                )
+                raise PipelineError(msg)
             return result
         except Exception as exc:
             self._handle_error(exc, current_stage)
@@ -2178,7 +2354,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             if not finalize_invoked:
                 try:
                     self.finalize_run(stage_context.result)
-                except Exception as finalize_error:  # pragma: no cover - defensive finalize path
+                except (
+                    Exception
+                ) as finalize_error:  # pragma: no cover - defensive finalize path
                     finalize_log = self._make_pipeline_logger(
                         stage="finalize", logger_name=__name__
                     )
@@ -2201,9 +2379,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         According to documentation, this method should accept df: pd.DataFrame.
         """
         log = UnifiedLogger.get(__name__)
-        fail_open = (not getattr(self.config.cli, "fail_on_schema_drift", True)) or (
-            not getattr(self.config.cli, "validate_columns", True)
-        )
+        fail_open = (
+            not getattr(self.config.cli, "fail_on_schema_drift", True)
+        ) or (not getattr(self.config.cli, "validate_columns", True))
 
         behavior = FailOpenValidation() if fail_open else StrictValidation()
         context = ValidationContext(pipeline=self, df=df, log=log)
@@ -2277,7 +2455,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 continue
 
             invalid_series = string_series[invalid_mask].dropna()
-            invalid_values = tuple(sorted({str(value) for value in invalid_series.unique()}))
+            invalid_values = tuple(
+                sorted({str(value) for value in invalid_series.unique()})
+            )
             invalid_count = int(invalid_mask.sum())
             violations.append(
                 VocabularyViolation(
@@ -2302,7 +2482,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
         load_meta_series = df[load_meta_column].astype("string")
         df[load_meta_column] = load_meta_series
-        missing_mask = load_meta_series.isna() | (load_meta_series.str.strip() == "")
+        missing_mask = load_meta_series.isna() | (
+            load_meta_series.str.strip() == ""
+        )
         if not bool(missing_mask.any()):
             return df
 
@@ -2365,15 +2547,21 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             parsers=schema.parsers,
         )
 
-    def _reorder_columns(self, df: pd.DataFrame, column_order: Sequence[str]) -> pd.DataFrame:
+    def _reorder_columns(
+        self, df: pd.DataFrame, column_order: Sequence[str]
+    ) -> pd.DataFrame:
         if not column_order:
             return df
         ordered = list(column_order)
         validate_columns = getattr(self.config.cli, "validate_columns", True)
         if validate_columns:
-            missing = [column for column in ordered if column not in df.columns]
+            missing = [
+                column for column in ordered if column not in df.columns
+            ]
             if missing:
-                msg = f"Dataframe missing columns required by schema: {missing}"
+                msg = (
+                    f"Dataframe missing columns required by schema: {missing}"
+                )
                 raise ValueError(msg)
             extras = [column for column in df.columns if column not in ordered]
             if extras:
@@ -2390,7 +2578,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         return df[[*existing, *extras]]
 
     def _deterministic_sample_seed(self) -> int:
-        material = f"{self.config.pipeline.name}:{self.config.pipeline.version}"
+        material = (
+            f"{self.config.pipeline.name}:{self.config.pipeline.version}"
+        )
         digest = hashlib.sha256(material.encode("utf-8")).digest()
         return int.from_bytes(digest[:8], "big", signed=False) % (2**32 - 1)
 
@@ -2409,7 +2599,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             return df
 
         seed = self._deterministic_sample_seed()
-        sampled = df.sample(n=sample_size, random_state=seed, replace=False).sort_index()
+        sampled = df.sample(
+            n=sample_size, random_state=seed, replace=False
+        ).sort_index()
         log = UnifiedLogger.get(__name__)
         log.info(
             LogEvents.SAMPLE_APPLIED,

@@ -15,10 +15,14 @@ from bioetl.clients.client_chembl_entity_base import (
 __all__ = ["ChemblAssayParametersEntityClient"]
 
 
-class ChemblAssayParametersEntityClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
+class ChemblAssayParametersEntityClient(
+    ChemblEntityConfigMixin, ChemblEntityFetcherBase
+):
     """Client for retrieving ``assay_parameters`` records from the ChEMBL API."""
 
-    ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("assay_parameters")
+    ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config(
+        "assay_parameters"
+    )
     _ACTIVE_ONLY_DEFAULT = True
     _active_only_current: bool = _ACTIVE_ONLY_DEFAULT
 
@@ -32,7 +36,9 @@ class ChemblAssayParametersEntityClient(ChemblEntityConfigMixin, ChemblEntityFet
     ) -> EntityFetchResult:
         """Retrieve ``assay_parameters`` records by assay identifiers."""
         identifiers = tuple(ids)
-        previous = getattr(self, "_active_only_current", self._ACTIVE_ONLY_DEFAULT)
+        previous = getattr(
+            self, "_active_only_current", self._ACTIVE_ONLY_DEFAULT
+        )
         self._active_only_current = active_only
         try:
             return super().fetch_by_ids(

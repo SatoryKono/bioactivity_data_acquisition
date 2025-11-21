@@ -17,7 +17,7 @@ from bioetl.cli.cli_registry import COMMAND_REGISTRY, CommandConfig
 from bioetl.config.environment import load_environment_settings
 from bioetl.core import LoggerConfig, UnifiedLogger
 from bioetl.core.logging import LogEvents
-from bioetl.core.pipeline import RunResult
+from bioetl.core.pipeline.orchestration import RunResult
 from bioetl.core.runtime.cli_pipeline_runner import (
     PipelineCommandOptions,
     PipelineCommandRunner,
@@ -62,7 +62,9 @@ class AggregatedResults:
     start_time: datetime
     end_time: datetime | None = None
     total_duration_ms: float = 0.0
-    pipeline_results: dict[str, PipelineRunResult] = field(default_factory=dict)
+    pipeline_results: dict[str, PipelineRunResult] = field(
+        default_factory=dict
+    )
     summary: dict[str, Any] = field(default_factory=dict)
 
 
@@ -80,7 +82,9 @@ def _load_qc_metrics(qc_path: Path | None) -> dict[str, Any] | None:
         # так как CSV требует парсинга и преобразования в структуру
         return None
     except Exception as exc:  # noqa: BLE001
-        _log.warning("Failed to load QC metrics", path=str(qc_path), error=str(exc))
+        _log.warning(
+            "Failed to load QC metrics", path=str(qc_path), error=str(exc)
+        )
         return None
 
 
@@ -90,11 +94,17 @@ def _find_qc_files(run_result: RunResult) -> tuple[Path | None, Path | None]:
     qc_metrics: Path | None = None
 
     # Используем пути из write_result
-    if run_result.write_result.quality_report and run_result.write_result.quality_report.exists():
+    if (
+        run_result.write_result.quality_report
+        and run_result.write_result.quality_report.exists()
+    ):
         quality_report = run_result.write_result.quality_report
 
     # Используем qc_metrics из write_result или qc_summary
-    if run_result.write_result.qc_metrics and run_result.write_result.qc_metrics.exists():
+    if (
+        run_result.write_result.qc_metrics
+        and run_result.write_result.qc_metrics.exists()
+    ):
         qc_metrics = run_result.write_result.qc_metrics
     elif run_result.qc_summary and run_result.qc_summary.exists():
         qc_metrics = run_result.qc_summary
@@ -120,7 +130,9 @@ def _run_single_pipeline(
         # Получаем конфигурацию команды из реестра
         config_factory = COMMAND_REGISTRY.get(pipeline_name)
         if config_factory is None:
-            raise ValueError(f"Pipeline '{pipeline_name}' not found in registry")
+            raise ValueError(
+                f"Pipeline '{pipeline_name}' not found in registry"
+            )
 
         command_config = config_factory()
         if not isinstance(command_config, CommandConfig):
@@ -146,7 +158,9 @@ def _run_single_pipeline(
             )
         else:
             # Dry-run режим
-            logger.info("Dry-run mode, skipping execution", pipeline=pipeline_name)
+            logger.info(
+                "Dry-run mode, skipping execution", pipeline=pipeline_name
+            )
             return PipelineRunResult(
                 pipeline_name=pipeline_name,
                 success=True,
@@ -239,7 +253,9 @@ def _aggregate_results(
     )
 
 
-def _write_summary_report(aggregated: AggregatedResults, output_root: Path) -> Path:
+def _write_summary_report(
+    aggregated: AggregatedResults, output_root: Path
+) -> Path:
     """Создать сводный отчёт в Markdown."""
     report_dir = output_root / "reports" / "chembl_all"
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -281,8 +297,12 @@ def _write_summary_report(aggregated: AggregatedResults, output_root: Path) -> P
         if result.error:
             lines.append(f"- **Error:** {result.error}")
         if result.run_result:
-            lines.append(f"- **Dataset:** {result.run_result.write_result.dataset}")
-            lines.append(f"- **Run Directory:** {result.run_result.run_directory}")
+            lines.append(
+                f"- **Dataset:** {result.run_result.write_result.dataset}"
+            )
+            lines.append(
+                f"- **Run Directory:** {result.run_result.run_directory}"
+            )
         lines.append("")
 
     content = "\n".join(lines)
@@ -304,9 +324,11 @@ def _write_qc_json(aggregated: AggregatedResults, output_root: Path) -> Path:
     qc_data: dict[str, Any] = {
         "run_id": aggregated.run_id,
         "start_time": aggregated.start_time.isoformat().replace("+00:00", "Z"),
-        "end_time": aggregated.end_time.isoformat().replace("+00:00", "Z")
-        if aggregated.end_time
-        else None,
+        "end_time": (
+            aggregated.end_time.isoformat().replace("+00:00", "Z")
+            if aggregated.end_time
+            else None
+        ),
         "total_duration_ms": aggregated.total_duration_ms,
         "summary": aggregated.summary,
         "pipeline_qc_metrics": {},
@@ -319,7 +341,9 @@ def _write_qc_json(aggregated: AggregatedResults, output_root: Path) -> Path:
 
     # Атомарная запись JSON
     tmp_path = qc_path.with_suffix(".tmp.json")
-    tmp_path.write_text(json.dumps(qc_data, indent=2, sort_keys=True), encoding="utf-8")
+    tmp_path.write_text(
+        json.dumps(qc_data, indent=2, sort_keys=True), encoding="utf-8"
+    )
     os.replace(tmp_path, qc_path)
 
     return qc_path
@@ -392,7 +416,9 @@ def run_chembl_all_command(
     pipeline_run_ids: dict[str, str] = {}
     for idx, pipeline_name in enumerate(CHEMBL_PIPELINES):
         # Создаём уникальный run_id для каждого пайплайна на основе общего
-        pipeline_run_ids[pipeline_name] = f"{base_run_id}-{idx:02d}-{pipeline_name}"
+        pipeline_run_ids[pipeline_name] = (
+            f"{base_run_id}-{idx:02d}-{pipeline_name}"
+        )
 
     # Фабрика для генерации run_id для каждого пайплайна
     def make_uuid_factory(pipeline_name: str) -> Callable[[], str]:
@@ -403,7 +429,9 @@ def run_chembl_all_command(
 
         return uuid_factory
 
-    config_factory = PipelineConfigFactory(environment_loader=load_environment_settings)
+    config_factory = PipelineConfigFactory(
+        environment_loader=load_environment_settings
+    )
 
     results: list[PipelineRunResult] = []
 
@@ -417,7 +445,9 @@ def run_chembl_all_command(
         # Определяем конфиг и output_dir для каждого пайплайна
         config_factory_func = COMMAND_REGISTRY.get(pipeline_name)
         if config_factory_func is None:
-            logger.warning("Pipeline not found in registry", pipeline=pipeline_name)
+            logger.warning(
+                "Pipeline not found in registry", pipeline=pipeline_name
+            )
             results.append(
                 PipelineRunResult(
                     pipeline_name=pipeline_name,
@@ -430,7 +460,11 @@ def run_chembl_all_command(
         try:
             command_config = config_factory_func()
         except Exception as exc:  # noqa: BLE001
-            logger.error("Failed to load pipeline config", pipeline=pipeline_name, error=str(exc))
+            logger.error(
+                "Failed to load pipeline config",
+                pipeline=pipeline_name,
+                error=str(exc),
+            )
             results.append(
                 PipelineRunResult(
                     pipeline_name=pipeline_name,
@@ -445,11 +479,19 @@ def run_chembl_all_command(
         if default_config is None:
             # Пытаемся найти конфиг по стандартному пути
             entity_name = pipeline_name.split("_")[0]
-            default_config = configs_dir / "pipelines" / entity_name / f"{pipeline_name}.yaml"
+            default_config = (
+                configs_dir
+                / "pipelines"
+                / entity_name
+                / f"{pipeline_name}.yaml"
+            )
             if not default_config.exists():
                 # Пробуем альтернативный путь
                 default_config = (
-                    configs_dir / "pipelines" / entity_name / f"{entity_name}_chembl.yaml"
+                    configs_dir
+                    / "pipelines"
+                    / entity_name
+                    / f"{entity_name}_chembl.yaml"
                 )
 
         # Output dir для каждого пайплайна
@@ -507,7 +549,9 @@ def run_chembl_all_command(
 
     # Выход с кодом ошибки, если были неудачи
     if aggregated.summary["failed"] > 0:
-        typer.echo(f"\n[ERROR] {aggregated.summary['failed']} pipeline(s) failed")
+        typer.echo(
+            f"\n[ERROR] {aggregated.summary['failed']} pipeline(s) failed"
+        )
         raise typer.Exit(code=1)
 
     typer.echo("\n[OK] All pipelines completed successfully")

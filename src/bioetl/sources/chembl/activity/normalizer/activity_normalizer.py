@@ -10,16 +10,22 @@ from bioetl.schemas import get_schema
 
 __all__ = ["ChemblActivityNormalizer"]
 
-_DEFAULT_SCHEMA_IDENTIFIER = "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+_DEFAULT_SCHEMA_IDENTIFIER = (
+    "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+)
 
 
 class ChemblActivityNormalizer(INormalizer):
     """Normalize parsed ChEMBL activity records against the canonical schema."""
 
-    def __init__(self, *, schema_identifier: str = _DEFAULT_SCHEMA_IDENTIFIER) -> None:
+    def __init__(
+        self, *, schema_identifier: str = _DEFAULT_SCHEMA_IDENTIFIER
+    ) -> None:
         descriptor = get_schema(schema_identifier)
         self._schema_identifier = schema_identifier
-        self._column_order: tuple[str, ...] = tuple(descriptor.schema.columns.keys())
+        self._column_order: tuple[str, ...] = tuple(
+            descriptor.schema.columns.keys()
+        )
 
     def normalize(self, record: Mapping[str, Any] | None) -> dict[str, Any]:
         """Return a dictionary aligned to the configured schema columns."""

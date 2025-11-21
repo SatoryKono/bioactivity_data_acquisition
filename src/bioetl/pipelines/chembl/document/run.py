@@ -1,4 +1,5 @@
 """Упрощённый Document-пайплайн."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -9,7 +10,9 @@ import pandas as pd
 
 from bioetl.core.pipeline import RunResult
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
-from bioetl.pipelines.chembl.document.normalize import enrich_with_document_terms
+from bioetl.pipelines.chembl.document.normalize import (
+    enrich_with_document_terms,
+)
 
 
 class ChemblDocumentPipeline(BaseChemblPipeline):
@@ -100,8 +103,14 @@ class ChemblDocumentPipeline(BaseChemblPipeline):
             df,
             output_dir,
             extended=extended,
-            include_correlation=include_correlation if include_correlation is not None else False,
-            include_qc_metrics=include_qc_metrics if include_qc_metrics is not None else False,
+            include_correlation=(
+                include_correlation
+                if include_correlation is not None
+                else False
+            ),
+            include_qc_metrics=(
+                include_qc_metrics if include_qc_metrics is not None else False
+            ),
         )
 
 

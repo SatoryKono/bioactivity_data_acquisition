@@ -12,12 +12,17 @@ class DeterminismSerializationCSVConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    separator: str = Field(default=",", description="Column separator used when writing CSV files.")
+    separator: str = Field(
+        default=",",
+        description="Column separator used when writing CSV files.",
+    )
     quoting: str = Field(
-        default="ALL", description="Quoting strategy compatible with pandas CSV writer."
+        default="ALL",
+        description="Quoting strategy compatible with pandas CSV writer.",
     )
     na_rep: str = Field(
-        default="", description="String representation for missing values in CSV output."
+        default="",
+        description="String representation for missing values in CSV output.",
     )
 
 
@@ -33,7 +38,9 @@ class DeterminismSerializationConfig(BaseModel):
         default=("True", "False"),
         description="Canonical string representations for boolean values.",
     )
-    nan_rep: str = Field(default="NaN", description="String representation for NaN values.")
+    nan_rep: str = Field(
+        default="NaN", description="String representation for NaN values."
+    )
 
 
 class DeterminismSortingConfig(BaseModel):
@@ -42,14 +49,16 @@ class DeterminismSortingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     by: list[str] = Field(
-        default_factory=list, description="Columns defining the deterministic sort order."
+        default_factory=list,
+        description="Columns defining the deterministic sort order.",
     )
     ascending: list[bool] = Field(
         default_factory=list,
         description="Sort direction per column; defaults to ascending when empty.",
     )
     na_position: str = Field(
-        default="last", description="Where to place null values during sorting."
+        default="last",
+        description="Where to place null values during sorting.",
     )
 
 
@@ -58,9 +67,15 @@ class DeterminismHashColumnSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    dtype: str = Field(default="string", description="Column data type (pandas dtype).")
-    length: PositiveInt = Field(default=64, description="Fixed hash length in characters.")
-    nullable: bool = Field(default=False, description="Whether NULL/NA values are allowed.")
+    dtype: str = Field(
+        default="string", description="Column data type (pandas dtype)."
+    )
+    length: PositiveInt = Field(
+        default=64, description="Fixed hash length in characters."
+    )
+    nullable: bool = Field(
+        default=False, description="Whether NULL/NA values are allowed."
+    )
 
 
 class DeterminismHashingConfig(BaseModel):
@@ -69,7 +84,8 @@ class DeterminismHashingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     algorithm: str = Field(
-        default="sha256", description="Hash algorithm used for row/business key hashes."
+        default="sha256",
+        description="Hash algorithm used for row/business key hashes.",
     )
     row_fields: Sequence[str] = Field(
         default_factory=tuple,
@@ -106,8 +122,13 @@ class DeterminismEnvironmentConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    timezone: str = Field(default="UTC", description="Timezone enforced during pipeline execution.")
-    locale: str = Field(default="C", description="Locale to apply when formatting values.")
+    timezone: str = Field(
+        default="UTC",
+        description="Timezone enforced during pipeline execution.",
+    )
+    locale: str = Field(
+        default="C", description="Locale to apply when formatting values."
+    )
 
 
 class DeterminismWriteConfig(BaseModel):
@@ -115,7 +136,9 @@ class DeterminismWriteConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    strategy: str = Field(default="atomic", description="Write strategy (atomic or direct).")
+    strategy: str = Field(
+        default="atomic", description="Write strategy (atomic or direct)."
+    )
 
 
 class DeterminismMetaConfig(BaseModel):
@@ -142,7 +165,9 @@ class DeterminismConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(default=True, description="Toggle determinism enforcement.")
+    enabled: bool = Field(
+        default=True, description="Toggle determinism enforcement."
+    )
     hash_policy_version: str = Field(
         default="1.0.0",
         description="Version of the hashing policy for compatibility tracking.",
@@ -159,7 +184,9 @@ class DeterminismConfig(BaseModel):
         default_factory=lambda: ("_scd", "_temp", "_meta", "_tmp"),
         description="Column suffixes ignored during strict schema validation.",
     )
-    sort: DeterminismSortingConfig = Field(default_factory=DeterminismSortingConfig)
+    sort: DeterminismSortingConfig = Field(
+        default_factory=DeterminismSortingConfig
+    )
     column_order: Sequence[str] = Field(
         default_factory=tuple,
         description="Expected column order for the final dataset.",
@@ -167,14 +194,22 @@ class DeterminismConfig(BaseModel):
     serialization: DeterminismSerializationConfig = Field(
         default_factory=DeterminismSerializationConfig
     )
-    hashing: DeterminismHashingConfig = Field(default_factory=DeterminismHashingConfig)
-    environment: DeterminismEnvironmentConfig = Field(default_factory=DeterminismEnvironmentConfig)
-    write: DeterminismWriteConfig = Field(default_factory=DeterminismWriteConfig)
+    hashing: DeterminismHashingConfig = Field(
+        default_factory=DeterminismHashingConfig
+    )
+    environment: DeterminismEnvironmentConfig = Field(
+        default_factory=DeterminismEnvironmentConfig
+    )
+    write: DeterminismWriteConfig = Field(
+        default_factory=DeterminismWriteConfig
+    )
     meta: DeterminismMetaConfig = Field(default_factory=DeterminismMetaConfig)
 
     @model_validator(mode="after")
     def validate_sorting(self) -> DeterminismConfig:
-        if self.sort.ascending and len(self.sort.ascending) != len(self.sort.by):
+        if self.sort.ascending and len(self.sort.ascending) != len(
+            self.sort.by
+        ):
             msg = "determinism.sort.ascending must be empty or match determinism.sort.by length"
             raise ValueError(msg)
         if len(self.sort.by) != len(set(self.sort.by)):

@@ -50,7 +50,15 @@ ALL_PIPELINES = [
     "chembl2uniprot",
 ]
 
-REQUIRED_SECTIONS = ["cli", "config", "schema", "io", "determinism", "qc", "logging"]
+REQUIRED_SECTIONS = [
+    "cli",
+    "config",
+    "schema",
+    "io",
+    "determinism",
+    "qc",
+    "logging",
+]
 
 
 MarkdownLink = tuple[str, str]
@@ -88,7 +96,9 @@ def read_md_file(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except Exception as exc:  # noqa: BLE001 - log and return empty content
         log = UnifiedLogger.get(__name__)
-        log.error(LogEvents.MARKDOWN_READ_FAILED, path=str(path), error=str(exc))
+        log.error(
+            LogEvents.MARKDOWN_READ_FAILED, path=str(path), error=str(exc)
+        )
         return ""
 
 
@@ -101,7 +111,9 @@ def extract_markdown_links(content: str) -> list[MarkdownLink]:
     return sorted_links
 
 
-def check_file_exists(link_path: str, base_path: Path) -> tuple[bool, Path | None]:
+def check_file_exists(
+    link_path: str, base_path: Path
+) -> tuple[bool, Path | None]:
     """Verify that a link target exists relative to the given base path."""
 
     clean_path = link_path.split("#")[0].split("?")[0]
@@ -159,7 +171,9 @@ def audit_broken_links() -> list[BrokenLink]:
                     }
                 )
 
-    broken.sort(key=lambda item: (item["source"], item["link_path"], item["link_text"]))
+    broken.sort(
+        key=lambda item: (item["source"], item["link_path"], item["link_text"])
+    )
     return broken
 
 
@@ -214,7 +228,13 @@ def extract_pipeline_info(pipeline_name: str) -> PipelineInfo:
             doc_path = candidates[0]
             break
 
-    if not doc_path and pipeline_name in {"activity", "assay", "target", "document", "testitem"}:
+    if not doc_path and pipeline_name in {
+        "activity",
+        "assay",
+        "target",
+        "document",
+        "testitem",
+    }:
         catalog = DOCS / "pipelines" / "10-chembl-pipelines-catalog.md"
         if catalog.exists():
             doc_path = catalog
@@ -223,15 +243,27 @@ def extract_pipeline_info(pipeline_name: str) -> PipelineInfo:
         info["doc_path"] = str(doc_path.relative_to(ROOT))
         content = read_md_file(doc_path).lower()
 
-        info["has_cli"] = bool(re.search(r"cli|command|usage|invocation", content))
-        info["has_config"] = bool(re.search(r"config|configuration|yaml|profile", content))
-        info["has_schema"] = bool(re.search(r"schema|pandera|validation|column_order", content))
-        info["has_io"] = bool(re.search(r"input|output|format|csv|parquet", content))
+        info["has_cli"] = bool(
+            re.search(r"cli|command|usage|invocation", content)
+        )
+        info["has_config"] = bool(
+            re.search(r"config|configuration|yaml|profile", content)
+        )
+        info["has_schema"] = bool(
+            re.search(r"schema|pandera|validation|column_order", content)
+        )
+        info["has_io"] = bool(
+            re.search(r"input|output|format|csv|parquet", content)
+        )
         info["has_determinism"] = bool(
-            re.search(r"determinism|hash_row|hash_business_key|sort|utc", content)
+            re.search(
+                r"determinism|hash_row|hash_business_key|sort|utc", content
+            )
         )
         info["has_qc"] = bool(re.search(r"qc|quality|metric|golden", content))
-        info["has_logging"] = bool(re.search(r"log|logging|structured|json|run_id", content))
+        info["has_logging"] = bool(
+            re.search(r"log|logging|structured|json|run_id", content)
+        )
 
     return info
 
@@ -305,13 +337,20 @@ def run_audit(artifacts_dir: Path | None = None) -> None:
 
     with UnifiedLogger.stage("pipeline_inventory"):
         log = UnifiedLogger.get(__name__)
-        pipeline_info = [extract_pipeline_info(pipeline) for pipeline in ALL_PIPELINES]
+        pipeline_info = [
+            extract_pipeline_info(pipeline) for pipeline in ALL_PIPELINES
+        ]
         pipeline_info.sort(key=lambda item: item["pipeline"])
-        log.info(LogEvents.PIPELINE_INVENTORY_COMPLETED, pipelines=len(pipeline_info))
+        log.info(
+            LogEvents.PIPELINE_INVENTORY_COMPLETED,
+            pipelines=len(pipeline_info),
+        )
 
     with UnifiedLogger.stage("write_artifacts"):
         log = UnifiedLogger.get(__name__)
-        target_dir = artifacts_dir if artifacts_dir is not None else ROOT / "artifacts"
+        target_dir = (
+            artifacts_dir if artifacts_dir is not None else ROOT / "artifacts"
+        )
         target_dir.mkdir(parents=True, exist_ok=True)
 
         gaps_rows: list[dict[str, str]] = []
@@ -327,12 +366,20 @@ def run_audit(artifacts_dir: Path | None = None) -> None:
                     "pipeline": info["pipeline"],
                     "doc_path": info["doc_path"] or "N/A",
                     "missing_cli": "Yes" if not info["has_cli"] else "No",
-                    "missing_config": "Yes" if not info["has_config"] else "No",
-                    "missing_schema": "Yes" if not info["has_schema"] else "No",
+                    "missing_config": (
+                        "Yes" if not info["has_config"] else "No"
+                    ),
+                    "missing_schema": (
+                        "Yes" if not info["has_schema"] else "No"
+                    ),
                     "missing_io": "Yes" if not info["has_io"] else "No",
-                    "missing_determinism": "Yes" if not info["has_determinism"] else "No",
+                    "missing_determinism": (
+                        "Yes" if not info["has_determinism"] else "No"
+                    ),
                     "missing_qc": "Yes" if not info["has_qc"] else "No",
-                    "missing_logging": "Yes" if not info["has_logging"] else "No",
+                    "missing_logging": (
+                        "Yes" if not info["has_logging"] else "No"
+                    ),
                     "priority": priority,
                 }
             )

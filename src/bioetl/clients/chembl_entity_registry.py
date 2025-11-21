@@ -11,16 +11,26 @@ from bioetl.clients.chembl_config import EntityConfig, get_entity_config
 from bioetl.clients.client_chembl_entity_base import ChemblClientProtocol
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
-from bioetl.clients.entities.client_assay_class_map import ChemblAssayClassMapEntityClient
+from bioetl.clients.entities.client_assay_class_map import (
+    ChemblAssayClassMapEntityClient,
+)
 from bioetl.clients.entities.client_assay_classification import (
     ChemblAssayClassificationEntityClient,
 )
 from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
-from bioetl.clients.entities.client_assay_parameters import ChemblAssayParametersEntityClient
-from bioetl.clients.entities.client_compound_record import ChemblCompoundRecordEntityClient
-from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
+from bioetl.clients.entities.client_assay_parameters import (
+    ChemblAssayParametersEntityClient,
+)
+from bioetl.clients.entities.client_compound_record import (
+    ChemblCompoundRecordEntityClient,
+)
+from bioetl.clients.entities.client_data_validity import (
+    ChemblDataValidityEntityClient,
+)
 from bioetl.clients.entities.client_document import ChemblDocumentClient
-from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient
+from bioetl.clients.entities.client_document_term import (
+    ChemblDocumentTermEntityClient,
+)
 from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
@@ -144,7 +154,9 @@ def _resolve_positive_int(
     return candidate
 
 
-def _extract_source_parameters(source: AnySourceConfig | None) -> Mapping[str, Any]:
+def _extract_source_parameters(
+    source: AnySourceConfig | None,
+) -> Mapping[str, Any]:
     if source is None:
         return {}
     return source.parameters_mapping()

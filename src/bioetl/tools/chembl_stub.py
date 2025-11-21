@@ -98,7 +98,9 @@ def get_offline_new_client() -> OfflineChemblClient:
         activity=_OfflineResource(_OFFLINE_DATA["activity"]),
         assay=_OfflineResource(_OFFLINE_DATA["assay"]),
         target=_OfflineResource(_OFFLINE_DATA["target"]),
-        data_validity_lookup=_OfflineResource(_OFFLINE_DATA["data_validity_lookup"]),
+        data_validity_lookup=_OfflineResource(
+            _OFFLINE_DATA["data_validity_lookup"]
+        ),
         mechanism=_OfflineResource(_OFFLINE_DATA["mechanism"]),
     )
 

@@ -1,14 +1,11 @@
-"""Iterable helper utilities."""
+"""Iterable helper utilities.
+
+This module is kept as a thin compatibility wrapper. The implementation of
+``is_non_string_iterable`` now lives in :mod:`bioetl.core.infra.iterables`.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any, TypeGuard
+from bioetl.core.infra.iterables import is_non_string_iterable
 
 __all__ = ["is_non_string_iterable"]
-
-
-def is_non_string_iterable(value: Any) -> TypeGuard[Iterable[Any]]:
-    """Return True for iterables that are not string-like."""
-
-    return isinstance(value, Iterable) and not isinstance(value, (str, bytes, bytearray))

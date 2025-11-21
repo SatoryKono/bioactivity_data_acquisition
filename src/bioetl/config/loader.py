@@ -94,11 +94,15 @@ def apply_cli_overrides(
         for dotted_key, raw_value in cli_overrides.items():
             parsed_value = _coerce_value(raw_value)
             parsed_overrides[dotted_key] = parsed_value
-            path_value_pairs.append((tuple(dotted_key.split(".")), parsed_value))
+            path_value_pairs.append(
+                (tuple(dotted_key.split(".")), parsed_value)
+            )
         cli_tree = build_env_overrides(path_value_pairs)
         if cli_tree:
             merged = _deep_merge(merged, cli_tree)
-        metadata.setdefault("cli", {}).setdefault("set_overrides", {}).update(parsed_overrides)
+        metadata.setdefault("cli", {}).setdefault("set_overrides", {}).update(
+            parsed_overrides
+        )
 
     if metadata:
         merged = _deep_merge(merged, metadata)
@@ -134,7 +138,9 @@ def _resolve_config_path(config_path: str | Path) -> Path:
     return path
 
 
-def _load_layer_files(files: Sequence[Path]) -> tuple[dict[str, Any], list[Path]]:
+def _load_layer_files(
+    files: Sequence[Path],
+) -> tuple[dict[str, Any], list[Path]]:
     """Load a sequence of YAML files and return the merged payload + list."""
 
     payload: dict[str, Any] = {}
@@ -170,7 +176,8 @@ def _build_cli_metadata(
         ]
     if environment_profiles:
         cli_section["environment_profiles"] = [
-            _stringify_profile(profile, base=base_dir) for profile in environment_profiles
+            _stringify_profile(profile, base=base_dir)
+            for profile in environment_profiles
         ]
     if environment_name is not None:
         cli_section["environment"] = environment_name
@@ -210,7 +217,9 @@ def load_config(
 
     requested_profiles: list[Path] = []
     if include_default_profiles:
-        requested_profiles.extend(_discover_layer_files(DEFAULTS_DIR, base=path.parent))
+        requested_profiles.extend(
+            _discover_layer_files(DEFAULTS_DIR, base=path.parent)
+        )
     if profiles:
         requested_profiles.extend(Path(p).expanduser() for p in profiles)
 
@@ -268,7 +277,10 @@ def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
     merged: dict[str, Any] = {}
     for reference in extends or ():
         reference_path = _resolve_reference(reference, base=resolved.parent)
-        merged = _deep_merge(merged, _load_with_extends(reference_path, stack=(*lineage, resolved)))
+        merged = _deep_merge(
+            merged,
+            _load_with_extends(reference_path, stack=(*lineage, resolved)),
+        )
 
     return _deep_merge(merged, data)
 
@@ -291,7 +303,10 @@ def _migrate_legacy_sections(payload: Mapping[str, Any]) -> dict[str, Any]:
             status_endpoint = chembl_legacy.get("status_endpoint")
             if isinstance(status_endpoint, str):
                 normalized_status = status_endpoint.strip()
-                if normalized_status and "status_endpoint" not in chembl_payload:
+                if (
+                    normalized_status
+                    and "status_endpoint" not in chembl_payload
+                ):
                     chembl_payload["status_endpoint"] = normalized_status
 
             if chembl_payload:
@@ -313,7 +328,9 @@ def _maybe_normalize_http_headers(payload: MutableMapping[str, Any]) -> None:
         payload["http"] = normalized_http
 
 
-def _normalize_http_section(http_section: Mapping[str, Any]) -> dict[str, Any] | None:
+def _normalize_http_section(
+    http_section: Mapping[str, Any]
+) -> dict[str, Any] | None:
     """Return normalized HTTP section when header keys require updates."""
 
     normalized: dict[str, Any] = dict(http_section)
@@ -477,7 +494,8 @@ def _apply_yaml_merge(payload: Any) -> Any:
             elif is_non_string_iterable(merge_value):
                 merge_iterable: Iterable[Any] = merge_value
                 typed_sources = tuple(
-                    _normalize_merge_source(source_any) for source_any in merge_iterable
+                    _normalize_merge_source(source_any)
+                    for source_any in merge_iterable
                 )
             else:
                 typed_sources = (_normalize_merge_source(merge_value),)
@@ -493,10 +511,14 @@ def _apply_yaml_merge(payload: Any) -> Any:
             key_str = str(raw_key)
 
             existing_value = result.get(key_str)
-            if isinstance(existing_value, Mapping) and isinstance(processed_value, Mapping):
+            if isinstance(existing_value, Mapping) and isinstance(
+                processed_value, Mapping
+            ):
                 existing_mapping = cast(Mapping[str, Any], existing_value)
                 processed_mapping = cast(Mapping[str, Any], processed_value)
-                result[key_str] = _deep_merge(existing_mapping, processed_mapping)
+                result[key_str] = _deep_merge(
+                    existing_mapping, processed_mapping
+                )
             else:
                 result[key_str] = processed_value
 
@@ -528,7 +550,9 @@ def _resolve_reference(value: str | Path, *, base: Path) -> Path:
     if candidate.is_absolute():
         search_paths.append(candidate)
     else:
-        search_paths.extend((root / candidate) for root in (base, *base.parents))
+        search_paths.extend(
+            (root / candidate) for root in (base, *base.parents)
+        )
         search_paths.append(Path.cwd() / candidate)
         search_paths.append(candidate)
 
@@ -552,7 +576,11 @@ def _deep_merge(
     """Recursively merge two mapping-like objects."""
     merged: dict[str, Any] = dict(base)
     for key, value in override.items():
-        if key in merged and isinstance(merged[key], MutableMapping) and isinstance(value, Mapping):
+        if (
+            key in merged
+            and isinstance(merged[key], MutableMapping)
+            and isinstance(value, Mapping)
+        ):
             merged[key] = _deep_merge(
                 cast(Mapping[str, Any], merged[key]),
                 cast(Mapping[str, Any], value),
@@ -562,7 +590,9 @@ def _deep_merge(
     return merged
 
 
-def _assign_nested(target: MutableMapping[str, Any], parts: Sequence[str], value: Any) -> None:
+def _assign_nested(
+    target: MutableMapping[str, Any], parts: Sequence[str], value: Any
+) -> None:
     """Assign a value to a nested mapping according to dotted parts."""
 
     built = build_env_overrides(((tuple(parts), value),))
@@ -583,7 +613,9 @@ def _coerce_value(value: Any) -> Any:
     return value
 
 
-def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -> dict[str, Any]:
+def _collect_env_overrides(
+    env: Mapping[str, str], *, prefixes: Sequence[str]
+) -> dict[str, Any]:
     """Collect prefixed environment variables and build a nested override tree."""
     overrides: dict[str, Any] = {}
     for prefix in prefixes:
@@ -596,7 +628,11 @@ def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -
         )
         scoped_pairs: list[tuple[Sequence[str], Any]] = []
         for raw_key, raw_value in scoped_items:
-            parts = [segment.strip().lower() for segment in raw_key.split("__") if segment.strip()]
+            parts = [
+                segment.strip().lower()
+                for segment in raw_key.split("__")
+                if segment.strip()
+            ]
             if not parts:
                 continue
             parsed_value = _coerce_value(raw_value)

@@ -16,6 +16,10 @@ _LAZY_EXPORTS = {
     "normalize_identifiers": "bioetl.chembl.common.normalize",
     "ChemblEnrichmentScenario": "bioetl.chembl.common.enrich",
     "ChemblOptionalStringValueMixin": "bioetl.chembl.common.mixins",
+    "ChemblHandshakeResult": "bioetl.chembl.common.release_tracker",
+    "ChemblReleaseMixin": "bioetl.chembl.common.release_tracker",
+    "perform_chembl_handshake": "bioetl.chembl.common.release_tracker",
+    "join_activity_with_molecule": "bioetl.chembl.common.molecule_join",
 }
 
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .iterables import is_non_string_iterable
+from bioetl.core.infra.iterables import is_non_string_iterable
+from bioetl.core.infra.typechecks import is_dict, is_list
 from .mixins import CollectionFlagMixin
-from .typechecks import is_dict, is_list
 from .vocab_store import (
     DEFAULT_ALLOWED_STATUSES,
     VALID_ENTRY_STATUSES,
@@ -17,7 +17,7 @@ from .vocab_store import (
 )
 
 if TYPE_CHECKING:
-    from .molecule_map import join_activity_with_molecule
+    from bioetl.chembl.common import join_activity_with_molecule
 
 __all__ = [
     "DEFAULT_ALLOWED_STATUSES",
@@ -36,7 +36,7 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     if name == "join_activity_with_molecule":
-        from .molecule_map import join_activity_with_molecule as join_fn
+        from bioetl.chembl.common import join_activity_with_molecule as join_fn
 
         return join_fn
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

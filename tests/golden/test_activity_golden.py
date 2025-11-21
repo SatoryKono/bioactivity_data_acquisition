@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from tests.support.factories import load_sample_activity_dataframe
 from tests.support.golden import (
     canonical_json,
@@ -14,8 +17,6 @@ from tests.support.golden import (
     normalize_manifest_payload,
     normalize_meta_payload,
 )
-
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 PIPELINE_CODE = "activity_chembl"
 GOLDEN_VERSION = "v2"
@@ -46,14 +47,23 @@ def test_activity_pipeline_golden_snapshot(
     """ChemblActivityPipeline output must match committed golden artefacts."""
 
     pipeline_config_fixture.validation.schema_out = (
-        "bioetl.schemas.chembl_activity_adapter_schema:ActivityAdapterSchema"  # type: ignore[attr-defined]
-    )
-    pipeline_config_fixture.determinism.sort.by = ["activity_id"]  # type: ignore[attr-defined]
-    pipeline_config_fixture.determinism.sort.ascending = [True]  # type: ignore[attr-defined]
-    pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)  # type: ignore[attr-defined]
+        "bioetl.schemas.chembl_activity_adapter_schema:ActivityAdapterSchema"
+    )  # type: ignore[attr-defined]
+    pipeline_config_fixture.determinism.sort.by = [
+        "activity_id",
+    ]  # type: ignore[attr-defined]
+    pipeline_config_fixture.determinism.sort.ascending = [
+        True,
+    ]  # type: ignore[attr-defined]
+    pipeline_config_fixture.determinism.hashing.business_key_fields = (
+        "activity_id",
+    )  # type: ignore[attr-defined]
 
     golden_run_id = "golden-activity-v1"
-    pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=golden_run_id)  # type: ignore[arg-type]
+    pipeline = ChemblActivityPipeline(
+        config=pipeline_config_fixture,
+        run_id=golden_run_id,
+    )  # type: ignore[arg-type]
     frame = load_sample_activity_dataframe()
     transformed = pipeline.transform(frame)
     validated = pipeline.validate(transformed)
@@ -73,16 +83,18 @@ def test_activity_pipeline_golden_snapshot(
         produced = produced_paths[key]
         golden = golden_paths[key]
         assert produced is not None, f"{key} path is missing"
-        # Create golden file if it doesn't exist (first run)
-        if not golden.exists():
+        update_golden = os.getenv("BIOETL_UPDATE_GOLDEN") == "1"
+        # Create or update golden file when requested
+        if not golden.exists() or update_golden:
             golden.parent.mkdir(parents=True, exist_ok=True)
             golden.write_bytes(produced.read_bytes())
         assert golden.exists(), f"golden {key} missing at {golden}"
         assert produced.read_bytes() == golden.read_bytes(), f"{key} artifact mismatch"
 
-    # Create golden meta file if it doesn't exist (first run)
+    # Create golden meta file if it doesn't exist (first run) or when updating golden
     produced_meta_path = _require_path(produced_paths["meta"], "meta")
-    if not golden_paths["meta"].exists():
+    update_golden = os.getenv("BIOETL_UPDATE_GOLDEN") == "1"
+    if not golden_paths["meta"].exists() or update_golden:
         golden_paths["meta"].parent.mkdir(parents=True, exist_ok=True)
         golden_paths["meta"].write_bytes(produced_meta_path.read_bytes())
     produced_meta = normalize_meta_payload(
@@ -91,9 +103,10 @@ def test_activity_pipeline_golden_snapshot(
     golden_meta = normalize_meta_payload(load_yaml_dict(golden_paths["meta"]))
     assert canonical_json(produced_meta) == canonical_json(golden_meta), "meta.yaml mismatch"
 
-    # Create golden manifest file if it doesn't exist (first run)
+    # Create golden manifest file if it doesn't exist (first run) or when updating golden
     produced_manifest_path = _require_path(produced_paths["manifest"], "manifest")
-    if not golden_paths["manifest"].exists():
+    update_golden = os.getenv("BIOETL_UPDATE_GOLDEN") == "1"
+    if not golden_paths["manifest"].exists() or update_golden:
         golden_paths["manifest"].parent.mkdir(parents=True, exist_ok=True)
         golden_paths["manifest"].write_bytes(produced_manifest_path.read_bytes())
     produced_manifest = normalize_manifest_payload(

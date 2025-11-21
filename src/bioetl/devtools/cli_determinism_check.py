@@ -45,7 +45,9 @@ def extract_structured_logs(stdout: str, stderr: str) -> list[dict[str, Any]]:
     return logs
 
 
-def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str, str]:
+def run_pipeline_dry_run(
+    pipeline_name: str, output_dir: Path
+) -> tuple[int, str, str]:
     """Execute a pipeline using ``--dry-run`` and capture exit code and output."""
 
     config_map = {
@@ -105,14 +107,26 @@ def compare_logs(
         event1 = log1.get("event", "")
         event2 = log2.get("event", "")
         if event1 != event2:
-            differences.append(f"Log {index}: event mismatch: '{event1}' vs '{event2}'")
+            differences.append(
+                f"Log {index}: event mismatch: '{event1}' vs '{event2}'"
+            )
 
-        keys1 = {k for k in log1 if k not in {"timestamp", "run_id", "duration_ms", "time"}}
-        keys2 = {k for k in log2 if k not in {"timestamp", "run_id", "duration_ms", "time"}}
+        keys1 = {
+            k
+            for k in log1
+            if k not in {"timestamp", "run_id", "duration_ms", "time"}
+        }
+        keys2 = {
+            k
+            for k in log2
+            if k not in {"timestamp", "run_id", "duration_ms", "time"}
+        }
 
         if keys1 != keys2:
             diff_keys = keys1.symmetric_difference(keys2)
-            differences.append(f"Log {index}: key mismatch: {sorted(diff_keys)}")
+            differences.append(
+                f"Log {index}: key mismatch: {sorted(diff_keys)}"
+            )
 
         for key in keys1.intersection(keys2):
             if log1.get(key) != log2.get(key):
@@ -138,11 +152,15 @@ class DeterminismRunResult:
     report_path: Path
 
 
-def _write_report(report_path: Path, results: dict[str, DeterminismRunResult]) -> None:
+def _write_report(
+    report_path: Path, results: dict[str, DeterminismRunResult]
+) -> None:
     """Persist a determinism summary report to ``report_path``."""
     tmp = report_path.with_suffix(report_path.suffix + ".tmp")
 
-    total_deterministic = sum(1 for item in results.values() if item.deterministic)
+    total_deterministic = sum(
+        1 for item in results.values() if item.deterministic
+    )
     total_non_deterministic = len(results) - total_deterministic
 
     with tmp.open("w", encoding="utf-8") as handle:
@@ -156,7 +174,11 @@ def _write_report(report_path: Path, results: dict[str, DeterminismRunResult]) -
 
         for pipeline_name, item in results.items():
             handle.write(f"## {pipeline_name}\n\n")
-            status = "✅ Deterministic" if item.deterministic else "❌ Non-deterministic"
+            status = (
+                "✅ Deterministic"
+                if item.deterministic
+                else "❌ Non-deterministic"
+            )
             handle.write(f"**Status**: {status}\n\n")
 
             if item.run1_exit_code is not None:
@@ -201,7 +223,9 @@ def run_determinism_check(
 
             output_dir1 = temp_path / f"{pipeline_name}_run1"
             output_dir1.mkdir()
-            exit_code1, stdout1, stderr1 = run_pipeline_dry_run(pipeline_name, output_dir1)
+            exit_code1, stdout1, stderr1 = run_pipeline_dry_run(
+                pipeline_name, output_dir1
+            )
 
             if exit_code1 != 0:
                 error_message = f"Run 1 failed with exit code {exit_code1}: {stderr1[:200]}"
@@ -226,7 +250,9 @@ def run_determinism_check(
 
             output_dir2 = temp_path / f"{pipeline_name}_run2"
             output_dir2.mkdir()
-            exit_code2, stdout2, stderr2 = run_pipeline_dry_run(pipeline_name, output_dir2)
+            exit_code2, stdout2, stderr2 = run_pipeline_dry_run(
+                pipeline_name, output_dir2
+            )
 
             if exit_code2 != 0:
                 error_message = f"Run 2 failed with exit code {exit_code2}: {stderr2[:200]}"
@@ -255,7 +281,9 @@ def run_determinism_check(
 
             if are_identical:
                 log.info(
-                    LogEvents.PIPELINE_DETERMINISTIC, pipeline=pipeline_name, log_count=len(logs1)
+                    LogEvents.PIPELINE_DETERMINISTIC,
+                    pipeline=pipeline_name,
+                    log_count=len(logs1),
                 )
             else:
                 log.warning(

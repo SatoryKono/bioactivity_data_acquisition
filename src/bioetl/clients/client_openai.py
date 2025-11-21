@@ -167,7 +167,11 @@ class OpenAIClient(UnifiedAPIClient):
             LogEvents.HTTP_REQUEST_COMPLETED,
             endpoint="/completions",
             model=model,
-            prompt_length=len(prompt) if isinstance(prompt, str) else sum(len(p) for p in prompt),
+            prompt_length=(
+                len(prompt)
+                if isinstance(prompt, str)
+                else sum(len(p) for p in prompt)
+            ),
         )
 
         return self.request_json("POST", "/completions", json=payload)

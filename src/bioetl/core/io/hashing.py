@@ -13,7 +13,9 @@ _DEFAULT_SEPARATOR = "\u001f"
 _pd: Any | None
 try:  # Optional dependency (avoids importing pandas when not installed)
     import pandas as _pd
-except ImportError:  # pragma: no cover - pandas is always available in runtime env
+except (
+    ImportError
+):  # pragma: no cover - pandas is always available in runtime env
     _pd = None
 
 
@@ -71,7 +73,9 @@ def _normalise_component(value: Any) -> str:
             items.append(f"{key_part}={value_part}")
         return _DEFAULT_SEPARATOR.join(items)
 
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+    if isinstance(value, Sequence) and not isinstance(
+        value, (str, bytes, bytearray)
+    ):
         normalised_items = [_normalise_component(item) for item in value]
         return _DEFAULT_SEPARATOR.join(sorted(normalised_items))
 

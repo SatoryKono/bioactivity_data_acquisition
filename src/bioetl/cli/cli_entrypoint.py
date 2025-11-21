@@ -89,4 +89,6 @@ def register_tool_app(
 ) -> tuple[TyperApp, Callable[[], None]]:
     """Compatibility wrapper retained for historical modules."""
 
-    return create_simple_tool_app(name=name, help_text=help_text, main_fn=main_fn)
+    return create_simple_tool_app(
+        name=name, help_text=help_text, main_fn=main_fn
+    )

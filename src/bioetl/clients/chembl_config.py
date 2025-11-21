@@ -185,14 +185,20 @@ class EntityConfig:
             _normalize_field_names(default_fields),
         )
 
-        ordering = self.ordering if isinstance(self.ordering, tuple) else tuple(self.ordering)
+        ordering = (
+            self.ordering
+            if isinstance(self.ordering, tuple)
+            else tuple(self.ordering)
+        )
         object.__setattr__(
             self,
             "ordering",
             _normalize_field_names(ordering),
         )
 
-        if not isinstance(self.chunk_size, int) or isinstance(self.chunk_size, bool):
+        if not isinstance(self.chunk_size, int) or isinstance(
+            self.chunk_size, bool
+        ):
             msg = f"chunk_size должен быть целым числом, получено {self.chunk_size!r}"
             raise TypeError(msg)
         if self.chunk_size <= 0:
@@ -200,7 +206,9 @@ class EntityConfig:
             raise ValueError(msg)
 
         if self.max_page_size is not None:
-            if not isinstance(self.max_page_size, int) or isinstance(self.max_page_size, bool):
+            if not isinstance(self.max_page_size, int) or isinstance(
+                self.max_page_size, bool
+            ):
                 msg = f"max_page_size должен быть целым числом, получено {self.max_page_size!r}"
                 raise TypeError(msg)
             if self.max_page_size <= 0:

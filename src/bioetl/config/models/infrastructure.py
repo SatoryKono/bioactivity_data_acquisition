@@ -21,20 +21,24 @@ class PipelineInfrastructureConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     runtime: RuntimeConfig = Field(
-        default_factory=RuntimeConfig, description="Execution/runtime scheduling controls."
+        default_factory=RuntimeConfig,
+        description="Execution/runtime scheduling controls.",
     )
     io: IOConfig = Field(
         default_factory=IOConfig,
         description="Input/output serialization, formats, and buffer sizing.",
     )
     http: HTTPConfig = Field(
-        ..., description="HTTP client defaults, profiles, and retry/backoff policies."
+        ...,
+        description="HTTP client defaults, profiles, and retry/backoff policies.",
     )
     cache: CacheConfig = Field(
-        default_factory=CacheConfig, description="Cache storage (TTL, backends, fan-out)."
+        default_factory=CacheConfig,
+        description="Cache storage (TTL, backends, fan-out).",
     )
     paths: PathsConfig = Field(
-        default_factory=PathsConfig, description="Root paths and layout for IO artifacts."
+        default_factory=PathsConfig,
+        description="Root paths and layout for IO artifacts.",
     )
     determinism: DeterminismConfig = Field(
         default_factory=DeterminismConfig,
@@ -45,11 +49,14 @@ class PipelineInfrastructureConfig(BaseModel):
         description="Materialization formats, partitioning, and output entity descriptors.",
     )
     logging: LoggingConfig = Field(
-        default_factory=LoggingConfig, description="Structured logging setup (UnifiedLogger)."
+        default_factory=LoggingConfig,
+        description="Structured logging setup (UnifiedLogger).",
     )
     telemetry: TelemetryConfig = Field(
-        default_factory=TelemetryConfig, description="Telemetry/metrics exporters and run context."
+        default_factory=TelemetryConfig,
+        description="Telemetry/metrics exporters and run context.",
     )
     cli: CLIConfig = Field(
-        default_factory=CLIConfig, description="CLI flags and overrides exposed to operators."
+        default_factory=CLIConfig,
+        description="CLI flags and overrides exposed to operators.",
     )

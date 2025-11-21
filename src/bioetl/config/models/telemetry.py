@@ -10,7 +10,9 @@ class TelemetryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(default=False, description="Enable telemetry export.")
+    enabled: bool = Field(
+        default=False, description="Enable telemetry export."
+    )
     exporter: str | None = Field(
         default=None,
         description="Exporter type (jaeger, otlp, console).",

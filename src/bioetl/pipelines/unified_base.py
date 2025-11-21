@@ -12,7 +12,10 @@ from bioetl.chembl.common.descriptor import (
     ChemblPipelineBase,
 )
 from bioetl.config.runtime import QCReportRuntimeOptions
-from bioetl.core.pipeline import PipelineStagesProtocol, RunResult
+from bioetl.core.pipeline.orchestration import (
+    PipelineStagesProtocol,
+    RunResult,
+)
 
 from .mixins import (
     BatchIdExtractionMixin,
@@ -100,5 +103,7 @@ class UnifiedPipelineBase(
     def prepare_run(self) -> None:  # pragma: no cover - optional hook
         """Hook invoked before the extract stage begins."""
 
-    def finalize_run(self, result: RunResult | None) -> None:  # pragma: no cover
+    def finalize_run(
+        self, result: RunResult | None
+    ) -> None:  # pragma: no cover
         """Hook invoked after the write stage completes."""

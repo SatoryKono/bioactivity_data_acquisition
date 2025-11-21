@@ -10,7 +10,9 @@ class LoggingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    level: str = Field(default="INFO", description="Log level for UnifiedLogger.")
+    level: str = Field(
+        default="INFO", description="Log level for UnifiedLogger."
+    )
     format: str = Field(
         default="json",
         description="Log format (json, console).",
