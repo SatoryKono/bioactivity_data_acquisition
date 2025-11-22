@@ -57,6 +57,9 @@ def _run_script(script: str, *extra: str) -> subprocess.CompletedProcess[str]:
     env["NO_COLOR"] = "1"
     env["FORCE_COLOR"] = "0"
     env["TERM"] = "dumb"
+    # Add src directory to PYTHONPATH so imports work in subprocess
+    src_dir = str(repo_root / "src")
+    env["PYTHONPATH"] = f"{src_dir}:{env.get('PYTHONPATH', '')}"
     return subprocess.run(  # noqa: S603
         [sys.executable, str(script_path), *extra],
         cwd=repo_root,

@@ -186,26 +186,18 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 pythonpath = ["src", "tests"]
-addopts = [
+addopts = [ 
     "-v",
     "--strict-markers",
     "--strict-config",
-    "--cov=bioetl.cli.cli_app",
-    "--cov=bioetl.cli.cli_command",
-    "--cov=bioetl.cli.cli_entrypoint",
-    "--cov=bioetl.cli.cli_registry",
-    "--cov=bioetl.devtools",
-    "--cov=bioetl.core.runtime.cli_pipeline_runner",
-    "--cov=bioetl.pipelines.chembl",
-    "--cov=bioetl.chembl.common",
+    "--cov=src/bioetl",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=65",
+    "--cov-fail-under=85",
     "--tb=short",
     "--durations=10",
     "--maxfail=5",
-    "--disable-warnings",
 ]
 markers = [
     "unit: Unit tests",
@@ -220,14 +212,6 @@ markers = [
     "api: External API tests",
     "benchmark: Performance benchmark tests",
     "cli: CLI tests",
-]
-filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
-    "ignore::pandas.errors.PerformanceWarning",
-    "ignore::UserWarning:.*pandera.*",
-    "ignore:Module.*was never imported.*:UserWarning",
-    "ignore:.*coverage.*:UserWarning",
 ]
 
 [tool.coverage.run]
