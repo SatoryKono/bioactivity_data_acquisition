@@ -110,9 +110,12 @@ determinism:
 
             # Exit code 2 for typer validation errors, 0 for success
             # In dry-run mode, pipeline should validate config without executing
-            assert result.exit_code in (0, 2), (  # type: ignore[reportUnknownMemberType]
-                f"Expected exit code 0 or 2, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"  # type: ignore[reportUnknownMemberType]
+            msg = (
+                "Expected exit code 0 or 2, got "
+                f"{result.exit_code}. Stdout: {result.stdout}, "
+                f"Stderr: {result.stderr}"
             )
+            assert result.exit_code in (0, 2), msg  # type: ignore[reportUnknownMemberType]
             # Command should be recognized (not "No such command")
             assert "No such command" not in result.stderr, (  # type: ignore[reportUnknownMemberType]
                 f"Command not found. Stderr: {result.stderr}"  # type: ignore[reportUnknownMemberType]

@@ -1,5 +1,7 @@
 import types
+from collections.abc import Sequence
 
+import pandas as pd
 import pytest
 from structlog.stdlib import BoundLogger
 
@@ -10,10 +12,12 @@ from bioetl.chembl.common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
+from bioetl.config.models.models import PipelineConfig, PipelineMetadata
+from bioetl.config.models.policies import HTTPClientConfig, HTTPConfig
 from bioetl.core.pipeline.errors import PipelineError
 
 
-class DummyChemblPipeline(
+class DummyChemblPipeline(  # pyright: ignore[reportIncompatibleMethodOverride]
     ChemblDescriptorBuilderMixin[ChemblPipelineBase],
     ChemblPipelineBase,
 ):
@@ -27,21 +31,21 @@ class DummyChemblPipeline(
     id_column = "chembl_id"
 
     def __init__(self) -> None:  # pragma: no cover - no side effects
-        dummy_config = types.SimpleNamespace(
-            cli=types.SimpleNamespace(
-                limit=None,
-                sample=None,
-                input_file=None,
-                dry_run=False,
-            ),
-            domain=types.SimpleNamespace(sources={}),
-        )
+        dummy_config = PipelineConfig(
+            version=1,
+            pipeline=PipelineMetadata(name="dummy_pipeline", version="0.0.0"),
+            http=HTTPConfig(default=HTTPClientConfig()),
+        )  # pyright: ignore[reportCallIssue]
         super().__init__(dummy_config, run_id="test-run")
 
     # Minimal helpers required by the protocol, implemented with no-op logic
 
     def _resolve_source_config(self, name: str):  # type: ignore[override]
-        return types.SimpleNamespace(parameters=None, parameters_mapping=lambda: {}, batch_size=None)
+        return types.SimpleNamespace(
+            parameters=None,
+            parameters_mapping=lambda: {},
+            batch_size=None,
+        )
 
     def ensure_chembl_release(  # type: ignore[override]
         self,
@@ -81,6 +85,21 @@ class DummyChemblPipeline(
 
     def _coerce_mapping(self, payload):  # type: ignore[override]
         return dict(payload or {})
+
+    # Implement minimal concrete hooks so the pipeline is not abstract for tests
+
+    def extract_by_ids(  # type: ignore[override]
+        self,
+        ids: Sequence[str],
+    ) -> pd.DataFrame:
+        _ = ids
+        return pd.DataFrame()
+
+    def transform(  # type: ignore[override]
+        self,
+        df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        return df
 
     def get_descriptor_strategy_factory(self):  # pragma: no cover - not used
         raise AssertionError("strategy factory should not be used in unit tests")

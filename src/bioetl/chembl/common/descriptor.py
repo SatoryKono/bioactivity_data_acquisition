@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast
@@ -44,6 +44,13 @@ from bioetl.core.pipeline import PipelineBase, PipelineExtractionMode
 from bioetl.core.pipeline.errors import PipelineError
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
+
+if TYPE_CHECKING:
+    from bioetl.pipelines.mixins.descriptor_builder import (
+        DescriptorStrategyFactory,
+    )
+else:
+    DescriptorStrategyFactory = Any  # type: ignore[assignment, misc, unused-ignore]
 
 
 class ChemblDescriptorPipelineProtocol(Protocol):
@@ -260,6 +267,7 @@ class ChemblDescriptorSpec(Generic[PipelineT]):
         ]
         | None
     ) = None
+    hard_page_size_cap: int | None = 25
     summary_extra: (
         Callable[
             [PipelineT, pd.DataFrame, ChemblExtractionContext],
@@ -267,7 +275,6 @@ class ChemblDescriptorSpec(Generic[PipelineT]):
         ]
         | None
     ) = None
-    hard_page_size_cap: int | None = 25
 
 
 SelfDescriptorT = TypeVar(
@@ -342,8 +349,10 @@ def build_standard_chembl_context(
     entity_client_type
         Ожидаемый тип entity_client для проверки. Если None, проверка не выполняется.
     release_resolver
-        Функция для получения ChEMBL release. Принимает (pipeline, chembl_client, log, entity_client)
-        и передается в контекст для отложенного вызова :meth:`ChemblPipelineBase.ensure_chembl_release`.
+        Функция для получения ChEMBL release.
+        Принимает (pipeline, chembl_client, log, entity_client)
+        и передается в контекст для
+        отложенного вызова :meth:`ChemblPipelineBase.ensure_chembl_release`.
         При ``None`` используется стандартный ``pipeline.resolve_chembl_release``.
     pre_release_hook
         Функция, вызываемая перед получением release (например, для handshake).
@@ -374,6 +383,7 @@ def build_standard_chembl_context(
     RuntimeError
         Если entity_client не найден в bundle или имеет неверный тип.
     """
+    _ = log
     # Создаем bundle
     bundle = pipeline.build_chembl_entity_bundle(
         entity_name,
@@ -521,6 +531,9 @@ class ChemblDescriptorBuilderMixin(
     ]:  # pyright: ignore[reportInvalidTypeArguments, reportGeneralTypeIssues]; type: ignore
         """Construct a descriptor instance based on :meth:`descriptor_spec`."""
 
+        # pyright: ignore[reportCallWithNoReturn]
+        # pylint: disable=assignment-from-no-return
+        # type-checker comments moved above the call
         spec = self.descriptor_spec()  # type: ignore[attr-defined]
 
         must_have = tuple(spec.must_have_fields or ())
@@ -579,8 +592,7 @@ class ChemblDescriptorBuilderMixin(
         )
 
         return ChemblExtractionDescriptor[
-            SelfDescriptorT
-        ](  # pyright: ignore[reportInvalidTypeArguments, reportArgumentType]; type: ignore[type-arg, arg-type]
+            SelfDescriptorT](
             name=spec.name,
             source_name=spec.source_name,
             source_config_factory=spec.source_config_factory,
@@ -610,7 +622,9 @@ class ChemblDescriptorBuilderMixin(
     ) -> Callable[
         [ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext
     ]:
+        # pyright: ignore[reportAttributeAccessIssue]
         context_spec = spec.context
+        typed_self_any = cast(Any, self)
 
         def build_context(
             pipeline: ChemblPipelineBase,
@@ -624,10 +638,20 @@ class ChemblDescriptorBuilderMixin(
                     typed_pipeline, source_config, log
                 )
             else:
-                release_resolver = self._wrap_release_resolver(context_spec)  # type: ignore[attr-defined]
-                select_fields_resolver = self._wrap_select_fields_resolver(context_spec)  # type: ignore[attr-defined]
-                extra_filters_factory = self._wrap_extra_filters_factory(context_spec)  # type: ignore[attr-defined]
-                pre_release_hook = self._wrap_pre_release_hook(context_spec)  # type: ignore[attr-defined]
+                release_resolver = typed_self_any._wrap_release_resolver(
+                    context_spec
+                )  # type: ignore[attr-defined]
+                select_fields_resolver = (
+                    typed_self_any._wrap_select_fields_resolver(
+                        context_spec
+                    )
+                )  # type: ignore[attr-defined]
+                extra_filters_factory = (
+                    typed_self_any._wrap_extra_filters_factory(context_spec)
+                )  # type: ignore[attr-defined]
+                pre_release_hook = typed_self_any._wrap_pre_release_hook(
+                    context_spec
+                )  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
                 client_registry_name = self._resolve_context_value(  # type: ignore[attr-defined]
                     context_spec.client_registry_name,
                     typed_pipeline,
@@ -889,6 +913,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     def extract_all(self) -> pd.DataFrame:
         """Extract all records according to the pipeline descriptor."""
 
+        # pyright: ignore[reportCallWithNoReturn]
+        # pylint: disable=assignment-from-no-return
         descriptor = self.build_descriptor()
         return self.run_extract_all(descriptor)
 
@@ -918,13 +944,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_column_order: tuple[str, ...] = ()
         self._output_schema_cache: dict[str, Any] = {}
         self._chembl_release_metadata: dict[str, Any] = {}
-        if TYPE_CHECKING:
-            from bioetl.pipelines.mixins.descriptor_builder import (
-                DescriptorStrategyFactory,
-            )
-        else:
-            DescriptorStrategyFactory = Any  # type: ignore[assignment, misc, unused-ignore]  # noqa: N806
-
         self._descriptor_strategy_factory: DescriptorStrategyFactory | None = (
             None  # pyright: ignore[reportInvalidTypeArguments]
         )
@@ -1038,6 +1057,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         lightweight pipeline stubs without having to implement normalization.
         """
 
+        _ = log
         return df
 
     def _normalize_string_fields(
@@ -1050,6 +1070,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         to provide custom behaviour.
         """
 
+        _ = log
         return df
 
     def _normalize_and_enforce_schema(
@@ -1226,6 +1247,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     ) -> Sequence[str] | None:
         """Resolve identifiers supplied via deprecated inputs."""
 
+        _ = (log, args, kwargs)
         return None
 
     # ------------------------------------------------------------------
@@ -1251,7 +1273,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             If the source is not configured for this pipeline.
         """
         try:
-            return self.config.sources[name]
+            return cast(SourceConfig[Any], self.config.sources[name])
         except KeyError as exc:
             msg = f"Source '{name}' is not configured for pipeline '{self.pipeline_code}'"
             raise KeyError(msg) from exc
@@ -1562,7 +1584,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             source_config.parameters
         )
 
-        filters_payload, compact_filters = build_filters_payload(
+        _filters_payload, compact_filters = build_filters_payload(
             limit=limit,
             page_size=page_size,
             select_fields=select_fields_list,
@@ -1756,10 +1778,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         stage_start = time.perf_counter()
         rows_hint = len(canonical_ids)
         stage_logger = getattr(self, "stage_logger", None)
-        logger_cm: Any
+        logger_cm: AbstractContextManager[BoundLogger]
         if callable(stage_logger):
-            stage_logger_cm = cast(Callable[..., Any], stage_logger)
-            logger_cm = stage_logger_cm("extract", rows=rows_hint)
+            logger_cm = cast(
+                AbstractContextManager[BoundLogger],
+                stage_logger("extract", rows=rows_hint),  # pylint: disable=not-callable
+            )
         else:
             fallback_log = UnifiedLogger.get(__name__).bind(
                 component=f"{self.pipeline_code}.extract"
@@ -2215,7 +2239,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             Кортеж из версии релиза (если найдена) и дополнительных полей,
             которые попадут в финальные логи/manifest.
         """
-        """Resolve Chembl release and optional metadata for ID extractions."""
+        _ = "Resolve Chembl release and optional metadata for ID extractions."
+        _ = entity_client
 
         metadata: dict[str, Any] = self.chembl_release_metadata()
 

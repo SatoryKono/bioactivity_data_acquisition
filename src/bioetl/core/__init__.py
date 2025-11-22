@@ -210,7 +210,5 @@ def __getattr__(name: str) -> object:
         module_name, attr_name, message = _DEPRECATED_EXPORTS[name]
         warnings.warn(message, DeprecationWarning, stacklevel=2)
         module = import_module(module_name)
-        attr = getattr(module, attr_name)
-        globals()[name] = attr
-        return attr
+        return getattr(module, attr_name)
     return _lazy_resolver(name)

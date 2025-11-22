@@ -130,10 +130,15 @@ http:
             error_output = result.stdout + result.stderr  # type: ignore[reportUnknownMemberType]
             # Skip this test if CLI command format is wrong
             if "Got unexpected extra argument" in error_output:
-                pytest.skip("CLI command format issue - skipping test")  # type: ignore[reportUnknownMemberType]
-        assert (
-            result.exit_code == 0  # type: ignore[reportUnknownMemberType]
-        ), f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"  # type: ignore[reportUnknownMemberType]
+                pytest.skip(
+                    "CLI command format issue - skipping test"
+                )  # type: ignore[reportUnknownMemberType]
+        msg = (
+            "Expected 0, got "
+            f"{result.exit_code}. Stdout: {result.stdout}, "
+            f"Stderr: {result.stderr}"
+        )
+        assert result.exit_code == 0, msg  # type: ignore[reportUnknownMemberType]
         assert "Configuration validated successfully" in result.stdout  # type: ignore[reportUnknownMemberType]
 
     def test_activity_command_invalid_config(self, tmp_path: Path):
@@ -257,11 +262,12 @@ sources:
                 ],
             )
 
-            assert (
-                result.exit_code == 0  # type: ignore[reportUnknownMemberType]
-            ), (
-                f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
-            )  # type: ignore[reportUnknownMemberType]
+            msg = (
+                "Expected 0, got "
+                f"{result.exit_code}. Stdout: {result.stdout}, "
+                f"Stderr: {result.stderr}"
+            )
+            assert result.exit_code == 0, msg  # type: ignore[reportUnknownMemberType]
             # Check that limit was passed to config
             assert mock_pipeline_class.called
             # ChemblActivityPipeline is called with positional args: (config, run_id)
@@ -419,11 +425,17 @@ http:
             )
 
             # In dry-run mode, command should succeed
-            assert result.exit_code == 0, (
-                f"Command failed with exit code {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
-            )  # type: ignore[reportUnknownMemberType]
+            msg = (
+                "Command failed with exit code "
+                f"{result.exit_code}. Stdout: {result.stdout}, "
+                f"Stderr: {result.stderr}"
+            )
+            assert result.exit_code == 0, msg  # type: ignore[reportUnknownMemberType]
             # Verify that --set parsing doesn't cause errors
-            assert "Configuration validated successfully" in result.stdout or result.exit_code == 0  # type: ignore[reportUnknownMemberType]
+            assert (
+                "Configuration validated successfully" in result.stdout
+                or result.exit_code == 0
+            )  # type: ignore[reportUnknownMemberType]
 
     def test_activity_command_with_verbose_and_schema_flags(self, tmp_path: Path):
         """Test verbose logging and schema drift flags."""

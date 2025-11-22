@@ -9,7 +9,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TextIO
+from typing import TYPE_CHECKING, Any, Literal, TextIO, cast
 
 import pandas as pd
 import yaml
@@ -87,6 +87,23 @@ class WriteResult:
     extras: dict[str, Path] = field(default_factory=dict)
 
 
+def _compute_hash_column(
+    df: pd.DataFrame,
+    *,
+    fields: list[str],
+    algorithm: str,
+) -> pd.Series:
+    records: list[dict[str, Any]] = []
+    for tuple_values in df[fields].itertuples(index=False, name=None):
+        record = dict(zip(fields, tuple_values, strict=True))
+        records.append(record)
+    hashes = [
+        hash_from_mapping(record, fields, algorithm=algorithm)
+        for record in records
+    ]
+    return pd.Series(hashes, index=df.index, dtype="string")
+
+
 def ensure_hash_columns(
     df: pd.DataFrame, *, config: PipelineConfig
 ) -> pd.DataFrame:
@@ -148,18 +165,10 @@ def ensure_hash_columns(
 
     if row_needs_recompute:
         row_fields = list(row_fields)  # ensure deterministic ordering
-        row_records: list[dict[str, Any]] = []
-        for tuple_values in result[row_fields].itertuples(
-            index=False, name=None
-        ):
-            record = dict(zip(row_fields, tuple_values, strict=True))
-            row_records.append(record)
-        row_hashes = [
-            hash_from_mapping(record, row_fields, algorithm=algorithm)
-            for record in row_records
-        ]
-        result[row_column] = pd.Series(
-            row_hashes, index=result.index, dtype="string"
+        result[row_column] = _compute_hash_column(
+            result,
+            fields=row_fields,
+            algorithm=algorithm,
         )
 
     if business_fields:
@@ -170,18 +179,10 @@ def ensure_hash_columns(
         else:
             business_needs_recompute = True
         if business_needs_recompute:
-            business_records: list[dict[str, Any]] = []
-            for tuple_values in result[business_fields].itertuples(
-                index=False, name=None
-            ):
-                record = dict(zip(business_fields, tuple_values, strict=True))
-                business_records.append(record)
-            business_hashes = [
-                hash_from_mapping(record, business_fields, algorithm=algorithm)
-                for record in business_records
-            ]
-            result[business_column] = pd.Series(
-                business_hashes, index=result.index, dtype="string"
+            result[business_column] = _compute_hash_column(
+                result,
+                fields=business_fields,
+                algorithm=algorithm,
             )
 
     return result
@@ -209,12 +210,14 @@ def _stable_sort(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
         if sort_config.ascending
         else [True] * len(sort_config.by)
     )
-    if sort_config.na_position == "first" or sort_config.na_position == "last":
+    if sort_config.na_position in ("first", "last"):
         na_pos_str = sort_config.na_position
     else:
         na_pos_str = "last"
-    assert na_pos_str in ("first", "last")
-    na_pos: Literal["first", "last"] = na_pos_str  # type: ignore[assignment]  # assert ensures type
+    na_pos: Literal["first", "last"] = cast(
+        Literal["first", "last"],
+        na_pos_str,
+    )
     return df.sort_values(
         by=sort_config.by,
         ascending=ascending_list,
@@ -242,9 +245,8 @@ def prepare_dataframe(
 ) -> pd.DataFrame:
     """Apply determinism rules (column order + sort) to ``df``."""
 
-    prepared = _enforce_column_order(df, config=config)
-    prepared = _stable_sort(prepared, config=config)
-    return prepared
+    ordered = _enforce_column_order(df, config=config)
+    return _stable_sort(ordered, config=config)
 
 
 def _csv_quoting(config: PipelineConfig) -> CSVQuotingLiteral:

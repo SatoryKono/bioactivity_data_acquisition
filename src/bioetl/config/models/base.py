@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 # ruff: noqa: I001
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -179,12 +179,17 @@ class PipelineConfig(BaseModel):
         infra_delta = update_payload.pop("infrastructure", None)
 
         if domain_delta:
-            update_payload["domain"] = self.domain.model_copy(
-                update=domain_delta
+            domain_model = cast(PipelineDomainConfig, self.domain)
+            update_payload["domain"] = domain_model.model_copy(
+                update=domain_delta,
             )
         if infra_delta:
-            update_payload["infrastructure"] = self.infrastructure.model_copy(
-                update=infra_delta
+            infra_model = cast(
+                PipelineInfrastructureConfig,
+                self.infrastructure,
+            )
+            update_payload["infrastructure"] = infra_model.model_copy(
+                update=infra_delta,
             )
 
         return super().model_copy(

@@ -24,7 +24,9 @@ from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_data_validity,
 )
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
+from bioetl.pipelines.chembl._constants import API_ACTIVITY_FIELDS
 from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
+from bioetl.schemas import get_schema
 from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
 
 
@@ -670,16 +672,50 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         }
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
+        """Return normalization rules preserving ChEMBL activity fields.
+
+        The rules are based on API_ACTIVITY_FIELDS and keep all domain
+        columns needed by ActivitySchema while retaining the existing
+        normalisation behaviour for ``activity_id`` and ``value``.
+        """
+
+        field_mappings: dict[str, Any] = {}
+
+        # Preserve all relevant fields from the ChEMBL activity API payload.
+        # ``curated_by`` is intentionally omitted as it is not part of the
+        # canonical ActivitySchema output.
+        for field in API_ACTIVITY_FIELDS:
+            if field == "curated_by":
+                continue
+            field_mappings[field] = field
+
+        # Backward-compatible aliases for identifiers when working with
+        # legacy payloads that may expose *_id instead of *_chembl_id. For
+        # test items we additionally fall back to molecule_chembl_id when
+        # a dedicated testitem identifier is not available.
+
+        def _resolve_assay_id(record: Mapping[str, Any]) -> Any:
+            return record.get("assay_chembl_id") or record.get("assay_id")
+
+        def _resolve_testitem_id(record: Mapping[str, Any]) -> Any:
+            value = record.get("testitem_chembl_id") or record.get(
+                "testitem_id"
+            )
+            if value is not None:
+                return value
+            return record.get("molecule_chembl_id")
+
+        field_mappings["assay_chembl_id"] = _resolve_assay_id
+        field_mappings["testitem_chembl_id"] = _resolve_testitem_id
+
+        value_normalizers = {
+            "activity_id": lambda v: int(v) if v is not None else None,
+            "value": lambda v: float(v) if v is not None else None,
+        }
+
         return {
-            "field_mappings": {
-                "activity_id": "activity_id",
-                "assay_id": "assay_id",
-                "value": "value",
-            },
-            "value_normalizers": {
-                "activity_id": lambda v: int(v) if v is not None else None,
-                "value": lambda v: float(v) if v is not None else None,
-            },
+            "field_mappings": field_mappings,
+            "value_normalizers": value_normalizers,
         }
 
     def _normalize_string_fields(
@@ -1011,6 +1047,8 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         if df.empty:
             return df
 
+        log = self.logger_for(stage="transform")
+
         # Harmonize identifier column aliases
         working_df = df.copy()
         # Rename assay_id -> assay_chembl_id
@@ -1052,8 +1090,23 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         normalized_df = pd.DataFrame(normalized)
         # Ensure enrichment columns are present (even if enrichment is disabled)
         normalized_df = ensure_columns(normalized_df, _COMPOUND_COLUMNS)
+
+        # Normalize measurement fields before enrichment so that downstream
+        # stages can rely on cleaned numeric payloads.
+        normalized_df = self._normalize_measurements(normalized_df, log)
+
         # Apply enrichment stages (using EnrichmentScenarioEngine)
         enriched_df = self.execute_enrichment_stages(normalized_df)
+
+        # Normalize data types according to the Activity schema so that
+        # Pandera receives columns with dtypes as close as possible to
+        # the final contract.
+        schema_descriptor = get_schema(
+            "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+        )
+        enriched_df = self._normalize_data_types(
+            enriched_df, schema_descriptor.schema, log
+        )
 
         # Ensure standard row metadata columns exist for determinism and hashing
         enriched_df, _ = add_row_metadata(

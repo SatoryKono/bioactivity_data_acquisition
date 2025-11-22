@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from importlib import import_module
 import warnings
+from importlib import import_module
 
 import pytest
 
 import bioetl.core as core
-from bioetl.chembl.common import join_activity_with_molecule as chembl_join
+from bioetl.chembl.common import (  # pylint: disable=no-name-in-module
+    join_activity_with_molecule as chembl_join,
+)
 from bioetl.chembl.common.release_tracker import (
     ChemblReleaseMixin as DomainChemblReleaseMixin,
 )

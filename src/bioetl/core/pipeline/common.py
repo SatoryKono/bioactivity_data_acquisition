@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, NoReturn, Protocol, TypeVar, cast, runtime_checkable
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pandas as pd
 import pandera.errors
@@ -238,7 +238,9 @@ class StageContext:
             pipeline=self.pipeline.pipeline_code,
             run_id=self.pipeline.run_id,
             dataset=self.pipeline.pipeline_code,
-            component=self.pipeline._component_for_stage(stage),
+            component=self.pipeline._component_for_stage(  # pylint: disable=protected-access
+                stage
+            ),
             logger_name=__name__,
         )
 
@@ -312,7 +314,7 @@ class _ExtractStageCommand(BaseStageCommand):
                 mode=options.extract_mode,
                 ids=options.extract_ids,
             )
-            rows = self.pipeline._safe_len(extracted)
+            rows = self.pipeline._safe_len(extracted)  # pylint: disable=protected-access
             stage_log.info(LogEvents.STAGE_EXTRACT_FINISH, rows=rows)
         context.set_payload(_EXTRACT_PAYLOAD_KEY, extracted)
 
@@ -326,7 +328,7 @@ class _TransformStageCommand(BaseStageCommand):
         with context.pipeline_stage(self.name) as stage_log:
             stage_log.info(LogEvents.STAGE_TRANSFORM_START)
             transformed = self.pipeline.transform(extracted)
-            rows = self.pipeline._safe_len(transformed)
+            rows = self.pipeline._safe_len(transformed)  # pylint: disable=protected-access
             stage_log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=rows)
         context.set_payload(_TRANSFORM_PAYLOAD_KEY, transformed)
 
@@ -337,11 +339,13 @@ class _ValidateStageCommand(BaseStageCommand):
 
     def execute(self, context: StageContext) -> None:
         transformed = context.require_payload(_TRANSFORM_PAYLOAD_KEY)
-        payload = self.pipeline._apply_cli_sample(transformed)
+        payload = self.pipeline._apply_cli_sample(  # pylint: disable=protected-access
+            transformed
+        )
         with context.pipeline_stage(self.name) as stage_log:
             stage_log.info(LogEvents.STAGE_VALIDATE_START)
             validated = self.pipeline.validate(payload)
-            rows = self.pipeline._safe_len(validated)
+            rows = self.pipeline._safe_len(validated)  # pylint: disable=protected-access
             stage_log.info(LogEvents.STAGE_VALIDATE_FINISH, rows=rows)
         context.set_payload(_VALIDATE_PAYLOAD_KEY, validated)
 
@@ -370,7 +374,7 @@ class _WriteStageCommand(BaseStageCommand):
         include_qc_metrics_flag = (
             bool(options.include_qc_metrics) or effective_extended
         )
-        self.pipeline._qc_fail_on_threshold = bool(
+        self.pipeline._qc_fail_on_threshold = bool(  # pylint: disable=protected-access
             options.fail_on_qc_violation
         )
         with context.pipeline_stage(self.name) as stage_log:
@@ -399,24 +403,24 @@ class _CleanupStageCommand(BaseStageCommand):
     def execute(self, context: StageContext) -> None:
         with context.pipeline_stage(self.name) as cleanup_log:
             cleanup_log.info(LogEvents.STAGE_CLEANUP_START)
-            context.pipeline._cleanup_registered_clients()
+            context.pipeline._cleanup_registered_clients()  # pylint: disable=protected-access
             try:
                 context.pipeline.close_resources()
-            except Exception as cleanup_error:  # pragma: no cover
+            except Exception as cleanup_error:  # pragma: no cover  # pylint: disable=broad-exception-caught
                 # defensive cleanup path
                 cleanup_log.warning(
                     LogEvents.STAGE_CLEANUP_ERROR,
                     error=str(cleanup_error),
                 )
-            context.pipeline._qc_report_options = None
-            context.pipeline._qc_thresholds = {}
-            context.pipeline._qc_fail_on_threshold = False
+            context.pipeline._qc_report_options = None  # pylint: disable=protected-access
+            context.pipeline._qc_thresholds = {}  # pylint: disable=protected-access
+            context.pipeline._qc_fail_on_threshold = False  # pylint: disable=protected-access
             cleanup_log.info(
                 LogEvents.STAGE_CLEANUP_FINISH,
             )
 
 
-T_QC = TypeVar("T_QC")
+TQC = TypeVar("TQC")
 
 
 class PipelineBaseCommon(ABC, PipelineStagesProtocol):
@@ -443,6 +447,14 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.config = config
+        self.stage_plan: tuple[PipelineStageCommand, ...] = ()
+        self._stage_durations_ms: dict[str, float] = {}
+        self._extract_metadata: dict[str, Any] = {}
+        self._qc_report_options: QCReportRuntimeOptions | None = None
+        self._qc_thresholds: dict[str, float] = {}
+        self._validation_schema: SchemaRegistryEntry | None = None
+        self._validation_schema_version: str | None = None
+        self._validation_summary: dict[str, Any] | None = None
         self._init_common(config, run_id)
 
     def _init_common(self, config: PipelineConfig, run_id: str) -> None:
@@ -459,15 +471,15 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         self.logs_root = self.output_root.parent / "logs"
         self.retention_runs = 5
         self.pipeline_directory = self._ensure_pipeline_directory()
-        self.stage_plan: tuple[PipelineStageCommand, ...] = ()
+        self.stage_plan = ()
         self.logs_directory = self._ensure_logs_directory()
-        self._stage_durations_ms: dict[str, float] = {}
+        self._stage_durations_ms = {}
         self._registered_clients: dict[str, Callable[[], None]] = {}
         self._trace_id, self._root_span_id = self._derive_trace_and_span()
-        self._validation_schema: SchemaRegistryEntry | None = None
-        self._validation_schema_version: str | None = None
-        self._validation_summary: dict[str, Any] | None = None
-        self._extract_metadata: dict[str, Any] = {}
+        self._validation_schema = None
+        self._validation_schema_version = None
+        self._validation_summary = None
+        self._extract_metadata = {}
         self._vocabulary_service = get_vocabulary_service()
         load_meta_root = (
             self.output_root.parent / "load_meta" / self.pipeline_code
@@ -476,8 +488,8 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         self.load_meta_backend: LoadMetaBackend = store
         self.load_meta_store = store
         self._qc_executor = QCMetricsExecutor()
-        self._qc_report_options: QCReportRuntimeOptions | None = None
-        self._qc_thresholds: dict[str, float] = {}
+        self._qc_report_options = None
+        self._qc_thresholds = {}
         self._qc_fail_on_threshold: bool = False
 
     def create_stage_factory(self) -> StageFactory:
@@ -612,7 +624,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         try:
             tz = ZoneInfo(timezone_name)
         except (
-            Exception
+            ZoneInfoNotFoundError
         ):  # pragma: no cover - invalid timezone handled by defaults
             tz = ZoneInfo("UTC")
         return datetime.now(tz).strftime("%Y%m%d")
@@ -854,11 +866,11 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
     def _build_qc_report(
         self,
-        factory: Callable[..., T_QC],
+        factory: Callable[..., TQC],
         df: pd.DataFrame,
         *,
         bundle: QCMetricsBundle | None = None,
-    ) -> T_QC:
+    ) -> TQC:
         """Execute a QC report factory with the pipeline defaults."""
 
         business_key = self._business_key_fields()
@@ -923,6 +935,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         df: pd.DataFrame,
     ) -> Mapping[str, object]:
         """Hook allowing subclasses to enrich ``meta.yaml`` content."""
+        _ = df
         enriched = dict(metadata)
         if self._extract_metadata:
             for key, value in self._extract_metadata.items():
@@ -1296,6 +1309,51 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         log.debug(LogEvents.ENRICHMENT_STAGES_COMPLETED, stages=stages or [])
         return df
 
+    def _resolve_secondary_schema_policy(
+        self,
+        *,
+        schema_identifier: str,
+        expected_version: str | None,
+        allow_migration: bool | None,
+    ) -> tuple[str | None, bool]:
+        """Resolve schema version and migration policy for secondary datasets.
+
+        This helper encapsulates the logic that derives the effective
+        expected version and migration allowance from the configured
+        validation settings and optional overrides.
+        """
+
+        configured_schema_in = getattr(
+            self.config.validation,
+            "schema_in",
+            None,
+        )
+        resolved_expected = expected_version
+        if (
+            resolved_expected is None
+            and schema_identifier == configured_schema_in
+        ):
+            resolved_expected = getattr(
+                self.config.validation,
+                "schema_in_version",
+                None,
+            )
+
+        if allow_migration is None:
+            resolved_allow_migration = bool(
+                getattr(
+                    self.config.validation,
+                    "allow_schema_migration",
+                    False,
+                )
+                if schema_identifier == configured_schema_in
+                else False
+            )
+        else:
+            resolved_allow_migration = bool(allow_migration)
+
+        return resolved_expected, resolved_allow_migration
+
     def run_schema_validation(
         self,
         df: pd.DataFrame,
@@ -1329,34 +1387,22 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         Returns
         -------
         pd.DataFrame:
-            The validated DataFrame (may be unchanged if validation fails in fail-open mode).
+            The validated DataFrame (may be unchanged if validation
+            fails in fail-open mode).
         """
         log = UnifiedLogger.get(__name__)
         if df.empty:
             return df
 
         try:
-            configured_schema_in = getattr(
-                self.config.validation, "schema_in", None
+            (
+                resolved_expected,
+                resolved_allow_migration,
+            ) = self._resolve_secondary_schema_policy(  # pyright: ignore[reportAttributeAccessIssue]
+                schema_identifier=schema_identifier,
+                expected_version=expected_version,
+                allow_migration=allow_migration,
             )
-            resolved_expected = expected_version
-            if (
-                resolved_expected is None
-                and schema_identifier == configured_schema_in
-            ):
-                resolved_expected = getattr(
-                    self.config.validation, "schema_in_version", None
-                )
-            if allow_migration is None:
-                resolved_allow_migration = bool(
-                    getattr(
-                        self.config.validation, "allow_schema_migration", False
-                    )
-                    if schema_identifier == configured_schema_in
-                    else False
-                )
-            else:
-                resolved_allow_migration = bool(allow_migration)
 
             schema_entry, migrations, _ = self._resolve_schema_entry(
                 schema_identifier,
@@ -1400,10 +1446,8 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             )
             return validated
         except pandera.errors.SchemaErrors as exc:
-            fail_open = (
-                not getattr(self.config.cli, "fail_on_schema_drift", True)
-            ) or (not getattr(self.config.cli, "validate_columns", True))
-            if not fail_open:
+            behavior = self._build_validation_behavior()
+            if isinstance(behavior, StrictValidation):
                 raise
             summary = summarize_schema_errors(exc)
             failure_cases_df = getattr(exc, "failure_cases", None)
@@ -1688,6 +1732,90 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             )
         return migrated
 
+    def _normalise_metrics_summary(
+        self,
+        metrics_payload: Mapping[str, Any] | pd.DataFrame | None,
+    ) -> dict[str, Any] | None:
+        """Convert QC metrics payload into a dict[str, Any] when possible."""
+
+        if metrics_payload is None:
+            return None
+        if isinstance(metrics_payload, Mapping):
+            return dict(metrics_payload)
+        if isinstance(metrics_payload, pd.DataFrame):
+            metrics_dict_result: dict[Any, dict[str, Any]]
+            metrics_dict_result = metrics_payload.to_dict(
+                orient="index",
+            )  # type: ignore[assignment]
+            return {
+                str(row.get("metric", index)): row.get("value")
+                for index, row in metrics_dict_result.items()
+            }
+        return None
+
+    def _apply_quality_metadata(
+        self,
+        metadata: dict[str, Any],
+        *,
+        metrics_summary: dict[str, Any] | None,
+    ) -> None:
+        """Update metadata["quality"] with metrics and thresholds when provided."""
+
+        quality_section: dict[str, Any] | None = None
+        if metrics_summary or self._qc_thresholds:
+            quality_section = cast(
+                dict[str, Any], metadata.setdefault("quality", {})
+            )
+        if metrics_summary and quality_section is not None:
+            metrics_dict = cast(
+                dict[str, Any], quality_section.setdefault("metrics", {})
+            )
+            metrics_dict.update(metrics_summary)
+        if self._qc_thresholds and quality_section is not None:
+            thresholds_dict = cast(
+                dict[str, Any], quality_section.setdefault("thresholds", {})
+            )
+            thresholds_dict.update(self._qc_thresholds)
+            quality_section.setdefault(
+                "fail_on_violation", self._qc_fail_on_threshold
+            )
+
+    def _resolve_schema_column_order_and_logger(
+        self,
+        column_order_or_log: Sequence[str] | BoundLogger,
+        log: BoundLogger | None,
+    ) -> tuple[Sequence[str], BoundLogger]:
+        """Return effective schema column order and logger for normalization.
+
+        This helper encapsulates the branching needed to support both
+        explicit ``column_order`` and the legacy ``column_order_or_log``
+        overload while preserving existing behavior.
+        """
+
+        effective_log: BoundLogger | None = None
+        if log is None:
+            if isinstance(column_order_or_log, BoundLogger):
+                effective_log = column_order_or_log
+                schema_entry = self._default_validation_schema_entry()
+                column_order: Sequence[str] = (
+                    schema_entry.column_order if schema_entry else ()
+                )
+            else:
+                column_order = column_order_or_log
+        else:
+            if isinstance(column_order_or_log, BoundLogger):
+                raise TypeError(
+                    "column_order_or_log must be schema column order "
+                    "when log is provided"
+                )
+            column_order = column_order_or_log
+            effective_log = log
+
+        if effective_log is None:
+            effective_log = UnifiedLogger.get(__name__)
+
+        return column_order, effective_log
+
     def _ensure_schema_columns(
         self,
         df: pd.DataFrame,
@@ -1717,27 +1845,10 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         if df.empty:
             return df
 
-        effective_log: BoundLogger | None = None
-        if log is None:
-            if isinstance(column_order_or_log, BoundLogger):
-                effective_log = column_order_or_log
-                schema_entry = self._default_validation_schema_entry()
-                column_order: Sequence[str] = (
-                    schema_entry.column_order if schema_entry else ()
-                )
-            else:
-                column_order = column_order_or_log
-        else:
-            if isinstance(column_order_or_log, BoundLogger):
-                raise TypeError(
-                    "column_order_or_log must be schema column order when log is provided"
-                )
-            column_order = column_order_or_log
-            effective_log = log
-
-        if effective_log is None:
-            effective_log = UnifiedLogger.get(__name__)
-        logger: BoundLogger = effective_log
+        column_order, logger = self._resolve_schema_column_order_and_logger(
+            column_order_or_log,
+            log,
+        )
 
         expected = list(column_order)
         missing = [column for column in expected if column not in df.columns]
@@ -1904,9 +2015,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         for name, closer in list(self._registered_clients.items())[::-1]:
             try:
                 closer()
-            except (
+            except (  # noqa: BLE001
                 Exception
-            ) as exc:  # pragma: no cover - defensive cleanup path
+            ) as exc:  # pragma: no cover - defensive cleanup path  # pylint: disable=broad-exception-caught
                 log.warning(
                     LogEvents.CLIENT_CLEANUP_FAILED,
                     client=name,
@@ -2030,18 +2141,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         metadata = dict(metadata_payload)
 
         metrics_payload = self.build_qc_metrics(prepared.dataframe)
-        metrics_summary: dict[str, Any] | None = None
-        if isinstance(metrics_payload, Mapping):
-            metrics_summary = dict(metrics_payload)
-        elif isinstance(metrics_payload, pd.DataFrame):
-            metrics_dict_result: dict[Any, dict[str, Any]]
-            metrics_dict_result = metrics_payload.to_dict(
-                orient="index",
-            )  # type: ignore[assignment]
-            metrics_summary = {
-                str(row.get("metric", index)): row.get("value")
-                for index, row in metrics_dict_result.items()
-            }
+        metrics_summary = self._normalise_metrics_summary(metrics_payload)
 
         if self._validation_summary:
             validation_default: dict[str, Any] = {}
@@ -2051,24 +2151,10 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             )
             validation_dict.update(self._validation_summary)
 
-        quality_section: dict[str, Any] | None = None
-        if metrics_summary or self._qc_thresholds:
-            quality_section = cast(
-                dict[str, Any], metadata.setdefault("quality", {})
-            )
-        if metrics_summary and quality_section is not None:
-            metrics_dict = cast(
-                dict[str, Any], quality_section.setdefault("metrics", {})
-            )
-            metrics_dict.update(metrics_summary)
-        if self._qc_thresholds and quality_section is not None:
-            thresholds_dict = cast(
-                dict[str, Any], quality_section.setdefault("thresholds", {})
-            )
-            thresholds_dict.update(self._qc_thresholds)
-            quality_section.setdefault(
-                "fail_on_violation", self._qc_fail_on_threshold
-            )
+        self._apply_quality_metadata(
+            metadata,
+            metrics_summary=metrics_summary,
+        )
 
         log.debug(
             LogEvents.WRITE_ARTIFACTS_PREPARED,
@@ -2201,6 +2287,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
     def _pre_run_hook(self, stage_context: StageContext) -> None:
         """Hook executed before stage execution; defaults to prepare_run."""
 
+        _ = stage_context
         self.prepare_run()
 
     def _execute_stages(
@@ -2232,6 +2319,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
     ) -> RunResult | None:
         """Hook executed after successful stage execution."""
 
+        _ = stage_context
         if bootstrap_log is not None:
             bootstrap_log.info(
                 LogEvents.STAGE_RUN_FINISH,
@@ -2259,7 +2347,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
               include_qc_metrics=False, qc_reports=None, qc_thresholds=None,
               fail_on_qc_violation=False) -> RunResult
 
-        Этот метод — шаблон выполнения пайплайна. Дочерние классы должны
+        Этот метод - шаблон выполнения пайплайна. Дочерние классы должны
         реализовать хуки: prepare_run, extract/extract_by_ids/extract_all,
         transform, validate, save_results, finalize_run. Сигнатура run() не
         должна меняться.
@@ -2350,7 +2438,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 )
                 raise PipelineError(msg)
             return result
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             self._handle_error(exc, current_stage)
 
         finally:
@@ -2360,6 +2448,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 except (
                     Exception
                 ) as finalize_error:  # pragma: no cover - defensive finalize path
+                    # pylint: disable=broad-exception-caught
                     finalize_log = self._make_pipeline_logger(
                         stage="finalize", logger_name=__name__
                     )
@@ -2376,20 +2465,14 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 duration = (time.perf_counter() - cleanup_start) * 1000.0
                 stage_durations_ms[current_stage] = duration
 
-    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate ``df`` against the configured Pandera schema.
-
-        According to documentation, this method should accept df: pd.DataFrame.
-        """
-        log = UnifiedLogger.get(__name__)
+    def _build_validation_behavior(self) -> StrictValidation | FailOpenValidation:
         fail_open = (
             not getattr(self.config.cli, "fail_on_schema_drift", True)
         ) or (not getattr(self.config.cli, "validate_columns", True))
+        return FailOpenValidation() if fail_open else StrictValidation()
 
-        behavior = FailOpenValidation() if fail_open else StrictValidation()
-        context = ValidationContext(pipeline=self, df=df, log=log)
-
-        steps: tuple[ValidationStep, ...] = (
+    def _build_validation_steps(self) -> tuple[ValidationStep, ...]:
+        return (
             SchemaResolutionStep(),
             MigrationStep(),
             SchemaValidationStep(),
@@ -2398,6 +2481,22 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             SummaryStep(),
         )
 
+    def _reset_validation_state(self) -> None:
+        self._validation_schema = None
+        self._validation_schema_version = None
+        self._validation_summary = None
+
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Validate ``df`` against the configured Pandera schema.
+
+        According to documentation, this method should accept df: pd.DataFrame.
+        """
+        log = UnifiedLogger.get(__name__)
+        behavior = self._build_validation_behavior()
+        context = ValidationContext(pipeline=self, df=df, log=log)
+
+        steps: tuple[ValidationStep, ...] = self._build_validation_steps()
+
         for step in steps:
             result = step.run(context, behavior)
             context.df = result.df
@@ -2405,9 +2504,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 break
 
         if context.skip_remaining:
-            self._validation_schema = None
-            self._validation_schema_version = None
-            self._validation_summary = None
+            self._reset_validation_state()
             return context.df
 
         return context.df
