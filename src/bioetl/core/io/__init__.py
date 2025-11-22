@@ -1,20 +1,22 @@
 """Deterministic I/O helpers for the BioETL core package."""
 
+from .artifacts import RunArtifacts, WriteArtifacts, WriteResult
 from .base_writer import BaseDatasetWriter
-from .frame import ensure_columns
-from .hashing import compute_hash, hash_from_mapping
-from .output import (
+from .determinism import (
+    CSVQuotingLiteral,
     DeterministicWriteArtifacts,
-    RunArtifacts,
-    WriteArtifacts,
-    WriteResult,
-    build_run_manifest_payload,
     build_write_artifacts,
-    emit_qc_artifact,
     ensure_hash_columns,
-    plan_run_artifacts,
     prepare_dataframe,
     serialise_metadata,
+)
+from .finalize_output import finalize_output
+from .frame import ensure_columns
+from .hashing import compute_hash, hash_from_mapping
+from .output import plan_run_artifacts
+from .writer import (
+    build_run_manifest_payload,
+    emit_qc_artifact,
     write_dataset_atomic,
     write_frame_like,
     write_json_atomic,
@@ -31,6 +33,7 @@ from .units import QCUnits
 
 __all__ = [
     "BaseDatasetWriter",
+    "CSVQuotingLiteral",
     "DeterministicWriteArtifacts",
     "QCUnits",
     "RunArtifacts",
@@ -43,6 +46,7 @@ __all__ = [
     "ensure_hash_columns",
     "emit_qc_artifact",
     "escape_delims",
+    "finalize_output",
     "hash_from_mapping",
     "header_rows_serialize",
     "plan_run_artifacts",
