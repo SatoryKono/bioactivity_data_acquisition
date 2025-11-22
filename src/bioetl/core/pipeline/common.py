@@ -36,11 +36,9 @@ from bioetl.core.io import (
     WriteResult,
     build_run_manifest_payload,
     build_write_artifacts,
-    emit_qc_artifact,
-    write_dataset_atomic,
-    write_json_atomic,
-    write_yaml_atomic,
 )
+from bioetl.core.io import emit_qc_artifact, write_dataset_atomic
+from bioetl.core.io import write_json_atomic, write_yaml_atomic
 from bioetl.core.io import (
     plan_run_artifacts as io_plan_run_artifacts,
 )
@@ -2165,47 +2163,32 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         record_count = int(prepared.dataframe.shape[0])
         dataframe_copy = prepared.dataframe.copy(deep=True)
 
-        write_dataset_atomic(
-            prepared.dataframe, artifacts.write.dataset, config=self.config
-        )
-        log.debug(LogEvents.DATASET_WRITTEN, path=str(artifacts.write.dataset))
-        metadata_path: Path | None = None
-        if artifacts.write.metadata is not None:
-            write_yaml_atomic(metadata, artifacts.write.metadata)
-            log.debug(
-                LogEvents.METADATA_WRITTEN, path=str(artifacts.write.metadata)
-            )
-            metadata_path = artifacts.write.metadata
+        writer = _ArtifactsWriter(config=self.config, log=log)
+        writer.write_dataset(prepared.dataframe, artifacts.write.dataset)
+        metadata_path = writer.write_metadata(metadata, artifacts.write.metadata)
 
         quality_payload = self.build_quality_report(prepared.dataframe)
-        quality_path = emit_qc_artifact(
+        quality_path = writer.write_qc_artifact(
             quality_payload,
             artifacts.write.quality_report,
-            config=self.config,
-            log=log,
             artifact_name="quality_report",
         )
 
         correlation_payload = self.build_correlation_report(prepared.dataframe)
-        correlation_path = emit_qc_artifact(
+        correlation_path = writer.write_qc_artifact(
             correlation_payload,
             artifacts.write.correlation_report,
-            config=self.config,
-            log=log,
             artifact_name="correlation_report",
         )
 
-        metrics_path = emit_qc_artifact(
+        metrics_path = writer.write_qc_artifact(
             metrics_payload,
             artifacts.write.qc_metrics,
-            config=self.config,
-            log=log,
             artifact_name="qc_metrics",
         )
 
-        manifest_path: Path | None = None
-        if artifacts.manifest is not None:
-            manifest_payload = build_run_manifest_payload(
+        manifest_path = writer.write_manifest(
+            build_run_manifest_payload(
                 pipeline_code=self.pipeline_code,
                 run_id=self.run_id,
                 run_directory=artifacts.run_directory,
@@ -2215,9 +2198,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 correlation_report=correlation_path,
                 qc_metrics=metrics_path,
                 extras=artifacts.extras,
-            )
-            write_json_atomic(manifest_payload, artifacts.manifest)
-            manifest_path = artifacts.manifest
+            ),
+            artifacts.manifest,
+        )
 
         # Create WriteResult for RunResult
         write_result = WriteResult(
