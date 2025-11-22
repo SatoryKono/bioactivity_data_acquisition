@@ -2695,5 +2695,58 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         return sampled.reset_index(drop=True)
 
 
+class _ArtifactsWriter:
+    """Encapsulate deterministic artifact writes for pipeline runs."""
+
+    def __init__(
+        self,
+        *,
+        config: PipelineConfig,
+        log: BoundLogger,
+    ) -> None:
+        self._config = config
+        self._log = log
+
+    def write_dataset(self, df: pd.DataFrame, path: Path) -> None:
+        write_dataset_atomic(df, path, config=self._config)
+        self._log.debug(LogEvents.DATASET_WRITTEN, path=str(path))
+
+    def write_metadata(
+        self,
+        metadata: Mapping[str, Any],
+        path: Path | None,
+    ) -> Path | None:
+        if path is None:
+            return None
+        write_yaml_atomic(metadata, path)
+        self._log.debug(LogEvents.METADATA_WRITTEN, path=str(path))
+        return path
+
+    def write_qc_artifact(
+        self,
+        payload: pd.DataFrame | Mapping[str, Any] | None,
+        path: Path | None,
+        *,
+        artifact_name: str,
+    ) -> Path | None:
+        return emit_qc_artifact(
+            payload,
+            path,
+            config=self._config,
+            log=self._log,
+            artifact_name=artifact_name,
+        )
+
+    def write_manifest(
+        self,
+        payload: Mapping[str, Any],
+        path: Path | None,
+    ) -> Path | None:
+        if path is None:
+            return None
+        write_json_atomic(payload, path)
+        return path
+
+
 # Backward compatibility alias for existing imports
 PipelineBase = PipelineBaseCommon
