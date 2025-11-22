@@ -47,7 +47,7 @@ class BaseDatasetWriter:
 
         del mode, metadata  # Reserved for subclasses / future extensions
         dataset_path = self._resolve_dataset_path(artifacts)
-        prepared = prepare_dataframe(df)
+        prepared = prepare_dataframe(df, config=self.config)
         write_dataset_atomic(prepared, dataset_path, config=self.config)
         return WriteResult(dataset=dataset_path)
 
