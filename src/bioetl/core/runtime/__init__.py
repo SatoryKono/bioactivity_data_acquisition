@@ -10,7 +10,9 @@ from .cli_base import CliCommandBase, CliEntrypoint
 from .errors import BioETLError
 
 _LAZY_EXPORTS: Mapping[str, str] = {
+    "LoadMetaBuilder": "bioetl.core.runtime.load_meta_builder",
     "LoadMetaStore": "bioetl.core.runtime.load_meta_store",
+    "LoadMetaWriter": "bioetl.core.runtime.load_meta_writer",
     "RunArtifacts": "bioetl.core.io",
     "WriteArtifacts": "bioetl.core.io",
     "WriteResult": "bioetl.core.io",
