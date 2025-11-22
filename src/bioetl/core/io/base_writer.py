@@ -10,13 +10,9 @@ import pandas as pd
 
 from bioetl.config.models.models import PipelineConfig
 
-from .output import (
-    RunArtifacts,
-    WriteArtifacts,
-    WriteResult,
-    prepare_dataframe,
-    write_dataset_atomic,
-)
+from .artifacts import RunArtifacts, WriteArtifacts, WriteResult
+from .determinism import prepare_dataframe
+from .writer import write_dataset_atomic
 
 __all__ = ["BaseDatasetWriter"]
 
@@ -47,7 +43,7 @@ class BaseDatasetWriter:
 
         del mode, metadata  # Reserved for subclasses / future extensions
         dataset_path = self._resolve_dataset_path(artifacts)
-        prepared = prepare_dataframe(df)
+        prepared = prepare_dataframe(df, config=self.config)
         write_dataset_atomic(prepared, dataset_path, config=self.config)
         return WriteResult(dataset=dataset_path)
 
