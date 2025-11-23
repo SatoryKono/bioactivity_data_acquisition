@@ -1,20 +1,32 @@
+---
+trigger: model_decision
+description:  USE WHEN handling credentials; never hardcode, load from env or secret manager (e.g., Vault)
+---
+
+# Secrets No Hardcode Env Or Vault
+
 > Scope:
 > - USE WHEN handling credentials; never hardcode, load from env or secret manager (e.g., Vault)
 > - Use when editing files matching: `src/**/*.py`, `configs/**/*.yaml`, `.env*`
-# MANDATORY
+
+## MANDATORY
+
 - Do not hardcode secrets; load via environment or secret manager (Vault).
 - Support rotation; do not commit secrets to VCS.
 
-# BAD
+## BAD
+
 ```python
 API_TOKEN = "abcd1234"
 ```
 
-# GOOD
+## GOOD
+
 ```python
 import os
 API_TOKEN = os.environ["API_TOKEN"]
 ```
 
-# REFERENCE
+## REFERENCE
+
 See ../../docs/styleguide/09-secrets-config.md

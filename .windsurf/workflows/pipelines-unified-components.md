@@ -1,14 +1,26 @@
+---
+trigger: model_decision
+description:  USE WHEN wiring cross-cutting concerns; use unified Logger, OutputWriter, APIClient, Schema
+---
+
+# Unified Components
+
 > Scope:
 > - USE WHEN wiring cross-cutting concerns; use unified Logger, OutputWriter, APIClient, Schema
 > - Use when editing files matching: `src/bioetl/**/*.py`
-# MANDATORY
+
+## MANDATORY
+
 - Use provided unified components: `UnifiedLogger`, `UnifiedOutputWriter`, `UnifiedAPIClient`, and schema classes.
 
-# BAD
+## BAD
+
 Using `print()` or ad-hoc file I/O in pipelines.
 
-# GOOD
+## GOOD
+
 Delegate logging and output to the unified components.
 
-# REFERENCE
+## REFERENCE
+
 See ../../docs/styleguide/08-etl-architecture.md

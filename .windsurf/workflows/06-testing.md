@@ -1,7 +1,15 @@
+---
+trigger: model_decision
+description: USE WHEN writing tests or changing code paths; enforce categories, golden tests, property tests, coverage >=85%
+---
+
+# Testing
+
 > Scope:
 > - USE WHEN writing tests or changing code paths; enforce categories, golden tests, property tests, coverage >=85%
 > - Use when editing files matching: `tests/**/*.py`, `src/**/*.py`
-# CATEGORIES (pytest markers)
+
+## CATEGORIES (pytest markers)
 
 unit, integration, golden, determinism, property, schema, qc, slow, api, benchmark.
 

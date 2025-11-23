@@ -1,7 +1,15 @@
+---
+trigger: model_decision
+description: USE WHEN defining outputs or touching write paths; enforce Pandera schemas with ordered columns and versioning
+---
+
+# Data Schemas
+
 > Scope:
 > - USE WHEN defining outputs or touching write paths; enforce Pandera schemas with ordered columns and versioning
 > - Use when editing files matching: `src/bioetl/schemas/**/*.py`, `src/**/*.py`, `docs/schemas/**/*.md`
-# POLICY
+
+## POLICY
 
 - Every output table MUST have a Pandera schema; validate before any write.
 - Enforce fixed column order via `ordered=True`; schema drives `column_order`.

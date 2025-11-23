@@ -1,10 +1,20 @@
+---
+trigger: model_decision
+description: USE WHEN defining configuration; use typed models (e.g., Pydantic), validate on load
+---
+
+# Config Typed Models Pydantic
+
 > Scope:
 > - USE WHEN defining configuration; use typed models (e.g., Pydantic), validate on load
 > - Use when editing files matching: `src/**/config*.py`, `configs/**/*.yaml`
-# SHOULD
+
+## SHOULD
+
 - Define configuration as typed models; validate on load and provide defaults where safe.
 
-# EXAMPLE
+## EXAMPLE
+
 ```python
 from pydantic import BaseModel, AnyUrl
 
@@ -14,5 +24,6 @@ class PipelineConfig(BaseModel):
     api_url: AnyUrl
 ```
 
-# REFERENCE
+## REFERENCE
+
 See ../../docs/styleguide/09-secrets-config.md

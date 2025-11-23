@@ -1,7 +1,12 @@
+---
+trigger: always_on
+---
+
+# BioETL Core Prompt
+
 > Scope:
 > - BioETL system prompt enforced for every task
 > - Treat as global invariant; apply in all tasks, even without matching files.
-# BioETL Core Prompt
 
 ## Role
 

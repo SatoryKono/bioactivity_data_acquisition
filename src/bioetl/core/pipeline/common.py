@@ -2078,154 +2078,13 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
     ) -> RunResult:
         """Internal helper implementing the deterministic write flow."""
         log = UnifiedLogger.get(__name__)
-        if not isinstance(
-            df, pd.DataFrame
-        ):  # pyright: ignore[reportUnnecessaryIsInstance]
-            msg = f"write() expects a pandas DataFrame payload; received {type(df).__name__!s}"
-            raise TypeError(msg)
-        run_tag = self._normalise_run_tag(None)
-        effective_extended = bool(
-            extended or getattr(self.config.cli, "extended", False)
-        )
-        mode = "extended" if effective_extended else None
-
-        postprocess_config = getattr(self.config, "postprocess", None)
-        correlation_config = getattr(postprocess_config, "correlation", None)
-        correlation_default = bool(
-            getattr(correlation_config, "enabled", False)
-        )
-
-        # Run correlation report generation if enabled in the config or via extended mode.
-        include_correlation_flag = (
-            bool(include_correlation)
-            or effective_extended
-            or correlation_default
-        )
-        include_qc_metrics_flag = (
-            bool(include_qc_metrics) or effective_extended
-        )
-        include_metadata = bool(self.config.validation.schema_out)
-        if effective_extended or self._extract_metadata:
-            include_metadata = True
-        include_manifest = effective_extended
-
-        run_dir = output_path if output_path.is_dir() else output_path.parent
-        run_dir.mkdir(parents=True, exist_ok=True)
-
-        artifacts = self.plan_run_artifacts(
-            run_tag=run_tag,
-            mode=mode,
-            include_correlation=include_correlation_flag,
-            include_qc_metrics=include_qc_metrics_flag,
-            include_metadata=include_metadata,
-            include_manifest=include_manifest,
-            extras=None,
-            run_directory=run_dir,
-        )
-
-        # Build write artifacts
-        prepared: DeterministicWriteArtifacts = build_write_artifacts(
-            df,
-            config=self.config,
-            run_id=self.run_id,
-            pipeline_code=self.pipeline_code,
-            dataset_path=artifacts.write.dataset,
-            stage_durations_ms=self._stage_durations_ms,
-        )
-
-        metadata_payload = self.augment_metadata(
-            prepared.metadata, prepared.dataframe
-        )
-        metadata = dict(metadata_payload)
-
-        metrics_payload = self.build_qc_metrics(prepared.dataframe)
-        metrics_summary = self._normalise_metrics_summary(metrics_payload)
-
-        if self._validation_summary:
-            validation_default: dict[str, Any] = {}
-            validation_dict = cast(
-                dict[str, Any],
-                metadata.setdefault("validation", validation_default),
-            )
-            validation_dict.update(self._validation_summary)
-
-        self._apply_quality_metadata(
-            metadata,
-            metrics_summary=metrics_summary,
-        )
-
-        log.debug(
-            LogEvents.WRITE_ARTIFACTS_PREPARED,
-            rows=len(prepared.dataframe),
-            dataset=str(artifacts.write.dataset),
-        )
-
-        record_count = int(prepared.dataframe.shape[0])
-        dataframe_copy = prepared.dataframe.copy(deep=True)
-
-        writer = _ArtifactsWriter(config=self.config, log=log)
-        writer.write_dataset(prepared.dataframe, artifacts.write.dataset)
-        metadata_path = writer.write_metadata(metadata, artifacts.write.metadata)
-
-        quality_payload = self.build_quality_report(prepared.dataframe)
-        quality_path = writer.write_qc_artifact(
-            quality_payload,
-            artifacts.write.quality_report,
-            artifact_name="quality_report",
-        )
-
-        correlation_payload = self.build_correlation_report(prepared.dataframe)
-        correlation_path = writer.write_qc_artifact(
-            correlation_payload,
-            artifacts.write.correlation_report,
-            artifact_name="correlation_report",
-        )
-
-        metrics_path = writer.write_qc_artifact(
-            metrics_payload,
-            artifacts.write.qc_metrics,
-            artifact_name="qc_metrics",
-        )
-
-        manifest_path = writer.write_manifest(
-            build_run_manifest_payload(
-                pipeline_code=self.pipeline_code,
-                run_id=self.run_id,
-                run_directory=artifacts.run_directory,
-                dataset=artifacts.write.dataset,
-                metadata=metadata_path,
-                quality_report=quality_path,
-                correlation_report=correlation_path,
-                qc_metrics=metrics_path,
-                extras=artifacts.extras,
-            ),
-            artifacts.manifest,
-        )
-
-        # Create WriteResult for RunResult
-        write_result = WriteResult(
-            dataset=artifacts.write.dataset,
-            metadata=metadata_path,
-            quality_report=quality_path,
-            correlation_report=correlation_path,
-            qc_metrics=metrics_path,
-            extras=dict(artifacts.extras),
-        )
-
-        # Return RunResult according to documentation
-        return RunResult(
-            write_result=write_result,
-            run_directory=artifacts.run_directory,
-            manifest=manifest_path,
-            additional_datasets=dict(artifacts.extras),
-            qc_summary=metrics_path,
-            debug_dataset=None,  # Not implemented yet
-            run_id=self.run_id,
-            log_file=artifacts.log_file,
-            stage_durations_ms=self._stage_durations_ms,
-            _dataset_path=artifacts.write.dataset,
-            _records=record_count,
-            _dataframe=dataframe_copy,
+        orchestrator = _RunOutputOrchestrator(pipeline=self, log=log)
+        return orchestrator.execute(
+            df=df,
+            output_path=output_path,
+            extended=extended,
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
         )
 
     def _handle_error(self, exc: Exception, stage: str) -> NoReturn:
@@ -2746,6 +2605,181 @@ class _ArtifactsWriter:
             return None
         write_json_atomic(payload, path)
         return path
+
+
+class _RunOutputOrchestrator:
+    """Coordinate deterministic write flow for PipelineBaseCommon."""
+
+    def __init__(
+        self,
+        *,
+        pipeline: PipelineBaseCommon,
+        log: BoundLogger,
+    ) -> None:
+        self._pipeline = pipeline
+        self._log = log
+
+    def execute(
+        self,
+        *,
+        df: pd.DataFrame,
+        output_path: Path,
+        extended: bool,
+        include_correlation: bool | None,
+        include_qc_metrics: bool | None,
+    ) -> RunResult:
+        if not isinstance(
+            df, pd.DataFrame
+        ):  # pyright: ignore[reportUnnecessaryIsInstance]
+            msg = (
+                "write() expects a pandas DataFrame payload; received "
+                f"{type(df).__name__!s}"
+            )
+            raise TypeError(msg)
+
+        pipeline = self._pipeline
+        run_tag = pipeline._normalise_run_tag(None)
+        effective_extended = bool(
+            extended or getattr(pipeline.config.cli, "extended", False)
+        )
+        mode = "extended" if effective_extended else None
+
+        postprocess_config = getattr(pipeline.config, "postprocess", None)
+        correlation_config = getattr(postprocess_config, "correlation", None)
+        correlation_default = bool(
+            getattr(correlation_config, "enabled", False)
+        )
+
+        include_correlation_flag = (
+            bool(include_correlation)
+            or effective_extended
+            or correlation_default
+        )
+        include_qc_metrics_flag = bool(include_qc_metrics) or effective_extended
+        include_metadata = bool(pipeline.config.validation.schema_out)
+        if effective_extended or pipeline._extract_metadata:
+            include_metadata = True
+        include_manifest = effective_extended
+
+        run_dir = output_path if output_path.is_dir() else output_path.parent
+        run_dir.mkdir(parents=True, exist_ok=True)
+
+        artifacts = pipeline.plan_run_artifacts(
+            run_tag=run_tag,
+            mode=mode,
+            include_correlation=include_correlation_flag,
+            include_qc_metrics=include_qc_metrics_flag,
+            include_metadata=include_metadata,
+            include_manifest=include_manifest,
+            extras=None,
+            run_directory=run_dir,
+        )
+
+        prepared: DeterministicWriteArtifacts = build_write_artifacts(
+            df,
+            config=pipeline.config,
+            run_id=pipeline.run_id,
+            pipeline_code=pipeline.pipeline_code,
+            dataset_path=artifacts.write.dataset,
+            stage_durations_ms=pipeline._stage_durations_ms,
+        )
+
+        metadata_payload = pipeline.augment_metadata(
+            prepared.metadata, prepared.dataframe
+        )
+        metadata = dict(metadata_payload)
+
+        metrics_payload = pipeline.build_qc_metrics(prepared.dataframe)
+        metrics_summary = pipeline._normalise_metrics_summary(metrics_payload)
+
+        if pipeline._validation_summary:
+            validation_default: dict[str, Any] = {}
+            validation_dict = cast(
+                dict[str, Any],
+                metadata.setdefault("validation", validation_default),
+            )
+            validation_dict.update(pipeline._validation_summary)
+
+        pipeline._apply_quality_metadata(
+            metadata,
+            metrics_summary=metrics_summary,
+        )
+
+        self._log.debug(
+            LogEvents.WRITE_ARTIFACTS_PREPARED,
+            rows=len(prepared.dataframe),
+            dataset=str(artifacts.write.dataset),
+        )
+
+        record_count = int(prepared.dataframe.shape[0])
+        dataframe_copy = prepared.dataframe.copy(deep=True)
+
+        writer = _ArtifactsWriter(config=pipeline.config, log=self._log)
+        writer.write_dataset(prepared.dataframe, artifacts.write.dataset)
+        metadata_path = writer.write_metadata(
+            metadata, artifacts.write.metadata
+        )
+
+        quality_payload = pipeline.build_quality_report(prepared.dataframe)
+        quality_path = writer.write_qc_artifact(
+            quality_payload,
+            artifacts.write.quality_report,
+            artifact_name="quality_report",
+        )
+
+        correlation_payload = pipeline.build_correlation_report(
+            prepared.dataframe
+        )
+        correlation_path = writer.write_qc_artifact(
+            correlation_payload,
+            artifacts.write.correlation_report,
+            artifact_name="correlation_report",
+        )
+
+        metrics_path = writer.write_qc_artifact(
+            metrics_payload,
+            artifacts.write.qc_metrics,
+            artifact_name="qc_metrics",
+        )
+
+        manifest_path = writer.write_manifest(
+            build_run_manifest_payload(
+                pipeline_code=pipeline.pipeline_code,
+                run_id=pipeline.run_id,
+                run_directory=artifacts.run_directory,
+                dataset=artifacts.write.dataset,
+                metadata=metadata_path,
+                quality_report=quality_path,
+                correlation_report=correlation_path,
+                qc_metrics=metrics_path,
+                extras=artifacts.extras,
+            ),
+            artifacts.manifest,
+        )
+
+        write_result = WriteResult(
+            dataset=artifacts.write.dataset,
+            metadata=metadata_path,
+            quality_report=quality_path,
+            correlation_report=correlation_path,
+            qc_metrics=metrics_path,
+            extras=dict(artifacts.extras),
+        )
+
+        return RunResult(
+            write_result=write_result,
+            run_directory=artifacts.run_directory,
+            manifest=manifest_path,
+            additional_datasets=dict(artifacts.extras),
+            qc_summary=metrics_path,
+            debug_dataset=None,
+            run_id=pipeline.run_id,
+            log_file=artifacts.log_file,
+            stage_durations_ms=pipeline._stage_durations_ms,
+            _dataset_path=artifacts.write.dataset,
+            _records=record_count,
+            _dataframe=dataframe_copy,
+        )
 
 
 # Backward compatibility alias for existing imports

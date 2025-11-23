@@ -1,8 +1,18 @@
+---
+trigger: model_decision
+description: USE WHEN loading configuration; validate schema and fail fast on errors
+---
+
+# Config Validate and Fail Fast
+
 > Scope:
 > - USE WHEN loading configuration; validate schema and fail fast on errors
 > - Use when editing files matching: `src/**/config*.py`, `src/**/*.py`
-# MANDATORY
+
+## MANDATORY
+
 - Validate configuration on load; if required keys are missing or invalid, exit with a clear message before execution.
 
-# REFERENCE
+## REFERENCE
+
 See ../../docs/styleguide/09-secrets-config.md

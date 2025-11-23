@@ -1,7 +1,15 @@
+---
+trigger: model_decision
+description:  USE WHEN writing or modifying documentation files or file names; enforce lowercase-hyphen names and NN- sequencing
+---
+
+# Naming Conventions
+
 > Scope:
 > - USE WHEN writing or modifying documentation files or file names; enforce lowercase-hyphen names and NN- sequencing
 > - Use when editing files matching: `docs/**/*.md`, `**/INDEX.md`, `**/README.md`
-# GOAL
+
+## GOAL
 
 Keep doc navigation predictable.
 

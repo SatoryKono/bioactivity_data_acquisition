@@ -1,14 +1,26 @@
+---
+trigger: model_decision
+description: USE WHEN creating or renaming documentation files; enforce english-lowercase-hyphen names
+---
+
+# Docs Filenames Lowercase Hyphen
+
 > Scope:
 > - USE WHEN creating or renaming documentation files; enforce english-lowercase-hyphen names
 > - Use when editing files matching: `docs/**/*.md`
-# MANDATORY
+
+## MANDATORY
+
 - Filenames in English, lowercase; words separated by hyphens. No spaces, no CamelCase.
 
-# BAD
+## BAD
+
 `Docs/Overview.MD`
 
-# GOOD
+## GOOD
+
 `docs/pipelines/10-chembl-pipelines-catalog.md`
 
-# REFERENCE
+## REFERENCE
+
 See ../../docs/styleguide/01-naming-conventions.md

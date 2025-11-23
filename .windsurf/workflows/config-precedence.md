@@ -1,7 +1,13 @@
+---
+trigger: model_decision
+description: USE WHEN merging configuration; precedence is env > CLI > config files > profiles
+---
+
+# Config Precedence
+
 > Scope:
 > - USE WHEN merging configuration; precedence is env > CLI > config files > profiles
 > - Use when editing files matching: `src/**/config*.py`, `src/**/*.py`
-# Config precedence
 
 ## Mandatory
 

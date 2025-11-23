@@ -1,14 +1,26 @@
+---
+trigger: model_decision
+description: USE WHEN shaping output datasets; prefer star schema (dims + fact)
+---
+
+# Data Star Schema
+
 > Scope:
 > - USE WHEN shaping output datasets; prefer star schema (dims + fact)
 > - Use when editing files matching: `src/**`, `docs/pipelines/**/*.md`
-# SHOULD
+
+## SHOULD
+
 - Model data as a star schema: dimension tables (documents, targets, assays, testitems) and a fact table (activity) with foreign keys.
 
-# BAD
+## BAD
+
 One denormalized table duplicating dimension attributes on every row.
 
-# GOOD
+## GOOD
+
 Separate dims (`assays_dim.csv`, `targets_dim.csv`, `documents_dim.csv`) and a fact (`activity_fact.csv`).
 
-# REFERENCE
+## REFERENCE
+
 See ../../docs/styleguide/08-etl-architecture.md

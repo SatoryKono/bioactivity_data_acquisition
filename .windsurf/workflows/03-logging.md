@@ -1,7 +1,15 @@
+---
+trigger: model_decision
+description: USE WHEN adding logging; require UnifiedLogger, structured events, redaction, run context
+---
+
+# Logging
+
 > Scope:
 > - USE WHEN adding logging; require UnifiedLogger, structured events, redaction, run context
 > - Use when editing files matching: `src/**/*.py`
-# Logging rules
+
+## Logging rules
 
 ## Mandatory
 
