@@ -29,21 +29,21 @@ if TYPE_CHECKING:  # pragma: no cover - imported for typing only
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "PipelineBase": ("bioetl.core.pipeline.base", "PipelineBase"),
     "PipelineExtractionMode": (
-        "bioetl.core.pipeline.common",
+        "bioetl.core.pipeline.types",
         "PipelineExtractionMode",
     ),
     "PipelineStageCommand": (
-        "bioetl.core.pipeline.common",
+        "bioetl.core.pipeline.types",
         "PipelineStageCommand",
     ),
     "PipelineStagesProtocol": (
-        "bioetl.core.pipeline.common",
+        "bioetl.core.pipeline.types",
         "PipelineStagesProtocol",
     ),
-    "RunResult": ("bioetl.core.pipeline.common", "RunResult"),
-    "StageContext": ("bioetl.core.pipeline.common", "StageContext"),
+    "RunResult": ("bioetl.core.pipeline.types", "RunResult"),
+    "StageContext": ("bioetl.core.pipeline.types", "StageContext"),
     "StageExecutionOptions": (
-        "bioetl.core.pipeline.common",
+        "bioetl.core.pipeline.types",
         "StageExecutionOptions",
     ),
     "StageFactory": ("bioetl.core.pipeline.common", "StageFactory"),
