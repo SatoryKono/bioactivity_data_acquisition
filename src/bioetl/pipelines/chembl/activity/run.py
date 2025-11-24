@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+import math
+
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
@@ -22,9 +24,11 @@ from bioetl.core.schema.normalizers import IdentifierRule, StringRule
 from bioetl.pipelines.chembl.activity.normalize import (
     _COMPOUND_COLUMNS,
     enrich_with_compound_record,
+    enrich_with_assay,
     enrich_with_data_validity,
 )
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
+from bioetl.pipelines.chembl.helpers import build_dataframe
 from bioetl.pipelines.chembl._constants import API_ACTIVITY_FIELDS
 from bioetl.pipelines.chembl.mixins import FieldMappingRule
 from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
@@ -60,8 +64,26 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 df, client, cfg
             ),
         ),
+        "assay": ChemblEnrichmentScenario(
+            name="assay",
+            entity_name="assay",
+            config_path=("activity", "enrich", "assay"),
+            client_name="assay_client",
+            transform=lambda pipeline, df, client, cfg, log: enrich_with_assay(
+                df, client, cfg
+            ),
+        ),
+        "data_validity": ChemblEnrichmentScenario(
+            name="data_validity",
+            entity_name="data_validity",
+            config_path=("activity", "enrich", "data_validity"),
+            client_name="data_validity_client",
+            transform=lambda pipeline, df, client, cfg, log: enrich_with_data_validity(
+                df, client, cfg
+            ),
+        ),
     }
-    _DEFAULT_ENRICHMENT_ORDER: tuple[str, ...] = ("compound_record",)
+    _DEFAULT_ENRICHMENT_ORDER: tuple[str, ...] = ("compound_record", "assay", "data_validity")
 
     def __init__(
         self,
@@ -214,6 +236,10 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         )
         self.writer = writer
 
+        self._enrichment_engine = EnrichmentScenarioEngine()
+        for name, scenario in self._ENRICHMENT_SCENARIOS.items():
+            self._enrichment_engine.register(scenario)
+
     def extract(
         self,
         *,
@@ -235,6 +261,25 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             raise TypeError(msg)
         # Call parent extract method
         return super().extract(mode=mode, ids=ids, **kwargs)
+
+    def _enrich(self, records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        """
+        Выполнить record-oriented обогащение родительского класса, затем
+        запустить DataFrame-ориентированные сценарии через движок обогащения.
+        """
+
+        # 1) record-oriented enrichment (если есть)
+        records_after_record_enrich = super()._enrich(records)
+
+        # 2) DataFrame-oriented enrichment
+        df = build_dataframe(records_after_record_enrich)
+        if df.empty:
+            return records_after_record_enrich
+
+        df_enriched = self._enrichment_engine.execute(self, df)
+
+        # 3) вернуть в виде списка словарей
+        return df_enriched.to_dict(orient="records")
 
     def logger_for(
         self,
@@ -780,6 +825,18 @@ class ChemblActivityPipeline(BaseChemblPipeline):
 
         result = df.copy()
 
+        def _to_numeric(val: Any) -> float | None:
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return None
+            try:
+                candidate = val.strip().replace(",", ".") if isinstance(val, str) else val
+                num = float(candidate)
+                if math.isnan(num):
+                    return None
+                return num
+            except Exception:
+                return None
+
         # Normalize standard_value
         if "standard_value" in result.columns:
             series = result["standard_value"].astype(str).str.strip()
@@ -805,6 +862,52 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 valid_mask = series.isin(RELATIONS)
                 series = series.where(valid_mask, pd.NA)
                 result[col] = series.astype("string")
+
+        # Normalize bounds strictly: populate lower/upper only when relation is "=".
+        def _compute_bounds(row: pd.Series[Any]) -> float | pd.NA:
+            rel_raw = row.get("relation")
+            rel = None
+            if rel_raw is not None and not (
+                isinstance(rel_raw, float) and pd.isna(rel_raw)
+            ):
+                rel = str(rel_raw).strip()
+
+            std_val = row.get("standard_value")
+            val_candidate = (
+                std_val
+                if std_val is not None
+                and not (isinstance(std_val, float) and pd.isna(std_val))
+                else row.get("value")
+            )
+
+            num = _to_numeric(val_candidate)
+            if rel == "=" and num is not None:
+                return num
+            return pd.NA
+
+        bounds_series = result.apply(_compute_bounds, axis=1)
+        bounds_numeric = pd.to_numeric(bounds_series, errors="coerce")
+        result["lower_value"] = bounds_numeric
+        result["upper_value"] = bounds_numeric
+
+        def _compute_standard_upper(row: pd.Series[Any]) -> float | pd.NA:
+            rel_raw = row.get("standard_relation")
+            rel = None
+            if rel_raw is not None and not (
+                isinstance(rel_raw, float) and pd.isna(rel_raw)
+            ):
+                rel = str(rel_raw).strip()
+
+            num = _to_numeric(row.get("standard_value"))
+            if rel == "=" and num is not None:
+                return num
+            return pd.NA
+
+        if "standard_relation" in result.columns or "standard_value" in result.columns:
+            std_upper_series = result.apply(_compute_standard_upper, axis=1)
+            result["standard_upper_value"] = pd.to_numeric(
+                std_upper_series, errors="coerce"
+            )
 
         # Normalize standard_type
         if "standard_type" in result.columns:
