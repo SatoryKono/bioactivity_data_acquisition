@@ -17,7 +17,7 @@ from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
 from bioetl.schemas.common_schema import resolve_row_hash_fields
 
-SCHEMA_VERSION = "1.7.0"
+SCHEMA_VERSION = "1.8.0"
 
 COLUMN_ORDER: list[str] = [
     "activity_id",
@@ -63,13 +63,8 @@ COLUMN_ORDER: list[str] = [
     "target_organism",
     "target_tax_id",
     "data_validity_comment",
-    "data_validity_description",
     "potential_duplicate",
     "activity_properties",
-    "compound_key",
-    "compound_name",
-    "curated",
-    "removed",
     "load_meta_id",
     "hash_row",
     "hash_business_key",
@@ -195,19 +190,12 @@ ActivitySchema = create_schema(
         "target_organism": CF.string(),
         "target_tax_id": CF.int64(ge=1, pandas_nullable=True),
         "data_validity_comment": CF.string(),
-        # Soft enum: validated via whitelist in pipeline.validate(), not via Check.
-        # Unknown values are logged as warnings but do not block validation.
-        "data_validity_description": CF.string(),
         "potential_duplicate": CF.boolean_flag(),
         "activity_properties": Column(  # type: ignore[assignment]
             pa.String,  # type: ignore[arg-type]
             Check(activity_properties_validator, element_wise=True),
             nullable=True,
         ),
-        "compound_key": CF.string(),
-        "compound_name": CF.string(),
-        "curated": CF.boolean_flag(),
-        "removed": CF.boolean_flag(),
         "load_meta_id": CF.uuid(nullable=False),
         "hash_row": CF.string(length=(64, 64), nullable=False),
         "hash_business_key": CF.string(length=(64, 64)),

@@ -11,27 +11,12 @@ import pandas as pd
 from structlog.stdlib import BoundLogger
 
 import bioetl.vocab.service as vocab_service
-from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
 from bioetl.chembl.common.normalize import add_row_metadata
-from bioetl.clients.chembl_entity_factory import (
-    ChemblClientBundle,
-    ChemblEntityClientFactory,
-)
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.io import ensure_columns
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.schema.normalizers import IdentifierRule, StringRule
-from bioetl.pipelines.chembl.activity.normalize import (
-    _COMPOUND_COLUMNS,
-    enrich_with_compound_record,
-    enrich_with_assay,
-    enrich_with_data_validity,
-)
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
-from bioetl.pipelines.chembl.helpers import build_dataframe
 from bioetl.pipelines.chembl._constants import API_ACTIVITY_FIELDS
 from bioetl.pipelines.chembl.mixins import FieldMappingRule
-from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
 from bioetl.schemas import get_schema
 from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
 
@@ -53,38 +38,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
     actor = "activity_pipeline_actor"
     descriptor_must_have_fields: tuple[str, ...] = ("activity_id",)
     descriptor_default_select_fields = API_ACTIVITY_FIELDS
-    # Registered enrichment scenarios
-    _ENRICHMENT_SCENARIOS: dict[str, ChemblEnrichmentScenario] = {
-        "compound_record": ChemblEnrichmentScenario(
-            name="compound_record",
-            entity_name="compound_record",
-            config_path=("activity", "enrich", "compound_record"),
-            client_name="compound_record_client",
-            transform=lambda pipeline, df, client, cfg, log: enrich_with_compound_record(
-                df, client, cfg
-            ),
-        ),
-        "assay": ChemblEnrichmentScenario(
-            name="assay",
-            entity_name="assay",
-            config_path=("activity", "enrich", "assay"),
-            client_name="assay_client",
-            transform=lambda pipeline, df, client, cfg, log: enrich_with_assay(
-                df, client, cfg
-            ),
-        ),
-        "data_validity": ChemblEnrichmentScenario(
-            name="data_validity",
-            entity_name="data_validity",
-            config_path=("activity", "enrich", "data_validity"),
-            client_name="data_validity_client",
-            transform=lambda pipeline, df, client, cfg, log: enrich_with_data_validity(
-                df, client, cfg
-            ),
-        ),
-    }
-    _DEFAULT_ENRICHMENT_ORDER: tuple[str, ...] = ("compound_record", "assay", "data_validity")
-
     def __init__(
         self,
         config_or_source: Any | None = None,
@@ -236,10 +189,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         )
         self.writer = writer
 
-        self._enrichment_engine = EnrichmentScenarioEngine()
-        for name, scenario in self._ENRICHMENT_SCENARIOS.items():
-            self._enrichment_engine.register(scenario)
-
     def extract(
         self,
         *,
@@ -263,23 +212,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         return super().extract(mode=mode, ids=ids, **kwargs)
 
     def _enrich(self, records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-        """
-        Выполнить record-oriented обогащение родительского класса, затем
-        запустить DataFrame-ориентированные сценарии через движок обогащения.
-        """
+        """Выполнить record-oriented обогащение родительского класса."""
 
-        # 1) record-oriented enrichment (если есть)
-        records_after_record_enrich = super()._enrich(records)
-
-        # 2) DataFrame-oriented enrichment
-        df = build_dataframe(records_after_record_enrich)
-        if df.empty:
-            return records_after_record_enrich
-
-        df_enriched = self._enrichment_engine.execute(self, df)
-
-        # 3) вернуть в виде списка словарей
-        return df_enriched.to_dict(orient="records")
+        return super()._enrich(records)
 
     def logger_for(
         self,
@@ -292,211 +227,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         return self._make_pipeline_logger(
             stage=stage, component=component, **extra
         )
-
-    def _build_activity_enrichment_bundle(
-        self,
-        entity_name: str,
-        *,
-        client_name: str,
-    ) -> ChemblClientBundle:
-        """Return Chembl bundle for enrichment scenarios and register the client."""
-
-        if not entity_name:
-            msg = "entity_name must be provided for enrichment bundle"
-            raise ValueError(msg)
-
-        factory = ChemblEntityClientFactory(self.config)
-        source_config = getattr(self.config.domain, "sources", {}).get(
-            "chembl"
-        )
-        bundle = factory.build(
-            entity_name,
-            source_name="chembl",
-            source_config=source_config,
-        )
-
-        registered = getattr(self, "_registered_clients", {})
-        if client_name and client_name not in registered:
-            self.register_client(client_name, bundle.api_client)
-
-        return bundle
-
-    def _extract_assay_fields(
-        self,
-        df: pd.DataFrame,
-        client: ChemblClient,
-        log: BoundLogger | None = None,
-    ) -> pd.DataFrame:
-        """Hydrate assay metadata columns deterministically for extract tests."""
-
-        base_log = log or UnifiedLogger.get(__name__).bind(
-            stage="extract_assay_fields"
-        )
-        required_columns: tuple[tuple[str, str], ...] = (
-            ("assay_organism", "string"),
-            ("assay_tax_id", "Int64"),
-        )
-        working_df = ensure_columns(df.copy(), required_columns)
-        if working_df.empty:
-            base_log.debug(
-                LogEvents.EXTRACT_ASSAY_FIELDS_COMPLETE, rows=0, matched=0
-            )
-            return working_df
-
-        if "assay_chembl_id" not in working_df.columns:
-            base_log.warning(
-                LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
-                missing_columns=["assay_chembl_id"],
-            )
-            return working_df
-
-        assay_ids = (
-            working_df["assay_chembl_id"]
-            .dropna()
-            .astype("string")
-            .str.strip()
-            .str.upper()
-        )
-        valid_ids = (
-            assay_ids[assay_ids.ne("")]
-            .drop_duplicates()
-            .sort_values(kind="mergesort")
-        )
-        if valid_ids.empty:
-            base_log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
-            return working_df
-
-        try:
-            base_log.info(
-                LogEvents.EXTRACT_ASSAY_FIELDS_FETCHING,
-                ids=len(valid_ids),
-            )
-            records_df = client.fetch_assays_by_ids(
-                ids=list(valid_ids),
-                fields=["assay_chembl_id", "assay_organism", "assay_tax_id"],
-            )
-        except Exception as exc:  # noqa: BLE001
-            base_log.warning(
-                LogEvents.EXTRACT_ASSAY_FIELDS_FETCH_ERROR,
-                error=str(exc),
-            )
-            working_df["assay_organism"] = working_df["assay_organism"].astype(
-                "string"
-            )
-            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype(
-                "Int64"
-            )
-            return working_df
-
-        if not isinstance(records_df, pd.DataFrame) or records_df.empty:
-            base_log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
-            working_df["assay_organism"] = working_df["assay_organism"].astype(
-                "string"
-            )
-            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype(
-                "Int64"
-            )
-            return working_df
-
-        payload = (
-            records_df.loc[
-                :, ["assay_chembl_id", "assay_organism", "assay_tax_id"]
-            ]
-            .dropna(subset=["assay_chembl_id"])
-            .copy()
-        )
-        if payload.empty:
-            base_log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
-            working_df["assay_organism"] = working_df["assay_organism"].astype(
-                "string"
-            )
-            working_df["assay_tax_id"] = working_df["assay_tax_id"].astype(
-                "Int64"
-            )
-            return working_df
-
-        payload["assay_chembl_id"] = (
-            payload["assay_chembl_id"].astype("string").str.strip().str.upper()
-        )
-        payload = (
-            payload[payload["assay_chembl_id"].ne("")]
-            .drop_duplicates(subset=["assay_chembl_id"], keep="first")
-            .sort_values(by=["assay_chembl_id"], kind="mergesort")
-            .reset_index(drop=True)
-        )
-
-        payload["assay_tax_id"] = pd.to_numeric(
-            payload["assay_tax_id"], errors="coerce"
-        )
-        payload.loc[payload["assay_tax_id"] < 1, "assay_tax_id"] = pd.NA
-        payload["assay_tax_id"] = payload["assay_tax_id"].astype("Int64")
-        payload["assay_organism"] = payload["assay_organism"].astype("string")
-
-        merged = working_df.merge(
-            payload,
-            on="assay_chembl_id",
-            how="left",
-            suffixes=("", "_enrich"),
-            sort=False,
-        )
-        for column in ("assay_organism", "assay_tax_id"):
-            enrich_column = f"{column}_enrich"
-            if enrich_column in merged.columns:
-                merged[column] = merged[enrich_column].combine_first(
-                    merged[column]
-                )
-                merged = merged.drop(columns=[enrich_column])
-
-        merged["assay_organism"] = merged["assay_organism"].astype("string")
-        merged["assay_tax_id"] = merged["assay_tax_id"].astype("Int64")
-
-        base_log.info(
-            LogEvents.EXTRACT_ASSAY_FIELDS_COMPLETE,
-            rows=int(len(merged)),
-            matched=int(payload.shape[0]),
-        )
-        return merged
-
-    def _ensure_comment_fields(
-        self,
-        df: pd.DataFrame,
-        log: BoundLogger | None = None,
-    ) -> pd.DataFrame:
-        """Ensure comment fields are present in DataFrame with default pd.NA values.
-
-        Parameters
-        ----------
-        df
-            Input DataFrame
-        log
-            Optional logger instance
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame with comment fields guaranteed to exist
-        """
-        base_log = log or UnifiedLogger.get(__name__).bind(
-            stage="ensure_comment_fields"
-        )
-
-        comment_columns: tuple[tuple[str, str], ...] = (
-            ("activity_comment", "string"),
-            ("data_validity_comment", "string"),
-            ("data_validity_description", "string"),
-        )
-
-        result = ensure_columns(df.copy(), comment_columns)
-
-        base_log.debug(
-            LogEvents.COMMENT_FIELDS_ENSURED,
-            rows=len(result),
-            columns_added=[
-                col for col, _ in comment_columns if col not in df.columns
-            ],
-        )
-
-        return result
 
     def _log_validity_comments_metrics(
         self,
@@ -524,7 +254,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         comment_fields = [
             "activity_comment",
             "data_validity_comment",
-            "data_validity_description",
         ]
 
         # Compute NA rates
@@ -615,62 +344,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 unknown_count=len(unknown_values),
                 unknown_values=list(unknown_values)[:10],  # Limit to first 10
             )
-
-    def _data_validity_config(self) -> Mapping[str, Any]:
-        """Return enrichment config block for data_validity lookups."""
-
-        chembl_cfg = getattr(self.config, "chembl", None)
-        activity_cfg = (
-            getattr(chembl_cfg, "activity", None) if chembl_cfg else None
-        )
-        enrich_cfg = (
-            getattr(activity_cfg, "enrich", None) if activity_cfg else None
-        )
-
-        candidate: Any = None
-        if isinstance(enrich_cfg, Mapping):
-            candidate = enrich_cfg.get("data_validity")
-        else:
-            candidate = getattr(enrich_cfg, "data_validity", None)
-
-        if isinstance(candidate, Mapping):
-            return candidate
-        if candidate is None:
-            return {}
-        try:
-            return candidate.model_dump()
-        except AttributeError:
-            return dict(candidate)
-
-    def _extract_data_validity_descriptions(
-        self,
-        df: pd.DataFrame,
-        client: ChemblClient,
-        log: BoundLogger | None = None,
-    ) -> pd.DataFrame:
-        """Hydrate ``data_validity_description`` via ChEMBL lookup API."""
-
-        base_log = log or UnifiedLogger.get(__name__).bind(
-            stage="data_validity_lookup"
-        )
-        config = self._data_validity_config()
-
-        try:
-            result = enrich_with_data_validity(df, client, config)
-        except Exception as exc:  # noqa: BLE001
-            base_log.warning(
-                LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
-                error=str(exc),
-            )
-            return ensure_columns(
-                df.copy(), (("data_validity_description", "string"),)
-            )
-
-        base_log.info(
-            LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_COMPLETE,
-            rows=len(result),
-        )
-        return result
 
     def identifier_rules(self) -> Sequence[IdentifierRule]:
         """Return identifier normalization rules for ChEMBL and BAO identifiers."""
@@ -770,38 +443,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         self, df: pd.DataFrame, log: BoundLogger
     ) -> pd.DataFrame:
         """Normalize string fields and check invariants."""
-        # Call parent method
-        result = super()._normalize_string_fields(df, log)
-
-        # Check invariant: data_validity_description should not be filled without data_validity_comment
-        if (
-            "data_validity_description" in result.columns
-            and "data_validity_comment" in result.columns
-        ):
-            mask_description_filled = result[
-                "data_validity_description"
-            ].notna()
-            mask_comment_empty = result["data_validity_comment"].isna()
-            violations = mask_description_filled & mask_comment_empty
-
-            if violations.any():
-                violation_count = int(violations.sum())
-                # Use the same logger that was passed in
-                if isinstance(log, BoundLogger):
-                    log.warning(
-                        LogEvents.INVARIANT_DATA_VALIDITY_DESCRIPTION_WITHOUT_COMMENT,
-                        violation_count=violation_count,
-                        total_rows=len(result),
-                    )
-                else:
-                    # For non-BoundLogger (e.g., MagicMock in tests), call directly
-                    log.warning(
-                        LogEvents.INVARIANT_DATA_VALIDITY_DESCRIPTION_WITHOUT_COMMENT.value,
-                        violation_count=violation_count,
-                        total_rows=len(result),
-                    )
-
-        return result
+        return super()._normalize_string_fields(df, log)
 
     def get_enrichment_rules(self) -> list[Any]:
         def add_flags(record: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -1148,7 +790,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         return result
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform raw DataFrame by applying normalization and enrichment stages."""
+        """Transform raw DataFrame by applying normalization stages."""
         if df.empty:
             return df
 
@@ -1191,17 +833,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             for record in working_df.to_dict("records")
         ]
         normalized = self._normalize(records)
-        # Convert back to DataFrame for enrichment stages
         normalized_df = pd.DataFrame(normalized)
-        # Ensure enrichment columns are present (even if enrichment is disabled)
-        normalized_df = ensure_columns(normalized_df, _COMPOUND_COLUMNS)
 
-        # Normalize measurement fields before enrichment so that downstream
-        # stages can rely on cleaned numeric payloads.
         normalized_df = self._normalize_measurements(normalized_df, log)
-
-        # Apply enrichment stages (using EnrichmentScenarioEngine)
-        enriched_df = self.execute_enrichment_stages(normalized_df)
 
         # Normalize data types according to the Activity schema so that
         # Pandera receives columns with dtypes as close as possible to
@@ -1209,39 +843,18 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         schema_descriptor = get_schema(
             "bioetl.schemas.chembl_activity_schema.ActivitySchema"
         )
-        enriched_df = self._normalize_data_types(
-            enriched_df, schema_descriptor.schema, log
+        normalized_df = self._normalize_data_types(
+            normalized_df, schema_descriptor.schema, log
         )
 
         # Ensure standard row metadata columns exist for determinism and hashing
-        enriched_df, _ = add_row_metadata(
-            enriched_df,
+        normalized_df, _ = add_row_metadata(
+            normalized_df,
             subtype=self.pipeline_code,
             copy=False,
         )
 
-        return enriched_df
-
-    def execute_enrichment_stages(
-        self,
-        df: pd.DataFrame,
-        *,
-        stages: Sequence[str] | None = None,
-    ) -> pd.DataFrame:
-        """Execute registered enrichment scenarios using EnrichmentScenarioEngine."""
-        scenarios = getattr(self.__class__, "_ENRICHMENT_SCENARIOS", {})
-        if not scenarios:
-            return super().execute_enrichment_stages(df, stages=stages)
-
-        engine = EnrichmentScenarioEngine()
-        for scenario in scenarios.values():
-            engine.register(scenario)
-
-        default_order = getattr(
-            self.__class__, "_DEFAULT_ENRICHMENT_ORDER", None
-        )
-        selected = stages if stages is not None else default_order
-        return engine.execute(self, df, selected=selected)
+        return normalized_df
 
     # Delegate to unified save_results implementation
     def save_results(
