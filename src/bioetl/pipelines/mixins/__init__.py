@@ -905,12 +905,18 @@ class IOArtifactsMixin:
         include_correlation: bool = False,
         include_qc_metrics: bool = False,
     ) -> RunResult:
-        """Persist the dataframe using :meth:`PipelineBase.save_results`."""
+        """Persist the dataframe using :meth:`PipelineBase.save_results`.
+
+        ``include_correlation`` и ``include_qc_metrics`` приводятся к
+        булевым значениями здесь, чтобы унифицировать поведение наследников и
+        исключить необходимость локальных нормализаций ``None → False`` в
+        отдельных пайплайнах.
+        """
         run_result: RunResult = super().save_results(
             df,
             output_dir,
             extended=extended,
-            include_correlation=include_correlation,
-            include_qc_metrics=include_qc_metrics,
+            include_correlation=bool(include_correlation),
+            include_qc_metrics=bool(include_qc_metrics),
         )
         return run_result
