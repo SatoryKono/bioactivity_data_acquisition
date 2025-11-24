@@ -21,10 +21,10 @@ def test_deprecated_shims_resolve_to_domain_implementations() -> None:
 
 
 @pytest.mark.unit
-def test_deprecated_shims_still_available_via_core_utils() -> None:
+def test_join_no_longer_exposed_via_core_utils() -> None:
     core_utils = import_module("bioetl.core.utils")
 
-    assert core_utils.join_activity_with_molecule is chembl_join
+    assert not hasattr(core_utils, "join_activity_with_molecule")
 
 
 @pytest.mark.unit

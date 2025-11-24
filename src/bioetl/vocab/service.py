@@ -2,57 +2,30 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
+from bioetl.core.utils.vocab_path import VOCAB_STORE_ENV_VAR, resolve_vocab_store_path
 from bioetl.core.utils.vocab_store import (
     VocabStoreError,
-)
-from bioetl.core.utils.vocab_store import (
     clear_vocab_store_cache as _clear_vocab_store_cache,
-)
-from bioetl.core.utils.vocab_store import (
     get_ids as _get_ids,
-)
-from bioetl.core.utils.vocab_store import (
     load_vocab_store as _load_vocab_store,
 )
-from bioetl.schemas.common import default_schema_path
-
-VOCAB_STORE_ENV_VAR = "VOCAB_STORE"
-
-
-def _default_vocab_path() -> Path:
-    return default_schema_path("dictionaries")
-
-
-def _resolve_vocab_path() -> Path:
-    override = os.getenv(VOCAB_STORE_ENV_VAR)
-    if override:
-        return Path(override).expanduser().resolve()
-    return _default_vocab_path()
-
-
-@lru_cache(maxsize=1)
-def _load_store() -> Mapping[str, Any]:
-    path = _resolve_vocab_path()
-    return _load_vocab_store(path)
 
 
 def vocab_store() -> Mapping[str, Any]:
     """Return the cached vocabulary store mapping."""
 
-    return _load_store()
+    resolved_path = resolve_vocab_store_path()
+    return _load_vocab_store(resolved_path)
 
 
 def refresh_vocab_cache() -> None:
     """Invalidate cached vocabulary store instances."""
 
     _clear_vocab_store_cache()
-    _load_store.cache_clear()
 
 
 def vocab_ids(
