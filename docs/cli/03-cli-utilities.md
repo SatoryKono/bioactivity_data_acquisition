@@ -23,6 +23,12 @@
 | `bioetl-semantic-diff`                                             | —                                                                                | Семантическое сравнение документации и кода.                            | `semantic-diff-report.json`.                                  | `bioetl-semantic-diff`                                                                              |
 | `bioetl-vocab-audit`                                               | `--store PATH`, `--output PATH`, `--meta PATH`, `--pages INT`, `--page-size INT` | Аудит словарей ChEMBL с выгрузкой отчётов и метаданных.                 | CSV отчёт и `meta.yaml` (пути из опций).                      | `bioetl-vocab-audit --store data/cache/vocab.yaml --pages 5 --page-size 500`                        |
 
+Утилита анализа границы CLI ↔ QC доступна через модуль `bioetl.devtools.cli_qc_boundary`
+и остаётся импортопригодной под старыми именами `bioetl.cli.tools.qc_boundary` и
+`bioetl.cli.tools.qc_boundary_check` благодаря карте совместимости
+`LEGACY_TOOL_MAP`. Обёртки в `scripts/qc_boundary*.py` удалены как дублирующие
+функциональность devtools.
+
 `scripts/run_test_report.py` использует `bioetl.devtools.cli_run_test_report`
 и `bioetl.tools.test_report_artifacts` для формирования каталога отчётов и
 `meta.yaml`. Тесты обращаются к тем же определениям, что и CLI, поэтому
