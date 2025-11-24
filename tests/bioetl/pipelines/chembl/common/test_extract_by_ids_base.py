@@ -8,14 +8,14 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from bioetl.clients.entities.client_assay import ChemblAssayClient
-from bioetl.clients.entities.client_document import ChemblDocumentClient
-from bioetl.clients.entities.client_target import ChemblTargetClient
-from bioetl.clients.entities.client_testitem import ChemblTestitemClient
-from bioetl.pipelines.chembl.assay import run as assay_run
-from bioetl.pipelines.chembl.document import run as document_run
-from bioetl.pipelines.chembl.target import run as target_run
-from bioetl.pipelines.chembl.testitem import run as testitem_run
+from infrastructure.clients.entities.client_assay import ChemblAssayClient
+from infrastructure.clients.entities.client_document import ChemblDocumentClient
+from infrastructure.clients.entities.client_target import ChemblTargetClient
+from infrastructure.clients.entities.client_testitem import ChemblTestitemClient
+from application.pipelines.specs.chembl.assay import run as assay_run
+from application.pipelines.specs.chembl.document import run as document_run
+from application.pipelines.specs.chembl.target import run as target_run
+from application.pipelines.specs.chembl.testitem import run as testitem_run
 
 
 def _get_entity_client_type(pipeline_cls: type) -> type | None:
@@ -419,8 +419,8 @@ def test_extract_by_ids_batch_processing(
         def mock_resolve_source_config(source_name: str):
             config = original_resolve(source_name)
             # Создаем новый конфиг с batch_size=2
-            from bioetl.config.assay import AssaySourceConfig
-            from bioetl.config.target import TargetSourceConfig
+            from infrastructure.config.assay import AssaySourceConfig
+            from infrastructure.config.target import TargetSourceConfig
 
             if pipeline_cls == target_run.ChemblTargetPipeline:
                 typed_config = TargetSourceConfig.from_source_config(config)

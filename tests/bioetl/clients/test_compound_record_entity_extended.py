@@ -5,14 +5,14 @@ from typing import Any, cast
 
 import pytest
 
-from bioetl.clients.client_chembl_entity_base import ChemblEntityFetcherBase
-from bioetl.clients.entities.client_compound_record import (
+from infrastructure.clients.client_chembl_entity_base import ChemblEntityFetcherBase
+from infrastructure.clients.entities.client_compound_record import (
     ChemblCompoundRecordEntityClient,
     _compound_record_dedup_priority,
     _safe_bool,
 )
-from bioetl.clients.entities.client_document import ChemblDocumentClient
-from bioetl.clients.entities.client_testitem import ChemblTestitemClient
+from infrastructure.clients.entities.client_document import ChemblDocumentClient
+from infrastructure.clients.entities.client_testitem import ChemblTestitemClient
 
 
 class RecordingChemblClient:

@@ -13,12 +13,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-from bioetl.cli._io import atomic_write_yaml, hash_file
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.http.client_factory import for_tool
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.core.utils.vocab_store import VocabStoreError, load_vocab_store
-from bioetl.tools.chembl_stub import get_offline_new_client
+from interfaces.cli._io import atomic_write_yaml, hash_file
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.http.client_factory import for_tool
+from infrastructure.logging import LogEvents, UnifiedLogger
+from common.core_utils.vocab_store import VocabStoreError, load_vocab_store
+from interfaces.tools.chembl_stub import get_offline_new_client
 
 __all__ = ["audit_vocabularies", "FieldSpec"]
 

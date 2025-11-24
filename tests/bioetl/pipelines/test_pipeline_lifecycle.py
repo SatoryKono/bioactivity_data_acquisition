@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.mark.integration
@@ -94,7 +94,7 @@ class TestPipelineLifecycle:
     ):
         """Test pipeline lifecycle with validation error."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.chembl_activity_schema:ActivitySchema"
+            "infrastructure.schemas.chembl_activity_schema:ActivitySchema"
         )
         pipeline_config_fixture.validation.strict = True
         pipeline_config_fixture.determinism.sort.by = []

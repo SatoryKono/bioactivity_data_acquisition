@@ -35,11 +35,11 @@ def _force_module_lines_execution(module_name: str) -> None:
 @pytest.mark.parametrize(
     "module_name",
     [
-        "bioetl.pipelines.chembl.activity.run",
-        "bioetl.pipelines.chembl.assay.run",
-        "bioetl.pipelines.chembl.document.run",
-        "bioetl.pipelines.chembl.target.run",
-        "bioetl.pipelines.chembl.testitem.run",
+        "application.pipelines.specs.chembl.activity.run",
+        "application.pipelines.specs.chembl.assay.run",
+        "application.pipelines.specs.chembl.document.run",
+        "application.pipelines.specs.chembl.target.run",
+        "application.pipelines.specs.chembl.testitem.run",
     ],
 )
 def test_chembl_run_modules_lines_executed(module_name: str) -> None:

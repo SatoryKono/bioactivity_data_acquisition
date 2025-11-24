@@ -5,9 +5,9 @@ from typing import Any
 import pytest
 import typer
 
-from bioetl.core.logging import UnifiedLogger
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from infrastructure.logging import UnifiedLogger
+from infrastructure.runtime.cli_base import CliCommandBase
+from infrastructure.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 
 class _RecordingCommand(CliCommandBase):

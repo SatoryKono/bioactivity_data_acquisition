@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from bioetl.tools import chembl_stub
+from interfaces.tools import chembl_stub
 
 
 def test_safe_int_handles_various_inputs() -> None:

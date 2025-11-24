@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.pipelines.chembl.mixins import EnrichmentMixin, NormalizationMixin
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
+from application.pipelines.specs.chembl.mixins import EnrichmentMixin, NormalizationMixin
 
 
 class _Normalizer(NormalizationMixin):

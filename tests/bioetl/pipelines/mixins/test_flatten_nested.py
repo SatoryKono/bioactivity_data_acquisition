@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.pipelines.mixins import FlattenNestedMixin, FlattenSpec
+from application.pipelines.specs.mixins import FlattenNestedMixin, FlattenSpec
 
 
 class _StubLogger:

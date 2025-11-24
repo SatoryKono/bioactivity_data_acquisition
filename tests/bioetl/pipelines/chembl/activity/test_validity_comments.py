@@ -8,13 +8,13 @@ from unittest.mock import MagicMock, Mock, patch
 import pandas as pd
 import pytest  # type: ignore[import-not-found]
 
-from bioetl.clients.chembl_entity_factory import ChemblClientBundle
-from bioetl.clients.entities.client_activity import ChemblActivityClient
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
-from bioetl.core.logging import LogEvents
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.schemas.chembl_activity_schema import ActivitySchema
+from infrastructure.clients.chembl_entity_factory import ChemblClientBundle
+from infrastructure.clients.entities.client_activity import ChemblActivityClient
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.http.api_client import UnifiedAPIClient
+from infrastructure.logging import LogEvents
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
+from infrastructure.schemas.chembl_activity_schema import ActivitySchema
 
 
 @pytest.mark.unit
@@ -176,7 +176,7 @@ class TestValidityCommentsMetrics:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.vocab.service.required_vocab_ids",
+            "domain.vocab.service.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -214,7 +214,7 @@ class TestValidityCommentsSoftEnum:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.vocab.service.required_vocab_ids",
+            "domain.vocab.service.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -258,7 +258,7 @@ class TestValidityCommentsSoftEnum:
 
         log = MagicMock()
         with patch(
-            "bioetl.vocab.service.required_vocab_ids",
+            "domain.vocab.service.required_vocab_ids",
             side_effect=RuntimeError("dictionary missing"),
         ):
             with pytest.raises(RuntimeError, match="dictionary missing"):
@@ -271,7 +271,7 @@ class TestValidityCommentsSoftEnum:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.vocab.service.required_vocab_ids",
+            "domain.vocab.service.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -393,8 +393,8 @@ class TestValidityCommentsOnlyFields:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that data_validity_description is extracted via fetch_data_validity_lookup in enrich_with_data_validity."""
-        from bioetl.clients.client_chembl import ChemblClient
-        from bioetl.pipelines.chembl.activity.normalize import enrich_with_data_validity
+        from infrastructure.clients.client_chembl import ChemblClient
+        from application.pipelines.specs.chembl.activity.normalize import enrich_with_data_validity
 
         # Build a DataFrame including data_validity_comment.
         df = pd.DataFrame(

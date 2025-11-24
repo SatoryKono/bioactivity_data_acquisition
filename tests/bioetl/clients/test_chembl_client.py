@@ -7,13 +7,13 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl import ChemblClient, _resolve_status_endpoint
-from bioetl.clients.client_chembl_entity_base import (
+from infrastructure.clients.client_chembl import ChemblClient, _resolve_status_endpoint
+from infrastructure.clients.client_chembl_entity_base import (
     ChemblEntityClientProtocol,
     EntityFetchResult,
     FetchOptions,
 )
-from bioetl.core.http.api_client import UnifiedAPIClient
+from infrastructure.http.api_client import UnifiedAPIClient
 
 
 @pytest.fixture
@@ -95,7 +95,7 @@ class TestChemblClient:
 
         configured_endpoint = "/configured-status"
         monkeypatch.setattr(
-            "bioetl.clients.client_chembl._resolve_status_endpoint",
+            "infrastructure.clients.client_chembl._resolve_status_endpoint",
             lambda: configured_endpoint,
         )
 

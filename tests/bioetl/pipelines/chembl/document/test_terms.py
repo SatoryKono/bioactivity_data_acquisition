@@ -8,9 +8,9 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.http.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.document.normalize import (
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.http.api_client import UnifiedAPIClient
+from application.pipelines.specs.chembl.document.normalize import (
     _escape_pipe,  # type: ignore[reportPrivateUsage]
     aggregate_terms,
     enrich_with_document_terms,

@@ -7,8 +7,8 @@ from collections.abc import Sequence
 import pandas as pd
 import pytest
 
-from bioetl.core.pipeline import PipelineBase
-from bioetl.pipelines.chembl.stage_runner import (
+from application.pipelines import PipelineBase
+from application.pipelines.specs.chembl.stage_runner import (
     StageContext,
     build_stage_functions,
 )

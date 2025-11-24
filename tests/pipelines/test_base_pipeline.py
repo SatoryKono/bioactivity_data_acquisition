@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.io import WriteResult
-from bioetl.core.pipeline import RunResult
-from bioetl.pipelines.base import PipelineBase, PipelineExtractionMode
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.io import WriteResult
+from application.pipelines import RunResult
+from application.pipelines.specs.base import PipelineBase, PipelineExtractionMode
 
 
 class _TemplateProbePipeline(PipelineBase):

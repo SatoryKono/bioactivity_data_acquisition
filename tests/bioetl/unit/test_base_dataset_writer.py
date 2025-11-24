@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.core.io import BaseDatasetWriter, RunArtifacts, WriteArtifacts
+from infrastructure.io import BaseDatasetWriter, RunArtifacts, WriteArtifacts
 from tests.support.factories import build_pipeline_config
 
 pytestmark = pytest.mark.unit
@@ -34,8 +34,8 @@ def test_writer_delegates_to_write_dataset_atomic(
 
     prepare_mock = MagicMock(return_value=prepared)
     write_mock = MagicMock()
-    monkeypatch.setattr("bioetl.core.io.base_writer.prepare_dataframe", prepare_mock)
-    monkeypatch.setattr("bioetl.core.io.base_writer.write_dataset_atomic", write_mock)
+    monkeypatch.setattr("infrastructure.io.base_writer.prepare_dataframe", prepare_mock)
+    monkeypatch.setattr("infrastructure.io.base_writer.write_dataset_atomic", write_mock)
 
     result = writer.write(frame, artifacts)
 
@@ -50,11 +50,11 @@ def test_writer_accepts_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     frame = pd.DataFrame({})
 
     monkeypatch.setattr(
-        "bioetl.core.io.base_writer.prepare_dataframe",
+        "infrastructure.io.base_writer.prepare_dataframe",
         MagicMock(return_value=frame),
     )
     write_mock = MagicMock()
-    monkeypatch.setattr("bioetl.core.io.base_writer.write_dataset_atomic", write_mock)
+    monkeypatch.setattr("infrastructure.io.base_writer.write_dataset_atomic", write_mock)
 
     writer.write(frame, dataset_path)
 

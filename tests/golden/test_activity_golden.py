@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
 from tests.support.factories import load_sample_activity_dataframe
 from tests.support.golden import (
     canonical_json,
@@ -47,7 +47,7 @@ def test_activity_pipeline_golden_snapshot(
     """ChemblActivityPipeline output must match committed golden artefacts."""
 
     pipeline_config_fixture.validation.schema_out = (
-        "bioetl.schemas.chembl_activity_adapter_schema:ActivityAdapterSchema"
+        "infrastructure.schemas.chembl_activity_adapter_schema:ActivityAdapterSchema"
     )  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.sort.by = [
         "activity_id",

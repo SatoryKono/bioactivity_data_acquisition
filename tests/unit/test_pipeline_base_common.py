@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioetl.core.pipeline.common import BaseStageCommand, PipelineBaseCommon, StageContext
+from application.pipelines.common import BaseStageCommand, PipelineBaseCommon, StageContext
 
 
 class _DummyConfig(SimpleNamespace):

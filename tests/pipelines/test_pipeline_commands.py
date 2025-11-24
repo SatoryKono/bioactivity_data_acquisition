@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.io import WriteResult
-from bioetl.core.pipeline import (
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.io import WriteResult
+from application.pipelines import (
     PipelineBase,
     PipelineExtractionMode,
     PipelineStageCommand,

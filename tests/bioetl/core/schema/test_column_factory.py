@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from bioetl.core.schema.column_factory import SchemaColumnFactory
+from infrastructure.schema.column_factory import SchemaColumnFactory
 
 
 def _check_pattern(column, expected_pattern: str) -> None:

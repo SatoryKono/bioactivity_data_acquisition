@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.pipelines.chembl.activity.normalize import (
+from application.pipelines.specs.chembl.activity.normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.pipelines.chembl.assay.normalize import (
+from application.pipelines.specs.chembl.assay.normalize import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
 )
-from bioetl.pipelines.chembl.document.normalize import enrich_with_document_terms
+from application.pipelines.specs.chembl.document.normalize import enrich_with_document_terms
 
 
 class FakeActivityClient:

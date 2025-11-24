@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
-from bioetl.config.environment import (
+from infrastructure.config.environment import (
     EnvironmentSettings,
     apply_runtime_overrides,
     build_env_override_mapping,

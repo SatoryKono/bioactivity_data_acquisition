@@ -10,8 +10,8 @@ import pandas as pd
 import pytest
 
 from bioetl.core import hash_from_mapping
-from bioetl.core.runtime.load_meta_store import LoadMetaStore
-from bioetl.schemas.chembl_metadata_schema import (
+from infrastructure.runtime.load_meta_store import LoadMetaStore
+from infrastructure.schemas.chembl_metadata_schema import (
     BUSINESS_KEY_FIELDS,
     ROW_HASH_FIELDS,
     LoadMetaSchema,

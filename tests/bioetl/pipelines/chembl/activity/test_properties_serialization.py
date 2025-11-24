@@ -8,9 +8,9 @@ from typing import Any, cast
 import pytest
 from structlog.stdlib import BoundLogger
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.logging import LogEvents
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.logging import LogEvents
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.fixture

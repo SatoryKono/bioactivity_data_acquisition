@@ -4,16 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-from bioetl.config.activity import ActivitySourceConfig
-from bioetl.config.assay import AssaySourceConfig
-from bioetl.config.document import DocumentSourceConfig
-from bioetl.config.models.io import IOConfig, IOInputConfig, IOOutputConfig
-from bioetl.config.models.logging import LoggingConfig
-from bioetl.config.models.runtime import RuntimeConfig
-from bioetl.config.models.source import SourceConfig, SourceParameters
-from bioetl.config.models.telemetry import TelemetryConfig
-from bioetl.config.target import TargetSourceConfig
-from bioetl.config.testitem import TestItemSourceConfig
+from infrastructure.config.activity import ActivitySourceConfig
+from infrastructure.config.assay import AssaySourceConfig
+from infrastructure.config.document import DocumentSourceConfig
+from infrastructure.config.models.io import IOConfig, IOInputConfig, IOOutputConfig
+from infrastructure.config.models.logging import LoggingConfig
+from infrastructure.config.models.runtime import RuntimeConfig
+from infrastructure.config.models.source import SourceConfig, SourceParameters
+from infrastructure.config.models.telemetry import TelemetryConfig
+from infrastructure.config.target import TargetSourceConfig
+from infrastructure.config.testitem import TestItemSourceConfig
 
 
 @pytest.mark.unit

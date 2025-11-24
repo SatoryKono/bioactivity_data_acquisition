@@ -3,9 +3,9 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.core.schema.normalizers import IdentifierStats, StringStats
-from bioetl.core.utils.mixins import CollectionFlagMixin
-from bioetl.pipelines.qc.boundary_check import QCBoundaryReport, QCBoundaryViolation
+from infrastructure.schema.normalizers import IdentifierStats, StringStats
+from common.core_utils.mixins import CollectionFlagMixin
+from application.pipelines.specs.qc.boundary_check import QCBoundaryReport, QCBoundaryViolation
 
 
 @pytest.mark.parametrize(

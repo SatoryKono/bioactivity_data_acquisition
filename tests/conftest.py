@@ -13,10 +13,10 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.clients.chembl_entity_factory import ChemblClientBundle
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.clients.chembl_entity_factory import ChemblClientBundle
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.http.api_client import UnifiedAPIClient
 from tests.support.factories import (
     build_pipeline_config,
     load_sample_activity_dataframe,

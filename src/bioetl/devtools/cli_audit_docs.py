@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Literal, TypedDict
 from uuid import uuid4
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.tools import get_project_root
+from infrastructure.logging import LogEvents, UnifiedLogger
+from interfaces.tools import get_project_root
 
 __all__ = [
     "audit_broken_links",

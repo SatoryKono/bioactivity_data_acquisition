@@ -8,9 +8,9 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.http.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.activity import normalize
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.http.api_client import UnifiedAPIClient
+from application.pipelines.specs.chembl.activity import normalize
 
 
 @pytest.fixture

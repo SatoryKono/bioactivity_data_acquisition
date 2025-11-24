@@ -8,8 +8,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.tools import get_project_root
+from infrastructure.logging import LogEvents, UnifiedLogger
+from interfaces.tools import get_project_root
 
 from .signatures import signature_from_callable, signature_from_docs
 
@@ -23,7 +23,7 @@ DOCS_ROOT = PROJECT_ROOT / "docs"
 
 def extract_pipeline_base_methods() -> dict[str, Any]:
     """Extract PipelineBase method signatures from code."""
-    from bioetl.core.pipeline import PipelineBase
+    from application.pipelines import PipelineBase
 
     methods = {}
     for method_name in ["extract", "transform", "validate", "write", "run"]:
@@ -103,7 +103,7 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
 def extract_config_fields_from_code() -> dict[str, Any]:
     """Load typed config field definitions from the codebase."""
     try:
-        from bioetl.config.models.models import PipelineConfig
+        from infrastructure.config.models.models import PipelineConfig
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
 

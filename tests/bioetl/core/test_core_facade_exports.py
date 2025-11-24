@@ -6,10 +6,10 @@ from importlib import import_module
 import pytest
 
 import bioetl.core as core
-from bioetl.chembl.common import (  # pylint: disable=no-name-in-module
+from infrastructure.chembl import (  # pylint: disable=no-name-in-module
     join_activity_with_molecule as chembl_join,
 )
-from bioetl.chembl.common.release_tracker import (
+from infrastructure.chembl.release_tracker import (
     ChemblReleaseMixin as DomainChemblReleaseMixin,
 )
 
@@ -22,7 +22,7 @@ def test_deprecated_shims_resolve_to_domain_implementations() -> None:
 
 @pytest.mark.unit
 def test_join_no_longer_exposed_via_core_utils() -> None:
-    core_utils = import_module("bioetl.core.utils")
+    core_utils = import_module("common.core_utils")
 
     assert not hasattr(core_utils, "join_activity_with_molecule")
 

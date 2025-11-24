@@ -7,20 +7,20 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.cache import CacheConfig
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.models import (
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.config.models.base import PipelineMetadata
+from infrastructure.config.models.cache import CacheConfig
+from infrastructure.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from infrastructure.config.models.models import (
     PipelineConfig,
     PipelineDomainConfig,
     PipelineInfrastructureConfig,
 )
-from bioetl.config.models.paths import PathsConfig
-from bioetl.config.models.validation import ValidationConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
-from bioetl.core.logging import UnifiedLogger
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from infrastructure.config.models.paths import PathsConfig
+from infrastructure.config.models.validation import ValidationConfig
+from infrastructure.http.api_client import UnifiedAPIClient
+from infrastructure.logging import UnifiedLogger
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.fixture
@@ -60,7 +60,7 @@ def mock_pipeline_config() -> PipelineConfig:
     )
     domain = PipelineDomainConfig(
         validation=ValidationConfig(
-            schema_out="bioetl.schemas.chembl_activity_schema.ActivitySchema"
+            schema_out="infrastructure.schemas.chembl_activity_schema.ActivitySchema"
         ),
     )
     return PipelineConfig(

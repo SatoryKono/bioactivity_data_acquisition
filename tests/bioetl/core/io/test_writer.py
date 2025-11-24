@@ -8,23 +8,23 @@ import pandas as pd
 import pytest
 import yaml
 
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.determinism import (
+from infrastructure.config.models.base import PipelineMetadata
+from infrastructure.config.models.determinism import (
     DeterminismConfig,
     DeterminismHashingConfig,
     DeterminismSerializationConfig,
     DeterminismSerializationCSVConfig,
     DeterminismSortingConfig,
 )
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.models import (
+from infrastructure.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from infrastructure.config.models.models import (
     PipelineConfig,
     PipelineDomainConfig,
     PipelineInfrastructureConfig,
 )
-from bioetl.config.models.paths import MaterializationConfig
-from bioetl.config.models.validation import ValidationConfig
-from bioetl.core.io.writer import write_dataset_atomic, write_frame_like, write_yaml_atomic
+from infrastructure.config.models.paths import MaterializationConfig
+from infrastructure.config.models.validation import ValidationConfig
+from infrastructure.io.writer import write_dataset_atomic, write_frame_like, write_yaml_atomic
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def output_config(tmp_path: Path) -> PipelineConfig:
         validation=ValidationConfig(
             strict=True,
             coerce=True,
-            schema_out="bioetl.schemas.chembl_activity_schema:ActivitySchema",
+            schema_out="infrastructure.schemas.chembl_activity_schema:ActivitySchema",
         ),
     )
     return PipelineConfig(

@@ -33,7 +33,7 @@ class DummyUnifiedLogger:
 def test_extract_bash_commands() -> None:
     content = """
     ```bash
-    python -m bioetl.cli.cli_app activity_chembl --config cfg.yaml
+    python -m interfaces.cli.cli_app activity_chembl --config cfg.yaml
     ```
     """
     examples = doctest_cli.extract_bash_commands(content, Path("docs.md"))
@@ -44,7 +44,7 @@ def test_extract_bash_commands() -> None:
 def test_extract_bash_commands_handles_multiline() -> None:
     content = """
     ```bash
-    python -m bioetl.cli.cli_app document --config cfg.yaml \\
+    python -m interfaces.cli.cli_app document --config cfg.yaml \\
     --limit 5
     ```
     """
@@ -56,7 +56,7 @@ def test_extract_bash_commands_handles_multiline() -> None:
 def test_extract_bash_commands_skips_invalid_commands() -> None:
     content = """
     ```bash
-    python -m bioetl.cli.cli_app activity < data.txt
+    python -m interfaces.cli.cli_app activity < data.txt
     ```
     """
     examples = doctest_cli.extract_bash_commands(content, Path("docs.md"))
@@ -73,7 +73,7 @@ def test_run_examples(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     doc_path.write_text(
         """
         ```bash
-        python -m bioetl.cli.cli_app activity_chembl --config cfg.yaml --dry-run
+        python -m interfaces.cli.cli_app activity_chembl --config cfg.yaml --dry-run
         ```
         """,
         encoding="utf-8",
@@ -102,7 +102,7 @@ def test_run_examples_captures_failures(tmp_path: Path, monkeypatch: pytest.Monk
     example = doctest_cli.CLIExample(
         source_file=tmp_path / "docs.md",
         line_number=12,
-        command="python -m bioetl.cli.cli_app activity_chembl --dry-run",
+        command="python -m interfaces.cli.cli_app activity_chembl --dry-run",
     )
 
     def failing_run(_: str) -> tuple[int, str, str]:
@@ -150,7 +150,7 @@ def test_run_command_handles_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
             subprocess.TimeoutExpired(cmd="cmd", timeout=1)
         ),
     )
-    exit_code, stdout, stderr = doctest_cli._run_command("bioetl.cli.cli_app --help")
+    exit_code, stdout, stderr = doctest_cli._run_command("interfaces.cli.cli_app --help")
     assert exit_code == -1
     assert "timed out" in stderr
     assert stdout == ""
@@ -162,7 +162,7 @@ def test_run_command_handles_generic_exception(monkeypatch: pytest.MonkeyPatch) 
         "run",
         lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("boom")),
     )
-    exit_code, stdout, stderr = doctest_cli._run_command("bioetl.cli.cli_app --help")
+    exit_code, stdout, stderr = doctest_cli._run_command("interfaces.cli.cli_app --help")
     assert exit_code == -1
     assert stderr == "boom"
     assert stdout == ""
@@ -184,7 +184,7 @@ def test_run_examples_truncates_long_command(
     monkeypatch.setattr(doctest_cli, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(doctest_cli, "ARTIFACTS_DIR", tmp_path / "artifacts")
 
-    long_command = "python -m bioetl.cli.cli_app activity_chembl --config " + "a" * 80
+    long_command = "python -m interfaces.cli.cli_app activity_chembl --config " + "a" * 80
     example = doctest_cli.CLIExample(
         source_file=tmp_path / "docs.md",
         line_number=1,
@@ -198,7 +198,7 @@ def test_run_examples_truncates_long_command(
     results, report_path = doctest_cli.run_examples([example])
     assert results[0].exit_code == 0
     table = report_path.read_text(encoding="utf-8")
-    assert "`python -m bioetl.cli.cli_app activity_chembl --config" in table
+    assert "`python -m interfaces.cli.cli_app activity_chembl --config" in table
 
 
 def test_extract_cli_examples_handles_missing_files(

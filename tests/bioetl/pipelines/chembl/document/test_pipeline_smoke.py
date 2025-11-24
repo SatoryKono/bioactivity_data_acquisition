@@ -8,11 +8,11 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from bioetl.clients.chembl_entity_factory import ChemblClientBundle
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.config import load_config
-from bioetl.pipelines.chembl.document import run as document_run
-from bioetl.pipelines.chembl.helpers import build_dataframe
+from infrastructure.clients.chembl_entity_factory import ChemblClientBundle
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.config import load_config
+from application.pipelines.specs.chembl.document import run as document_run
+from application.pipelines.specs.chembl.helpers import build_dataframe
 
 EXPECTED_SELECT_FIELDS = [
     "document_chembl_id",

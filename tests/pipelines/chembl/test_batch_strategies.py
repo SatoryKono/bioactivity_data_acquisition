@@ -6,19 +6,19 @@ import pandas as pd
 import pytest
 from structlog.stdlib import BoundLogger
 
-from bioetl.chembl.common import (
+from infrastructure.chembl import (
     BatchExtractionContext,
     BatchExtractionStats,
     ChemblPipelineBase,
 )
-from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.mixins.descriptor_builder import (
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines.specs.mixins.descriptor_builder import (
     DefaultFetchStrategy,
     DelegatedFetchStrategy,
     DescriptorStrategyFactory,
     SimpleNormalizationStrategy,
 )
-from bioetl.core.logging import UnifiedLogger
+from infrastructure.logging import UnifiedLogger
 
 
 class StrategyTestPipeline(ChemblPipelineBase):

@@ -6,8 +6,8 @@ import re
 from collections.abc import Iterable
 from pathlib import Path
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.tools import get_project_root
+from infrastructure.logging import LogEvents, UnifiedLogger
+from interfaces.tools import get_project_root
 
 __all__ = ["remove_type_ignore"]
 

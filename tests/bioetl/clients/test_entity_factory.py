@@ -10,29 +10,29 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
-from bioetl.clients.chembl_config import EntityConfig, get_entity_config
-from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
-from bioetl.clients.chembl_entity_registry import (
+from infrastructure.clients.chembl_config import EntityConfig, get_entity_config
+from infrastructure.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
+from infrastructure.clients.chembl_entity_registry import (
     ChemblEntityRegistryError,
     get_entity_definition,
 )
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.clients.client_chembl_entity_base import ChemblEntityFetcherBase
-from bioetl.clients.entities.client_activity import ChemblActivityClient
-from bioetl.clients.entities.client_assay import ChemblAssayClient
-from bioetl.clients.entities.client_assay_class_map import ChemblAssayClassMapEntityClient
-from bioetl.clients.entities.client_assay_classification import (
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.clients.client_chembl_entity_base import ChemblEntityFetcherBase
+from infrastructure.clients.entities.client_activity import ChemblActivityClient
+from infrastructure.clients.entities.client_assay import ChemblAssayClient
+from infrastructure.clients.entities.client_assay_class_map import ChemblAssayClassMapEntityClient
+from infrastructure.clients.entities.client_assay_classification import (
     ChemblAssayClassificationEntityClient,
 )
-from bioetl.clients.entities.client_assay_parameters import ChemblAssayParametersEntityClient
-from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
-from bioetl.clients.entities.client_document import ChemblDocumentClient
-from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient
-from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
-from bioetl.clients.entities.client_target import ChemblTargetClient
-from bioetl.clients.entities.client_testitem import ChemblTestitemClient
-from bioetl.config.models.source import SourceConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
+from infrastructure.clients.entities.client_assay_parameters import ChemblAssayParametersEntityClient
+from infrastructure.clients.entities.client_data_validity import ChemblDataValidityEntityClient
+from infrastructure.clients.entities.client_document import ChemblDocumentClient
+from infrastructure.clients.entities.client_document_term import ChemblDocumentTermEntityClient
+from infrastructure.clients.entities.client_molecule import ChemblMoleculeEntityClient
+from infrastructure.clients.entities.client_target import ChemblTargetClient
+from infrastructure.clients.entities.client_testitem import ChemblTestitemClient
+from infrastructure.config.models.source import SourceConfig
+from infrastructure.http.api_client import UnifiedAPIClient
 
 
 @pytest.fixture  # type: ignore[reportUntypedFunctionDecorator,reportUnknownMemberType]
@@ -59,7 +59,7 @@ def factory_with_http(
 
     factory = ChemblEntityClientFactory(pipeline_config_fixture)
     patcher = patch(
-        "bioetl.core.http.client_factory.APIClientFactory.for_source",
+        "infrastructure.http.client_factory.APIClientFactory.for_source",
         return_value=mock_api_client,
     )
     mock_for_source = patcher.start()
@@ -478,7 +478,7 @@ class TestEntityConfigUsage:
             )
 
         monkeypatch.setattr(
-            "bioetl.clients.client_chembl_entity_base.ChemblEntityFetcherBase.__init__",
+            "infrastructure.clients.client_chembl_entity_base.ChemblEntityFetcherBase.__init__",
             fake_init,
         )
 

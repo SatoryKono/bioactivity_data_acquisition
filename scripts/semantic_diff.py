@@ -8,7 +8,7 @@ from typing import Any
 import typer
 
 from bioetl.devtools import cli_semantic_diff as cli_semantic_diff_impl
-from bioetl.cli.common import create_app, run_app
+from interfaces.cli.common import create_app, run_app
 
 _LOGIC_EXPORTS = getattr(cli_semantic_diff_impl, "__all__", [])
 globals().update({symbol: getattr(cli_semantic_diff_impl, symbol) for symbol in _LOGIC_EXPORTS})

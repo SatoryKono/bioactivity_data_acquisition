@@ -5,7 +5,7 @@ from collections.abc import Mapping
 import pandas as pd
 import pytest
 
-from bioetl.clients.common import BaseEntityFetcher
+from infrastructure.clients.common import BaseEntityFetcher
 
 
 class DummyFetcher(BaseEntityFetcher):

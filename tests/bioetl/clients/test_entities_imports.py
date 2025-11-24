@@ -8,25 +8,25 @@ from types import ModuleType
 import pytest  # type: ignore[reportMissingImports]
 
 ENTITY_IMPORTS: tuple[tuple[str, str], ...] = (
-    ("bioetl.clients.entities.client_activity", "ChemblActivityClient"),
-    ("bioetl.clients.entities.client_assay", "ChemblAssayClient"),
-    ("bioetl.clients.entities.client_assay_entity", "ChemblAssayEntityClient"),
-    ("bioetl.clients.entities.client_testitem", "ChemblTestitemClient"),
-    ("bioetl.clients.entities.client_target", "ChemblTargetClient"),
-    ("bioetl.clients.entities.client_document", "ChemblDocumentClient"),
-    ("bioetl.clients.entities.client_document_term", "ChemblDocumentTermEntityClient"),
-    ("bioetl.clients.entities.client_molecule", "ChemblMoleculeEntityClient"),
-    ("bioetl.clients.entities.client_data_validity", "ChemblDataValidityEntityClient"),
-    ("bioetl.clients.entities.client_assay_class_map", "ChemblAssayClassMapEntityClient"),
+    ("infrastructure.clients.entities.client_activity", "ChemblActivityClient"),
+    ("infrastructure.clients.entities.client_assay", "ChemblAssayClient"),
+    ("infrastructure.clients.entities.client_assay_entity", "ChemblAssayEntityClient"),
+    ("infrastructure.clients.entities.client_testitem", "ChemblTestitemClient"),
+    ("infrastructure.clients.entities.client_target", "ChemblTargetClient"),
+    ("infrastructure.clients.entities.client_document", "ChemblDocumentClient"),
+    ("infrastructure.clients.entities.client_document_term", "ChemblDocumentTermEntityClient"),
+    ("infrastructure.clients.entities.client_molecule", "ChemblMoleculeEntityClient"),
+    ("infrastructure.clients.entities.client_data_validity", "ChemblDataValidityEntityClient"),
+    ("infrastructure.clients.entities.client_assay_class_map", "ChemblAssayClassMapEntityClient"),
     (
-        "bioetl.clients.entities.client_assay_parameters",
+        "infrastructure.clients.entities.client_assay_parameters",
         "ChemblAssayParametersEntityClient",
     ),
     (
-        "bioetl.clients.entities.client_assay_classification",
+        "infrastructure.clients.entities.client_assay_classification",
         "ChemblAssayClassificationEntityClient",
     ),
-    ("bioetl.clients.entities.client_compound_record", "ChemblCompoundRecordEntityClient"),
+    ("infrastructure.clients.entities.client_compound_record", "ChemblCompoundRecordEntityClient"),
 )
 
 

@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from bioetl.core.logging import LogEvents
-from bioetl.core.schema import IdentifierRule, StringRule
-from bioetl.pipelines.mixins import (
+from infrastructure.logging import LogEvents
+from infrastructure.schema import IdentifierRule, StringRule
+from application.pipelines.specs.mixins import (
     NestedColumnSpec,
     NestedSerializerMixin,
     RecordNormalizationMixin,

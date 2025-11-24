@@ -8,8 +8,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from bioetl.chembl.common.descriptor import ChemblPipelineBase
-from bioetl.chembl.common.enrich import (
+from infrastructure.chembl.descriptor import ChemblPipelineBase
+from infrastructure.chembl.enrich import (
     _extract_enrich_config,
     enrich_flag,
 )

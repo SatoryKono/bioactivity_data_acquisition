@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients import ChemblClient
-from bioetl.clients.client_exceptions import HTTPError
-from bioetl.pipelines.chembl.assay.normalize import (
+from infrastructure.clients import ChemblClient
+from infrastructure.clients.client_exceptions import HTTPError
+from application.pipelines.specs.chembl.assay.normalize import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
 )

@@ -6,7 +6,7 @@ from types import ModuleType
 
 import pytest
 
-from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
+from infrastructure.runtime.lazy_loader import resolve_lazy_attr
 
 
 @pytest.fixture

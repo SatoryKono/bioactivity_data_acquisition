@@ -9,19 +9,19 @@ import pandera as pa
 import pytest
 from pandera import Column
 
-import bioetl.core.pipeline.base as pipeline_base_module
-import bioetl.schemas as schemas_module
-import bioetl.schemas.versioning as schemas_versioning_module
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
-from bioetl.config.models.models import (
+import application.pipelines.base as pipeline_base_module
+import infrastructure.schemas as schemas_module
+import infrastructure.schemas.versioning as schemas_versioning_module
+from infrastructure.config.models.http import HTTPClientConfig, HTTPConfig
+from infrastructure.config.models.models import (
     MaterializationConfig,
     PipelineConfig,
     PipelineMetadata,
     ValidationConfig,
 )
-from bioetl.core.pipeline import PipelineBase
-from bioetl.schemas import SchemaDescriptor, SchemaRegistry
-from bioetl.schemas.versioning import (
+from application.pipelines import PipelineBase
+from infrastructure.schemas import SchemaDescriptor, SchemaRegistry
+from infrastructure.schemas.versioning import (
     SchemaMigration,
     SchemaMigrationRegistry,
     SchemaVersionMismatchError,

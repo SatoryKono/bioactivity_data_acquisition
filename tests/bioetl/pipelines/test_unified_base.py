@@ -10,13 +10,13 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.core.pipeline import PipelineExtractionMode, RunResult
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
-from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
-from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
-from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
-from bioetl.pipelines.unified_base import ChemblPipelineContract, UnifiedPipelineBase
+from application.pipelines import PipelineExtractionMode, RunResult
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
+from application.pipelines.specs.chembl.assay.run import ChemblAssayPipeline
+from application.pipelines.specs.chembl.document.run import ChemblDocumentPipeline
+from application.pipelines.specs.chembl.target.run import ChemblTargetPipeline
+from application.pipelines.specs.chembl.testitem.run import TestItemChemblPipeline
+from application.pipelines.specs.unified_base import ChemblPipelineContract, UnifiedPipelineBase
 
 
 class DummyUnifiedPipeline(UnifiedPipelineBase):

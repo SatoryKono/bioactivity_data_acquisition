@@ -9,7 +9,7 @@ import pandera.errors
 import pytest
 
 from bioetl.core import hash_from_mapping
-from bioetl.schemas.chembl_metadata_schema import (
+from infrastructure.schemas.chembl_metadata_schema import (
     BUSINESS_KEY_FIELDS,
     ROW_HASH_FIELDS,
     LoadMetaSchema,

@@ -1,0 +1,23 @@
+"""Chembl data validity entity client."""
+
+from __future__ import annotations
+
+from typing import ClassVar
+
+from infrastructure.clients.chembl_config import EntityConfig, get_entity_config
+from infrastructure.clients.client_chembl_entity_base import (
+    ChemblEntityConfigMixin,
+    ChemblEntityFetcherBase,
+)
+
+__all__ = ["ChemblDataValidityEntityClient"]
+
+
+class ChemblDataValidityEntityClient(
+    ChemblEntityConfigMixin, ChemblEntityFetcherBase
+):
+    """Client for retrieving ``data_validity_lookup`` records from the ChEMBL API."""
+
+    ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config(
+        "data_validity_lookup"
+    )

@@ -1,4 +1,4 @@
-"""Tests for shared helpers exposed via :mod:`bioetl.tools`."""
+"""Tests for shared helpers exposed via :mod:`interfaces.tools`."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from bioetl.tools import hash_file
+from interfaces.tools import hash_file
 
 
 def test_hash_file_matches_hashlib(tmp_path: Path) -> None:
