@@ -596,36 +596,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         except AttributeError:
             return dict(candidate)
 
-    def _extract_data_validity_descriptions(
-        self,
-        df: pd.DataFrame,
-        client: ChemblClient,
-        log: Any | None = None,
-    ) -> pd.DataFrame:
-        """Hydrate ``data_validity_description`` via ChEMBL lookup API."""
-
-        base_log = log or UnifiedLogger.get(__name__).bind(
-            stage="data_validity_lookup"
-        )
-        config = self._data_validity_config()
-
-        try:
-            result = enrich_with_data_validity(df, client, config)
-        except Exception as exc:  # noqa: BLE001
-            base_log.warning(
-                LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
-                error=str(exc),
-            )
-            return ensure_columns(
-                df.copy(), (("data_validity_description", "string"),)
-            )
-
-        base_log.info(
-            LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_COMPLETE,
-            rows=len(result),
-        )
-        return result
-
     def identifier_rules(self) -> Sequence[IdentifierRule]:
         """Return identifier normalization rules for ChEMBL and BAO identifiers."""
         return (

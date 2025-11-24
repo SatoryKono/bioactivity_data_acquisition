@@ -18,18 +18,6 @@ def safe_cast(
         return default
 
 
-def extract_fields(
-    records: Iterable[Mapping[str, Any]], fields: Iterable[str]
-) -> list[dict[str, Any]]:
-    """Извлечь подмножество полей, сохраняя порядок обхода."""
-
-    field_list = list(fields)
-    return [
-        {field: record.get(field) for field in field_list}
-        for record in records
-    ]
-
-
 def build_dataframe(records: Iterable[Mapping[str, Any]]) -> pd.DataFrame:
     """Детерминированно построить ``DataFrame`` из записей."""
 

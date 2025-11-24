@@ -12,7 +12,7 @@ import pandas as pd
 from infrastructure.io import header_rows_serialize
 from common.core_utils.iterables import is_non_string_iterable
 from common.core_utils.typechecks import is_dict
-from application.pipelines.specs.chembl.stage_runner import build_stage_functions
+from application.pipelines.specs.chembl.stage_runner import build_stage_function
 
 __all__ = [
     "extract_and_serialize_component_synonyms",
@@ -297,9 +297,4 @@ def _load_pipeline() -> type["ChemblTargetPipeline"]:
     return ChemblTargetPipeline
 
 
-PIPELINE, _STAGES = build_stage_functions(
-    _load_pipeline,
-    stages=("transform",),
-)
-
-transform = _STAGES["transform"]
+transform = build_stage_function(_load_pipeline, "transform")
