@@ -46,7 +46,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
         "bioetl.core.pipeline.types",
         "StageExecutionOptions",
     ),
-    "StageFactory": ("bioetl.core.pipeline.common", "StageFactory"),
+    "StageFactory": ("bioetl.core.pipeline.factory", "StageFactory"),
     "PipelineError": ("bioetl.core.pipeline.errors", "PipelineError"),
     "PipelineHTTPError": ("bioetl.core.pipeline.errors", "PipelineHTTPError"),
     "PipelineNetworkError": (
