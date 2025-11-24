@@ -333,58 +333,57 @@ def build_standard_chembl_context(
 ) -> ChemblExtractionContext:
     """Унифицированная фабрика для создания ChemblExtractionContext.
 
-    Инкапсулирует общую логику создания контекста извлечения для ChEMBL пайплайнов:
-    создание bundle, регистрация клиента, получение release, создание контекста.
-
-    Parameters
-    ----------
-    pipeline
-        Экземпляр пайплайна, наследующий ChemblPipelineBase.
-    entity_name
-        Имя сущности ("target", "testitem", "assay" и т.д.).
-    source_config
-        Конфигурация источника данных.
-    log
-        Логгер для записи событий.
-    entity_client_type
-        Ожидаемый тип entity_client для проверки. Если None, проверка не выполняется.
-    release_resolver
-        Функция для получения ChEMBL release.
-        Принимает (pipeline, chembl_client, log, entity_client)
-        и передается в контекст для
-        отложенного вызова :meth:`ChemblPipelineBase.ensure_chembl_release`.
-        При ``None`` используется стандартный ``pipeline.resolve_chembl_release``.
-    pre_release_hook
-        Функция, вызываемая перед получением release (например, для handshake).
-        Принимает (pipeline, source_config, entity_client).
-    select_fields_resolver
-        Функция для получения списка полей. По умолчанию используется
-        `source_config.parameters.select_fields`.
-    extra_filters_factory
-        Функция для создания extra_filters. Должна принимать source_config и pipeline,
-        возвращать dict. По умолчанию возвращает пустой dict.
-    client_registry_name
-        Имя для регистрации HTTP-клиента. По умолчанию `f"chembl_{entity_name}_http"`.
-    chembl_release_override
-        Переопределение значения chembl_release в контексте (например, для testitem
-        используется chembl_db_version). Если None, release будет определен позднее через
-        :meth:`ChemblPipelineBase.ensure_chembl_release`.
-    page_size_resolver
-        Функция для получения page_size. По умолчанию используется
-        `getattr(source_config, "page_size", None)`.
-
-    Returns
-    -------
-    ChemblExtractionContext
-        Созданный контекст извлечения.
-
-    Raises
-    ------
-    RuntimeError
-        Если entity_client не найден в bundle или имеет неверный тип.
+    Разбивает подготовку контекста на мелкие шаги: сбор зависимостей,
+    валидацию клиентов, вычисление параметров выборки и построение итогового
+    объекта, чтобы убрать смешение обязанностей.
     """
+    # Логгер передается для совместимости и потенциальной телеметрии.
     _ = log
-    # Создаем bundle
+    bundle = _build_and_register_bundle(
+        pipeline,
+        entity_name,
+        source_config,
+        client_registry_name or f"chembl_{entity_name}_http",
+    )
+    entity_client = _ensure_entity_client(
+        bundle,
+        entity_name=entity_name,
+        expected_type=entity_client_type,
+    )
+
+    _run_pre_release_hook(pre_release_hook, pipeline, source_config, entity_client)
+
+    select_fields = _resolve_select_fields(
+        pipeline,
+        source_config,
+        select_fields_resolver,
+    )
+    page_size = _resolve_page_size(source_config, page_size_resolver)
+    extra_filters = _build_extra_filters(extra_filters_factory, source_config, pipeline)
+
+    # Значение chembl_release может быть переопределено (например, testitem).
+    context_release = chembl_release_override
+
+    return ChemblExtractionContext(
+        source_config,
+        entity_client,
+        bundle.chembl_client,
+        list(select_fields) if select_fields else None,
+        page_size,
+        context_release,
+        extra_filters=extra_filters,
+        release_resolver=release_resolver,
+    )
+
+
+def _build_and_register_bundle(
+    pipeline: ChemblPipelineBase,
+    entity_name: str,
+    source_config: Any,
+    client_registry_name: str,
+) -> ChemblClientBundle:
+    """Создает ChemblClientBundle и регистрирует HTTP-клиент, если его нет."""
+
     bundle = pipeline.build_chembl_entity_bundle(
         entity_name,
         source_name="chembl",
@@ -394,66 +393,89 @@ def build_standard_chembl_context(
         fresh_http_client=False,
     )
 
-    # Регистрируем HTTP-клиент
-    registry_name = client_registry_name or f"chembl_{entity_name}_http"
-    if registry_name not in pipeline._registered_clients:
-        pipeline.register_client(registry_name, bundle.api_client)
+    if client_registry_name not in pipeline._registered_clients:
+        pipeline.register_client(client_registry_name, bundle.api_client)
 
-    chembl_client = bundle.chembl_client
+    return bundle
 
-    # Получаем entity_client и проверяем
+
+def _ensure_entity_client(
+    bundle: ChemblClientBundle,
+    *,
+    entity_name: str,
+    expected_type: type[Any] | None,
+) -> Any:
+    """Возвращает валидированный entity_client и выбрасывает осмысленную ошибку."""
+
     entity_client = bundle.entity_client
     if entity_client is None:
         msg = f"Фабрика вернула пустой клиент для '{entity_name}'"
         raise RuntimeError(msg)
-    # Проверяем тип только если entity_client_type является реальным типом (не моком)
+
     if (
-        entity_client_type is not None
-        and isinstance(entity_client_type, type)
-        and not isinstance(entity_client, entity_client_type)
+        expected_type is not None
+        and isinstance(expected_type, type)
+        and not isinstance(entity_client, expected_type)
     ):
-        msg = f"Ожидался {entity_client_type.__name__}, получен {type(entity_client).__name__}"
+        msg = f"Ожидался {expected_type.__name__}, получен {type(entity_client).__name__}"
         raise RuntimeError(msg)
 
-    # Выполняем pre_release_hook если нужно (например, для handshake)
-    if pre_release_hook is not None:
-        pre_release_hook(pipeline, source_config, entity_client)
+    return entity_client
 
-    # Получаем select_fields
-    if select_fields_resolver is not None:
-        select_fields = select_fields_resolver(pipeline, source_config)
-    else:
-        # По умолчанию из source_config.parameters.select_fields
-        select_fields = getattr(source_config, "parameters", None)
-        if select_fields is not None:
-            select_fields = getattr(select_fields, "select_fields", None)
 
-    # Получаем page_size
-    if page_size_resolver is not None:
-        page_size = page_size_resolver(source_config)
-    else:
-        page_size = getattr(source_config, "page_size", None)
+def _run_pre_release_hook(
+    hook: Callable[[ChemblPipelineBase, Any, Any], None] | None,
+    pipeline: ChemblPipelineBase,
+    source_config: Any,
+    entity_client: Any,
+) -> None:
+    """Вызывает pre_release_hook только при наличии, чтобы разделить побочный эффект."""
 
-    # Создаем extra_filters
-    if extra_filters_factory is not None:
-        extra_filters = extra_filters_factory(source_config, pipeline)
-    else:
-        extra_filters = {}
+    if hook is None:
+        return
 
-    # Определяем значение для chembl_release в контексте
-    context_release = chembl_release_override
+    hook(pipeline, source_config, entity_client)
 
-    # Создаем контекст
-    return ChemblExtractionContext(
-        source_config,
-        entity_client,
-        chembl_client,
-        list(select_fields) if select_fields else None,
-        page_size,
-        context_release,
-        extra_filters=extra_filters,
-        release_resolver=release_resolver,
-    )
+
+def _resolve_select_fields(
+    pipeline: ChemblPipelineBase,
+    source_config: Any,
+    resolver: Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None,
+) -> Sequence[str] | None:
+    """Определяет список select_fields из резолвера или конфигурации."""
+
+    if resolver is not None:
+        return resolver(pipeline, source_config)
+
+    parameters = getattr(source_config, "parameters", None)
+    if parameters is None:
+        return None
+
+    return getattr(parameters, "select_fields", None)
+
+
+def _resolve_page_size(
+    source_config: Any, resolver: Callable[[Any], int | None] | None
+) -> int | None:
+    """Возвращает page_size из резолвера или из конфигурации по умолчанию."""
+
+    if resolver is not None:
+        return resolver(source_config)
+
+    return getattr(source_config, "page_size", None)
+
+
+def _build_extra_filters(
+    factory: Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None,
+    source_config: Any,
+    pipeline: ChemblPipelineBase,
+) -> dict[str, Any]:
+    """Конструирует extra_filters с дефолтом в пустой словарь."""
+
+    if factory is None:
+        return {}
+
+    return factory(source_config, pipeline)
 
 
 @dataclass(slots=True)
