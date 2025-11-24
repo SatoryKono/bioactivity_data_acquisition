@@ -8,7 +8,6 @@ from typing import Any
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.core.io import ensure_columns
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.schema.normalizers import IdentifierRule, StringRule
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
@@ -62,17 +61,14 @@ class ChemblTargetPipeline(BaseChemblPipeline):
         # Serialize array fields (cross_references, target_components, etc.)
         working_df = serialize_target_arrays(working_df, self.config)
 
-        # Ensure all schema columns are present
+        # Ensure all schema columns are present prior to type normalization
         working_df = self._ensure_schema_columns(working_df, COLUMN_ORDER, log)
 
         # Normalize data types according to schema
         working_df = self._normalize_data_types(working_df, TargetSchema, log)
 
-        # Enrich with protein classifications
-        working_df = self._enrich_protein_classifications(working_df, log)
-
-        # Ensure schema columns again after enrichment
-        return self._ensure_schema_columns(working_df, COLUMN_ORDER, log)
+        # Final column harmonization
+        return self._order_schema_columns(working_df, COLUMN_ORDER)
 
     def save_results(
         self,
@@ -241,95 +237,6 @@ class ChemblTargetPipeline(BaseChemblPipeline):
                 )
 
         return result
-
-    def _enrich_protein_classifications(
-        self, df: pd.DataFrame, log: BoundLogger
-    ) -> pd.DataFrame:
-        """Enrich target DataFrame with protein classification data."""
-        # Ensure required columns exist
-        df = ensure_columns(
-            df,
-            (
-                ("protein_class_list", "string"),
-                ("protein_class_top", "string"),
-            ),
-        )
-
-        if df.empty:
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
-            return df
-
-        # Check if target_chembl_id column exists
-        if "target_chembl_id" not in df.columns:
-            log.debug(
-                LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_SKIPPED,
-                reason="missing_target_chembl_id",
-            )
-            return df
-
-        # Check if data is already present
-        has_list = df["protein_class_list"].notna().any()
-        has_top = df["protein_class_top"].notna().any()
-        if has_list and has_top:
-            log.debug(
-                LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_SKIPPED,
-                reason="data_already_present",
-            )
-            return df
-
-        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, rows=len(df))
-
-        try:
-            # Build bundle for potential future use
-            # In a full implementation, we would fetch protein class data from ChEMBL API
-            _ = self.build_chembl_entity_bundle(
-                entity_name=self.entity_name,
-                source_name="chembl",
-                source_config=self._resolve_source_config("chembl"),
-                options={},
-                chembl_client_kwargs={},
-                fresh_http_client=False,
-            )
-            # Fetch protein classifications for all targets
-            target_ids = df["target_chembl_id"].dropna().unique().tolist()
-            if not target_ids:
-                log.debug(
-                    LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_SKIPPED,
-                    reason="no_valid_target_ids",
-                )
-                return df
-
-            # Fetch protein class data from ChEMBL API
-            # This is a simplified implementation - in production, you'd fetch from /protein_class.json
-            # For now, we'll just initialize the columns with None
-            for idx in df.index:
-                target_id = df.loc[idx, "target_chembl_id"]
-                if pd.isna(target_id):
-                    continue
-
-                # In a real implementation, you would:
-                # 1. Fetch protein_class data from ChEMBL API
-                # 2. Serialize the list of classifications to JSON
-                # 3. Extract the top-level classification
-                # For now, we just ensure columns are initialized
-                if pd.isna(df.loc[idx, "protein_class_list"]):
-                    df.loc[idx, "protein_class_list"] = None
-                if pd.isna(df.loc[idx, "protein_class_top"]):
-                    df.loc[idx, "protein_class_top"] = None
-
-            log.info(
-                LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_COMPLETE,
-                rows=len(df),
-            )
-        except Exception as exc:  # noqa: BLE001
-            log.warning(
-                LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
-                error=str(exc),
-            )
-            # Return DataFrame with initialized columns even on error
-            return df
-
-        return df
 
 
 __all__ = ["ChemblTargetPipeline"]

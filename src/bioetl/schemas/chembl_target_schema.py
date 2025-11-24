@@ -6,7 +6,7 @@ from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
 from bioetl.schemas.common_schema import resolve_row_hash_fields
 
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 
 COLUMN_ORDER: list[str] = [
     "target_chembl_id",
@@ -19,9 +19,6 @@ COLUMN_ORDER: list[str] = [
     "target_components__flat",
     "target_component_synonyms__flat",
     "uniprot_accessions",
-    "protein_class_desc",
-    "protein_class_list",
-    "protein_class_top",
     "component_count",
     "hash_row",
     "hash_business_key",
@@ -54,9 +51,6 @@ TargetSchema = create_schema(
         "target_components__flat": CF.string(),
         "target_component_synonyms__flat": CF.string(),
         "uniprot_accessions": CF.string(),
-        "protein_class_desc": CF.string(),
-        "protein_class_list": CF.string(),
-        "protein_class_top": CF.string(),
         "component_count": CF.int64(pandas_nullable=True, ge=0),
         "hash_row": CF.string(length=(64, 64), nullable=False),
         "hash_business_key": CF.string(length=(64, 64)),
