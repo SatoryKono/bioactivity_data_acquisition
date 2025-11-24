@@ -9,16 +9,13 @@ columns:
 - target_components__flat
 - target_component_synonyms__flat
 - uniprot_accessions
-- protein_class_desc
-- protein_class_list
-- protein_class_top
 - component_count
 - hash_row
 - hash_business_key
 - load_meta_id
 config_version: 1
-dataset_path: C:\Users\Fedor\AppData\Local\Temp\pytest-of-Fedor\pytest-867\test_target_pipeline_golden_sn0\output\activity_chembl_extended_20240101.csv
-generated_at_utc: '2025-11-16T13:19:21.375837Z'
+dataset_path: /tmp/pytest-of-root/pytest-0/test_target_pipeline_golden_sn0/output/activity_chembl_extended_20240101.csv
+generated_at_utc: '2025-11-24T23:28:13.366791Z'
 hash_policy_version: 1.0.0
 hashing:
   algorithm: sha256
@@ -34,22 +31,22 @@ hashing:
   row_column: hash_row
   row_fields: []
   sample_hash_business_key: c85b91c0f360a12baeb6c8bc1ee2aa544b99080b8966ecd7db33662063d0631e
-  sample_hash_row: c8fe88c1df7364e5cc43734e5e0be51ebb43e70521b7dc46f41bdfaea73b988e
+  sample_hash_row: ae1a471990e37bb277f74253890555215f624078daf28e550b7e9eebacb3bc26
 pipeline: activity_chembl
 pipeline_version: 1.0.0
 quality:
   metrics:
     business_key_fields:
     - target_chembl_id
-    columns_with_missing: organism, pref_name, protein_class_desc, protein_class_list,
-      protein_class_top, species_group_flag, target_type, tax_id
+    columns_with_missing: component_count, organism, pref_name, species_group_flag,
+      target_type, tax_id
     deduplicated_count: 3
     duplicate_count: 0
     duplicate_ratio: 0.0
     iqr_outliers: {}
     relation_distribution: {}
     row_count: 3
-    total_missing_values: 8
+    total_missing_values: 6
     units_distribution: {}
 row_count: 3
 run_id: golden-target-v1
@@ -59,8 +56,10 @@ sorting:
   by:
   - target_chembl_id
   na_position: last
-stage_durations_ms: {}
+stage_durations_ms:
+  validate: 167.39991299982648
 validation:
+  allow_schema_migration: false
   coerce: true
   column_order:
   - target_chembl_id
@@ -73,19 +72,21 @@ validation:
   - target_components__flat
   - target_component_synonyms__flat
   - uniprot_accessions
-  - protein_class_desc
-  - protein_class_list
-  - protein_class_top
   - component_count
   - hash_row
   - hash_business_key
   - load_meta_id
   expected_version: null
+  max_schema_migration_hops: 3
   migrated_from_version: null
   migrations_applied: 0
   row_count: 3
   schema_identifier: bioetl.schemas.chembl_target_schema.TargetSchema
-  schema_name: TargetSchema_v1.2.0
+  schema_in: null
+  schema_in_version: null
+  schema_name: TargetSchema_v1.3.0
+  schema_out: bioetl.schemas.chembl_target_schema.TargetSchema
+  schema_out_version: null
   schema_valid: true
-  schema_version: 1.2.0
+  schema_version: 1.3.0
   strict: true
