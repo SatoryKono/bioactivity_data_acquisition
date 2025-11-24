@@ -4,6 +4,12 @@
 
 ### Изменено
 
+- TBD
+
+## 1.1.0 - 2025-11-24
+
+### Изменено
+
 - Проведена финальная консолидация констант/паттернов ChEMBL: API-поля
   вынесены в `bioetl.pipelines.chembl._constants`, `ChemblPipelineBase`
   использует общие helpers из `bioetl.clients.base`, `Paginator` логирует
@@ -36,10 +42,10 @@
 - CLI-слой очищен от dev-инструментов: `bioetl.cli.cli_app` регистрирует
   только пайплайновые команды и использует новый фасад
   `bioetl.core.runtime.cli_feedback` для унифицированного вывода.
-- Фасад `bioetl.core` помечает `ChemblReleaseMixin` и
-  `join_activity_with_molecule` как устаревшие shim-обёртки над
-  `bioetl.chembl.common.*`; при импорте из `bioetl.core` теперь
-  выдаётся `DeprecationWarning`.
+- Финализирован публичный API: убраны временные shim-реэкспорты в `bioetl` и
+  `bioetl.clients`, `bioetl.chembl.common` загружает helper'ы напрямую.
+- Обновлена документация миграции с пошаговыми инструкциями по переходу на
+  фабрики клиентов и новые точки входа.
 
 ### Удалено
 
@@ -51,6 +57,8 @@
 - Убран легаси-префикс `BIOACTIVITY__` и связанные DeprecationWarning — для
   оверрайдов конфигурации теперь поддерживается только `BIOETL__` (при
   необходимости можно передать пользовательский префикс в `load_config`).
+- Сняты временные шимы публичного API (`bioetl.__init__`, `bioetl.clients`,
+  `bioetl.chembl.common`) после завершения периода устаревания.
 
 ### Инструменты
 
@@ -60,3 +68,5 @@
   логика живёт в `bioetl.devtools.*`, а список миграций обновляется в
   `artifacts/cli_tools_migration.csv`. Консольные entry points `bioetl-*`
   удалены в пользу запуска `python scripts/<name>.py`.
+- `tools/import_lint.py` в CI блокирует импорты `bioetl.domain → bioetl.infrastructure`
+  и `bioetl.domain → bioetl.clients`.

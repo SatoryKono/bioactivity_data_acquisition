@@ -50,6 +50,9 @@ drift unmanageable and complicates future migrations to orchestrators.
   and onboarding materials should highlight the separation.
 - Follow-up: add automated checks (e.g., `pytest --layer` marker) to detect
   boundary violations.
+- Status 2025-11-24: `tools/import_lint.py` блокирует импорты из доменного
+  слоя в `bioetl.infrastructure` и `bioetl.clients` на CI; временные shim-
+  реэкспорты в публичном API удалены после завершения периода устаревания.
 
 ## References
 

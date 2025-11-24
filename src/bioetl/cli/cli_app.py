@@ -457,15 +457,13 @@ def create_app(
         *,
         help_text: str | None,
     ) -> None:
-        def command_handler(*args: Any, _builder=builder, **kwargs: Any):
-            config = _builder()
-            command_func = create_pipeline_command(
-                pipeline_class=config.pipeline_class,
-                command_config=config,
-            )
-            return command_func(*args, **kwargs)
+        config = builder()
+        command_func = create_pipeline_command(
+            pipeline_class=config.pipeline_class,
+            command_config=config,
+        )
 
-        app.command(name=name, help=help_text)(command_handler)
+        app.command(name=name, help=help_text)(command_func)
         registered_names.add(name)
 
     for spec in specs:
