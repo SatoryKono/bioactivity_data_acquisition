@@ -40,8 +40,22 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
     def get_schema(self):
         return {"test_item_id": lambda series: series.notna()}
 
-    def save_results(self, df: pd.DataFrame, output_dir, **_: Any):
-        return super().save_results(df, output_dir)
+    def save_results(
+        self,
+        df: pd.DataFrame,
+        output_dir: Any,
+        *,
+        extended: bool = False,
+        include_correlation: bool = False,
+        include_qc_metrics: bool = False,
+    ) -> Any:
+        return super().save_results(
+            df,
+            output_dir,
+            extended=extended,
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
+        )
 
     def _fetch_chembl_release(self, client, log=None):
         release = super()._fetch_chembl_release(client, log)

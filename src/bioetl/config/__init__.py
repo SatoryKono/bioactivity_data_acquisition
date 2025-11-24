@@ -19,6 +19,7 @@ __all__ = [
     "DocumentSourceParameters",
     "PipelineConfig",
     "load_config",
+    "load_pipeline_config",
     "load_environment_settings",
     "resolve_env_layers",
     "TargetSourceConfig",
@@ -45,6 +46,7 @@ _LAZY_ATTRS = {
     "load_environment_settings": "bioetl.config.environment",
     "PipelineConfig": "bioetl.config.models.models",
     "load_config": "bioetl.config.loader",
+    "load_pipeline_config": "bioetl.config.loader",
 }
 
 
@@ -73,7 +75,7 @@ if TYPE_CHECKING:
         load_environment_settings,
         resolve_env_layers,
     )
-    from .loader import load_config
+    from .loader import load_config, load_pipeline_config
     from .models.models import PipelineConfig
     from .target import TargetSourceConfig, TargetSourceParameters
     from .testitem import TestItemSourceConfig, TestItemSourceParameters

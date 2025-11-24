@@ -11,11 +11,14 @@ from bioetl.chembl.common.descriptor import (
     ChemblDescriptorSpec,
     ChemblPipelineBase,
 )
+from bioetl.config.loader import load_pipeline_config
+from bioetl.config.models.models import PipelineConfig
 from bioetl.config.runtime import QCReportRuntimeOptions
 from bioetl.core.pipeline.orchestration import (
     PipelineStagesProtocol,
     RunResult,
 )
+from bioetl.core.logging import LogEvents
 
 from .mixins import (
     BatchIdExtractionMixin,
@@ -84,11 +87,24 @@ class UnifiedPipelineBase(
     ) -> RunResult:
         """Execute the unified ETL flow with deterministic output artifacts.
 
-        Parameters mirror the public CLI flags и позволяют управлять
-        дополнительными отчётами (корреляции, QC метрики) без изменения
-        пользовательского контракта `PipelineBase.run`.
+        Этот метод фиксирует публичный контракт для всех ChEMBL‑пайплайнов:
+        ``prepare_run → extract → transform → validate → save_results →``
+        ``finalize_run``. Внутри используется стандартный ``StageFactory`` из
+        :class:`bioetl.core.pipeline.common.PipelineBaseCommon`, поэтому
+        дополнительные стадии, такие как ``cleanup``, продолжают добавляться
+        фабрикой, но основной поток остаётся неизменным. Параметры полностью
+        соответствуют CLI и пробрасываются в базовую реализацию, которая
+        агрегирует длительности стадий, сведения валидации и пути артефактов в
+        :class:`RunResult`.
         """
-        return super().run(
+        log = self.logger_for(stage="run")
+        log.info(
+            LogEvents.STAGE_RUN_START,
+            extended=bool(extended),
+            include_correlation=bool(include_correlation),
+            include_qc_metrics=bool(include_qc_metrics),
+        )
+        result = super().run(
             output_dir,
             extended=extended,
             include_correlation=include_correlation,
@@ -97,13 +113,49 @@ class UnifiedPipelineBase(
             qc_thresholds=qc_thresholds,
             fail_on_qc_violation=fail_on_qc_violation,
         )
+        log.info(
+            LogEvents.STAGE_RUN_FINISH,
+            stage_durations_ms=dict(result.stage_durations_ms),
+            records=result.records,
+        )
+        return result
+
+    def __init__(
+        self,
+        config: PipelineConfig | str | Path,
+        run_id: str,
+    ) -> None:
+        """Normalise configuration inputs before delegating to the parent."""
+
+        if isinstance(config, PipelineConfig):
+            validated_config = config
+        elif isinstance(config, (str, Path)):
+            validated_config = load_pipeline_config(config)
+        else:
+            msg = (
+                "config must be a PipelineConfig instance or path to a YAML file"
+            )
+            raise TypeError(msg)
+
+        super().__init__(validated_config, run_id)
 
     # Hooks -----------------------------------------------------------------
 
     def prepare_run(self) -> None:  # pragma: no cover - optional hook
-        """Hook invoked before the extract stage begins."""
+        """Lifecycle hook executed before :meth:`extract` is invoked.
+
+        Реализации могут выполнять handshake с API, инициализировать кеши или
+        проверять внешние зависимости. Ошибки из этого метода прерывают запуск,
+        чтобы не скрывать проблемы до последующих стадий.
+        """
 
     def finalize_run(
         self, result: RunResult | None
     ) -> None:  # pragma: no cover
-        """Hook invoked after the write stage completes."""
+        """Lifecycle hook executed after all stages complete.
+
+        Вызывается даже при исключениях на стадиях (best-effort), поэтому
+        реализации должны быть максимально защищёнными и не допускать
+        скрытия исходной ошибки. ``result`` содержит итоговые артефакты, когда
+        запись завершилась успешно, либо ``None`` при преждевременном выходе.
+        """

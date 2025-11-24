@@ -34,13 +34,8 @@ from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
 class ChemblActivityPipeline(BaseChemblPipeline):
     """Adapter-класс, реализующий правила нормализации/обогащения для активности.
 
-    Конструктор поддерживает два режима и остаётся совместимым с существующим
-    контрактом:
-
-    - основной путь продакшена: ``ChemblActivityPipeline(config, run_id, source, *)``;
-    - упрощённый тестовый путь: ``ChemblActivityPipeline(source)`` — используется
-      в модульных тестах для быстрой smoke-проверки нормализации/обогащения без
-      загрузки конфигурации.
+    Конструктор следует единообразному контракту UnifiedPipelineBase и принимает
+    конфигурацию, идентификатор запуска и опциональный in-memory источник.
     """
 
     entity_name = "activity"
@@ -64,154 +59,20 @@ class ChemblActivityPipeline(BaseChemblPipeline):
 
     def __init__(
         self,
-        config_or_source: Any | None = None,
-        run_id: str | None = None,
+        config: Any,
+        run_id: str,
         source: Iterable[dict[str, Any]] | None = None,
         *,
-        config: Any | None = None,
         writer: Any = None,
     ) -> None:
         """Инициализировать пайплайн ChEMBL activity.
 
-        Путь 1 (основной):
-        ``ChemblActivityPipeline(config, run_id, source, writer=...)``
-
-        Путь 2 (тестовый):
-        ``ChemblActivityPipeline(source)`` — в этом случае будет создан минимальный
-        in-memory ``PipelineConfig`` с детерминированными путями вывода и
-        сгенерированным ``run_id``.
+        Конфигурация и ``run_id`` обязательны; ``source`` остаётся опциональным
+        in-memory потоком для тестовых сценариев. Любые файлы вывода и логирование
+        управляются базовым ``UnifiedPipelineBase``.
         """
 
-        from bioetl.config.models.base import PipelineMetadata
-        from bioetl.config.models.cli import CLIConfig
-        from bioetl.config.models.determinism import (
-            DeterminismConfig,
-            DeterminismHashingConfig,
-            DeterminismSortingConfig,
-        )
-        from bioetl.config.models.domain import PipelineDomainConfig
-        from bioetl.config.models.http import (
-            HTTPClientConfig,
-            HTTPConfig,
-            RetryConfig,
-        )
-        from bioetl.config.models.infrastructure import (
-            PipelineInfrastructureConfig,
-        )
-        from bioetl.config.models.models import PipelineConfig
-        from bioetl.config.models.paths import MaterializationConfig
-        from bioetl.config.models.postprocess import PostprocessConfig
-        from bioetl.config.models.source import SourceConfig, SourceParameters
-        from bioetl.config.models.validation import ValidationConfig
-
-        # Явный config= имеет приоритет над позиционным аргументом для совместимости
-        if config is not None:
-            # В config= пути объект трактуем как конфигурацию пайплайна, а не как source.
-            # Это гарантирует, что extract_all делегирует в descriptor-driven
-            # ChemblPipelineBase.run_extract_all, а не в legacy _source-путь.
-            if run_id is None:
-                msg = "ChemblActivityPipeline requires run_id when initialised with config="
-                raise TypeError(msg)
-            effective_source = source
-            effective_run_id = run_id
-        elif isinstance(config_or_source, PipelineConfig):
-            # Основной продакшен-контракт: позиционный PipelineConfig.
-            if run_id is None:
-                msg = "ChemblActivityPipeline requires run_id when initialised with PipelineConfig"
-                raise TypeError(msg)
-            config = config_or_source
-            effective_source = source
-            effective_run_id = run_id
-        else:
-            # Тестовый путь: первый аргумент трактуем как source iterable.
-            effective_source = (
-                source if source is not None else config_or_source
-            )
-
-            # Сконструировать минимальный детерминированный PipelineConfig.
-            http_config = HTTPConfig(
-                default=HTTPClientConfig(
-                    timeout_sec=30.0,
-                    connect_timeout_sec=10.0,
-                    read_timeout_sec=30.0,
-                    retries=RetryConfig(
-                        total=3, backoff_multiplier=2.0, backoff_max=10.0
-                    ),
-                ),
-            )
-
-            determinism_config = DeterminismConfig(
-                sort=DeterminismSortingConfig(by=[], ascending=[]),
-                hashing=DeterminismHashingConfig(business_key_fields=()),
-            )
-
-            from bioetl.config.models.cache import CacheConfig
-            from bioetl.config.models.io import IOConfig
-            from bioetl.config.models.logging import LoggingConfig
-            from bioetl.config.models.paths import PathsConfig
-            from bioetl.config.models.runtime import RuntimeConfig
-            from bioetl.config.models.telemetry import TelemetryConfig
-
-            infrastructure_config = PipelineInfrastructureConfig(
-                runtime=RuntimeConfig(),
-                io=IOConfig(),
-                http=http_config,
-                cache=CacheConfig(),
-                paths=PathsConfig(),
-                determinism=determinism_config,
-                materialization=MaterializationConfig(root="data/output"),
-                logging=LoggingConfig(),
-                telemetry=TelemetryConfig(),
-                cli=CLIConfig(date_tag="20240101"),
-            )
-
-            from bioetl.config.models.domain import PipelineDomainConfig
-            from bioetl.config.models.fallbacks import FallbacksConfig
-            from bioetl.config.models.transform import TransformConfig
-
-            domain_config = PipelineDomainConfig(
-                validation=ValidationConfig(
-                    schema_out=None, strict=True, coerce=True
-                ),
-                transform=TransformConfig(),
-                postprocess=PostprocessConfig(),
-                fallbacks=FallbacksConfig(),
-                sources={
-                    "chembl": SourceConfig(
-                        enabled=True,
-                        parameters=SourceParameters.from_mapping(
-                            {
-                                "base_url": "https://www.ebi.ac.uk/chembl/api/data",
-                                "max_url_length": 2000,
-                            }
-                        ),
-                    )
-                },
-                chembl=None,
-            )
-
-            pipeline_metadata = PipelineMetadata(
-                name="activity_chembl",
-                version="1.0.0",
-                description="Test activity pipeline",
-            )
-
-            # Используем model_validate для создания конфига
-            config = PipelineConfig.model_validate(
-                {
-                    "version": 1,
-                    "pipeline": pipeline_metadata.model_dump(),
-                    "domain": domain_config.model_dump(),
-                    "infrastructure": infrastructure_config.model_dump(),
-                }
-            )
-
-            # Если run_id не передан, используем фиксированное значение для тестов.
-            effective_run_id = run_id or "test-run"
-
-        super().__init__(
-            config, effective_run_id, effective_source, writer=writer
-        )
+        super().__init__(config, run_id, source, writer=writer)
         self.writer = writer
 
     def extract(
@@ -1153,22 +1014,15 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         output_dir: Any,
         *,
         extended: bool = False,
-        include_correlation: bool | None = None,
-        include_qc_metrics: bool | None = None,
+        include_correlation: bool = False,
+        include_qc_metrics: bool = False,
     ) -> Any:
-        # Convert None to False for IOArtifactsMixin compatibility
-        include_correlation_val: bool = (
-            include_correlation if include_correlation is not None else False
-        )
-        include_qc_metrics_val: bool = (
-            include_qc_metrics if include_qc_metrics is not None else False
-        )
         return super().save_results(
             df,
             output_dir,
             extended=extended,
-            include_correlation=include_correlation_val,
-            include_qc_metrics=include_qc_metrics_val,
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
         )
 
 

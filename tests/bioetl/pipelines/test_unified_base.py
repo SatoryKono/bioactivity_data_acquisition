@@ -208,11 +208,53 @@ def test_save_results_writes_dataset(
     assert result.write_result.dataset.exists()
 
 
+def test_save_results_coerces_none_flags(
+    unified_pipeline: DummyUnifiedPipeline, tmp_path: Path
+) -> None:
+    result = unified_pipeline.save_results(
+        pd.DataFrame(),
+        tmp_path,
+        include_correlation=None,  # type: ignore[arg-type]
+        include_qc_metrics=None,  # type: ignore[arg-type]
+    )
+
+    assert isinstance(result, RunResult)
+    assert result.write_result.dataset.exists()
+
+
 def test_unified_pipeline_run_produces_artifacts(
     unified_pipeline: DummyUnifiedPipeline, tmp_output_dir: Path
 ) -> None:
     result = unified_pipeline.run(tmp_output_dir)
     assert result.write_result.dataset.exists()
+
+
+def test_unified_pipeline_run_tracks_lifecycle(
+    pipeline_config_fixture, run_id, tmp_output_dir: Path
+) -> None:
+    class LifecyclePipeline(DummyUnifiedPipeline):
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            super().__init__(*args, **kwargs)
+            self.lifecycle: list[str] = []
+            self.finalized: RunResult | None = None
+
+        def prepare_run(self) -> None:
+            self.lifecycle.append("prepare")
+
+        def finalize_run(self, result: RunResult | None) -> None:
+            self.lifecycle.append("finalize")
+            self.finalized = result
+
+    pipeline = LifecyclePipeline(pipeline_config_fixture, run_id)
+
+    result = pipeline.run(tmp_output_dir)
+
+    assert result.records == 1
+    assert {"extract", "transform", "validate", "write"}.issubset(
+        result.stage_durations_ms.keys()
+    )
+    assert pipeline.lifecycle == ["prepare", "finalize"]
+    assert pipeline.finalized is result
 
 
 def test_unified_pipeline_satisfies_contract(
