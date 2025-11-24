@@ -11,6 +11,8 @@ from bioetl.chembl.common.descriptor import (
     ChemblDescriptorSpec,
     ChemblPipelineBase,
 )
+from bioetl.config.loader import load_pipeline_config
+from bioetl.config.models.models import PipelineConfig
 from bioetl.config.runtime import QCReportRuntimeOptions
 from bioetl.core.pipeline.orchestration import (
     PipelineStagesProtocol,
@@ -117,6 +119,25 @@ class UnifiedPipelineBase(
             records=result.records,
         )
         return result
+
+    def __init__(
+        self,
+        config: PipelineConfig | str | Path,
+        run_id: str,
+    ) -> None:
+        """Normalise configuration inputs before delegating to the parent."""
+
+        if isinstance(config, PipelineConfig):
+            validated_config = config
+        elif isinstance(config, (str, Path)):
+            validated_config = load_pipeline_config(config)
+        else:
+            msg = (
+                "config must be a PipelineConfig instance or path to a YAML file"
+            )
+            raise TypeError(msg)
+
+        super().__init__(validated_config, run_id)
 
     # Hooks -----------------------------------------------------------------
 
