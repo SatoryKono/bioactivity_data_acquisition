@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.pipeline import RunResult
+from bioetl.infrastructure.clients import default_chembl_factory
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl.document.normalize import (
     enrich_with_document_terms,
@@ -27,8 +28,16 @@ class ChemblDocumentPipeline(BaseChemblPipeline):
         source: Iterable[dict[str, Any]] | None = None,
         *,
         writer: Any = None,
+        client_factory=None,
     ) -> None:
-        super().__init__(config, run_id, source, writer=writer)
+        resolved_factory = client_factory or default_chembl_factory(config)
+        super().__init__(
+            config,
+            run_id,
+            source,
+            writer=writer,
+            client_factory=resolved_factory,
+        )
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
         return {

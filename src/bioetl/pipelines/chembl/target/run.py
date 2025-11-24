@@ -11,6 +11,7 @@ from structlog.stdlib import BoundLogger
 from bioetl.core.io import ensure_columns
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.schema.normalizers import IdentifierRule, StringRule
+from bioetl.infrastructure.clients import default_chembl_factory
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl.target.transform import serialize_target_arrays
 from bioetl.schemas.chembl_target_schema import COLUMN_ORDER, TargetSchema
@@ -28,8 +29,16 @@ class ChemblTargetPipeline(BaseChemblPipeline):
         source: Iterable[dict[str, Any]] | None = None,
         *,
         writer: Any = None,
+        client_factory=None,
     ) -> None:
-        super().__init__(config, run_id, source, writer=writer)
+        resolved_factory = client_factory or default_chembl_factory(config)
+        super().__init__(
+            config,
+            run_id,
+            source,
+            writer=writer,
+            client_factory=resolved_factory,
+        )
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
         # Return empty field_mappings to preserve all fields from extract

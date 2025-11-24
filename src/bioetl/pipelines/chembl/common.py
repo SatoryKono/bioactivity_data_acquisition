@@ -11,10 +11,8 @@ from bioetl.chembl.common.descriptor import (
     ChemblContextSpec,
     ChemblDescriptorSpec,
 )
-from bioetl.clients.chembl_entity_factory import (
-    ChemblClientBundle,
-    ChemblEntityClientFactory,
-)
+from bioetl.clients.chembl_entity_factory import ChemblClientBundle
+from bioetl.infrastructure.clients import default_chembl_factory
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.pipelines.chembl.mixins import (
@@ -45,12 +43,14 @@ class BaseChemblPipeline(
         *,
         io: ChemblIO | None = None,
         writer=None,
+        client_factory=None,
     ) -> None:
         super().__init__(config, run_id)
         self.io = io or ChemblIO()
         self._source = source
         self.writer = writer
         self.results: list[pd.DataFrame] = []
+        self.client_factory = client_factory
 
     # --- Hooks ---
     def _fetch_source(self) -> Iterable[dict[str, Any]]:
@@ -181,13 +181,28 @@ class BaseChemblPipeline(
         if self.config is None:
             msg = "Pipeline config is required to build Chembl clients"
             raise RuntimeError(msg)
-        factory = ChemblEntityClientFactory(self.config)
+        factory = self.client_factory or default_chembl_factory(self.config)
         source_config = self._resolve_source_config("chembl")
-        return factory.build(
-            self.entity_name or "",
-            source_name="chembl",
-            source_config=source_config,
-        )
+        if hasattr(factory, "build"):
+            return factory.build(
+                self.entity_name or "",
+                source_name="chembl",
+                source_config=source_config,
+                options=options,
+                chembl_client_kwargs=chembl_client_kwargs,
+                fresh_http_client=fresh_http_client,
+            )
+        if callable(factory):
+            return factory(
+                self.entity_name or "",
+                source_name=source_name,
+                source_config=source_config,
+                options=options,
+                chembl_client_kwargs=chembl_client_kwargs,
+                fresh_http_client=fresh_http_client,
+            )
+        msg = "client_factory must expose build(entity_name, ...)"
+        raise TypeError(msg)
 
     def fetch_chembl_release(
         self, client: Any, log: Any | None = None

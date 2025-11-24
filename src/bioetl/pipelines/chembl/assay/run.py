@@ -8,6 +8,7 @@ from typing import Any, cast
 import pandas as pd
 
 from bioetl.chembl.common.normalize import add_row_metadata
+from bioetl.infrastructure.clients import default_chembl_factory
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl.helpers import build_dataframe
 
@@ -23,8 +24,16 @@ class ChemblAssayPipeline(BaseChemblPipeline):
         source: Iterable[dict[str, Any]] | None = None,
         *,
         writer=None,
+        client_factory=None,
     ) -> None:
-        super().__init__(config, run_id, source, writer=writer)
+        resolved_factory = client_factory or default_chembl_factory(config)
+        super().__init__(
+            config,
+            run_id,
+            source,
+            writer=writer,
+            client_factory=resolved_factory,
+        )
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
         return {
