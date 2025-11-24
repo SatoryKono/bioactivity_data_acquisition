@@ -101,9 +101,6 @@ API_ASSAY_FIELDS: tuple[str, ...] = (
     "confidence_score",
     "confidence_description",
     "variant_sequence",
-    "assay_classifications",
-    "assay_parameters",
-    "assay_class_id",
     "curation_level",
 )
 

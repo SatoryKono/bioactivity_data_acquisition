@@ -6,8 +6,6 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
 import pandas as pd
-from structlog.stdlib import BoundLogger
-
 from bioetl.chembl.common.normalize import add_row_metadata
 from bioetl.pipelines.chembl._constants import (
     API_ASSAY_FIELDS,
@@ -68,11 +66,6 @@ class ChemblAssayPipeline(BaseChemblPipeline):
                 source="confidence_description",
             ),
             "variant_sequence": FieldMappingRule(source="variant_sequence"),
-            "assay_classifications": FieldMappingRule(
-                source="assay_classifications",
-            ),
-            "assay_parameters": FieldMappingRule(source="assay_parameters"),
-            "assay_class_id": FieldMappingRule(source="assay_class_id"),
             "curation_level": FieldMappingRule(source="curation_level"),
         }
 
@@ -85,119 +78,6 @@ class ChemblAssayPipeline(BaseChemblPipeline):
             "assay_type_description": lambda series: series.notna(),
         }
 
-    def _normalize_nested_structures(
-        self,
-        df: pd.DataFrame,
-        log: BoundLogger | None = None,
-    ) -> pd.DataFrame:
-        """Extract assay_class_id from assay_classifications array.
-
-        Supports multiple key formats with priority order:
-        - assay_class_id (highest priority)
-        - class_id
-        - id
-        - bao_format (lowest priority)
-
-        Parameters
-        ----------
-        df
-            DataFrame with assay_classifications column
-        log
-            Optional logger instance
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame with assay_class_id column populated from classifications
-        """
-        result = df.copy()
-
-        # Ensure assay_class_id column exists
-        if "assay_class_id" not in result.columns:
-            result["assay_class_id"] = pd.NA
-
-        # Priority order for keys
-        key_priority = ["assay_class_id", "class_id", "id", "bao_format"]
-
-        def _extract_class_ids_from_item(item: Any) -> list[str]:
-            """Recursively extract class IDs from nested structures."""
-            class_ids: list[str] = []
-
-            if isinstance(item, dict):
-                # Try keys in priority order
-                class_id_value = None
-                for key in key_priority:
-                    if key in item and item[key] is not None:
-                        class_id_value = item[key]
-                        break
-
-                if class_id_value:
-                    # Normalize: uppercase and strip
-                    class_id_str = str(class_id_value).strip().upper()
-                    if class_id_str and class_id_str != "NAN":
-                        # Normalize BAO format: replace : with _
-                        class_id_str = class_id_str.replace(":", "_")
-                        # Add BAO_ prefix if missing
-                        if class_id_str.startswith("BAO_"):
-                            # Already in correct format: BAO_0000015
-                            pass
-                        elif (
-                            class_id_str.startswith("BAO")
-                            and len(class_id_str) > 3
-                        ):
-                            # BAO0000015 -> BAO_0000015
-                            class_id_str = "BAO_" + class_id_str[3:]
-                        elif class_id_str and class_id_str.isdigit():
-                            # 0000015 -> BAO_0000015
-                            class_id_str = "BAO_" + class_id_str
-                        class_ids.append(class_id_str)
-
-                # Recursively process nested structures
-                for value in item.values():
-                    if isinstance(value, (list, dict)):
-                        class_ids.extend(_extract_class_ids_from_item(value))
-
-            elif isinstance(item, list):
-                for sub_item in item:
-                    class_ids.extend(_extract_class_ids_from_item(sub_item))
-
-            return class_ids
-
-        for idx in result.index:
-            classifications = result.loc[idx, "assay_classifications"]
-
-            # Handle None/NA/empty
-            if classifications is None or classifications is pd.NA:
-                result.loc[idx, "assay_class_id"] = pd.NA
-                continue
-
-            if isinstance(classifications, float) and pd.isna(classifications):
-                result.loc[idx, "assay_class_id"] = pd.NA
-                continue
-
-            # Handle empty list
-            if isinstance(classifications, list) and len(classifications) == 0:
-                result.loc[idx, "assay_class_id"] = pd.NA
-                continue
-
-            # Extract class IDs from array (recursively)
-            class_ids = _extract_class_ids_from_item(classifications)
-
-            # Deduplicate while preserving order
-            seen: set[str] = set()
-            unique_class_ids: list[str] = []
-            for class_id in class_ids:
-                if class_id not in seen:
-                    seen.add(class_id)
-                    unique_class_ids.append(class_id)
-
-            # Join multiple IDs with semicolon
-            if unique_class_ids:
-                result.loc[idx, "assay_class_id"] = ";".join(unique_class_ids)
-            else:
-                result.loc[idx, "assay_class_id"] = pd.NA
-
-        return result
 
     def save_results(
         self,
@@ -233,14 +113,13 @@ class ChemblAssayPipeline(BaseChemblPipeline):
         )
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform raw DataFrame by applying normalization, enrichment, and schema compliance."""
+        """Transform raw DataFrame by applying normalization and schema compliance."""
         if df.empty:
             return df
         # Convert DataFrame to records for processing
         records = cast(Sequence[Mapping[str, Any]], df.to_dict("records"))
         normalized = self._normalize(records)
-        enriched = self._enrich(normalized)
-        transformed_df = build_dataframe(enriched)
+        transformed_df = build_dataframe(normalized)
 
         # Ensure standard row metadata columns exist for determinism and hashing
         transformed_df, _ = add_row_metadata(
