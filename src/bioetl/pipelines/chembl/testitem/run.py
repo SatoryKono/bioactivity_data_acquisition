@@ -129,6 +129,60 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
 
         return result
 
+    def _normalize_domain_fields(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Normalize numeric domain fields for the testitem entity."""
+
+        result = df.copy()
+
+        def _normalize_flag(
+            frame: pd.DataFrame,
+            column: str,
+            *,
+            allowed: set[int] | None = None,
+            min_value: int | None = None,
+        ) -> None:
+            if column not in frame.columns:
+                return
+            series = pd.to_numeric(frame[column], errors="coerce")
+            if min_value is not None:
+                series = series.mask(series < min_value)
+            if allowed is not None:
+                series = series.where(series.isin(allowed))
+            frame[column] = series.astype("Int64")
+
+        _normalize_flag(
+            result,
+            "max_phase",
+            allowed={0, 1, 2, 3, 4},
+        )
+
+        for name in ("first_in_class", "inorganic_flag", "prodrug"):
+            _normalize_flag(result, name, allowed={0, 1})
+
+        for name in ("availability_type", "chirality"):
+            _normalize_flag(result, name, min_value=0)
+
+        column = "molecule_properties__ro3_pass"
+        if column in result.columns:
+            string_series = result[column].astype("string").str.strip()
+            numeric = pd.to_numeric(string_series, errors="coerce")
+            mapped = pd.Series(
+                pd.NA,
+                index=string_series.index,
+                dtype="Int64",
+            )
+            numeric_mask = numeric.isin([0, 1])
+            mapped.loc[numeric_mask] = numeric.loc[numeric_mask].astype("Int64")
+            missing_mask = numeric.isna()
+            lower = string_series.str.lower()
+            yes_values = {"y", "yes"}
+            no_values = {"n", "no"}
+            mapped.loc[missing_mask & lower.isin(yes_values)] = 1
+            mapped.loc[missing_mask & lower.isin(no_values)] = 0
+            result[column] = mapped
+
+        return result
+
     def _deduplicate_molecules(
         self, df: pd.DataFrame, log: Any
     ) -> pd.DataFrame:  # noqa: D401
@@ -170,6 +224,7 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         flattened = testitem_transform.transform(df, self.config)
 
         result = flattened.copy()
+        result = self._normalize_domain_fields(result)
         metadata = self.chembl_release_metadata()
 
         chembl_db_version = metadata.get("chembl_db_version")
