@@ -30,14 +30,9 @@ from bioetl.clients.base import (
     merge_select_fields,
     normalize_select_fields,
 )
-from bioetl.clients.chembl_entity_factory import (
-    ChemblClientBundle,
-    ChemblEntityClientFactory,
-)
-from bioetl.clients.client_chembl import _resolve_status_endpoint
 from bioetl.config.models.source import SourceConfig
+from bioetl.chembl.common.release_tracker import ChemblReleaseMixin
 from bioetl.core import APIClientFactory
-from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.pipeline import PipelineBase, PipelineExtractionMode
@@ -46,6 +41,10 @@ from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 if TYPE_CHECKING:
+    from bioetl.clients.chembl_entity_factory import (
+        ChemblClientBundle,
+        ChemblEntityClientFactory,
+    )
     from bioetl.pipelines.mixins.descriptor_builder import (
         DescriptorStrategyFactory,
     )
@@ -930,6 +929,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
+        from bioetl.clients.chembl_entity_factory import ChemblEntityClientFactory
+
         self._chembl_entity_factory = ChemblEntityClientFactory(
             config,
             api_client_factory=self._client_factory,
@@ -2189,6 +2190,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         if callable(get_candidate):
             client_get = cast(Callable[..., Any], get_candidate)
             request_timestamp = datetime.now(timezone.utc)
+            from bioetl.clients.client_chembl import _resolve_status_endpoint
+
             status_endpoint = _resolve_status_endpoint()
             try:
                 response = client_get(status_endpoint)
