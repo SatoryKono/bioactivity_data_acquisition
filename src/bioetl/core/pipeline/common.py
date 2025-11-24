@@ -546,7 +546,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
     def _log_setup(
         self,
-        bootstrap_log: BoundLogger,
+        run_log: BoundLogger,
         options: StageExecutionOptions,
         output_dir: Path,
         extract_mode: PipelineExtractionMode,
@@ -560,7 +560,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             )
             else None
         )
-        bootstrap_log.info(
+        run_log.info(
             LogEvents.STAGE_RUN_START,
             mode=effective_mode,
             output_path=str(output_dir),
@@ -2161,16 +2161,18 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         stage_context: StageContext,
         *,
         stage_durations_ms: Mapping[str, float] | None = None,
-        bootstrap_log: BoundLogger | None = None,
+        run_log: BoundLogger | None = None,
     ) -> RunResult | None:
         """Hook executed after successful stage execution."""
 
         _ = stage_context
-        if bootstrap_log is not None:
-            bootstrap_log.info(
-                LogEvents.STAGE_RUN_FINISH,
-                stage_durations_ms=stage_durations_ms or {},
-            )
+        if run_log is not None:
+            payload: dict[str, Any] = {
+                "stage_durations_ms": stage_durations_ms or {},
+            }
+            if result is not None:
+                payload["records"] = result.records
+            run_log.info(LogEvents.STAGE_RUN_FINISH, **payload)
 
         self.finalize_run(result)
         return result
@@ -2252,14 +2254,12 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
             cmd for cmd in self.stage_plan if cmd.name != "cleanup"
         )
 
-        current_stage = "bootstrap"
+        current_stage = "run"
         bind_pipeline_context(
             stage=current_stage, component=f"{self.pipeline_code}.pipeline"
         )
-        bootstrap_log = self._make_pipeline_logger(
-            stage=current_stage, logger_name=__name__
-        )
-        self._log_setup(bootstrap_log, options, output_dir, extract_mode)
+        run_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
+        self._log_setup(run_log, options, output_dir, extract_mode)
 
         effective_extended = bool(
             extended or getattr(self.config.cli, "extended", False)
@@ -2283,7 +2283,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                     stage_context.result,
                     stage_context,
                     stage_durations_ms=stage_durations_ms,
-                    bootstrap_log=bootstrap_log,
+                    run_log=run_log,
                 )
                 finalize_invoked = True
                 if result is None:

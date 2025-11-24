@@ -106,21 +106,15 @@ class ChemblDocumentPipeline(BaseChemblPipeline):
         output_dir: Path,
         *,
         extended: bool = False,
-        include_correlation: bool | None = None,
-        include_qc_metrics: bool | None = None,
+        include_correlation: bool = False,
+        include_qc_metrics: bool = False,
     ) -> RunResult:
         return super().save_results(
             df,
             output_dir,
             extended=extended,
-            include_correlation=(
-                include_correlation
-                if include_correlation is not None
-                else False
-            ),
-            include_qc_metrics=(
-                include_qc_metrics if include_qc_metrics is not None else False
-            ),
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
         )
 
 
