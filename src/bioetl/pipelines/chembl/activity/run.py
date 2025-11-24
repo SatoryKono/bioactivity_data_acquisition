@@ -233,6 +233,10 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         )
         self.writer = writer
 
+        self._enrichment_engine = EnrichmentScenarioEngine()
+        for name, scenario in self._ENRICHMENT_SCENARIOS.items():
+            self._enrichment_engine.register(scenario)
+
     def extract(
         self,
         *,
