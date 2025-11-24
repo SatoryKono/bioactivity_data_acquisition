@@ -92,6 +92,10 @@ bioetl config inspect \
   сторонних расширений, опубликованы в
   [`docs/architecture.md`](docs/architecture.md). Там же приведены примеры
   наследования и ожидаемые точечные изменения при добавлении новых сущностей.
+- Публичный API закреплён в явном shim`е
+  [`src/bioetl/public.py`](src/bioetl/public.py) и импортируется через
+  `from bioetl import PipelineConfig, PipelineBase, UnifiedLogger, ...`. Это
+  гарантирует стабильную точку входа без ленивых экспортов из `__init__.py`.
 
 ### `PipelineStagesProtocol` и StageFactory
 
