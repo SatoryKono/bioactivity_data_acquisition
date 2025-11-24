@@ -9,7 +9,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from bioetl.core import hash_from_mapping
+from bioetl.core.io import hash_from_mapping
 from bioetl.core.runtime.load_meta_store import LoadMetaStore
 from bioetl.schemas.chembl_metadata_schema import (
     BUSINESS_KEY_FIELDS,

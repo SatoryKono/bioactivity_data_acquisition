@@ -34,12 +34,12 @@ infrastructure. Its internal structure now follows the directory patterns from
 - `core/utils` — shared domain helpers (vocabulary store access,
   molecule joins).
 
-`bioetl.core.__init__` re-exports the supported symbols from these
-subpackages so that imports such as `from bioetl.core import UnifiedLogger`
-continue to work. The historical compatibility stubs (`bioetl.core.api_client`,
-`bioetl.core.logger`, `bioetl.core.log_events`, etc.) were removed in Q4 2025;
-new code **MUST** import either from `bioetl.core` (preferred for public API) or
-from the canonical subpackages listed above.
+`bioetl.core.__init__` сохраняет шорткаты для обратной совместимости, но
+инвентаризация показала, что поддерживаемая поверхность живёт в подмодулях.
+Исторические совместимые модули (`bioetl.core.api_client`,
+`bioetl.core.logger`, `bioetl.core.log_events`, и т.п.) удалены; новое
+использование **должно** ссылаться на конкретные подмодули
+(`bioetl.core.logging.UnifiedLogger`, `bioetl.core.http.APIClientFactory`, и т.д.).
 
 ## One Source, One Pipeline
 

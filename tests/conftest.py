@@ -213,7 +213,7 @@ def mock_api_client_factory_patch(
 
     def _factory(mock_client: MagicMock | None = None) -> Generator[MagicMock, None, None]:
         client = mock_client or mock_chembl_api_client
-        with patch("bioetl.core.APIClientFactory.for_source") as mock_factory:
+        with patch("bioetl.core.http.client_factory.APIClientFactory.for_source") as mock_factory:
             mock_factory.return_value = client
             yield mock_factory
 

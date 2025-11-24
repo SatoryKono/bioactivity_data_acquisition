@@ -23,7 +23,7 @@ from bioetl.config.models.models import (
 )
 from bioetl.config.models.paths import MaterializationConfig
 from bioetl.config.models.validation import ValidationConfig
-from bioetl.core import (
+from bioetl.core.io import (
     DeterministicWriteArtifacts,
     ensure_hash_columns,
     prepare_dataframe,

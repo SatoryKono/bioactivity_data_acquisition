@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.core import (
+from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
     normalize_identifier_columns,

@@ -15,8 +15,7 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.cli.cli_registry import COMMAND_REGISTRY, CommandConfig
 from bioetl.config.environment import load_environment_settings
-from bioetl.core import LoggerConfig, UnifiedLogger
-from bioetl.core.logging import LogEvents
+from bioetl.core.logging import LogEvents, LoggerConfig, UnifiedLogger
 from bioetl.core.pipeline.orchestration import RunResult
 from bioetl.core.runtime.cli_pipeline_runner import (
     PipelineCommandOptions,

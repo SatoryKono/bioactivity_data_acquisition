@@ -79,9 +79,7 @@ if TYPE_CHECKING:  # pragma: no cover - imports for static analyzers only
     from bioetl.chembl.common import join_activity_with_molecule
     from bioetl.chembl.common.release_tracker import ChemblReleaseMixin
 
-__all__ = [
-    # Common
-    "ChemblReleaseMixin",
+_PUBLIC_EXPORTS: list[str] = [
     # HTTP
     "APIClientFactory",
     "CircuitBreaker",
@@ -130,7 +128,6 @@ __all__ = [
     # Utils
     "clear_vocab_store_cache",
     "get_ids",
-    "join_activity_with_molecule",
     "load_vocab_store",
     # Schema
     "IdentifierRule",
@@ -142,10 +139,6 @@ __all__ = [
     "normalize_string_columns",
     "format_failure_cases",
     "summarize_schema_errors",
-    # Deprecated exports (kept for backwards compatibility)
-    "BaseApiClient",
-    "IParser",
-    "INormalizer",
 ]
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
@@ -203,6 +196,11 @@ _DEPRECATED_EXPORTS: dict[str, tuple[str, str, str]] = {
         ),
     ),
 }
+
+_DEPRECATED_PUBLIC_EXPORTS: tuple[str, ...] = tuple(_DEPRECATED_EXPORTS)
+"""Names kept solely for backwards compatibility; remove after next release."""
+
+__all__ = [*_PUBLIC_EXPORTS, *_DEPRECATED_PUBLIC_EXPORTS]
 
 
 def __getattr__(name: str) -> object:

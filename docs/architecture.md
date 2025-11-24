@@ -18,6 +18,30 @@ flowchart LR
 дополнительный слой `ChemblPipelineBase`, который инкапсулирует handshake,
 подготовку дескрипторов и сбор статистики.
 
+## Public API surface
+
+Поддерживаемая поверхность `bioetl.core` зафиксирована по результатам
+инвентаризации рабочих импортов в коде и тестах. Новые вызовы должны
+использовать подмодули напрямую (топ-уровневый импорт остаётся только как
+compat-шорткат):
+
+- `bioetl.core.logging`: `UnifiedLogger`, `LoggerConfig`, `LogEvents`,
+  `configure_logging`, `get_logger`.
+- `bioetl.core.http`: `APIClientFactory`, `UnifiedAPIClient`,
+  `CircuitBreaker`, `TokenBucketLimiter`, `merge_http_configs`.
+- `bioetl.core.io`: `prepare_dataframe`, `ensure_hash_columns`,
+  `DeterministicWriteArtifacts`, `write_dataset_atomic`, `write_frame_like`,
+  `serialise_metadata`, `compute_hash`, `hash_from_mapping`,
+  `serialize_array_fields`, `serialize_objects`.
+- `bioetl.core.schema`: `IdentifierRule`, `StringRule`,
+  `SchemaColumnFactory`, `normalize_identifier_columns`,
+  `normalize_string_columns`, `format_failure_cases`,
+  `summarize_schema_errors`.
+- `bioetl.core.runtime`: `CliCommandBase`, `CliEntrypoint`, `BioETLError`,
+  `LoadMetaStore`.
+- `bioetl.core.utils`: `get_ids`, `clear_vocab_store_cache`,
+  `load_vocab_store`.
+
 ## Публичный API слоя пайплайнов
 
 | Уровень | Модуль | Основные классы/методы | Назначение |

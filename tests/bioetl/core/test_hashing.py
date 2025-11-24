@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bioetl.core import compute_hash, hash_from_mapping
+from bioetl.core.io import compute_hash, hash_from_mapping
 
 
 @pytest.mark.unit
