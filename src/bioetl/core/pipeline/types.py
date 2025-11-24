@@ -14,7 +14,7 @@ from bioetl.core.io import WriteResult
 from bioetl.core.logging import pipeline_stage
 
 if TYPE_CHECKING:
-    from bioetl.core.pipeline.common import PipelineBaseCommon
+    from bioetl.core.pipeline.orchestration import PipelineBaseCommon
 
 
 class PipelineExtractionMode(str, Enum):
