@@ -14,9 +14,6 @@ from bioetl.pipelines.chembl._constants import (
     DOCUMENT_MUST_HAVE_FIELDS,
 )
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
-from bioetl.pipelines.chembl.document.normalize import (
-    enrich_with_document_terms,
-)
 from bioetl.pipelines.chembl.mixins import FieldMappingRule
 
 
@@ -55,67 +52,11 @@ class ChemblDocumentPipeline(BaseChemblPipeline):
         return bundle.entity_client
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform raw DataFrame by applying normalization and enrichment."""
+        """Transform raw DataFrame by applying normalization."""
         if df.empty:
             return df
 
-        # Start with base transformation (normalization)
-        working_df = super().transform(df)
-
-        # Check if enrichment is enabled
-        chembl_config = getattr(self.config, "chembl", None)
-        if chembl_config is None:
-            domain = getattr(self.config, "domain", None)
-            if domain is not None:
-                chembl_config = getattr(domain, "chembl", None)
-
-        if chembl_config is not None:
-            # Convert to dict if needed
-            if hasattr(chembl_config, "model_dump"):
-                chembl_config = chembl_config.model_dump()
-            elif hasattr(chembl_config, "dict"):
-                chembl_config = chembl_config.dict()
-
-            # Normalise to mapping for safe key access
-            config_mapping: Mapping[str, Any]
-            if isinstance(chembl_config, Mapping):
-                config_mapping = chembl_config
-            else:
-                config_mapping = {}
-
-            # Check if document_term enrichment is enabled
-            document_cfg = config_mapping.get("document", {})
-            if not isinstance(document_cfg, Mapping):
-                document_cfg = {}
-
-            enrich_cfg = document_cfg.get("enrich", {})
-            if not isinstance(enrich_cfg, Mapping):
-                enrich_cfg = {}
-
-            doc_term_enrich = enrich_cfg.get("document_term", {})
-            if not isinstance(doc_term_enrich, Mapping):
-                doc_term_enrich = {}
-
-            if bool(doc_term_enrich.get("enabled", False)):
-                # Get client from bundle
-                bundle = self.build_chembl_entity_bundle(
-                    entity_name="document",
-                    source_name="chembl",
-                    source_config=self._resolve_source_config("chembl"),
-                    options={},
-                    chembl_client_kwargs={},
-                    fresh_http_client=False,
-                )
-                client = bundle.chembl_client
-
-                # Apply enrichment
-                working_df = enrich_with_document_terms(
-                    working_df,
-                    client,
-                    doc_term_enrich,
-                )
-
-        return working_df
+        return super().transform(df)
 
     def save_results(
         self,
