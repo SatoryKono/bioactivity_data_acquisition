@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import pandas as pd
+from structlog.stdlib import BoundLogger
 
 import bioetl.vocab.service as vocab_service
 from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
@@ -165,7 +166,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 cli=CLIConfig(date_tag="20240101"),
             )
 
-            from bioetl.config.models.domain import PipelineDomainConfig
             from bioetl.config.models.fallbacks import FallbacksConfig
             from bioetl.config.models.transform import TransformConfig
 
@@ -242,7 +242,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         stage: str | None = None,
         component: str | None = None,
         **extra: Any,
-    ) -> Any:
+    ) -> BoundLogger:
         """Return a logger bound to the pipeline and stage context."""
         return self._make_pipeline_logger(
             stage=stage, component=component, **extra
@@ -280,7 +280,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         self,
         df: pd.DataFrame,
         client: ChemblClient,
-        log: Any | None = None,
+        log: BoundLogger | None = None,
     ) -> pd.DataFrame:
         """Hydrate assay metadata columns deterministically for extract tests."""
 
@@ -415,7 +415,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
     def _ensure_comment_fields(
         self,
         df: pd.DataFrame,
-        log: Any | None = None,
+        log: BoundLogger | None = None,
     ) -> pd.DataFrame:
         """Ensure comment fields are present in DataFrame with default pd.NA values.
 
@@ -456,7 +456,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
     def _log_validity_comments_metrics(
         self,
         df: pd.DataFrame,
-        log: Any | None = None,
+        log: BoundLogger | None = None,
     ) -> None:
         """Log metrics for validity comment fields.
 
@@ -532,7 +532,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
     def _validate_data_validity_comment_soft_enum(
         self,
         df: pd.DataFrame,
-        log: Any | None = None,
+        log: BoundLogger | None = None,
     ) -> None:
         """Validate data_validity_comment values against vocabulary whitelist (soft enum).
 
@@ -601,7 +601,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         self,
         df: pd.DataFrame,
         client: ChemblClient,
-        log: Any | None = None,
+        log: BoundLogger | None = None,
     ) -> pd.DataFrame:
         """Hydrate ``data_validity_description`` via ChEMBL lookup API."""
 
@@ -722,11 +722,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         return self.build_normalization_rules_from_spec(field_mapping_spec)
 
     def _normalize_string_fields(
-        self, df: pd.DataFrame, log: Any
+        self, df: pd.DataFrame, log: BoundLogger
     ) -> pd.DataFrame:
         """Normalize string fields and check invariants."""
-        from structlog.stdlib import BoundLogger
-
         # Call parent method
         result = super()._normalize_string_fields(df, log)
 
@@ -775,7 +773,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         }
 
     def _normalize_measurements(
-        self, df: pd.DataFrame, log: Any
+        self, df: pd.DataFrame, log: BoundLogger
     ) -> pd.DataFrame:
         """Normalize measurement fields: standard_value, standard_relation, standard_type, standard_units."""
         from bioetl.schemas._validators import RELATIONS
@@ -858,7 +856,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         return result
 
     def _normalize_activity_properties_items(
-        self, payload: Any, log: Any | None = None
+        self, payload: Any, log: BoundLogger | None = None
     ) -> list[dict[str, Any]] | None:
         """Normalize activity_properties items from various input formats.
 
@@ -879,8 +877,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             Normalized list of activity property items, or None if unhandled type
         """
         import json
-
-        from bioetl.core.logging import LogEvents, UnifiedLogger
 
         base_log = log or UnifiedLogger.get(__name__)
 
@@ -956,7 +952,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             return None
 
     def _normalize_data_types(
-        self, df: pd.DataFrame, schema: Any, log: Any
+        self, df: pd.DataFrame, schema: Any, log: BoundLogger
     ) -> pd.DataFrame:
         """Convert data types according to the schema for activity pipeline."""
         import pandera as pa
@@ -1040,8 +1036,6 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                             mask, column_name
                         ].astype(str)
             except (ValueError, TypeError) as exc:
-                from bioetl.core.logging import LogEvents
-
                 log.warning(
                     LogEvents.TYPE_CONVERSION_FAILED,
                     field=column_name,

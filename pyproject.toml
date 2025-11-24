@@ -159,6 +159,14 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
+    "bioetl.schemas",
+    "bioetl.schemas.__init__",
+    "bioetl.schemas.pipeline_contracts",
+]
+ignore_errors = false
+
+[[tool.mypy.overrides]]
+module = [
     "bioetl.schemas.*",
 ]
 ignore_errors = true

@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any, Mapping as TypingMapping
+from typing import Any
 
 import pandas as pd
+from structlog.stdlib import BoundLogger
 
 from bioetl.pipelines.chembl._constants import (
     API_TESTITEM_FIELDS,
@@ -43,8 +44,12 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
     def save_results(self, df: pd.DataFrame, output_dir, **_: Any):
         return super().save_results(df, output_dir)
 
-    def _fetch_chembl_release(self, client, log=None):
-        release = super()._fetch_chembl_release(client, log)
+    def _fetch_chembl_release(
+        self,
+        client: Any,
+        log: BoundLogger | None = None,
+    ) -> Any:
+        release = super().fetch_chembl_release(client, log)
         # Normalize release value
         if release:
             normalized_release = (
@@ -66,11 +71,19 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
                         self, "_set_api_version"
                     ):
                         self._set_api_version(str(api_version))
-            except Exception:
-                pass  # Ignore errors when extracting api_version
+            except Exception as exc:  # pragma: no cover - defensive logging
+                if log is not None:
+                    log.debug(
+                        "chembl_testitem_api_version_extract_failed",
+                        error=str(exc),
+                    )
         return release
 
-    def ensure_chembl_release(self, context, log):  # type: ignore[override]
+    def ensure_chembl_release(  # type: ignore[override]
+        self,
+        context: Any,
+        log: BoundLogger,
+    ) -> tuple[Any, Mapping[str, Any]]:
         """Ensure release is resolved and propagate api_version into extra_filters.
 
         This adapter keeps the behaviour of the shared Chembl pipeline base while
@@ -92,7 +105,7 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         return release, metadata
 
     def _normalize_identifiers(
-        self, df: pd.DataFrame, log: Any
+        self, df: pd.DataFrame, log: BoundLogger
     ) -> pd.DataFrame:  # noqa: D401
         """Normalize ChEMBL identifiers and InChI keys for the testitem entity."""
 
@@ -121,7 +134,7 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         return result
 
     def _normalize_string_fields(
-        self, df: pd.DataFrame, log: Any
+        self, df: pd.DataFrame, log: BoundLogger
     ) -> pd.DataFrame:  # noqa: D401
         """Normalize human-readable string fields for the testitem entity."""
 
@@ -190,7 +203,7 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         return result
 
     def _deduplicate_molecules(
-        self, df: pd.DataFrame, log: Any
+        self, df: pd.DataFrame, log: BoundLogger
     ) -> pd.DataFrame:  # noqa: D401
         """Deduplicate molecules by structural identifiers.
 
@@ -213,11 +226,11 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         if not subset:
             return df
 
-        result = df.copy()
-        result = result.drop_duplicates(
-            subset=subset, keep="first"
-        ).reset_index(drop=True)
-        return result
+        return (
+            df.copy()
+            .drop_duplicates(subset=subset, keep="first")
+            .reset_index(drop=True)
+        )
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
         """Apply testitem-specific transform and annotate with release metadata."""
@@ -251,9 +264,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
 
     def augment_metadata(
         self,
-        metadata: TypingMapping[str, object],
+        metadata: Mapping[str, object],
         df: pd.DataFrame,
-    ) -> TypingMapping[str, object]:  # type: ignore[override]
+    ) -> Mapping[str, object]:  # type: ignore[override]
         """Include ChEMBL release metadata in the persisted meta.yaml payload."""
 
         enriched: dict[str, object] = dict(

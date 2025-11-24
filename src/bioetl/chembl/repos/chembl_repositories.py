@@ -131,10 +131,11 @@ class ChemblCompoundRecordRepository(CompoundRecordRepository):
         result: dict[str, Mapping[str, object]] = {}
         for record in all_records:
             rid = record.get("record_id")
-            if isinstance(rid, str):
-                rid_key = rid
-            else:
-                rid_key = str(rid).strip() if rid is not None else ""
+            rid_key = (
+                rid
+                if isinstance(rid, str)
+                else (str(rid).strip() if rid is not None else "")
+            )
             if not rid_key or rid_key in result:
                 continue
             payload: dict[str, object] = {

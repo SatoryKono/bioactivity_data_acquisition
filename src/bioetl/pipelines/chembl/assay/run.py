@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
 import pandas as pd
+from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.normalize import add_row_metadata
 from bioetl.pipelines.chembl._constants import (
@@ -87,7 +88,7 @@ class ChemblAssayPipeline(BaseChemblPipeline):
     def _normalize_nested_structures(
         self,
         df: pd.DataFrame,
-        log: Any | None = None,
+        log: BoundLogger | None = None,
     ) -> pd.DataFrame:
         """Extract assay_class_id from assay_classifications array.
 
@@ -215,12 +216,19 @@ class ChemblAssayPipeline(BaseChemblPipeline):
         Chembl pipelines and the shared PipelineBase contract.
         """
 
+        include_correlation_val = (
+            include_correlation if include_correlation is not None else False
+        )
+        include_qc_metrics_val = (
+            include_qc_metrics if include_qc_metrics is not None else False
+        )
+
         return super().save_results(
             df,
             output_dir,
             extended=extended,
-            include_correlation=include_correlation,
-            include_qc_metrics=include_qc_metrics,
+            include_correlation=include_correlation_val,
+            include_qc_metrics=include_qc_metrics_val,
             **kwargs,
         )
 
