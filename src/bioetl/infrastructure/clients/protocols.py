@@ -30,3 +30,13 @@ class ChemblClientFactoryProtocol(Protocol):
         fresh_http_client: bool = False,
     ) -> Any:
         ...
+
+    def build_http_client(
+        self,
+        *,
+        source_name: str = "chembl",
+        source_config: Any | None = None,
+        options: Mapping[str, Any] | None = None,
+        fresh_http_client: bool = False,
+    ) -> tuple[Any, str, Any]:
+        ...

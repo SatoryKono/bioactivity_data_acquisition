@@ -14,8 +14,10 @@ from .protocols import ChemblClientFactoryProtocol
 class _ChemblAdapterFactory(ChemblClientFactoryProtocol):
     """Wrap :class:`ChemblEntityClientFactory` with protocol-compliant adapters."""
 
-    def __init__(self, config: Any) -> None:
-        self._factory = ChemblEntityClientFactory(config)
+    def __init__(self, config: Any, *, api_client_factory: Any | None = None) -> None:
+        self._factory = ChemblEntityClientFactory(
+            config, api_client_factory=api_client_factory
+        )
 
     def build(
         self,
@@ -42,8 +44,27 @@ class _ChemblAdapterFactory(ChemblClientFactoryProtocol):
         )
         return replace(bundle, entity_client=adapted_client)
 
+    def build_http_client(
+        self,
+        *,
+        source_name: str = "chembl",
+        source_config: Any | None = None,
+        options: Any | None = None,
+        fresh_http_client: bool = False,
+    ) -> tuple[Any, str, Any]:
+        """Delegate HTTP client construction to the underlying factory."""
 
-def default_chembl_factory(config: Any) -> ChemblClientFactoryProtocol:
+        return self._factory.build_http_client(
+            source_name=source_name,
+            source_config=source_config,
+            options=options,
+            fresh_http_client=fresh_http_client,
+        )
+
+
+def default_chembl_factory(
+    config: Any, *, api_client_factory: Any | None = None
+) -> ChemblClientFactoryProtocol:
     """Return default factory producing Chembl protocol adapters from config."""
 
-    return _ChemblAdapterFactory(config)
+    return _ChemblAdapterFactory(config, api_client_factory=api_client_factory)

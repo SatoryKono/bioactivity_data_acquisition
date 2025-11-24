@@ -20,8 +20,6 @@ package "bioetl.core" #EEEEFF {
 package "bioetl.pipelines" #FFEEEE {
   [pipelines.__init__] as PipelinesInit
   [pipelines.base\nPipelineBase] as PipelinesBase
-  [pipelines.errors] as PipelinesErrors
-  [pipelines.common\nensure_directory] as PipelinesCommon
   [pipelines.validation\n*ValidationStep] as PipelinesValidation
   [pipelines.unified_base\nUnifiedPipelineBase] as PipelinesUnifiedBase
 
@@ -48,7 +46,6 @@ CoreCommon --> CoreMoleculeMap
 
 ' Pipelines internals
 PipelinesBase --> CorePipelineCommon
-PipelinesErrors --> CorePipelineErrors
 PipelinesValidation --> CoreIOOutput
 PipelinesValidation --> CoreLogging
 PipelinesValidation --> CoreSchema
@@ -71,11 +68,6 @@ ChemblAssay   --> PipelinesUnifiedBase
 ChemblDocument--> PipelinesUnifiedBase
 ChemblTarget  --> PipelinesUnifiedBase
 ChemblTestitem--> PipelinesUnifiedBase
-
-' Reverse deps core -> pipelines (leaks)
-CorePipelineCommon -[#red]-> PipelinesCommon   : uses ensure_directory
-CorePipelineCommon -[#red]-> PipelinesErrors   : uses PipelineError
-CorePipelineCommon -[#red]-> PipelinesValidation : uses validation steps
 
 ' CLI -> pipelines (factories)
 CoreRunner ..> PipelinesInit : PipelineFactory

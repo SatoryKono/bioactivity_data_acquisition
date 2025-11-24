@@ -272,7 +272,9 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             msg = "entity_name must be provided for enrichment bundle"
             raise ValueError(msg)
 
-        factory = self.client_factory or ChemblEntityClientFactory(self.config)
+        factory = self.client_factory or default_chembl_factory(
+            self.config, api_client_factory=self._client_factory
+        )
         source_config = getattr(self.config.domain, "sources", {}).get(
             "chembl"
         )

@@ -27,8 +27,6 @@ digraph BioETL_Pipelines {
 
         pipelines_init         [label="pipelines.__init__"];
         pipelines_base         [label="pipelines.base\nPipelineBase"];
-        pipelines_errors       [label="pipelines.errors"];
-        pipelines_common       [label="pipelines.common\nensure_directory"];
         pipelines_validation   [label="pipelines.validation\n*ValidationStep"];
         pipelines_unified_base [label="pipelines.unified_base\nUnifiedPipelineBase"];
         chembl_common          [label="pipelines.chembl.common"];
@@ -53,7 +51,6 @@ digraph BioETL_Pipelines {
 
     /* pipelines internal */
     pipelines_base -> core_pipeline_common;
-    pipelines_errors -> core_pipeline_errors;
     pipelines_validation -> core_io_output;
     pipelines_validation -> core_logging;
     pipelines_validation -> core_schema;
@@ -75,11 +72,6 @@ digraph BioETL_Pipelines {
     chembl_document-> pipelines_unified_base;
     chembl_target  -> pipelines_unified_base;
     chembl_testitem-> pipelines_unified_base;
-
-    /* reverse deps core -> pipelines (leaks) */
-    core_pipeline_common -> pipelines_common   [color=red, label="uses ensure_directory"];
-    core_pipeline_common -> pipelines_errors   [color=red, label="uses PipelineError"];
-    core_pipeline_common -> pipelines_validation [color=red, label="uses validation chain"];
 
     /* CLI -> pipelines */
     core_runtime_runner -> pipelines_init      [style=dashed, label="via PipelineFactory"];

@@ -4,7 +4,11 @@
 
 ### Изменено
 
-- TBD
+- Диаграммы core/pipelines очищены от ссылок на устаревшие shim-модули.
+
+### Удалено
+
+- Удалены устаревшие shim-пути `_legacy_init.py`, `bioetl.pipelines.errors` и `bioetl.pipelines.common` после периода депрекейта.
 
 ## 1.1.0 - 2025-11-24
 

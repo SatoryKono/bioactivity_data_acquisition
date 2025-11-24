@@ -32,6 +32,7 @@ from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntit
 from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
+from bioetl.infrastructure.clients import default_chembl_factory
 
 __all__ = [
     "ChemblClient",
@@ -57,4 +58,5 @@ __all__ = [
     "get_entity_definition",
     "iter_entity_definitions",
     "register_entity_definition",
+    "default_chembl_factory",
 ]
