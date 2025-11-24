@@ -204,9 +204,8 @@ class ChemblAssayPipeline(BaseChemblPipeline):
         output_dir: Any,
         *,
         extended: bool = False,
-        include_correlation: bool | None = None,
-        include_qc_metrics: bool | None = None,
-        **kwargs: Any,
+        include_correlation: bool = False,
+        include_qc_metrics: bool = False,
     ) -> Any:
         """Persist results while preserving determinism and QC options.
 
@@ -221,7 +220,6 @@ class ChemblAssayPipeline(BaseChemblPipeline):
             extended=extended,
             include_correlation=include_correlation,
             include_qc_metrics=include_qc_metrics,
-            **kwargs,
         )
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
