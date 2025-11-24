@@ -1,3 +1,0 @@
-column_x,column_y,method,value
-pubmed_id,year,spearman,0.5
-authors_count,year,pearson,0.21
