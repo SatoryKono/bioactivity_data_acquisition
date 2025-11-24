@@ -15,7 +15,7 @@
 |---------------|----------------|----------------|------------------|--------------------|----------------------|----------------------|
 | `activity_chembl` | `ChemblActivityPipeline` (`src/bioetl/pipelines/chembl/activity/run.py`) | Activity records + enrichments (assay/molecule/data_validity) | ChEMBL `/activity` + вспомогательные энричеры из `chembl.activity.enrich` | Паркет/CSV, партиционированный по `assay_chembl_id`, манифест, QC/корреляции | Делегированный `extract_by_ids`, нормализация измерений, валидация FK и словарей, каскадное обогащение compound/assay/molecule/data_validity | Python/Pandas, ChEMBL activity schema, ChEMBL enrichment API, CLI/детерминизм |
 | `assay_chembl` | `ChemblAssayPipeline` (`src/bioetl/pipelines/chembl/assay/run.py`) | Ассайи, их классификации и TRUV-параметры | ChEMBL `/assay` + enrichment `/assay_class_map`, `/assay_parameters` | Детерминированный датасет, сортировка по `assay_chembl_id` | Handshake c release, нормализация идентификаторов, сериализация nested массивов, валидация TRUV-параметров и BAO ID | Pandas/nested-структуры, ChEMBL assay schema, BAO/TRUV домен, CLI |
-| `document_chembl` | `ChemblDocumentPipeline` (`src/bioetl/pipelines/chembl/document/run.py`) | Научные документы + terms | ChEMBL `/document` + `/document_term` | Партиционирование по `year`, хэш-бизнес-ключ | Извлечение + нормализация DOI/PMID, enrichment `document_term`, дедупликация и подсчёт авторов | Pandas/текстовые нормализации, ChEMBL document API, QC/дедуп, CLI |
+| `document_chembl` | `ChemblDocumentPipeline` (`src/bioetl/pipelines/chembl/document/run.py`) | Научные документы | ChEMBL `/document` | Партиционирование по `year`, хэш-бизнес-ключ | Извлечение + нормализация DOI/PMID, дедупликация и подсчёт авторов | Pandas/текстовые нормализации, ChEMBL document API, QC/дедуп, CLI |
 | `target_chembl` | `ChemblTargetPipeline` (`src/bioetl/pipelines/chembl/target/run.py`) | Белковые мишени и компоненты | ChEMBL `/target` + `/target_component`, protein-class endpoints | Датасет по `target_chembl_id`, сериализованные массивы | Нормализация идентификаторов, кеширование nested массивов, сериализация компонентов, обогащение protein class и компонентов | Pandas + JSON serialization, ChEMBL target schema, protein class домен |
 | `testitem_chembl` | `TestItemChemblPipeline` (`src/bioetl/pipelines/chembl/testitem/run.py`) | Molecule/test item records | ChEMBL `/molecule` + `/status` | Датасет по `molecule_chembl_id`, включает ChEMBL DB/API версии | Handshake со `/status`, flatten молекулярных структур/свойств, сериализация массивов, добавление версионных метаданных | Pandas flattening, хим. домен (SMILES/InChI/ATC), HTTP handshake, CLI |
 
@@ -71,25 +71,24 @@
 
 ### 3.3 `document_chembl` — ChemblDocumentPipeline
 
-**Зона ответственности.** Извлекает документы, нормализует DOI/PMID, обогащает terms через `/document_term`, рассчитывает авторские метаданные, устраняет дубликаты, добавляет системные поля (`source`). Партиционирует данные по `year`.
+**Зона ответственности.** Извлекает документы, нормализует DOI/PMID, рассчитывает авторские метаданные, устраняет дубликаты, добавляет системные поля (`source`). Партиционирует данные по `year`.
 
 **Компетенции.**
 
 | Компетенция | Причина | Тип | Уровень |
 |-------------|---------|-----|---------|
 | Текстовые нормализации DOI/авторов | `_normalize_doi`, `_normalize_authors` и подсчёт `authors_count` | Разработка | Продвинутый |
-| Enrichment document_term | `_enrich_document_terms` использует config-driven select_fields | Разработка | Базовый |
 | Валидация и дедуп | `_check_document_id_uniqueness` и `_deduplicate_documents` | Эксплуатация | Базовый |
 | Доменные знания публикаций | Схема включает `journal`, `pubmed_id`, `year` — требуются бизнес-правила качества | Дом. валидация | Базовый |
 
 **Границы ответственности.**
 
-- **Входит:** извлечение/нормализация библиографических данных, enrichment terms, добавление источника и хэшей.
+- **Входит:** извлечение/нормализация библиографических данных, добавление источника и хэшей.
 - **Не входит:** полнотекстовый парсинг, обогащения внешними библио-базами (только ChEMBL).
 
 **Входы/выходы.**
 
-- Вход: ChEMBL `/document` и `/document_term`.
+- Вход: ChEMBL `/document`.
 - Выход: датасет с партиционированием по `year`, хэшами бизнес-ключей.
 
 ### 3.4 `target_chembl` — ChemblTargetPipeline

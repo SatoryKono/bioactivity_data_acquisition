@@ -6,7 +6,7 @@ from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
 from bioetl.schemas.common_schema import resolve_row_hash_fields
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 COLUMN_ORDER: list[str] = [
     "document_chembl_id",
@@ -29,8 +29,6 @@ COLUMN_ORDER: list[str] = [
     "source",
     "hash_business_key",
     "hash_row",
-    "term",
-    "weight",
     "load_meta_id",
 ]
 
@@ -72,8 +70,6 @@ DocumentSchema = create_schema(
         "source": CF.string(isin={"ChEMBL"}, nullable=False),
         "hash_business_key": CF.string(length=(64, 64), nullable=False),
         "hash_row": CF.string(length=(64, 64), nullable=False),
-        "term": CF.string(),
-        "weight": CF.string(),
         "load_meta_id": CF.uuid(nullable=False),
     },
     version=SCHEMA_VERSION,

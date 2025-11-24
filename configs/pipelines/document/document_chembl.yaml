@@ -38,7 +38,6 @@ sources:
         - last_page
         - pubmed_id
         - authors
-        - document_term
 
 cli:
   input_file: data/input/document.csv
@@ -75,25 +74,10 @@ determinism:
     - source
     - hash_business_key
     - hash_row
-    - term
-    - weight
   hashing:
     business_key_fields:
       - document_chembl_id
 
 chembl:
-  document:
-    enrich:
-      document_term:
-        enabled: true
-        select_fields:
-          - document_chembl_id
-          - term
-          - weight
-        page_limit: 100
-        sort: weight_desc
-        max_retries: 3
-        retry_backoff: 1.5
-
 validation:
   schema_out: bioetl.schemas.chembl_document_schema.DocumentSchema
