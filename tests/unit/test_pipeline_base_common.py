@@ -13,8 +13,15 @@ class _DummyConfig(SimpleNamespace):
         super().__init__(
             pipeline=SimpleNamespace(name="dummy", version="0.0.0"),
             materialization=SimpleNamespace(root=str(root)),
-            validation=SimpleNamespace(schema_out=None, schema_in=None, schema_version=None),
-            determinism=SimpleNamespace(hashing=SimpleNamespace(business_key_fields=())),
+            validation=SimpleNamespace(
+                schema_out=None,
+                schema_in=None,
+                schema_version=None,
+            ),
+            determinism=SimpleNamespace(
+                hashing=SimpleNamespace(business_key_fields=()),
+                environment=SimpleNamespace(timezone="UTC", locale="C"),
+            ),
             cli=SimpleNamespace(
                 date_tag=None,
                 extended=False,

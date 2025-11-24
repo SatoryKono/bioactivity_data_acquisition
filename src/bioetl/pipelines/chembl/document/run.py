@@ -17,6 +17,7 @@ from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl.document.normalize import (
     enrich_with_document_terms,
 )
+from bioetl.pipelines.chembl.mixins import FieldMappingRule
 
 
 class ChemblDocumentPipeline(BaseChemblPipeline):
@@ -37,12 +38,15 @@ class ChemblDocumentPipeline(BaseChemblPipeline):
         super().__init__(config, run_id, source, writer=writer)
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
-        return {
-            "field_mappings": {
-                "document_chembl_id": "document_chembl_id",
-                "title": "title",
-            }
+        spec: dict[str, FieldMappingRule]
+        spec = {
+            "document_chembl_id": FieldMappingRule(
+                source="document_chembl_id",
+            ),
+            "title": FieldMappingRule(source="title"),
         }
+
+        return self.build_normalization_rules_from_spec(spec)
 
     def get_schema(self) -> Mapping[str, Any]:
         return {"document_chembl_id": lambda series: series.notna()}

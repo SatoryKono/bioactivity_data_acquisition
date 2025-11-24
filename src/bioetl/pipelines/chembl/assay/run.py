@@ -14,6 +14,7 @@ from bioetl.pipelines.chembl._constants import (
 )
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl.helpers import build_dataframe
+from bioetl.pipelines.chembl.mixins import FieldMappingRule
 
 
 class ChemblAssayPipeline(BaseChemblPipeline):
@@ -33,37 +34,48 @@ class ChemblAssayPipeline(BaseChemblPipeline):
         super().__init__(config, run_id, source, writer=writer)
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
-        return {
-            "field_mappings": {
-                "assay_chembl_id": "assay_chembl_id",
-                "assay_id": "assay_id",
-                "description": "description",
-                "assay_category": "assay_category",
-                "assay_strain": "assay_strain",
-                "assay_group": "assay_group",
-                "assay_type": "assay_type",
-                "assay_type_description": "assay_type_description",
-                "assay_test_type": "assay_test_type",
-                "assay_organism": "assay_organism",
-                "assay_tax_id": "assay_tax_id",
-                "assay_tissue": "assay_tissue",
-                "assay_cell_type": "assay_cell_type",
-                "assay_subcellular_fraction": "assay_subcellular_fraction",
-                "target_chembl_id": "target_chembl_id",
-                "document_chembl_id": "document_chembl_id",
-                "src_assay_id": "src_assay_id",
-                "src_id": "src_id",
-                "cell_chembl_id": "cell_chembl_id",
-                "tissue_chembl_id": "tissue_chembl_id",
-                "confidence_score": "confidence_score",
-                "confidence_description": "confidence_description",
-                "variant_sequence": "variant_sequence",
-                "assay_classifications": "assay_classifications",
-                "assay_parameters": "assay_parameters",
-                "assay_class_id": "assay_class_id",
-                "curation_level": "curation_level",
-            },
+        spec: dict[str, FieldMappingRule]
+        spec = {
+            "assay_chembl_id": FieldMappingRule(source="assay_chembl_id"),
+            "assay_id": FieldMappingRule(source="assay_id"),
+            "description": FieldMappingRule(source="description"),
+            "assay_category": FieldMappingRule(source="assay_category"),
+            "assay_strain": FieldMappingRule(source="assay_strain"),
+            "assay_group": FieldMappingRule(source="assay_group"),
+            "assay_type": FieldMappingRule(source="assay_type"),
+            "assay_type_description": FieldMappingRule(
+                source="assay_type_description",
+            ),
+            "assay_test_type": FieldMappingRule(source="assay_test_type"),
+            "assay_organism": FieldMappingRule(source="assay_organism"),
+            "assay_tax_id": FieldMappingRule(source="assay_tax_id"),
+            "assay_tissue": FieldMappingRule(source="assay_tissue"),
+            "assay_cell_type": FieldMappingRule(source="assay_cell_type"),
+            "assay_subcellular_fraction": FieldMappingRule(
+                source="assay_subcellular_fraction",
+            ),
+            "target_chembl_id": FieldMappingRule(source="target_chembl_id"),
+            "document_chembl_id": FieldMappingRule(
+                source="document_chembl_id",
+            ),
+            "src_assay_id": FieldMappingRule(source="src_assay_id"),
+            "src_id": FieldMappingRule(source="src_id"),
+            "cell_chembl_id": FieldMappingRule(source="cell_chembl_id"),
+            "tissue_chembl_id": FieldMappingRule(source="tissue_chembl_id"),
+            "confidence_score": FieldMappingRule(source="confidence_score"),
+            "confidence_description": FieldMappingRule(
+                source="confidence_description",
+            ),
+            "variant_sequence": FieldMappingRule(source="variant_sequence"),
+            "assay_classifications": FieldMappingRule(
+                source="assay_classifications",
+            ),
+            "assay_parameters": FieldMappingRule(source="assay_parameters"),
+            "assay_class_id": FieldMappingRule(source="assay_class_id"),
+            "curation_level": FieldMappingRule(source="curation_level"),
         }
+
+        return self.build_normalization_rules_from_spec(spec)
 
     def get_schema(self):
         return {

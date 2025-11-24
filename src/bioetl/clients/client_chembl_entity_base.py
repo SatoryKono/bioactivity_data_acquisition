@@ -7,7 +7,6 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Protocol, cast
 from urllib.parse import urlencode
-import warnings
 
 import pandas as pd
 
@@ -15,6 +14,7 @@ from bioetl.clients.base import normalize_select_fields
 from bioetl.clients.chembl_config import EntityConfig
 from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.logging import UnifiedLogger
+from bioetl.utils.deprecation import deprecated
 
 __all__ = [
     "ChemblClientProtocol",
@@ -361,6 +361,10 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         )
         return self._build_fetch_result(frame, options=options)
 
+    @deprecated(
+        reason="use fetch_by_ids() and access .frame",
+        alternative="fetch_by_ids",
+    )
     def fetch_by_ids_dataframe(
         self,
         ids: Sequence[str],
@@ -370,15 +374,14 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
     ) -> pd.DataFrame:
         """Deprecated shim returning only the payload frame."""
 
-        warnings.warn(
-            "fetch_by_ids_dataframe() is deprecated; use fetch_by_ids() and access .frame",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         return self.fetch_by_ids(
             ids, fields=fields, page_limit=page_limit
         ).frame
 
+    @deprecated(
+        reason="use fetch_all() and access .frame",
+        alternative="fetch_all",
+    )
     def fetch_all_dataframe(
         self,
         *,
@@ -388,11 +391,6 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
     ) -> pd.DataFrame:
         """Deprecated shim returning only the payload frame."""
 
-        warnings.warn(
-            "fetch_all_dataframe() is deprecated; use fetch_all() and access .frame",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         return self.fetch_all(
             limit=limit, fields=fields, page_size=page_size
         ).frame

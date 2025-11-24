@@ -19,6 +19,7 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.pipelines.chembl.mixins import (
+    ChemblFieldMappingMixin,
     EnrichmentMixin,
     NormalizationMixin,
     ValidationMixin,
@@ -38,7 +39,11 @@ from bioetl.clients.client_chembl import _resolve_status_endpoint
 
 
 class BaseChemblPipeline(
-    UnifiedPipelineBase, NormalizationMixin, EnrichmentMixin, ValidationMixin
+    UnifiedPipelineBase,
+    ChemblFieldMappingMixin,
+    NormalizationMixin,
+    EnrichmentMixin,
+    ValidationMixin,
 ):
     """Базовый класс, инкапсулирующий повторяемый цикл fetch→normalize→enrich→validate→write."""
 

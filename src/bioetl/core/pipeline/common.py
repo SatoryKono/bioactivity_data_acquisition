@@ -47,6 +47,7 @@ from bioetl.core.logging import (
     UnifiedLogger,
     bind_pipeline_context,
     get_pipeline_logger,
+    pipeline_log_to_file,
     pipeline_stage,
 )
 from bioetl.core.runtime.load_meta_backend import (
@@ -480,12 +481,8 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         self._validation_summary = None
         self._extract_metadata = {}
         self._vocabulary_service = get_vocabulary_service()
-        load_meta_root = (
-            self.output_root.parent / "load_meta" / self.pipeline_code
-        )
-        store = LoadMetaStore(load_meta_root, dataset_format="parquet")
-        self.load_meta_backend: LoadMetaBackend = store
-        self.load_meta_store = store
+        self.load_meta_backend: LoadMetaBackend | None = None
+        self.load_meta_store: LoadMetaStore | None = None
         self._qc_executor = QCMetricsExecutor()
         self._qc_report_options = None
         self._qc_thresholds = {}
@@ -2264,55 +2261,66 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         )
         self._log_setup(bootstrap_log, options, output_dir, extract_mode)
 
+        effective_extended = bool(
+            extended or getattr(self.config.cli, "extended", False)
+        )
+        mode = "extended" if effective_extended else None
+        run_tag = self._normalise_run_tag(None)
+        stem = self.build_run_stem(run_tag=run_tag, mode=mode)
+        log_file_path = self.logs_directory / f"{stem}.{self.log_extension}"
+
         result: RunResult | None = None
         finalize_invoked = False
 
-        try:
-            self._pre_run_hook(stage_context)
-            current_stage = self._execute_stages(
-                execution_plan, stage_context, stage_durations_ms
-            )
-            self.apply_retention_policy()
-            result = self._post_run_hook(
-                stage_context.result,
-                stage_context,
-                stage_durations_ms=stage_durations_ms,
-                bootstrap_log=bootstrap_log,
-            )
-            finalize_invoked = True
-            if result is None:
-                msg = (
-                    "Pipeline run completed without a RunResult; "
-                    "check write stage and stage plan."
+        with pipeline_log_to_file(log_file_path):
+            try:
+                self._pre_run_hook(stage_context)
+                current_stage = self._execute_stages(
+                    execution_plan, stage_context, stage_durations_ms
                 )
-                raise PipelineError(msg)
-            return result
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            self._handle_error(exc, current_stage)
+                self.apply_retention_policy()
+                result = self._post_run_hook(
+                    stage_context.result,
+                    stage_context,
+                    stage_durations_ms=stage_durations_ms,
+                    bootstrap_log=bootstrap_log,
+                )
+                finalize_invoked = True
+                if result is None:
+                    msg = (
+                        "Pipeline run completed without a RunResult; "
+                        "check write stage and stage plan."
+                    )
+                    raise PipelineError(msg)
+                return result
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                self._handle_error(exc, current_stage)
 
-        finally:
-            if not finalize_invoked:
-                try:
-                    self.finalize_run(stage_context.result)
-                except (
-                    Exception
-                ) as finalize_error:  # pragma: no cover - defensive finalize path
-                    # pylint: disable=broad-exception-caught
-                    finalize_log = self._make_pipeline_logger(
-                        stage="finalize", logger_name=__name__
-                    )
-                    finalize_log.warning(
-                        LogEvents.STAGE_CLEANUP_ERROR,
-                        error=str(finalize_error),
-                    )
-            for command in cleanup_commands:
-                if not command.should_run(stage_context.options):
-                    continue
-                current_stage = command.name
-                cleanup_start = time.perf_counter()
-                command.execute(stage_context)
-                duration = (time.perf_counter() - cleanup_start) * 1000.0
-                stage_durations_ms[current_stage] = duration
+            finally:
+                if not finalize_invoked:
+                    try:
+                        self.finalize_run(stage_context.result)
+                    except (
+                        Exception
+                    ) as finalize_error:  # pragma: no cover - defensive finalize path
+                        # pylint: disable=broad-exception-caught
+                        finalize_log = self._make_pipeline_logger(
+                            stage="finalize", logger_name=__name__
+                        )
+                        finalize_log.warning(
+                            LogEvents.STAGE_CLEANUP_ERROR,
+                            error=str(finalize_error),
+                        )
+                for command in cleanup_commands:
+                    if not command.should_run(stage_context.options):
+                        continue
+                    current_stage = command.name
+                    cleanup_start = time.perf_counter()
+                    command.execute(stage_context)
+                    duration = (
+                        time.perf_counter() - cleanup_start
+                    ) * 1000.0
+                    stage_durations_ms[current_stage] = duration
 
     def _build_validation_behavior(self) -> StrictValidation | FailOpenValidation:
         fail_open = (

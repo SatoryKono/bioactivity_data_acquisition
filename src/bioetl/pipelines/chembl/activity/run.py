@@ -25,6 +25,7 @@ from bioetl.pipelines.chembl.activity.normalize import (
 )
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl._constants import API_ACTIVITY_FIELDS
+from bioetl.pipelines.chembl.mixins import FieldMappingRule
 from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
 from bioetl.schemas import get_schema
 from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
@@ -681,7 +682,8 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         normalisation behaviour for ``activity_id`` and ``value``.
         """
 
-        field_mappings: dict[str, Any] = {}
+        field_mapping_spec: dict[str, FieldMappingRule]
+        field_mapping_spec = {}
 
         # Preserve all relevant fields from the ChEMBL activity API payload.
         # ``curated_by`` is intentionally omitted as it is not part of the
@@ -689,36 +691,35 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         for field in API_ACTIVITY_FIELDS:
             if field == "curated_by":
                 continue
-            field_mappings[field] = field
+            field_mapping_spec[field] = FieldMappingRule(source=field)
 
         # Backward-compatible aliases for identifiers when working with
         # legacy payloads that may expose *_id instead of *_chembl_id. For
         # test items we additionally fall back to molecule_chembl_id when
         # a dedicated testitem identifier is not available.
 
-        def _resolve_assay_id(record: Mapping[str, Any]) -> Any:
-            return record.get("assay_chembl_id") or record.get("assay_id")
+        field_mapping_spec["assay_chembl_id"] = FieldMappingRule(
+            source="assay_chembl_id",
+            aliases=("assay_id",),
+            id_type="assay",
+        )
+        field_mapping_spec["testitem_chembl_id"] = FieldMappingRule(
+            source="testitem_chembl_id",
+            aliases=("testitem_id", "molecule_chembl_id"),
+            id_type="testitem",
+        )
 
-        def _resolve_testitem_id(record: Mapping[str, Any]) -> Any:
-            value = record.get("testitem_chembl_id") or record.get(
-                "testitem_id"
-            )
-            if value is not None:
-                return value
-            return record.get("molecule_chembl_id")
+        # Preserve numeric normalisation behaviour for identifiers and values.
+        field_mapping_spec["activity_id"] = FieldMappingRule(
+            source="activity_id",
+            value_normalizer=lambda v: int(v) if v is not None else None,
+        )
+        field_mapping_spec["value"] = FieldMappingRule(
+            source="value",
+            value_normalizer=lambda v: float(v) if v is not None else None,
+        )
 
-        field_mappings["assay_chembl_id"] = _resolve_assay_id
-        field_mappings["testitem_chembl_id"] = _resolve_testitem_id
-
-        value_normalizers = {
-            "activity_id": lambda v: int(v) if v is not None else None,
-            "value": lambda v: float(v) if v is not None else None,
-        }
-
-        return {
-            "field_mappings": field_mappings,
-            "value_normalizers": value_normalizers,
-        }
+        return self.build_normalization_rules_from_spec(field_mapping_spec)
 
     def _normalize_string_fields(
         self, df: pd.DataFrame, log: Any

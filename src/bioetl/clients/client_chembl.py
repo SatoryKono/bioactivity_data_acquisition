@@ -40,6 +40,7 @@ from bioetl.clients.http import PageResult, Paginator, RetryingSession
 from bioetl.config.loader import _load_yaml
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.utils.deprecation import deprecated
 
 if TYPE_CHECKING:
     from bioetl.core.runtime.load_meta_store import LoadMetaStore
@@ -422,6 +423,13 @@ class ChemblClient:
     # Assay class map fetching (DEPRECATED)
     # ------------------------------------------------------------------
 
+    @deprecated(
+        reason=(
+            "The /assay_class_map.json endpoint is not available. "
+            "Use /assay.json assay_classifications instead."
+        ),
+        alternative="fetch_assay_classes_by_class_ids",
+    )
     def fetch_assay_class_map_by_assay_ids(
         self,
         assay_ids: Iterable[str],
@@ -434,15 +442,7 @@ class ChemblClient:
         Use data from /assay.json response (assay_classifications field) instead.
         This method will raise an error to prevent accidental usage.
         """
-        import warnings
 
-        warnings.warn(
-            "fetch_assay_class_map_by_assay_ids is deprecated. "
-            "The /assay_class_map.json endpoint does not exist in ChEMBL API. "
-            "Use data from /assay.json response (assay_classifications field) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
         raise NotImplementedError(
             "The /assay_class_map.json endpoint does not exist in ChEMBL API. "
             "Use data from /assay.json response (assay_classifications field) instead."

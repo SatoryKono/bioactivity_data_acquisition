@@ -9,6 +9,7 @@ paths) is attached to each log record.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -22,6 +23,7 @@ __all__ = [
     "bind_pipeline_context",
     "get_pipeline_logger",
     "pipeline_stage",
+    "pipeline_log_to_file",
 ]
 
 _DEFAULT_LOGGER_NAME = "bioetl.runtime"
@@ -134,3 +136,31 @@ def pipeline_stage(
             **extra,
         )
         yield log
+
+
+@contextmanager
+def pipeline_log_to_file(path: Path | str) -> Iterator[None]:
+    file_path = Path(path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    root_logger = logging.getLogger()
+    formatter = None
+    level = root_logger.level
+
+    for handler in root_logger.handlers:
+        handler_formatter = getattr(handler, "formatter", None)
+        if handler_formatter is not None:
+            formatter = handler_formatter
+            break
+
+    file_handler = logging.FileHandler(str(file_path), encoding="utf-8")
+    file_handler.setLevel(level)
+    if formatter is not None:
+        file_handler.setFormatter(formatter)
+
+    root_logger.addHandler(file_handler)
+    try:
+        yield
+    finally:
+        root_logger.removeHandler(file_handler)
+        file_handler.close()
