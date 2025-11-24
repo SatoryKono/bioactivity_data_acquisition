@@ -26,6 +26,7 @@ from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_data_validity,
 )
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
+from bioetl.pipelines.chembl.helpers import build_dataframe
 from bioetl.pipelines.chembl._constants import API_ACTIVITY_FIELDS
 from bioetl.pipelines.chembl.mixins import FieldMappingRule
 from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
@@ -258,6 +259,25 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             raise TypeError(msg)
         # Call parent extract method
         return super().extract(mode=mode, ids=ids, **kwargs)
+
+    def _enrich(self, records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        """
+        Выполнить record-oriented обогащение родительского класса, затем
+        запустить DataFrame-ориентированные сценарии через движок обогащения.
+        """
+
+        # 1) record-oriented enrichment (если есть)
+        records_after_record_enrich = super()._enrich(records)
+
+        # 2) DataFrame-oriented enrichment
+        df = build_dataframe(records_after_record_enrich)
+        if df.empty:
+            return records_after_record_enrich
+
+        df_enriched = self._enrichment_engine.execute(self, df)
+
+        # 3) вернуть в виде списка словарей
+        return df_enriched.to_dict(orient="records")
 
     def logger_for(
         self,
