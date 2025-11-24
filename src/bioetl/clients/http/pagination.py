@@ -22,8 +22,6 @@ _DEFAULT_ITEMS_KEYS: tuple[str, ...] = (
     "testitems",
     "molecules",
     "assay_class_maps",
-    "assay_classifications",
-    "assay_parameters",
     "data",
     "items",
     "results",

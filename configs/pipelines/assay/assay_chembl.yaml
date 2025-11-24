@@ -41,8 +41,6 @@ sources:
         - confidence_description
         - variant_sequence
         - curation_level
-        - assay_classifications
-        - assay_parameters
 
 cli:
   input_file: data/input/assay.csv
@@ -83,9 +81,6 @@ determinism:
     - confidence_score
     - confidence_description
     - variant_sequence
-    - assay_classifications
-    - assay_parameters
-    - assay_class_id
     - curation_level
   hashing:
     business_key_fields:
@@ -94,42 +89,11 @@ determinism:
       - row_index
 
 transform:
-  arrays_to_header_rows:
-    - assay_classifications
-    - assay_parameters
+  arrays_to_header_rows: []
 
 chembl:
   assay:
-    enrich:
-      classifications:
-        class_map_fields:
-          - assay_chembl_id
-          - assay_class_id
-        classification_fields:
-          - assay_class_id
-          - l1
-          - l2
-          - l3
-          - pref_name
-        page_limit: 1000
-      parameters:
-        fields:
-          - assay_chembl_id
-          - type
-          - relation
-          - value
-          - units
-          - text_value
-          - standard_type
-          - standard_relation
-          - standard_value
-          - standard_units
-          - standard_text_value
-          - active
-          - type_normalized
-          - type_fixed
-        page_limit: 1000
-        active_only: true
+    enrich: {}
 
 validation:
   schema_out: bioetl.schemas.chembl_assay_schema.AssaySchema

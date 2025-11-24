@@ -5,7 +5,7 @@ from __future__ import annotations
 from bioetl.schemas import base_abstract_schema, common_column_factory
 from bioetl.schemas.common_schema import resolve_row_hash_fields
 
-SCHEMA_VERSION = "1.3.0"
+SCHEMA_VERSION = "1.4.0"
 
 COLUMN_ORDER: list[str] = [
     "assay_chembl_id",
@@ -32,9 +32,6 @@ COLUMN_ORDER: list[str] = [
     "confidence_score",
     "confidence_description",
     "variant_sequence",
-    "assay_classifications",
-    "assay_parameters",
-    "assay_class_id",
     "curation_level",
     "hash_row",
     "hash_business_key",
@@ -86,9 +83,6 @@ AssaySchema = base_abstract_schema.create_schema(
         "confidence_score": CF.int64(pandas_nullable=True),
         "confidence_description": CF.string(),
         "variant_sequence": CF.string(),
-        "assay_classifications": CF.string(),
-        "assay_parameters": CF.string(),
-        "assay_class_id": CF.string(),
         "curation_level": CF.string(),
         "hash_row": CF.string(length=(64, 64), nullable=False),
         "hash_business_key": CF.string(length=(64, 64)),

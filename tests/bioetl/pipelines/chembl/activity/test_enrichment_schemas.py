@@ -93,14 +93,10 @@ def test_activity_data_validity_enrichment_schema() -> None:
 
 def test_assay_classification_enrichment_schema() -> None:
     df = pd.DataFrame({"assay_chembl_id": ["A1"]})
-    result = enrich_with_assay_classifications(df, client=FakeAssayClient(), cfg={})
-
-    assert pd.api.types.is_string_dtype(result["assay_classifications"].dtype)
-    assert pd.api.types.is_string_dtype(result["assay_class_id"].dtype)
-
-
-def test_assay_parameters_enrichment_schema() -> None:
-    df = pd.DataFrame({"assay_chembl_id": ["A1"]})
-    result = enrich_with_assay_parameters(df, client=FakeAssayClient(), cfg={})
+    result = enrich_with_assay(
+        df,
+        client=FakeActivityClient(),
+        cfg={"fields": ["assay_chembl_id", "assay_organism"]},
+    )
 
     assert pd.api.types.is_string_dtype(result["assay_parameters"].dtype)
