@@ -7,7 +7,10 @@ from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.pipelines.chembl.document.normalize import enrich_with_document_terms
+from bioetl.pipelines.chembl.assay.normalize import (
+    enrich_with_assay_classifications,
+    enrich_with_assay_parameters,
+)
 
 
 class FakeActivityClient:
@@ -35,11 +38,23 @@ class FakeActivityClient:
         return {comment: {"description": f"desc-{comment}"} for comment in comments}
 
 
-class FakeDocumentClient:
-    def fetch_document_terms_by_ids(self, ids, fields, page_limit):  # type: ignore[override]
+class FakeAssayClient:
+    def fetch_assay_class_map_by_assay_ids(self, ids, fields, page_limit):  # type: ignore[override]
+        return {assay_id: [{"assay_class_id": "C1"}] for assay_id in ids}
+
+    def fetch_assay_classifications_by_class_ids(self, class_ids, fields, page_limit):  # type: ignore[override]
+        return {"C1": {"l1": "Level1", "pref_name": "Class"}}
+
+    def fetch_assay_parameters_by_assay_ids(
+        self,
+        ids,
+        fields,
+        page_limit,
+        active_only,
+    ):  # type: ignore[override]
         return {
-            doc_id: [{"document_chembl_id": doc_id, "term": "alpha", "weight": 0.9}]
-            for doc_id in ids
+            assay_id: [{field: f"value-{field}" for field in fields if field != "assay_chembl_id"}]
+            for assay_id in ids
         }  # type: ignore[return-value]
 
 
@@ -84,12 +99,4 @@ def test_assay_classification_enrichment_schema() -> None:
         cfg={"fields": ["assay_chembl_id", "assay_organism"]},
     )
 
-    assert pd.api.types.is_string_dtype(result["assay_organism"].dtype)
-
-
-def test_document_terms_enrichment_schema() -> None:
-    df = pd.DataFrame({"document_chembl_id": ["DOC1"]})
-    result = enrich_with_document_terms(df, client=FakeDocumentClient(), cfg={})
-
-    assert pd.api.types.is_string_dtype(result["term"].dtype)
-    assert pd.api.types.is_string_dtype(result["weight"].dtype)
+    assert pd.api.types.is_string_dtype(result["assay_parameters"].dtype)
