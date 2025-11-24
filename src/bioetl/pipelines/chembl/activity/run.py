@@ -22,6 +22,7 @@ from bioetl.core.schema.normalizers import IdentifierRule, StringRule
 from bioetl.pipelines.chembl.activity.normalize import (
     _COMPOUND_COLUMNS,
     enrich_with_compound_record,
+    enrich_with_assay,
     enrich_with_data_validity,
 )
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
@@ -60,8 +61,26 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 df, client, cfg
             ),
         ),
+        "assay": ChemblEnrichmentScenario(
+            name="assay",
+            entity_name="assay",
+            config_path=("activity", "enrich", "assay"),
+            client_name="assay_client",
+            transform=lambda pipeline, df, client, cfg, log: enrich_with_assay(
+                df, client, cfg
+            ),
+        ),
+        "data_validity": ChemblEnrichmentScenario(
+            name="data_validity",
+            entity_name="data_validity",
+            config_path=("activity", "enrich", "data_validity"),
+            client_name="data_validity_client",
+            transform=lambda pipeline, df, client, cfg, log: enrich_with_data_validity(
+                df, client, cfg
+            ),
+        ),
     }
-    _DEFAULT_ENRICHMENT_ORDER: tuple[str, ...] = ("compound_record",)
+    _DEFAULT_ENRICHMENT_ORDER: tuple[str, ...] = ("compound_record", "assay", "data_validity")
 
     def __init__(
         self,
