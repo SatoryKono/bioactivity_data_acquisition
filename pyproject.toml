@@ -67,6 +67,7 @@ dev = [
 
 [project.scripts]
 bioetl = "bioetl.cli.cli_app:app"
+bioetl-check-output-artifacts = "bioetl.devtools.cli_check_output_artifacts:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
