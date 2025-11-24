@@ -4,16 +4,27 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 from bioetl.cli._io import git_diff_cached, git_ls
 from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.runtime.cli_base import CliCommandBase
+from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 from bioetl.tools import get_project_root
 
-__all__ = ["MAX_BYTES", "check_output_artifacts"]
+__all__ = [
+    "MAX_BYTES",
+    "check_output_artifacts",
+    "app",
+    "cli_main",
+    "run",
+]
 
 
 MAX_BYTES = 1_000_000
 IGNORED_NAMES = {".gitkeep"}
+typer: Any = get_typer()
 
 
 def check_output_artifacts(
@@ -87,3 +98,57 @@ def check_output_artifacts(
 
     log.info(LogEvents.OUTPUT_ARTIFACT_CHECK_COMPLETED, issues=len(errors))
     return errors
+
+
+def cli_main(
+    max_bytes: int = typer.Option(
+        MAX_BYTES,
+        "--max-bytes",
+        help="File size threshold (bytes) above which a file is flagged as large.",
+    ),
+) -> None:
+    """Run the output artifact inspection."""
+
+    errors: list[str]
+
+    try:
+        errors = check_output_artifacts(max_bytes=max_bytes)
+    except typer.Exit:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Output artifact inspection failed: {exc}",
+            context={
+                "command": "bioetl-check-output-artifacts",
+                "max_bytes": max_bytes,
+                "exception_type": exc.__class__.__name__,
+            },
+            cause=exc,
+        )
+
+    if errors:
+        for message in errors:
+            typer.echo(message)
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_CONFIG,
+            message=f"Found {len(errors)} output artifacts exceeding limits",
+            context={
+                "command": "bioetl-check-output-artifacts",
+                "max_bytes": max_bytes,
+                "error_count": len(errors),
+            },
+            exit_code=1,
+        )
+
+    typer.echo("data/output directory is clean")
+    CliCommandBase.exit(0)
+
+
+app: TyperApp
+run: Callable[[], None]
+app, run = register_tool_app(
+    name="bioetl-check-output-artifacts",
+    help_text="Inspect the data/output directory and flag artifacts",
+    main_fn=cli_main,
+)
