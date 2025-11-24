@@ -7,6 +7,10 @@ from typing import Any, Mapping as TypingMapping
 
 import pandas as pd
 
+from bioetl.pipelines.chembl._constants import (
+    API_TESTITEM_FIELDS,
+    TESTITEM_MUST_HAVE_FIELDS,
+)
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from . import transform as testitem_transform
 
@@ -15,6 +19,8 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
     entity_name = "testitem"
     id_column = "molecule_chembl_id"
     actor = "testitem_chembl"
+    descriptor_must_have_fields: tuple[str, ...] = TESTITEM_MUST_HAVE_FIELDS
+    descriptor_default_select_fields = API_TESTITEM_FIELDS
 
     def __init__(
         self,

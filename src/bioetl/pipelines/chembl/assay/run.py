@@ -8,6 +8,10 @@ from typing import Any, cast
 import pandas as pd
 
 from bioetl.chembl.common.normalize import add_row_metadata
+from bioetl.pipelines.chembl._constants import (
+    API_ASSAY_FIELDS,
+    ASSAY_MUST_HAVE_FIELDS,
+)
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl.helpers import build_dataframe
 
@@ -15,6 +19,8 @@ from bioetl.pipelines.chembl.helpers import build_dataframe
 class ChemblAssayPipeline(BaseChemblPipeline):
     entity_name = "assay"
     id_column = "assay_chembl_id"
+    descriptor_must_have_fields: tuple[str, ...] = ASSAY_MUST_HAVE_FIELDS
+    descriptor_default_select_fields = API_ASSAY_FIELDS
 
     def __init__(
         self,

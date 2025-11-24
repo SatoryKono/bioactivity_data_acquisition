@@ -8,9 +8,9 @@ from typing import Any
 import pytest
 from tests.support.factories import load_sample_testitem_dataframe
 from tests.support.golden import (
-	canonical_json,
-	load_yaml_dict,
-	normalize_meta_payload,
+    canonical_json,
+    load_yaml_dict,
+    normalize_meta_payload,
 )
 
 from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
@@ -73,7 +73,9 @@ def test_testitem_pipeline_golden_snapshot(
             golden.parent.mkdir(parents=True, exist_ok=True)
             golden.write_bytes(produced.read_bytes())
         assert golden.exists(), f"golden {key} missing at {golden}"
-        assert produced.read_bytes() == golden.read_bytes(), f"{key} artifact mismatch"
+        produced_bytes = produced.read_bytes().replace(b"\r\n", b"\n")
+        golden_bytes = golden.read_bytes().replace(b"\r\n", b"\n")
+        assert produced_bytes == golden_bytes, f"{key} artifact mismatch"
 
     # Create golden meta file if it doesn't exist (first run)
     produced_meta_path = _require_path(produced_paths["meta"], "meta")

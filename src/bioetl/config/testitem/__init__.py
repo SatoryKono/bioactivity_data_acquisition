@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import ConfigDict, Field, PositiveInt
 
 from bioetl.clients.base import normalize_select_fields
+from bioetl.pipelines.chembl._constants import API_TESTITEM_FIELDS
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
@@ -52,7 +53,8 @@ class TestItemSourceParameters(SourceParameters):
         normalized = cls._normalize_mapping(params)
 
         select_fields = normalize_select_fields(
-            normalized.get("select_fields")
+            normalized.get("select_fields"),
+            default=API_TESTITEM_FIELDS,
         )
 
         max_pages_raw = normalized.get("max_pages")

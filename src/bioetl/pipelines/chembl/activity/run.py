@@ -45,6 +45,8 @@ class ChemblActivityPipeline(BaseChemblPipeline):
     entity_name = "activity"
     id_column = "activity_id"
     actor = "activity_pipeline_actor"
+    descriptor_must_have_fields: tuple[str, ...] = ("activity_id",)
+    descriptor_default_select_fields = API_ACTIVITY_FIELDS
     # Registered enrichment scenarios
     _ENRICHMENT_SCENARIOS: dict[str, ChemblEnrichmentScenario] = {
         "compound_record": ChemblEnrichmentScenario(
@@ -1023,8 +1025,13 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                         result[column_name] = column_series.astype("boolean")
                 # Handle strings
                 elif (
-                    hasattr(column_def.dtype, "name")
-                    and column_def.dtype.name == "string"
+                    (
+                        hasattr(column_def.dtype, "name")
+                        and column_def.dtype.name == "string"
+                    )
+                    or column_def.dtype == pa.String
+                    or "string" in dtype_str
+                    or "str" in dtype_str
                 ):
                     mask = column_series.notna()
                     if mask.any():

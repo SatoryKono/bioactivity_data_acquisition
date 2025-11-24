@@ -5,6 +5,8 @@ from __future__ import annotations
 __all__ = [
     "API_ACTIVITY_FIELDS",
     "API_DOCUMENT_FIELDS",
+    "API_ASSAY_FIELDS",
+    "API_TESTITEM_FIELDS",
     "ASSAY_MUST_HAVE_FIELDS",
     "DOCUMENT_MUST_HAVE_FIELDS",
     "TESTITEM_MUST_HAVE_FIELDS",
@@ -75,6 +77,36 @@ API_DOCUMENT_FIELDS: tuple[str, ...] = (
     "authors",
 )
 
+API_ASSAY_FIELDS: tuple[str, ...] = (
+    "assay_chembl_id",
+    "assay_id",
+    "description",
+    "assay_category",
+    "assay_strain",
+    "assay_group",
+    "assay_type",
+    "assay_type_description",
+    "assay_test_type",
+    "assay_organism",
+    "assay_tax_id",
+    "assay_tissue",
+    "assay_cell_type",
+    "assay_subcellular_fraction",
+    "target_chembl_id",
+    "document_chembl_id",
+    "src_assay_id",
+    "src_id",
+    "cell_chembl_id",
+    "tissue_chembl_id",
+    "confidence_score",
+    "confidence_description",
+    "variant_sequence",
+    "assay_classifications",
+    "assay_parameters",
+    "assay_class_id",
+    "curation_level",
+)
+
 ASSAY_MUST_HAVE_FIELDS: tuple[str, ...] = ("assay_chembl_id",)
 
 DOCUMENT_MUST_HAVE_FIELDS: tuple[str, ...] = (
@@ -96,4 +128,22 @@ TESTITEM_MUST_HAVE_FIELDS: tuple[str, ...] = (
     "molecule_properties",
     "molecule_structures",
     "molecule_hierarchy",
+)
+
+API_TESTITEM_FIELDS: tuple[str, ...] = (
+    "molecule_chembl_id",
+    "pref_name",
+    "molecule_type",
+    "availability_type",
+    "chirality",
+    "first_approval",
+    "first_in_class",
+    "indication_class",
+    "helm_notation",
+    "molecule_properties",
+    "molecule_structures",
+    "molecule_hierarchy",
+    "atc_classifications",
+    "cross_references",
+    "molecule_synonyms",
 )

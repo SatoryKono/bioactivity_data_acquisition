@@ -220,8 +220,13 @@ class ChemblTargetPipeline(BaseChemblPipeline):
                         result[column_name] = column_series.astype("boolean")
                 # Handle strings
                 elif (
-                    hasattr(column_def.dtype, "name")
-                    and column_def.dtype.name == "string"
+                    (
+                        hasattr(column_def.dtype, "name")
+                        and column_def.dtype.name == "string"
+                    )
+                    or column_def.dtype == pa.String
+                    or "string" in dtype_str
+                    or "str" in dtype_str
                 ):
                     mask = column_series.notna()
                     if mask.any():

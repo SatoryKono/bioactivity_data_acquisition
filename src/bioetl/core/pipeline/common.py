@@ -325,7 +325,8 @@ class _TransformStageCommand(BaseStageCommand):
         extracted = context.require_payload(_EXTRACT_PAYLOAD_KEY)
         with context.pipeline_stage(self.name) as stage_log:
             stage_log.info(LogEvents.STAGE_TRANSFORM_START)
-            transformed = self.pipeline.transform(extracted)
+            raw_df = self.pipeline.validate_raw_before_transform(extracted)
+            transformed = self.pipeline.transform(raw_df)
             rows = self.pipeline._safe_len(transformed)  # pylint: disable=protected-access
             stage_log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=rows)
         context.set_payload(_TRANSFORM_PAYLOAD_KEY, transformed)
@@ -827,6 +828,12 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         According to documentation, ``transform`` should accept ``df: pd.DataFrame``
         and return ``pd.DataFrame``.
         """
+
+    def validate_raw_before_transform(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        return df
 
     # ------------------------------------------------------------------
     # Optional hooks overridable by subclasses

@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import ConfigDict, Field, PositiveInt
 
 from bioetl.clients.base import normalize_select_fields
+from bioetl.pipelines.chembl._constants import API_DOCUMENT_FIELDS
 
 from ..common import BatchSizeLimitMixin
 from ..models.http import HTTPClientConfig
@@ -45,17 +46,25 @@ class DocumentSourceParameters(SourceParameters):
             Constructed parameters object.
         """
         data = dict(params or {})
-        select_fields = normalize_select_fields(data.get("select_fields"))
-        if select_fields is not None:
-            select_fields = [
-                field for field in select_fields if field != "document_term"
-            ]
-
         payload: dict[str, Any] = {}
+
         if "base_url" in data:
             payload["base_url"] = data.get("base_url")
-        if select_fields is not None:
-            payload["select_fields"] = select_fields
+
+        if "select_fields" in data:
+            raw_select = data.get("select_fields")
+            select_fields = normalize_select_fields(
+                raw_select,
+                default=API_DOCUMENT_FIELDS,
+            )
+            if select_fields is not None:
+                filtered = [
+                    field
+                    for field in select_fields
+                    if field != "document_term"
+                ]
+                if filtered:
+                    payload["select_fields"] = filtered
 
         return cls.model_validate(payload)
 

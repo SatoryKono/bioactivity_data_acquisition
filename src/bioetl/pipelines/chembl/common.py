@@ -17,12 +17,20 @@ from bioetl.clients.chembl_entity_factory import (
 )
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.pipelines.chembl.mixins import (
     EnrichmentMixin,
     NormalizationMixin,
     ValidationMixin,
 )
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
+from bioetl.schemas.chembl_raw_schemas import (
+    ActivityRawSchema,
+    AssayRawSchema,
+    DocumentRawSchema,
+    TargetRawSchema,
+    TestItemRawSchema,
+)
 
 from .helpers import build_dataframe
 from .io import ChemblIO
@@ -36,6 +44,8 @@ class BaseChemblPipeline(
 
     entity_name: str = ""
     id_column: str | None = None
+    descriptor_must_have_fields: tuple[str, ...] = ()
+    descriptor_default_select_fields: tuple[str, ...] | None = None
 
     def __init__(
         self,
@@ -51,6 +61,10 @@ class BaseChemblPipeline(
         self._source = source
         self.writer = writer
         self.results: list[pd.DataFrame] = []
+
+        self._raw_validation_log = UnifiedLogger.get(__name__).bind(
+            component="chembl_raw_validation",
+        )
 
     # --- Hooks ---
     def _fetch_source(self) -> Iterable[dict[str, Any]]:
@@ -81,6 +95,50 @@ class BaseChemblPipeline(
             self.results.append(df)
             return None
         return self.io.write_dataframe(df, writer)
+
+    def validate_raw_before_transform(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        if df.empty:
+            return df
+
+        entity = (self.entity_name or "").strip() or self.pipeline_code
+
+        schema = {
+            "activity": ActivityRawSchema,
+            "assay": AssayRawSchema,
+            "document": DocumentRawSchema,
+            "testitem": TestItemRawSchema,
+            "target": TargetRawSchema,
+        }.get(entity)
+
+        if schema is None:
+            self._raw_validation_log.warning(
+                LogEvents.VALIDATION_SKIPPED,
+                reason="missing_raw_schema",
+                entity=entity,
+            )
+            return df
+
+        try:
+            _ = schema.validate(df, lazy=True)
+        except Exception as exc:  # noqa: BLE001
+            self._raw_validation_log.warning(
+                LogEvents.VALIDATION_ERROR,
+                stage="raw",
+                entity=entity,
+                error=str(exc),
+            )
+            return df
+
+        self._raw_validation_log.info(
+            LogEvents.VALIDATION_COMPLETED,
+            stage="raw",
+            entity=entity,
+            rows=int(df.shape[0]),
+        )
+        return df
 
     # --- Abstract rule providers ---
     def get_normalization_rules(self) -> Mapping[str, Any]:
@@ -158,6 +216,16 @@ class BaseChemblPipeline(
         context_spec = ChemblContextSpec[Any](
             entity_name=entity,
         )
+        must_have = getattr(
+            self,
+            "descriptor_must_have_fields",
+            (),
+        )
+        default_select = getattr(
+            self,
+            "descriptor_default_select_fields",
+            None,
+        )
 
         return ChemblDescriptorSpec[Any](
             name=descriptor_name,
@@ -166,6 +234,8 @@ class BaseChemblPipeline(
             context=context_spec,
             id_column=self.id_column,
             summary_event=f"{descriptor_name}.summary",
+            must_have_fields=must_have,
+            default_select_fields=default_select,
         )
 
     # --- Client helpers ---

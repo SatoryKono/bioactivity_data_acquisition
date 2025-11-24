@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
 from bioetl.clients.base import normalize_select_fields
+from bioetl.pipelines.chembl._constants import API_ACTIVITY_FIELDS
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
@@ -44,13 +45,15 @@ class ActivitySourceParameters(SourceParameters):
             Constructed parameters object.
         """
         if params is None:
-            return cls()
-
-        normalized = dict(cls._normalize_mapping(params))
+            normalized: dict[str, Any] = {}
+        else:
+            normalized = dict(cls._normalize_mapping(params))
         normalized.pop("max_url_length", None)
 
+        raw_select_fields = normalized.get("select_fields")
         normalized["select_fields"] = normalize_select_fields(
-            normalized.get("select_fields")
+            raw_select_fields,
+            default=API_ACTIVITY_FIELDS,
         )
 
         return cls(**normalized)

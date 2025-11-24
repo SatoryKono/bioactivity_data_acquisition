@@ -9,6 +9,10 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.pipeline import RunResult
+from bioetl.pipelines.chembl._constants import (
+    API_DOCUMENT_FIELDS,
+    DOCUMENT_MUST_HAVE_FIELDS,
+)
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl.document.normalize import (
     enrich_with_document_terms,
@@ -19,6 +23,8 @@ class ChemblDocumentPipeline(BaseChemblPipeline):
     entity_name = "document"
     id_column = "document_chembl_id"
     actor = "document_pipeline_actor"
+    descriptor_must_have_fields: tuple[str, ...] = DOCUMENT_MUST_HAVE_FIELDS
+    descriptor_default_select_fields = API_DOCUMENT_FIELDS
 
     def __init__(
         self,

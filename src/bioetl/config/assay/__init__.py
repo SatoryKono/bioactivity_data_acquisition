@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import ConfigDict, Field, PositiveInt, model_validator
+
+from bioetl.clients.base import normalize_select_fields
+from bioetl.pipelines.chembl._constants import API_ASSAY_FIELDS
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
@@ -28,6 +31,13 @@ class AssaySourceParameters(SourceParameters):
         default=True,
         description="Whether to perform handshake checks before extraction.",
     )
+    select_fields: Sequence[str] | None = Field(
+        default=None,
+        description=(
+            "Optional list of field names to fetch via `only` parameter. "
+            "If not provided, uses default API_ASSAY_FIELDS."
+        ),
+    )
 
     @classmethod
     def from_mapping(
@@ -47,12 +57,18 @@ class AssaySourceParameters(SourceParameters):
             Constructed parameters object.
         """
         normalized = cls._normalize_mapping(params or {})
+        raw_select_fields = normalized.get("select_fields")
+        select_fields = normalize_select_fields(
+            raw_select_fields,
+            default=API_ASSAY_FIELDS,
+        )
         return cls(
             base_url=normalized.get("base_url"),
             handshake_endpoint=normalized.get("handshake_endpoint", "/status"),
             handshake_enabled=coerce_bool(
                 normalized.get("handshake_enabled", True)
             ),
+            select_fields=select_fields,
         )
 
 
