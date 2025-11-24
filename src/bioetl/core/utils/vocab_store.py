@@ -18,6 +18,7 @@ import yaml
 
 from bioetl.core.runtime.errors import BioETLError
 from bioetl.core.utils.typechecks import is_dict, is_list
+from bioetl.core.utils.vocab_path import resolve_vocab_store_path
 
 VALID_ENTRY_STATUSES: Final[set[str]] = {"active", "alias", "deprecated"}
 DEFAULT_ALLOWED_STATUSES: Final[set[str]] = {"active", "alias"}
@@ -106,10 +107,6 @@ def _load_yaml(path: Path) -> Mapping[str, Any]:
     return _ensure_mapping(payload, context=f"YAML root from {path}")
 
 
-def _normalize_path(path: str | Path) -> Path:
-    return Path(path).expanduser().resolve()
-
-
 @lru_cache(maxsize=8)
 def _load_vocab_store_cached(resolved_path: str) -> dict[str, Any]:
     path = Path(resolved_path)
@@ -146,14 +143,16 @@ def clear_vocab_store_cache() -> None:
     _load_vocab_store_cached.cache_clear()
 
 
-def load_vocab_store(path: str | Path) -> dict[str, Any]:
+def load_vocab_store(path: str | Path | None = None) -> dict[str, Any]:
     """Load a vocabulary store from a directory of YAML files or an aggregate file.
 
     Parameters
     ----------
     path:
-        Path to the directory containing dictionary YAML files or to an aggregated
-        YAML file.
+        Optional path to the directory containing dictionary YAML files or to an
+        aggregated YAML file. When omitted, the path is resolved using
+        :func:`bioetl.core.utils.vocab_path.resolve_vocab_store_path` which
+        honours environment overrides and defaults.
 
     Returns
     -------
@@ -162,8 +161,8 @@ def load_vocab_store(path: str | Path) -> dict[str, Any]:
         is used, the special ``meta`` key is preserved as-is.
     """
 
-    normalized = _normalize_path(path)
-    return _load_vocab_store_cached(str(normalized))
+    resolved_path = resolve_vocab_store_path(path)
+    return _load_vocab_store_cached(str(resolved_path))
 
 
 def get_ids(
