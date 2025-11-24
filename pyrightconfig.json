@@ -1,0 +1,7 @@
+{
+  "stubPath": "typings",
+  "extraPaths": ["src/typecheck/stubs", "src"],
+  "pythonVersion": "3.10",
+  "reportMissingModuleSource": "none"
+}
+

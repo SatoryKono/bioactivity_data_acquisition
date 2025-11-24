@@ -1,0 +1,91 @@
+meta:
+  source_urls:
+  - https://chembl.blogspot.com/2018/04/schema-changes-coming-in-chembl24.html
+  - https://chembl.blogspot.com/2023/06/release-of-chembl-33.html
+  - https://link.springer.com/content/pdf/10.1007/s10822-015-9860-5.pdf
+  chembl_release: 36 (2025-09)
+  updated_at: '2025-11-07'
+values:
+- id: nM
+  aliases:
+  - NM
+  - nanomolar
+  - nanomol/L
+  - nm
+  - n M
+  - nMol
+  - nmol
+  - nMolar
+  - nanoM
+  - NanoM
+  - NANOMOLAR
+  description: Nanomolar (standard for affinities/concentrations)
+  status: active
+- id: uM
+  aliases:
+  - µM
+  - um
+  - UM
+  - u M
+  - μM
+  - μ M
+  - µ M
+  - uMol
+  - umol
+  - microM
+  - micromolar
+  - MicroM
+  - MICROMOLAR
+  - μmol
+  - µmol
+  description: Micromolar (normalized to nM)
+  status: active
+- id: mM
+  aliases:
+  - millimolar
+  - MM
+  - mm
+  - m M
+  - mMol
+  - mmol
+  - mMolar
+  - MilliM
+  - MILLIMOLAR
+  description: Millimolar (normalized to nM)
+  status: active
+- id: pM
+  aliases:
+  - PM
+  - pm
+  - p M
+  - pMol
+  - pmol
+  - pMolar
+  - picomolar
+  - picoM
+  - PicoM
+  - PicoMolar
+  - PICOMOLAR
+  description: Picomolar (normalized to nM)
+  status: active
+- id: '%'
+  aliases:
+  - percent
+  description: Percentage (no nM conversion)
+  status: active
+- id: ng.hr.mL-1
+  aliases:
+  - ng*h/mL
+  - ng·h/mL
+  - ng·hr·mL−1
+  description: Exposure (AUC) unit
+  status: active
+- id: nM.hr
+  aliases:
+  - nM*h
+  description: Exposure unit for certain parameters
+  status: active
+rules:
+  normalization: strip; uppercase except 'ng.hr.mL-1'; map µM→uM; convert all affinity/conc
+    units to nM when possible
+  default_unit: nM

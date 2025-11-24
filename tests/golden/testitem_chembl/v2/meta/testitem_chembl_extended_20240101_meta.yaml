@@ -1,0 +1,175 @@
+columns:
+- molecule_chembl_id
+- pref_name
+- molecule_type
+- max_phase
+- first_approval
+- first_in_class
+- availability_type
+- black_box_warning
+- chirality
+- dosed_ingredient
+- helm_notation
+- indication_class
+- inorganic_flag
+- natural_product
+- prodrug
+- structure_type
+- therapeutic_flag
+- molecule_hierarchy__molecule_chembl_id
+- molecule_hierarchy__parent_chembl_id
+- molecule_structures__canonical_smiles
+- molecule_structures__molfile
+- molecule_structures__standard_inchi
+- molecule_structures__standard_inchi_key
+- molecule_properties__alogp
+- molecule_properties__aromatic_rings
+- molecule_properties__cx_logd
+- molecule_properties__cx_logp
+- molecule_properties__cx_most_apka
+- molecule_properties__cx_most_bpka
+- molecule_properties__full_molformula
+- molecule_properties__full_mwt
+- molecule_properties__hba
+- molecule_properties__hba_lipinski
+- molecule_properties__hbd
+- molecule_properties__hbd_lipinski
+- molecule_properties__heavy_atoms
+- molecule_properties__molecular_species
+- molecule_properties__mw_freebase
+- molecule_properties__mw_monoisotopic
+- molecule_properties__num_lipinski_ro5_violations
+- molecule_properties__num_ro5_violations
+- molecule_properties__psa
+- molecule_properties__qed_weighted
+- molecule_properties__ro3_pass
+- molecule_properties__rtb
+- atc_classifications
+- cross_references__flat
+- molecule_synonyms__flat
+- _chembl_db_version
+- _api_version
+- hash_row
+- hash_business_key
+- load_meta_id
+config_version: 1
+dataset_path: C:\Users\Fedor\AppData\Local\Temp\pytest-of-Fedor\pytest-1313\test_testitem_pipeline_golden_0\output\activity_chembl_20240101.csv
+generated_at_utc: '2025-11-20T19:45:12.770190Z'
+hash_policy_version: 1.0.0
+hashing:
+  algorithm: sha256
+  business_key_column: hash_business_key
+  business_key_fields:
+  - molecule_chembl_id
+  hash_business_key:
+    nullable: false
+    unique: 3
+  hash_row:
+    nullable: false
+    unique: 3
+  row_column: hash_row
+  row_fields: []
+  sample_hash_business_key: 32a85464f6da3283339369c8f8a11a67e4aaea6ff0d74f55ad75b9c25076f00c
+  sample_hash_row: f350ddd89c6ebaff070b1cb6e300994705f3f28451d5f9a8da8b823b05d5f7a3
+pipeline: activity_chembl
+pipeline_version: 1.0.0
+quality:
+  metrics:
+    business_key_fields:
+    - molecule_chembl_id
+    columns_with_missing: availability_type, black_box_warning, chirality, dosed_ingredient,
+      first_approval, first_in_class, helm_notation, indication_class, inorganic_flag,
+      max_phase, molecule_hierarchy__molecule_chembl_id, molecule_hierarchy__parent_chembl_id,
+      molecule_properties__alogp, molecule_properties__aromatic_rings, molecule_properties__cx_logd,
+      molecule_properties__cx_logp, molecule_properties__cx_most_apka, molecule_properties__cx_most_bpka,
+      molecule_properties__full_molformula, molecule_properties__full_mwt, molecule_properties__hba,
+      molecule_properties__hba_lipinski, molecule_properties__hbd, molecule_properties__hbd_lipinski,
+      molecule_properties__heavy_atoms, molecule_properties__molecular_species, molecule_properties__mw_freebase,
+      molecule_properties__mw_monoisotopic, molecule_properties__num_lipinski_ro5_violations,
+      molecule_properties__num_ro5_violations, molecule_properties__psa, molecule_properties__qed_weighted,
+      molecule_properties__ro3_pass, molecule_properties__rtb, molecule_structures__canonical_smiles,
+      molecule_structures__molfile, molecule_structures__standard_inchi, molecule_structures__standard_inchi_key,
+      molecule_type, natural_product, pref_name, prodrug, structure_type, therapeutic_flag
+    deduplicated_count: 3
+    duplicate_count: 0
+    duplicate_ratio: 0.0
+    iqr_outliers: {}
+    relation_distribution: {}
+    row_count: 3
+    total_missing_values: 87
+    units_distribution: {}
+row_count: 3
+run_id: golden-testitem-v1
+sorting:
+  ascending:
+  - true
+  by:
+  - molecule_chembl_id
+  na_position: last
+stage_durations_ms:
+  validate: 135.85419999435544
+validation:
+  coerce: true
+  column_order:
+  - molecule_chembl_id
+  - pref_name
+  - molecule_type
+  - max_phase
+  - first_approval
+  - first_in_class
+  - availability_type
+  - black_box_warning
+  - chirality
+  - dosed_ingredient
+  - helm_notation
+  - indication_class
+  - inorganic_flag
+  - natural_product
+  - prodrug
+  - structure_type
+  - therapeutic_flag
+  - molecule_hierarchy__molecule_chembl_id
+  - molecule_hierarchy__parent_chembl_id
+  - molecule_structures__canonical_smiles
+  - molecule_structures__molfile
+  - molecule_structures__standard_inchi
+  - molecule_structures__standard_inchi_key
+  - molecule_properties__alogp
+  - molecule_properties__aromatic_rings
+  - molecule_properties__cx_logd
+  - molecule_properties__cx_logp
+  - molecule_properties__cx_most_apka
+  - molecule_properties__cx_most_bpka
+  - molecule_properties__full_molformula
+  - molecule_properties__full_mwt
+  - molecule_properties__hba
+  - molecule_properties__hba_lipinski
+  - molecule_properties__hbd
+  - molecule_properties__hbd_lipinski
+  - molecule_properties__heavy_atoms
+  - molecule_properties__molecular_species
+  - molecule_properties__mw_freebase
+  - molecule_properties__mw_monoisotopic
+  - molecule_properties__num_lipinski_ro5_violations
+  - molecule_properties__num_ro5_violations
+  - molecule_properties__psa
+  - molecule_properties__qed_weighted
+  - molecule_properties__ro3_pass
+  - molecule_properties__rtb
+  - atc_classifications
+  - cross_references__flat
+  - molecule_synonyms__flat
+  - _chembl_db_version
+  - _api_version
+  - hash_row
+  - hash_business_key
+  - load_meta_id
+  expected_version: null
+  migrated_from_version: null
+  migrations_applied: 0
+  row_count: 3
+  schema_identifier: bioetl.schemas.chembl_testitem_schema.TestItemSchema
+  schema_name: TestItemSchema_v1.2.0
+  schema_valid: true
+  schema_version: 1.2.0
+  strict: true

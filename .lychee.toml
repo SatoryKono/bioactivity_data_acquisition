@@ -1,0 +1,19 @@
+# Link checking configuration for documentation set
+inputs = [
+  "README.md",
+  "docs/INDEX.md",
+  "docs/pipelines/**/*.md"
+]
+
+exclude = [
+  "mailto:*"
+]
+
+max_retries = 3
+retry_wait_time = 2
+max_redirects = 5
+user_agent = "bioactivity-data-acquisition-link-checker/@test_refactoring_32"
+accept = [
+  "200..299",
+  "403"
+]

@@ -1,0 +1,111 @@
+"""Typed configuration helpers for the ChEMBL assay pipeline."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
+
+from pydantic import ConfigDict, Field, PositiveInt, model_validator
+
+from ..models.http import HTTPClientConfig
+from ..models.source import SourceConfig, SourceParameters
+from ..utils import coerce_bool, coerce_max_url_length
+
+
+class AssaySourceParameters(SourceParameters):
+    """Free-form parameters specific to the assay source."""
+
+    model_config = ConfigDict(extra="forbid")
+    base_url: str | None = Field(
+        default=None,
+        description="Override for the ChEMBL API base URL when fetching assays.",
+    )
+    handshake_endpoint: str = Field(
+        default="/status",
+        description="Endpoint used for dry-run handshake checks.",
+    )
+    handshake_enabled: bool = Field(
+        default=True,
+        description="Whether to perform handshake checks before extraction.",
+    )
+
+    @classmethod
+    def from_mapping(
+        cls,
+        params: Mapping[str, Any] | None = None,
+    ) -> AssaySourceParameters:
+        """Construct the parameters object from a raw mapping.
+
+        Parameters
+        ----------
+        params
+            Raw mapping of parameters. ``None`` is treated as an empty mapping.
+
+        Returns
+        -------
+        AssaySourceParameters
+            Constructed parameters object.
+        """
+        normalized = cls._normalize_mapping(params or {})
+        return cls(
+            base_url=normalized.get("base_url"),
+            handshake_endpoint=normalized.get("handshake_endpoint", "/status"),
+            handshake_enabled=coerce_bool(
+                normalized.get("handshake_enabled", True)
+            ),
+        )
+
+
+class AssaySourceConfig(SourceConfig[AssaySourceParameters]):
+    """Pipeline-specific view over the generic :class:`SourceConfig`."""
+
+    enabled: bool = Field(default=True)
+    description: str | None = Field(default=None)
+    http_profile: str | None = Field(default=None)
+    http: HTTPClientConfig | None = Field(default=None)
+    batch_size: PositiveInt | None = Field(
+        default=25,
+        description="Effective batch size for pagination requests (capped at 25).",
+    )
+    max_url_length: PositiveInt = Field(
+        default=2000,
+        description="Upper bound for paginated URL length when building endpoints.",
+    )
+    parameters: AssaySourceParameters = Field(
+        default_factory=AssaySourceParameters
+    )
+
+    parameters_model = AssaySourceParameters
+    batch_field = "batch_size"
+    default_batch_size = 25
+
+    @model_validator(mode="after")
+    def enforce_limits(self) -> AssaySourceConfig:
+        """Ensure the configured values adhere to documented constraints.
+
+        Returns
+        -------
+        AssaySourceConfig
+            Self with enforced limits.
+        """
+        batch_size = self.batch_size
+        if batch_size is not None and batch_size > 25:
+            self.batch_size = 25
+        if self.max_url_length > 2000:
+            self.max_url_length = 2000
+        return self
+
+    @classmethod
+    def _build_payload(
+        cls,
+        *,
+        config: SourceConfig[AssaySourceParameters],
+        parameters: AssaySourceParameters,
+    ) -> dict[str, Any]:
+        """Extend the base payload with assay-specific fields."""
+
+        payload = super()._build_payload(config=config, parameters=parameters)
+        payload["max_url_length"] = coerce_max_url_length(
+            config.parameters_mapping()
+        )
+        return payload

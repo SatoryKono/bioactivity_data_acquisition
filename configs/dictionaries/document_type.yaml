@@ -1,0 +1,34 @@
+# Controlled vocabulary: Document types (ChEMBL Documents entity)
+# Notes:
+# - Types reflect common sources in ChEMBL Documents: journal articles, patents, books/chapters, theses, datasets/reports.
+# - Keep aliases to handle heterogeneous source labels.
+meta:
+  source_urls:
+    - https://www.ebi.ac.uk/chembl/explore/documents/     # ChEMBL Documents explorer
+    - https://www.ebi.ac.uk/training/online/courses/embl-ebi-programmatically/chembl-programmatically/  # ChEMBL programmatic course
+  chembl_release: "latest"
+  updated_at: "2025-11-07"
+values:
+  - id: "JOURNAL ARTICLE"
+    aliases: ["Journal", "Article", "Publication"]
+    description: "Peer-reviewed journal article"
+    status: "active"
+  - id: "PATENT"
+    aliases: ["Patent document", "Patent application", "WO", "US", "EP"]
+    description: "Patent or patent application"
+    status: "active"
+  - id: "BOOK/CHAPTER"
+    aliases: ["Book", "Book chapter"]
+    description: "Book or book chapter"
+    status: "active"
+  - id: "THESIS"
+    aliases: ["Dissertation"]
+    description: "Thesis/dissertation"
+    status: "active"
+  - id: "DATASET/REPORT"
+    aliases: ["Dataset", "Technical report", "Supplement"]
+    description: "Dataset or technical report"
+    status: "active"
+rules:
+  normalization: "upper; map aliases→id"
+  notes: "If a new label appears in source dumps, add as alias and map to the closest canonical type."

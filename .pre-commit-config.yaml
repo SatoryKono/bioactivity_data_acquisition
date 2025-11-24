@@ -1,0 +1,184 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # Порог 10 МБ предотвращает попадание тяжёлых артефактов в историю
+        args: ["--maxkb=10240"]
+      - id: detect-private-key
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--settings-path", "pyproject.toml"]
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        args: ["--config", "pyproject.toml"]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-bugbear==24.2.8
+          - flake8-comprehensions==3.16.0
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.4
+    hooks:
+      - id: ruff
+        args:
+          [
+            --fix,
+            --exit-non-zero-on-fix,
+            src/bioetl,
+            tests,
+          ]
+        pass_filenames: false
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        args:
+          [
+            --config-file=pyproject.toml,
+            --strict,
+            src/bioetl,
+          ]
+        pass_filenames: false
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.7.1
+    hooks:
+      - id: nbstripout
+        files: '\\.ipynb$'
+
+  - repo: https://github.com/jackdewinter/pymarkdown
+    rev: v0.9.24
+    hooks:
+      - id: pymarkdown
+        args: ["--disable-rules", "md013", "scan"]
+        files: >-
+          ^(README\.md|docs/(INDEX|pipelines/10-chembl-pipelines-catalog|configs/00-typed-configs-and-profiles|cli/00-cli-overview|qc/00-qc-overview)\.md)$
+
+  - repo: https://github.com/lycheeverse/lychee
+    rev: v0.15.1
+    hooks:
+      - id: lychee
+        args: ["--config", ".lychee.toml"]
+
+  - repo: local
+    hooks:
+      - id: check-pipelines-layout
+        name: check-pipelines-layout
+        entry: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          ok = True
+          root = pathlib.Path("src/bioetl/pipelines")
+          if root.exists():
+              allowed_providers = r"(chembl|pubchem|uniprot|iuphar|pubmed|openalex|crossref|semanticscholar)"
+              allowed_entities = r"(assay|activity|target|document|testitem)"
+              allowed_stages = r"(extract|transform|validate|write|run)"
+              pat = re.compile(
+                  fr"^src/bioetl/pipelines/{allowed_providers}/{allowed_entities}/{allowed_stages}\.py$"
+              )
+              for path in root.rglob("*.py"):
+                  rel_path = path.as_posix()
+                  if "/common/" in rel_path:
+                      print(f"forbid common in pipelines: {rel_path}")
+                      ok = False
+                  if not pat.match(rel_path) and not rel_path.endswith(
+                      ("/__init__.py", "/base.py", "/chembl_base.py")
+                  ):
+                      print(f"bad pipeline path: {rel_path}")
+                      ok = False
+
+          if not ok:
+              sys.exit(1)
+          PY
+        language: system
+        files: ^src/bioetl/pipelines/.*\.py$
+        pass_filenames: false
+
+      - id: check-module-names
+        name: Validate module naming pattern
+        entry: python -m tools.qa.check_module_names
+        language: system
+        pass_filenames: false
+
+      - id: check-dependency-matrix
+        name: Enforce dependency matrix
+        entry: python -m tools.qa.check_dependency_matrix
+        language: system
+        pass_filenames: false
+
+      - id: pipeline-inventory
+        name: Generate pipeline inventory snapshot
+        entry: python -m bioetl.cli.tools.catalog_code_symbols
+        language: system
+        pass_filenames: false
+
+      - id: check-output-artifacts
+        name: Ensure large artifacts are not committed under data/output
+        entry: python -m bioetl.cli.tools.check_output_artifacts
+        language: system
+        pass_filenames: false
+
+      - id: forbid-requests-exceptions-in-cli
+        name: Forbid requests.exceptions imports in CLI layer
+        entry: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          root = pathlib.Path("src/bioetl/cli")
+          if not root.exists():
+              sys.exit(0)
+
+          patterns = (
+              re.compile(r"\brequests\.exceptions\b"),
+              re.compile(r"\bfrom\s+requests\s+import\s+exceptions\b"),
+          )
+
+          violations: list[str] = []
+          for path in root.rglob("*.py"):
+              text = path.read_text(encoding="utf-8")
+              for pattern in patterns:
+                  if pattern.search(text):
+                      violations.append(
+                          f"{path.as_posix()}: replace requests.exceptions with bioetl.clients.exceptions"
+                      )
+                      break
+
+          if violations:
+              for violation in violations:
+                  print(violation)
+              sys.exit(1)
+          PY
+        language: system
+        pass_filenames: false
+
+default_language_version:
+  python: python3

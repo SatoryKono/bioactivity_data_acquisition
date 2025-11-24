@@ -1,0 +1,226 @@
+columns:
+- activity_id
+- row_subtype
+- row_index
+- assay_chembl_id
+- assay_type
+- assay_description
+- assay_organism
+- assay_tax_id
+- testitem_chembl_id
+- molecule_chembl_id
+- parent_molecule_chembl_id
+- molecule_pref_name
+- target_chembl_id
+- target_pref_name
+- document_chembl_id
+- record_id
+- src_id
+- type
+- relation
+- value
+- units
+- standard_type
+- standard_relation
+- standard_value
+- standard_upper_value
+- standard_units
+- standard_text_value
+- standard_flag
+- upper_value
+- lower_value
+- pchembl_value
+- uo_units
+- qudt_units
+- text_value
+- activity_comment
+- bao_endpoint
+- bao_format
+- bao_label
+- canonical_smiles
+- ligand_efficiency
+- target_organism
+- target_tax_id
+- data_validity_comment
+- data_validity_description
+- potential_duplicate
+- activity_properties
+- compound_key
+- compound_name
+- curated
+- removed
+- load_meta_id
+- hash_row
+- hash_business_key
+config_version: 1
+dataset_path: E:\github\bioactivity_data_acquisition1\tests\golden\activity_chembl\v1\_build\output\activity_chembl_extended_20240101.csv
+generated_at_utc: '2025-11-14T19:57:48.763099Z'
+hash_policy_version: 1.0.0
+hashing:
+  algorithm: sha256
+  business_key_column: hash_business_key
+  business_key_fields:
+  - activity_id
+  hash_business_key:
+    nullable: false
+    unique: 3
+  hash_row:
+    nullable: false
+    unique: 3
+  row_column: hash_row
+  row_fields: []
+  sample_hash_business_key: 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b
+  sample_hash_row: 83a925a7b941f0fc84cdea9ce36555d4bb12f92004d951ab816d99da8a2fc5e4
+pipeline: activity_chembl
+pipeline_version: 1.0.0
+quality:
+  metrics:
+    business_key_fields:
+    - activity_id
+    columns_with_missing: activity_comment, activity_properties, assay_description,
+      assay_organism, assay_tax_id, assay_type, bao_endpoint, bao_format, bao_label,
+      compound_name, curated, data_validity_comment, data_validity_description, ligand_efficiency,
+      lower_value, molecule_pref_name, parent_molecule_chembl_id, qudt_units, record_id,
+      relation, removed, src_id, standard_relation, standard_text_value, standard_type,
+      standard_upper_value, target_organism, target_pref_name, text_value, uo_units,
+      upper_value
+    deduplicated_count: 3
+    duplicate_count: 0
+    duplicate_ratio: 0.0
+    iqr_outliers: {}
+    relation_distribution:
+      relation:
+        '=':
+          count: 1
+          ratio: 0.333333
+        '>':
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 1
+          ratio: 0.333334
+      standard_relation:
+        '=':
+          count: 1
+          ratio: 0.333333
+        '>':
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 1
+          ratio: 0.333334
+    row_count: 3
+    total_missing_values: 50
+    units_distribution:
+      qudt_units:
+        QUDT_0000001:
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 2
+          ratio: 0.666667
+      standard_units:
+        mM:
+          count: 1
+          ratio: 0.333333
+        nM:
+          count: 1
+          ratio: 0.333333
+        μM:
+          count: 1
+          ratio: 0.333334
+      units:
+        mM:
+          count: 1
+          ratio: 0.333333
+        nM:
+          count: 1
+          ratio: 0.333333
+        μM:
+          count: 1
+          ratio: 0.333334
+      uo_units:
+        UO_0000001:
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 2
+          ratio: 0.666667
+row_count: 3
+run_id: golden-activity-v1
+sorting:
+  ascending:
+  - true
+  - true
+  - true
+  by:
+  - assay_chembl_id
+  - testitem_chembl_id
+  - activity_id
+  na_position: last
+stage_durations_ms: {}
+validation:
+  coerce: false
+  column_order:
+  - activity_id
+  - row_subtype
+  - row_index
+  - assay_chembl_id
+  - assay_type
+  - assay_description
+  - assay_organism
+  - assay_tax_id
+  - testitem_chembl_id
+  - molecule_chembl_id
+  - parent_molecule_chembl_id
+  - molecule_pref_name
+  - target_chembl_id
+  - target_pref_name
+  - document_chembl_id
+  - record_id
+  - src_id
+  - type
+  - relation
+  - value
+  - units
+  - standard_type
+  - standard_relation
+  - standard_value
+  - standard_upper_value
+  - standard_units
+  - standard_text_value
+  - standard_flag
+  - upper_value
+  - lower_value
+  - pchembl_value
+  - uo_units
+  - qudt_units
+  - text_value
+  - activity_comment
+  - bao_endpoint
+  - bao_format
+  - bao_label
+  - canonical_smiles
+  - ligand_efficiency
+  - target_organism
+  - target_tax_id
+  - data_validity_comment
+  - data_validity_description
+  - potential_duplicate
+  - activity_properties
+  - compound_key
+  - compound_name
+  - curated
+  - removed
+  - load_meta_id
+  - hash_row
+  - hash_business_key
+  expected_version: null
+  migrated_from_version: null
+  migrations_applied: 0
+  row_count: 3
+  schema_identifier: bioetl.schemas.chembl_activity_schema:ActivitySchema
+  schema_name: ActivitySchema_v1.7.0
+  schema_valid: true
+  schema_version: 1.7.0
+  strict: true

@@ -1,0 +1,297 @@
+"""Shared pytest fixtures for BioETL tests."""
+
+from __future__ import annotations
+
+import sys
+from collections.abc import Callable, Generator
+from contextlib import AbstractContextManager, contextmanager
+from importlib import util as importlib_util
+from pathlib import Path
+from typing import Any
+from unittest.mock import MagicMock, patch
+
+import pandas as pd
+import pytest  # type: ignore[reportMissingImports]
+
+from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.chembl_entity_factory import ChemblClientBundle
+from bioetl.config.models.models import PipelineConfig
+from bioetl.core.http.api_client import UnifiedAPIClient
+from tests.support.factories import (
+    build_pipeline_config,
+    load_sample_activity_dataframe,
+    load_test_json,
+)
+
+# Register ChEMBL fixtures as pytest plugin
+pytest_plugins = ["tests.support.chembl_fixtures"]
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SRC_DIR = PROJECT_ROOT / "src"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:  # type: ignore[attr-defined]
+    """Provide no-op coverage options when ``pytest-cov`` is unavailable."""
+
+    if importlib_util.find_spec("pytest_cov") is not None:
+        # ``pytest-cov`` is installed; defer to the plugin's own options.
+        return
+
+    group = parser.getgroup("cov")
+    group.addoption(
+        "--cov",
+        action="append",
+        default=[],
+        help="stub option added because pytest-cov is not installed",
+    )
+    group.addoption(
+        "--cov-report",
+        action="append",
+        default=[],
+        help="stub option added because pytest-cov is not installed",
+    )
+    group.addoption(
+        "--cov-fail-under",
+        action="store",
+        default=None,
+        help="stub option added because pytest-cov is not installed",
+    )
+
+
+@pytest.fixture  # type: ignore[misc]
+def tmp_output_dir(tmp_path: Path) -> Path:
+    """Temporary directory for pipeline output artifacts."""
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    return output_dir
+
+
+@pytest.fixture  # type: ignore[misc]
+def tmp_logs_dir(tmp_path: Path) -> Path:
+    """Temporary directory for pipeline logs."""
+
+    logs_dir = tmp_path / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    return logs_dir
+
+
+@pytest.fixture  # type: ignore[misc]
+def golden_dir(tmp_path: Path) -> Path:
+    """Directory for golden test snapshots."""
+
+    golden = tmp_path / "golden"
+    golden.mkdir(parents=True, exist_ok=True)
+    return golden
+
+
+@pytest.fixture  # type: ignore[misc]
+def sample_activity_data_raw() -> list[dict[str, Any]]:
+    """Raw activity data as it would come from ChEMBL API."""
+
+    raw_payload = load_test_json("sample_activity_data_raw.json")
+    return list(raw_payload)
+
+
+@pytest.fixture  # type: ignore[misc]
+def sample_activity_data() -> pd.DataFrame:
+    """Sample activity DataFrame for testing."""
+
+    return load_sample_activity_dataframe()
+
+
+@pytest.fixture  # type: ignore[misc]
+def sample_chembl_api_response() -> dict[str, Any]:
+    """Sample ChEMBL API paginated response."""
+
+    payload = load_test_json("sample_chembl_api_response.json")
+    return dict(payload)
+
+
+@pytest.fixture  # type: ignore[misc]
+def sample_chembl_status_response() -> dict[str, Any]:
+    """Sample ChEMBL status API response."""
+
+    payload = load_test_json("sample_chembl_status_response.json")
+    return dict(payload)
+
+
+@pytest.fixture  # type: ignore[misc]
+def pipeline_config_fixture(tmp_output_dir: Path) -> PipelineConfig:
+    """Sample ``PipelineConfig`` for pipeline unit tests."""
+
+    return build_pipeline_config(tmp_output_dir)
+
+
+@pytest.fixture  # type: ignore[misc]
+def run_id() -> str:
+    """Deterministic run identifier for tests."""
+
+    return "test-run-12345"
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_api_client() -> MagicMock:
+    """Mock ``UnifiedAPIClient`` with deterministic defaults."""
+
+    mock_client = MagicMock(spec=UnifiedAPIClient)
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"data": "test"}
+    mock_response.headers = {}
+    mock_client.get.return_value = mock_response
+    mock_client.request.return_value = mock_response
+    mock_client.request_json.return_value = {"data": "test"}
+    return mock_client
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_http_response() -> MagicMock:
+    """Mock HTTP response object."""
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {}
+    response.headers = {}
+    response.raise_for_status = MagicMock()
+    return response
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_chembl_api_client() -> MagicMock:
+    """Mock ChEMBL API client returning status and empty data."""
+
+    mock_client = MagicMock(spec=UnifiedAPIClient)
+
+    mock_status_response = MagicMock()
+    mock_status_response.json.return_value = {
+        "chembl_release": "33",
+        "chembl_db_version": "33",
+        "api_version": "1.0",
+    }
+    mock_status_response.status_code = 200
+    mock_status_response.headers = {}
+
+    mock_data_response = MagicMock()
+    mock_data_response.json.return_value = {
+        "page_meta": {"offset": 0, "limit": 25, "count": 0, "next": None},
+        "activities": [],
+    }
+    mock_data_response.status_code = 200
+    mock_data_response.headers = {}
+
+    mock_client.get.side_effect = [mock_status_response, mock_data_response]
+
+    return mock_client
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_chembl_bundle(mock_chembl_api_client: MagicMock) -> ChemblClientBundle:
+    """Мок bundle для ChEMBL entity клиентов."""
+
+    bundle = MagicMock(spec=ChemblClientBundle)
+    bundle.chembl_client = MagicMock(spec=ChemblClient)
+    bundle.chembl_client.handshake.return_value = {"chembl_db_version": "33"}
+    bundle.api_client = mock_chembl_api_client
+    bundle.entity_client = MagicMock()
+    bundle.entity_name = "test_entity"
+    bundle.source_name = "chembl"
+    bundle.base_url = "https://www.ebi.ac.uk/chembl/api/data"
+    bundle.entity_config = None
+    bundle.source_config = None
+    return bundle
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_api_client_factory_patch(
+    mock_chembl_api_client: MagicMock,
+) -> Callable[[MagicMock | None], AbstractContextManager[MagicMock]]:
+    """Context manager fixture for patching ``APIClientFactory.for_source``."""
+
+    def _factory(mock_client: MagicMock | None = None) -> Generator[MagicMock, None, None]:
+        client = mock_client or mock_chembl_api_client
+        with patch("bioetl.core.APIClientFactory.for_source") as mock_factory:
+            mock_factory.return_value = client
+            yield mock_factory
+
+    return contextmanager(_factory)
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_chembl_client_with_data(
+    sample_activity_data_raw: list[dict[str, Any]],
+) -> MagicMock:
+    """Mock ChEMBL client preloaded with sample activity payload."""
+
+    mock_client = MagicMock(spec=UnifiedAPIClient)
+
+    mock_status_response = MagicMock()
+    mock_status_response.json.return_value = {
+        "chembl_release": "33",
+        "chembl_db_version": "33",
+    }
+    mock_status_response.status_code = 200
+    mock_status_response.headers = {}
+
+    mock_activity_response = MagicMock()
+    mock_activity_response.json.return_value = {
+        "page_meta": {
+            "offset": 0,
+            "limit": 25,
+            "count": len(sample_activity_data_raw),
+            "next": None,
+        },
+        "activities": sample_activity_data_raw,
+    }
+    mock_activity_response.status_code = 200
+    mock_activity_response.headers = {}
+
+    mock_client.get.side_effect = [mock_status_response, mock_activity_response]
+
+    return mock_client
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_chembl_responses_for_endpoint() -> Callable[
+    [dict[str, Any] | list[dict[str, Any]], str, int | None],
+    tuple[MagicMock, MagicMock],
+]:
+    """Factory fixture for constructing ChEMBL endpoint responses."""
+
+    def _create_responses(
+        endpoint_data: dict[str, Any] | list[dict[str, Any]],
+        endpoint_type: str = "activities",
+        count: int | None = None,
+    ) -> tuple[MagicMock, MagicMock]:
+        mock_status_response = MagicMock()
+        mock_status_response.json.return_value = {
+            "chembl_release": "33",
+            "chembl_db_version": "33",
+        }
+        mock_status_response.status_code = 200
+        mock_status_response.headers = {}
+
+        items: list[dict[str, Any]]
+        items = [endpoint_data] if isinstance(endpoint_data, dict) else list(endpoint_data)
+
+        effective_count = len(items) if count is None else count
+
+        mock_data_response = MagicMock()
+        mock_data_response.json.return_value = {
+            "page_meta": {
+                "offset": 0,
+                "limit": 25,
+                "count": effective_count,
+                "next": None,
+            },
+            endpoint_type: items,
+        }
+        mock_data_response.status_code = 200
+        mock_data_response.headers = {}
+
+        return mock_status_response, mock_data_response
+
+    return _create_responses

@@ -1,0 +1,34 @@
+meta:
+  source_urls:
+    - "https://bioassayontology.org/browse"
+  chembl_release: "36 (2025-09)"
+  updated_at: "2025-11-07"
+values:
+  -
+    id: "BAO_0000003"
+    aliases:
+      - "BAO0000003"
+    description: "Single concentration inhibition format"
+    status: "active"
+  -
+    id: "BAO_0000004"
+    aliases: []
+    description: "Concentration-response format"
+    status: "active"
+  -
+    id: "BAO_0000015"
+    aliases: []
+    description: "Binding assay format"
+    status: "active"
+  -
+    id: "BAO_0000018"
+    aliases: []
+    description: "Functional assay format"
+    status: "active"
+  -
+    id: "BAO_0000357"
+    aliases: []
+    description: "High-throughput screening format"
+    status: "active"
+rules:
+  normalization: "strip; uppercase; ensure BAO prefix"

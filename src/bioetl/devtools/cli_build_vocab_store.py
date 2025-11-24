@@ -1,0 +1,122 @@
+"""Assemble the aggregated ChEMBL vocabulary store."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, cast
+
+from bioetl.cli._io import atomic_write_yaml
+from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.utils.vocab_store import (
+    VocabStoreError,
+    clear_vocab_store_cache,
+    load_vocab_store,
+)
+
+__all__ = ["build_vocab_store"]
+
+
+def _utc_timestamp() -> str:
+    """Return current UTC timestamp truncated to seconds in ISO-8601 format."""
+    now = datetime.now(timezone.utc)
+    return now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _extract_release(
+    meta: Mapping[str, Any] | None,
+    *,
+    name: str,
+    current: str | None,
+) -> str | None:
+    """Extract consistent ``chembl_release`` value from dictionary metadata."""
+    if meta is None:
+        return current
+    if not isinstance(meta, Mapping):
+        raise VocabStoreError(
+            f"Dictionary '{name}' meta section must be a mapping"
+        )
+    release = meta.get("chembl_release")
+    if release is None:
+        return current
+    if not isinstance(release, str):
+        raise VocabStoreError(
+            f"Dictionary '{name}' meta.chembl_release must be a string when present"
+        )
+    if current is None:
+        return release
+    if current != release:
+        raise VocabStoreError(
+            "Inconsistent chembl_release across dictionaries: "
+            f"'{current}' vs '{release}' (from {name})"
+        )
+    return current
+
+
+def build_vocab_store(
+    src: Path,
+    output: Path,
+) -> Path:
+    """Aggregate individual vocabularies into a single YAML document."""
+
+    UnifiedLogger.configure()
+    log = UnifiedLogger.get(__name__)
+
+    resolved_src = src.expanduser().resolve()
+    resolved_output = output.expanduser().resolve()
+
+    clear_vocab_store_cache()
+    store = load_vocab_store(resolved_src)
+    if not store:
+        raise VocabStoreError(f"No dictionaries found in {resolved_src}")
+
+    chembl_release: str | None = None
+    dictionary_names = sorted(key for key in store if key != "meta")
+    aggregated: dict[str, Any] = {}
+
+    for name in dictionary_names:
+        block_raw = store[name]
+        if not isinstance(block_raw, Mapping):
+            raise VocabStoreError(
+                f"Dictionary '{name}' payload must be a mapping"
+            )
+
+        block = cast(Mapping[str, Any], block_raw)
+        meta_section_raw: Any = block.get("meta")
+        if meta_section_raw is None:
+            meta_section: Mapping[str, Any] | None = None
+        elif isinstance(meta_section_raw, Mapping):
+            meta_section = cast(Mapping[str, Any], meta_section_raw)
+        else:
+            raise VocabStoreError(
+                f"Dictionary '{name}' meta section must be a mapping when present"
+            )
+
+        chembl_release = _extract_release(
+            meta_section,
+            name=name,
+            current=chembl_release,
+        )
+        aggregated[name] = dict(block)
+
+    if chembl_release is None:
+        raise VocabStoreError(
+            "chembl_release metadata is missing across dictionaries"
+        )
+
+    aggregated_with_meta: dict[str, Any] = {
+        "meta": {
+            "built_at": _utc_timestamp(),
+            "chembl_release": chembl_release,
+        }
+    }
+    aggregated_with_meta.update(aggregated)
+
+    atomic_write_yaml(aggregated_with_meta, resolved_output)
+    log.info(
+        LogEvents.VOCAB_STORE_BUILT,
+        source=str(resolved_src),
+        output=str(resolved_output),
+    )
+    return resolved_output

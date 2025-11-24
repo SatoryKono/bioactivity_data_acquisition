@@ -1,0 +1,79 @@
+meta:
+  source_urls:
+    - "https://chembl.blogspot.com/2020/10/data-checks.html"
+    - "https://github.com/chembl/GLaDOS-docs/blob/master/frequently-asked-questions/chembl-data-questions.md"
+  chembl_release: "36 (2025-09)"
+  updated_at: "2025-11-07"
+values:
+  -
+    id: "9"
+    aliases:
+
+    description: "Direct single protein target assigned"
+    status: "active"
+  -
+    id: "8"
+    aliases:
+
+    description: "Single protein (homologue/uncertain species)"
+    status: "active"
+  -
+    id: "7"
+    aliases:
+
+    description: "Protein complex/subunit mapping"
+    status: "active"
+  -
+    id: "6"
+    aliases:
+
+    description: "Protein family/cluster mapping"
+    status: "active"
+  -
+    id: "5"
+    aliases:
+
+    description: "Multiple proteins or multi-component ambiguous"
+    status: "active"
+  -
+    id: "4"
+    aliases:
+
+    description: "Protein target assigned (lower confidence)"
+    status: "active"
+  -
+    id: "3"
+    aliases:
+
+    description: "Non-protein molecular target (e.g., nucleic acid)"
+    status: "active"
+  -
+    id: "2"
+    aliases:
+
+    description: "Non-molecular target (e.g., tissue, cell) low confidence"
+    status: "active"
+  -
+    id: "1"
+    aliases:
+
+    description: "Non-molecular target (cell-line/organism)"
+    status: "active"
+  -
+    id: "0"
+    aliases:
+
+    description: "No target assigned"
+    status: "active"
+interpretations:
+  -
+    score: ">=8"
+    meaning: "High-confidence single-protein mapping; recommended for strict filtering"
+  -
+    score: ">=4"
+    meaning: "Protein target present; acceptable for broader analyses"
+  -
+    score: "0-1"
+    meaning: "No/indirect target; exclude for target-specific potency"
+rules:
+  normalization: "coerce to int; range 0..9"

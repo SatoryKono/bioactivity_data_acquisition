@@ -1,0 +1,83 @@
+@startuml
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+hide circle
+
+package "bioetl.core" #EEEEFF {
+  [core.pipeline.common\nPipelineBaseCommon] as CorePipelineCommon
+  [core.pipeline.errors] as CorePipelineErrors
+  [core.pipeline.__init__] as CorePipelineInit
+  [core.runtime.cli_pipeline_runner\nPipelineCommandRunner] as CoreRunner
+  [core.io.output] as CoreIOOutput
+  [core.io.base_writer] as CoreIOWriter
+  [core.config_contracts] as CoreConfigContracts
+  [core.logging.*] as CoreLogging
+  [core.schema.*] as CoreSchema
+  [core.common\nChemblReleaseMixin] as CoreCommon
+  [core.utils.molecule_map\njoin_activity_with_molecule] as CoreMoleculeMap
+}
+
+package "bioetl.pipelines" #FFEEEE {
+  [pipelines.__init__] as PipelinesInit
+  [pipelines.base\nPipelineBase] as PipelinesBase
+  [pipelines.errors] as PipelinesErrors
+  [pipelines.common\nensure_directory] as PipelinesCommon
+  [pipelines.validation\n*ValidationStep] as PipelinesValidation
+  [pipelines.unified_base\nUnifiedPipelineBase] as PipelinesUnifiedBase
+
+  package "chembl" {
+    [pipelines.chembl.common] as ChemblCommon
+    [pipelines.chembl.stage_runner] as ChemblStageRunner
+    [chembl.activity.run\nChemblActivityPipeline] as ChemblActivity
+    [chembl.assay.run\nChemblAssayPipeline] as ChemblAssay
+    [chembl.document.run\nChemblDocumentPipeline] as ChemblDocument
+    [chembl.target.run\nChemblTargetPipeline] as ChemblTarget
+    [chembl.testitem.run\nTestItemChemblPipeline] as ChemblTestitem
+  }
+}
+
+' Core internals
+CorePipelineInit --> CorePipelineCommon
+CorePipelineInit --> CorePipelineErrors
+CoreRunner --> CorePipelineInit
+CorePipelineCommon --> CoreIOOutput
+CorePipelineCommon --> CoreLogging
+CorePipelineCommon --> CoreSchema
+CorePipelineCommon --> CoreConfigContracts
+CoreCommon --> CoreMoleculeMap
+
+' Pipelines internals
+PipelinesBase --> CorePipelineCommon
+PipelinesErrors --> CorePipelineErrors
+PipelinesValidation --> CoreIOOutput
+PipelinesValidation --> CoreLogging
+PipelinesValidation --> CoreSchema
+PipelinesValidation --> PipelinesBase
+
+PipelinesUnifiedBase --> PipelinesBase
+PipelinesUnifiedBase --> ChemblCommon
+ChemblStageRunner --> PipelinesUnifiedBase
+ChemblStageRunner --> PipelinesValidation
+
+PipelinesInit --> ChemblActivity
+PipelinesInit --> ChemblAssay
+PipelinesInit --> ChemblDocument
+PipelinesInit --> ChemblTarget
+PipelinesInit --> ChemblTestitem
+PipelinesInit --> PipelinesBase
+
+ChemblActivity --> PipelinesUnifiedBase
+ChemblAssay   --> PipelinesUnifiedBase
+ChemblDocument--> PipelinesUnifiedBase
+ChemblTarget  --> PipelinesUnifiedBase
+ChemblTestitem--> PipelinesUnifiedBase
+
+' Reverse deps core -> pipelines (leaks)
+CorePipelineCommon -[#red]-> PipelinesCommon   : uses ensure_directory
+CorePipelineCommon -[#red]-> PipelinesErrors   : uses PipelineError
+CorePipelineCommon -[#red]-> PipelinesValidation : uses validation steps
+
+' CLI -> pipelines (factories)
+CoreRunner ..> PipelinesInit : PipelineFactory
+
+@enduml

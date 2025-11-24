@@ -1,0 +1,35 @@
+"""Runtime primitives and compatibility helpers for BioETL core."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from importlib import import_module
+from typing import Any
+
+from .cli_base import CliCommandBase, CliEntrypoint
+from .errors import BioETLError
+
+_LAZY_EXPORTS: Mapping[str, str] = {
+    "LoadMetaBuilder": "bioetl.core.runtime.load_meta_builder",
+    "LoadMetaStore": "bioetl.core.runtime.load_meta_store",
+    "LoadMetaWriter": "bioetl.core.runtime.load_meta_writer",
+    "RunArtifacts": "bioetl.core.io",
+    "WriteArtifacts": "bioetl.core.io",
+    "WriteResult": "bioetl.core.io",
+}
+
+
+def __getattr__(name: str) -> Any:
+    module_name = _LAZY_EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(name)
+    module = import_module(module_name)
+    return getattr(module, name)
+
+
+__all__ = [
+    "BioETLError",
+    "CliCommandBase",
+    "CliEntrypoint",
+    *sorted(_LAZY_EXPORTS),
+]
