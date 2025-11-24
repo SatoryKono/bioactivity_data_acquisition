@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+import math
+
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
@@ -823,6 +825,18 @@ class ChemblActivityPipeline(BaseChemblPipeline):
 
         result = df.copy()
 
+        def _to_numeric(val: Any) -> float | None:
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                return None
+            try:
+                candidate = val.strip().replace(",", ".") if isinstance(val, str) else val
+                num = float(candidate)
+                if math.isnan(num):
+                    return None
+                return num
+            except Exception:
+                return None
+
         # Normalize standard_value
         if "standard_value" in result.columns:
             series = result["standard_value"].astype(str).str.strip()
@@ -848,6 +862,52 @@ class ChemblActivityPipeline(BaseChemblPipeline):
                 valid_mask = series.isin(RELATIONS)
                 series = series.where(valid_mask, pd.NA)
                 result[col] = series.astype("string")
+
+        # Normalize bounds strictly: populate lower/upper only when relation is "=".
+        def _compute_bounds(row: pd.Series[Any]) -> float | pd.NA:
+            rel_raw = row.get("relation")
+            rel = None
+            if rel_raw is not None and not (
+                isinstance(rel_raw, float) and pd.isna(rel_raw)
+            ):
+                rel = str(rel_raw).strip()
+
+            std_val = row.get("standard_value")
+            val_candidate = (
+                std_val
+                if std_val is not None
+                and not (isinstance(std_val, float) and pd.isna(std_val))
+                else row.get("value")
+            )
+
+            num = _to_numeric(val_candidate)
+            if rel == "=" and num is not None:
+                return num
+            return pd.NA
+
+        bounds_series = result.apply(_compute_bounds, axis=1)
+        bounds_numeric = pd.to_numeric(bounds_series, errors="coerce")
+        result["lower_value"] = bounds_numeric
+        result["upper_value"] = bounds_numeric
+
+        def _compute_standard_upper(row: pd.Series[Any]) -> float | pd.NA:
+            rel_raw = row.get("standard_relation")
+            rel = None
+            if rel_raw is not None and not (
+                isinstance(rel_raw, float) and pd.isna(rel_raw)
+            ):
+                rel = str(rel_raw).strip()
+
+            num = _to_numeric(row.get("standard_value"))
+            if rel == "=" and num is not None:
+                return num
+            return pd.NA
+
+        if "standard_relation" in result.columns or "standard_value" in result.columns:
+            std_upper_series = result.apply(_compute_standard_upper, axis=1)
+            result["standard_upper_value"] = pd.to_numeric(
+                std_upper_series, errors="coerce"
+            )
 
         # Normalize standard_type
         if "standard_type" in result.columns:

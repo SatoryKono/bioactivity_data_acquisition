@@ -15,6 +15,7 @@ from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.schemas.chembl_activity_schema import COLUMN_ORDER, ActivitySchema
 
 
@@ -611,6 +612,36 @@ class TestActivityEnrichment:
         assert df_with_values["activity_comment"].iloc[0] == "Test comment"
         assert df_with_values["data_validity_comment"].iloc[0] == "Valid"
         assert df_with_values["data_validity_description"].iloc[0] == "Validated"
+
+    def test_bounds_populated_only_for_equal_relation(self) -> None:
+        pipeline = ChemblActivityPipeline(source=[])
+        log = pipeline.logger_for(stage="test")
+
+        df = pd.DataFrame(
+            {
+                "activity_id": [1, 2, 3],
+                "relation": ["=", ">", "<="],
+                "standard_relation": ["=", "=", None],
+                "value": ["10", "5", "7"],
+                "standard_value": [9.5, 2.5, None],
+                "lower_value": [1.0, 2.0, 3.0],
+                "upper_value": [1.0, 2.0, 3.0],
+                "standard_upper_value": [1.0, 2.0, 3.0],
+            }
+        )
+
+        normalized = pipeline._normalize_measurements(df, log)
+
+        assert normalized["lower_value"].iloc[0] == 9.5
+        assert normalized["upper_value"].iloc[0] == 9.5
+        assert pd.isna(normalized["lower_value"].iloc[1])
+        assert pd.isna(normalized["upper_value"].iloc[1])
+        assert pd.isna(normalized["lower_value"].iloc[2])
+        assert pd.isna(normalized["upper_value"].iloc[2])
+
+        assert normalized["standard_upper_value"].iloc[0] == 9.5
+        assert normalized["standard_upper_value"].iloc[1] == 2.5
+        assert pd.isna(normalized["standard_upper_value"].iloc[2])
 
     def test_invariant_standard_text_value_implies_null_standard_value(
         self,
