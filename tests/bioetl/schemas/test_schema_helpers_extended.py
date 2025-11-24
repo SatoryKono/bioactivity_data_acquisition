@@ -16,11 +16,8 @@ from bioetl.schemas.chembl_activity_schema import (
     is_valid_activity_properties,
     is_valid_activity_property_item,
 )
-from bioetl.schemas.schema_vocabulary_helper import (
-    VOCAB_STORE_ENV_VAR,
-    refresh_vocab_store_cache,
-    required_vocab_ids,
-)
+import bioetl.vocab.service as vocab_service
+from bioetl.vocab.service import VOCAB_STORE_ENV_VAR, refresh_vocab_cache, required_vocab_ids
 
 
 def test_activity_property_item_validation_branches() -> None:
@@ -190,27 +187,26 @@ def test_split_identifier_errors() -> None:
 def test_required_vocab_ids(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    helper = importlib.import_module("bioetl.schemas.schema_vocabulary_helper")
     store = {"valid": {"ids": ["one", "two"], "status": ["active", "inactive"]}}
 
     def fake_load() -> dict[str, Any]:
         return store
 
     monkeypatch.setenv(VOCAB_STORE_ENV_VAR, str(tmp_path / "dictionaries"))
-    monkeypatch.setattr(helper, "load_vocab_store", lambda path: fake_load())
-    refresh_vocab_store_cache()
+    monkeypatch.setattr(vocab_service, "_load_vocab_store", lambda path: fake_load())
+    refresh_vocab_cache()
     assert required_vocab_ids("valid") == {"one", "two"}
 
-    monkeypatch.setattr(helper, "_get_ids", lambda store, name, allowed_statuses=None: [])
-    refresh_vocab_store_cache()
+    monkeypatch.setattr(vocab_service, "_get_ids", lambda store, name, allowed_statuses=None: [])
+    refresh_vocab_cache()
     with pytest.raises(RuntimeError, match="empty"):
         required_vocab_ids("valid")
 
     monkeypatch.setattr(
-        helper,
-        "load_vocab_store",
-        lambda path: (_ for _ in ()).throw(helper.VocabStoreError("failed")),
+        vocab_service,
+        "_load_vocab_store",
+        lambda path: (_ for _ in ()).throw(vocab_service.VocabStoreError("failed")),
     )
-    refresh_vocab_store_cache()
+    refresh_vocab_cache()
     with pytest.raises(RuntimeError, match="Unable to load vocabulary"):
         required_vocab_ids("valid")

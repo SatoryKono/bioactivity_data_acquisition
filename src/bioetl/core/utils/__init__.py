@@ -16,6 +16,7 @@ from .vocab_store import (
     get_ids,
     load_vocab_store,
 )
+from .vocab_path import resolve_vocab_store_path
 
 if TYPE_CHECKING:
     from bioetl.chembl.common import join_activity_with_molecule
@@ -32,6 +33,7 @@ __all__ = [
     "is_non_string_iterable",
     "join_activity_with_molecule",
     "load_vocab_store",
+    "resolve_vocab_store_path",
 ]
 
 

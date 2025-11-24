@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bioetl.core.utils.vocab_path import resolve_vocab_store_path
 from .exceptions import VocabularyValidationError
 from .service import (
     VOCAB_STORE_ENV_VAR,
@@ -18,6 +19,7 @@ __all__ = [
     "VocabularyService",
     "VocabularyValidationError",
     "get_vocabulary_service",
+    "resolve_vocab_store_path",
     "refresh_vocab_cache",
     "required_vocab_ids",
     "vocab_ids",
