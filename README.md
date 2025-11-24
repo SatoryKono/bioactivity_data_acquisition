@@ -92,6 +92,10 @@ bioetl config inspect \
   сторонних расширений, опубликованы в
   [`docs/architecture.md`](docs/architecture.md). Там же приведены примеры
   наследования и ожидаемые точечные изменения при добавлении новых сущностей.
+- Все ChEMBL-пайплайны принимают `client_factory`, что упрощает dependency
+  injection: в продакшене используется фабрика по умолчанию
+  (`bioetl.infrastructure.clients.default_chembl_factory`), а в тестах можно
+  подменить её фейковой реализацией для детерминированных ответов.
 - Публичный API закреплён в явном shim`е
   [`src/bioetl/public.py`](src/bioetl/public.py) и импортируется через
   `from bioetl import PipelineConfig, PipelineBase, UnifiedLogger, ...`. Это

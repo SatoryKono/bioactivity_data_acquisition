@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
+import warnings
 
 import pandas as pd
 
@@ -18,6 +19,7 @@ from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.io import ensure_columns
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.schema.normalizers import IdentifierRule, StringRule
+from bioetl.infrastructure.clients import default_chembl_factory
 from bioetl.pipelines.chembl.activity.normalize import (
     _COMPOUND_COLUMNS,
     enrich_with_compound_record,
@@ -67,6 +69,7 @@ class ChemblActivityPipeline(BaseChemblPipeline):
         *,
         config: Any | None = None,
         writer: Any = None,
+        client_factory: Any | None = None,
     ) -> None:
         """Инициализировать пайплайн ChEMBL activity.
 
@@ -121,6 +124,13 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             effective_run_id = run_id
         else:
             # Тестовый путь: первый аргумент трактуем как source iterable.
+            if config_or_source is not None:
+                warnings.warn(
+                    "Passing source via positional config_or_source is deprecated; "
+                    "use explicit source= and client_factory= parameters instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
             effective_source = (
                 source if source is not None else config_or_source
             )
@@ -206,8 +216,13 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             # Если run_id не передан, используем фиксированное значение для тестов.
             effective_run_id = run_id or "test-run"
 
+        resolved_factory = client_factory or default_chembl_factory(config)
         super().__init__(
-            config, effective_run_id, effective_source, writer=writer
+            config,
+            effective_run_id,
+            effective_source,
+            writer=writer,
+            client_factory=resolved_factory,
         )
         self.writer = writer
 
@@ -257,15 +272,25 @@ class ChemblActivityPipeline(BaseChemblPipeline):
             msg = "entity_name must be provided for enrichment bundle"
             raise ValueError(msg)
 
-        factory = ChemblEntityClientFactory(self.config)
+        factory = self.client_factory or ChemblEntityClientFactory(self.config)
         source_config = getattr(self.config.domain, "sources", {}).get(
             "chembl"
         )
-        bundle = factory.build(
-            entity_name,
-            source_name="chembl",
-            source_config=source_config,
-        )
+        if hasattr(factory, "build"):
+            bundle = factory.build(
+                entity_name,
+                source_name="chembl",
+                source_config=source_config,
+            )
+        elif callable(factory):
+            bundle = factory(
+                entity_name,
+                source_name="chembl",
+                source_config=source_config,
+            )
+        else:
+            msg = "client_factory must expose build(entity_name, ...)"
+            raise TypeError(msg)
 
         registered = getattr(self, "_registered_clients", {})
         if client_name and client_name not in registered:
