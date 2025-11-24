@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from bioetl.pipelines.common import ensure_directory
+from bioetl.utils import ensure_directory
 
 
 @pytest.mark.unit
