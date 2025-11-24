@@ -1,8 +1,9 @@
-"""Упрощённый Assay-пайплайн."""
+"""Ассay‑пайплайн, выровненный под общий контракт UnifiedPipelineBase."""
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
@@ -12,6 +13,7 @@ from bioetl.pipelines.chembl._constants import (
     API_ASSAY_FIELDS,
     ASSAY_MUST_HAVE_FIELDS,
 )
+from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
 from bioetl.pipelines.chembl.helpers import build_dataframe
 from bioetl.pipelines.chembl.mixins import FieldMappingRule
@@ -25,12 +27,29 @@ class ChemblAssayPipeline(BaseChemblPipeline):
 
     def __init__(
         self,
-        config: Any,
+        config: PipelineConfig,
         run_id: str,
         source: Iterable[dict[str, Any]] | None = None,
         *,
         writer=None,
     ) -> None:
+        """Создать пайплайн без legacy-конструкторов и скрытых режимов.
+
+        Parameters
+        ----------
+        config
+            Типизированный объект конфигурации пайплайна.
+        run_id
+            Уникальный идентификатор запуска, пробрасываемый в базовый
+            UnifiedPipelineBase.
+        source
+            Итератор с исходными записями для unit/integration тестов; при
+            боевом запуске данные извлекаются из API через BaseChemblPipeline.
+        writer
+            Пользовательский writer для тестирования IO; при отсутствии данные
+            удерживаются в памяти (см. BaseChemblPipeline._write).
+        """
+
         super().__init__(config, run_id, source, writer=writer)
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
@@ -166,11 +185,7 @@ class ChemblAssayPipeline(BaseChemblPipeline):
             classifications = result.loc[idx, "assay_classifications"]
 
             # Handle None/NA/empty
-            if classifications is None or classifications is pd.NA:
-                result.loc[idx, "assay_class_id"] = pd.NA
-                continue
-
-            if isinstance(classifications, float) and pd.isna(classifications):
+            if classifications is None or pd.isna(classifications):
                 result.loc[idx, "assay_class_id"] = pd.NA
                 continue
 
@@ -201,7 +216,7 @@ class ChemblAssayPipeline(BaseChemblPipeline):
     def save_results(
         self,
         df: pd.DataFrame,
-        output_dir: Any,
+        output_dir: Path,
         *,
         extended: bool = False,
         include_correlation: bool = False,
