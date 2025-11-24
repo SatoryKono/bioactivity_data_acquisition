@@ -12,7 +12,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.pipeline import PipelineBase
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 __all__ = [
     "CommandConfig",
@@ -73,8 +73,11 @@ def _load_pipeline_class(path: str) -> type[Any]:
     if not isinstance(pipeline_cls, type):
         msg = f"Object '{class_name}' from '{module_path}' is not a class."
         raise TypeError(msg)
-    if not issubclass(pipeline_cls, PipelineBase):
-        msg = f"Class '{class_name}' from '{module_path}' is not a PipelineBase subclass."
+    if not issubclass(pipeline_cls, UnifiedPipelineBase):
+        msg = (
+            f"Class '{class_name}' from '{module_path}' must inherit UnifiedPipelineBase "
+            "to be registered as a CLI pipeline."
+        )
         raise TypeError(msg)
     return pipeline_cls
 

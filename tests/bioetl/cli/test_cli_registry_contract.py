@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from bioetl.cli.cli_registry import COMMAND_REGISTRY, PIPELINE_REGISTRY, CommandConfig
-from bioetl.core.pipeline import PipelineBase
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 
 def test_pipeline_registry_factories() -> None:
@@ -15,7 +15,7 @@ def test_pipeline_registry_factories() -> None:
         assert config.name == spec.code
         assert config.canonical_name == spec.code
         assert config.description == spec.description
-        assert issubclass(config.pipeline_class, PipelineBase)
+        assert issubclass(config.pipeline_class, UnifiedPipelineBase)
         if spec.default_config is None:
             assert config.default_config_path is None
         else:

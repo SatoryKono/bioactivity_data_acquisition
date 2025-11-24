@@ -7,7 +7,7 @@ on:
     branches: ["*"]
 
 jobs:
-  tests:
+  unit-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,3 +28,108 @@ jobs:
       - name: Run tests
         run: |
           python -W error::DeprecationWarning -m pytest -q
+
+  contract-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      - name: Run contract suite
+        run: |
+          python -m pytest -q \
+            tests/bioetl/cli/test_cli_registry_contract.py \
+            tests/bioetl/pipelines/test_unified_base.py
+
+  pipeline-smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pipeline: activity_chembl
+            config: configs/pipelines/activity/activity_chembl.yaml
+          - pipeline: assay_chembl
+            config: configs/pipelines/assay/assay_chembl.yaml
+          - pipeline: testitem_chembl
+            config: configs/pipelines/testitem/testitem_chembl.yaml
+          - pipeline: target_chembl
+            config: configs/pipelines/target/target_chembl.yaml
+          - pipeline: document_chembl
+            config: configs/pipelines/document/document_chembl.yaml
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      - name: Smoke run ${{ matrix.pipeline }}
+        env:
+          PYTHONWARNINGS: ignore
+        run: |
+          mkdir -p /tmp/bioetl/${{ matrix.pipeline }}
+          bioetl run ${{ matrix.pipeline }} \
+            --config ${{ matrix.config }} \
+            --output-dir /tmp/bioetl/${{ matrix.pipeline }} \
+            --dry-run \
+            --limit 5
+
+  config-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      - name: Validate configs
+        run: |
+          python scripts/migrate_configs.py --root configs/pipelines
+
+  legacy-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure no legacy or adapter directories are present
+        run: |
+          if find src -type d \( -name legacy -o -name adapters \) | grep -q .; then
+            echo "Unexpected legacy/adapter directories detected"
+            find src -type d \( -name legacy -o -name adapters \)
+            exit 1
+          fi
+          echo "No legacy or adapter directories detected"
