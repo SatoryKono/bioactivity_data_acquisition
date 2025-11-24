@@ -158,53 +158,6 @@ PIPELINE_REGISTRY: tuple[PipelineCommandSpec, ...] = (
     ),
 )
 
-# Not implemented yet — placeholder for future pipelines.
-PLACEHOLDER_PIPELINES: tuple[PipelineCommandSpec, ...] = (
-    PipelineCommandSpec(
-        code="pubchem",
-        description="Extract compound data from PubChem and normalize to the project schema.",
-        pipeline_path=None,
-        not_implemented_message="PubChem pipeline not yet implemented",
-    ),
-    PipelineCommandSpec(
-        code="uniprot",
-        description="Extract protein records from UniProt and normalize to the project schema.",
-        pipeline_path=None,
-        not_implemented_message="UniProt pipeline not yet implemented",
-    ),
-    PipelineCommandSpec(
-        code="gtp_iuphar",
-        description="Extract ligand and target data from IUPHAR and normalize to the project schema.",
-        pipeline_path=None,
-        not_implemented_message="IUPHAR pipeline not yet implemented",
-    ),
-    PipelineCommandSpec(
-        code="openalex",
-        description="Extract scholarly metadata from OpenAlex and normalize to the project schema.",
-        pipeline_path=None,
-        not_implemented_message="OpenAlex pipeline not yet implemented",
-    ),
-    PipelineCommandSpec(
-        code="crossref",
-        description="Extract bibliographic metadata from Crossref and normalize to the project schema.",
-        pipeline_path=None,
-        not_implemented_message="Crossref pipeline not yet implemented",
-    ),
-    PipelineCommandSpec(
-        code="pubmed",
-        description="Extract publication data from PubMed and normalize to the project schema.",
-        pipeline_path=None,
-        not_implemented_message="PubMed pipeline not yet implemented",
-    ),
-    PipelineCommandSpec(
-        code="semantic_scholar",
-        description="Extract publication data from Semantic Scholar and normalize to the project schema.",
-        pipeline_path=None,
-        not_implemented_message="Semantic Scholar pipeline not yet implemented",
-    ),
-)
-
-
 COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = (
     _create_command_registry(PIPELINE_REGISTRY)
 )

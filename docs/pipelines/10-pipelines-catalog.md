@@ -10,6 +10,10 @@ canonical format `<NN>-<entity>-<source>-<topic>.md` (e.g.,
 `09-document-chembl-extraction.md`). See
 [Naming Conventions](../styleguide/00-naming-conventions.md#11-pipeline-documentation-file-naming).
 
+Текущий статус нереализованных пайплайнов поддерживается централизованно в
+[`docs/roadmap.md`](../roadmap.md). Каталог ниже отражает дизайн и спецификации
+даже для тех направлений, которые пока не подключены к CLI.
+
 ## Maintainers
 
 - `@SatoryKono` — глобальный код-оунер и ответственный за документацию
@@ -451,7 +455,6 @@ ______________________________________________________________________
 
 ### Document PubMed (`document_pubmed`) {#document_pubmed}
 
-> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
 > Документация архива удерживается для справки.
 
 **Архивная документация** (canon: `<NN>-<entity>-<source>-<topic>.md`):
@@ -479,7 +482,6 @@ ______________________________________________________________________
 
 ### Document Crossref (`document_crossref`) {#document_crossref}
 
-> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
 
 **Purpose.** Extracts publication metadata from Crossref REST API. Crossref is a
 DOI registration agency providing comprehensive bibliographic metadata for
@@ -552,7 +554,6 @@ ______________________________________________________________________
 
 ### Document OpenAlex (`document_openalex`) {#document_openalex}
 
-> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
 
 **Purpose.** Extracts publication metadata from OpenAlex using the Works API.
 OpenAlex is a free, open-source database of scholarly works with comprehensive
@@ -625,7 +626,6 @@ ______________________________________________________________________
 
 ### Document Semantic Scholar (`document_semantic_scholar`) {#document_semantic_scholar}
 
-> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
 
 **Purpose.** Extracts publication metadata from Semantic Scholar Graph API.
 Semantic Scholar provides comprehensive bibliographic data including citation

@@ -1,6 +1,5 @@
 # Pipeline: `document_crossref`
 
-> **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
 > **Note**: Implementation status: **planned**. All file paths referencing
 > `src/bioetl/` in this document describe the intended architecture and are not

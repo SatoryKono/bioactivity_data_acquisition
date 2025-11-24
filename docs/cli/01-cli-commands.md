@@ -124,21 +124,11 @@ python -m bioetl.cli.cli_app activity_chembl \
   пайплайне прерывает дальнейший запуск, сохраняя уже сгенерированные результаты
   для анализа.
 
-## Planned commands
+## Roadmap
 
-Команды ниже присутствуют в реестре как карточки с `not_implemented_message` и
-появятся после реализации соответствующих пайплайнов:
-
-| Command             | Description                                                             | Status                             |
-| ------------------- | ----------------------------------------------------------------------- | ---------------------------------- |
-| `pubchem`           | Extract compound data from PubChem and normalize to the project schema. | PubChem pipeline not yet implemented |
-| `uniprot`           | Extract protein records from UniProt and normalize to the project schema. | UniProt pipeline not yet implemented |
-| `gtp_iuphar`        | Extract ligand and target data from IUPHAR and normalize to the project schema. | IUPHAR pipeline not yet implemented |
-| `openalex`          | Extract scholarly metadata from OpenAlex and normalize to the project schema. | OpenAlex pipeline not yet implemented |
-| `crossref`          | Extract bibliographic metadata from Crossref and normalize to the project schema. | Crossref pipeline not yet implemented |
-| `pubmed`            | Extract publication data from PubMed and normalize to the project schema. | PubMed pipeline not yet implemented |
-| `semantic_scholar`  | Extract publication data from Semantic Scholar and normalize to the project schema. | Semantic Scholar pipeline not yet implemented |
-
+Описание нереализованных пайплайнов перенесено в
+[`docs/roadmap.md`](../roadmap.md). CLI не содержит заглушек — каждая команда
+ниже соответствует исполняемому пайплайну и валидной конфигурации.
 ## Determinism building blocks
 
 Every command inherits the determinism policy enforced by `PipelineBase`: stable
