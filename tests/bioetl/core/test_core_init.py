@@ -54,7 +54,7 @@ def test_core_public_exports_are_available() -> None:
         "CliEntrypoint": "bioetl.core.runtime",
         "LoadMetaStore": "bioetl.core.runtime",
         # Utils layer
-        "join_activity_with_molecule": "bioetl.core.utils",
+        "join_activity_with_molecule": "bioetl.chembl.common",
         "load_vocab_store": "bioetl.core.utils",
         "get_ids": "bioetl.core.utils",
         "clear_vocab_store_cache": "bioetl.core.utils",

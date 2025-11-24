@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-import warnings
-
 from bioetl.core.infra.iterables import is_non_string_iterable
 from bioetl.core.infra.typechecks import is_dict, is_list
+
 from .mixins import CollectionFlagMixin
 from .vocab_store import (
     DEFAULT_ALLOWED_STATUSES,
@@ -16,9 +14,6 @@ from .vocab_store import (
     get_ids,
     load_vocab_store,
 )
-
-if TYPE_CHECKING:
-    from bioetl.chembl.common import join_activity_with_molecule
 
 __all__ = [
     "DEFAULT_ALLOWED_STATUSES",
@@ -30,23 +25,5 @@ __all__ = [
     "is_dict",
     "is_list",
     "is_non_string_iterable",
-    "join_activity_with_molecule",
     "load_vocab_store",
 ]
-
-
-def __getattr__(name: str) -> Any:
-    if name == "join_activity_with_molecule":
-        warnings.warn(
-            (
-                "'join_activity_with_molecule' is now provided via "
-                "'bioetl.chembl.common'. Importing it from 'bioetl.core.utils' "
-                "is deprecated and will be removed in a future release."
-            ),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        from bioetl.chembl.common import join_activity_with_molecule as join_fn
-
-        return join_fn
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
