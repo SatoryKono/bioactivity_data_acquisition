@@ -149,6 +149,23 @@ def test_run_batched_extraction_bridge(unified_pipeline: DummyUnifiedPipeline) -
     assert stats.requested == 2
 
 
+def test_run_uses_run_stage_logger(
+    unified_pipeline: DummyUnifiedPipeline, tmp_path
+) -> None:
+    stages: list[str | None] = []
+    original_make_logger = unified_pipeline._make_pipeline_logger
+
+    def spy_logger(*, stage: str | None = None, **kwargs):
+        stages.append(stage)
+        return original_make_logger(stage=stage, **kwargs)
+
+    unified_pipeline._make_pipeline_logger = spy_logger  # type: ignore[assignment]
+
+    unified_pipeline.run(tmp_path)
+
+    assert stages and stages[0] == "run"
+
+
 def test_transform_pipeline_flow(unified_pipeline: DummyUnifiedPipeline) -> None:
     df = pd.DataFrame({"value": [2], "identifier": ["item"]})
     transformed = unified_pipeline.transform(df)
