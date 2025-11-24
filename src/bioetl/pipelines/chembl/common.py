@@ -15,6 +15,7 @@ from bioetl.clients.chembl_entity_factory import (
     ChemblClientBundle,
     ChemblEntityClientFactory,
 )
+from bioetl.clients.client_chembl import _resolve_status_endpoint
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger
@@ -35,7 +36,6 @@ from bioetl.schemas.chembl_raw_schemas import (
 
 from .helpers import build_dataframe
 from .io import ChemblIO
-from bioetl.clients.client_chembl import _resolve_status_endpoint
 
 
 class BaseChemblPipeline(
@@ -161,7 +161,7 @@ class BaseChemblPipeline(
             return None
         return getattr(self.config.domain, "sources", {}).get(name)
 
-    def _resolve_batch_size(
+    def _resolve_source_batch_size(
         self, name: str | Any, fallback: int = 1000
     ) -> int:
         """Resolve batch size from source name or SourceConfig object.
@@ -247,21 +247,29 @@ class BaseChemblPipeline(
     def build_chembl_entity_bundle(
         self,
         entity_name: str,
-        source_name: str,
-        source_config: Any,
-        options: Any,
-        chembl_client_kwargs: Any,
-        fresh_http_client: bool,
+        *,
+        source_name: str = "chembl",
+        source_config: SourceConfig[Any] | None = None,
+        options: Mapping[str, Any] | None = None,
+        chembl_client_kwargs: Mapping[str, Any] | None = None,
+        fresh_http_client: bool = False,
     ) -> ChemblClientBundle:
         if self.config is None:
             msg = "Pipeline config is required to build Chembl clients"
             raise RuntimeError(msg)
+
         factory = ChemblEntityClientFactory(self.config)
-        source_config = self._resolve_source_config("chembl")
+        resolved_source = (
+            source_config or self._resolve_source_config(source_name)
+        )
+
         return factory.build(
-            self.entity_name or "",
-            source_name="chembl",
-            source_config=source_config,
+            entity_name or (self.entity_name or ""),
+            source_name=source_name,
+            source_config=resolved_source,
+            options=options,
+            chembl_client_kwargs=chembl_client_kwargs,
+            fresh_http_client=fresh_http_client,
         )
 
     def fetch_chembl_release(
@@ -320,12 +328,14 @@ class BaseChemblPipeline(
             # Prefer handshake if available
             handshake = getattr(client, "handshake", None)
             if callable(handshake):
-                status = handshake()
-                if not status:
+                status_raw = handshake()
+                if not isinstance(status_raw, Mapping):
                     return None
-                version = status.get("chembl_db_version")
+                if not status_raw:
+                    return None
+                version = status_raw.get("chembl_db_version")
                 if version is None:
-                    version = status.get("chembl_release")
+                    version = status_raw.get("chembl_release")
                 if version is None:
                     return None
                 release_raw = str(version)
@@ -335,7 +345,7 @@ class BaseChemblPipeline(
                 if hasattr(self, "_set_chembl_release"):
                     self._set_chembl_release(release_value)
                 api_value: str | None = None
-                api_version = status.get("api_version")
+                api_version = status_raw.get("api_version")
                 if api_version is not None:
                     api_value = str(api_version).strip()
                     if api_value:
@@ -362,43 +372,45 @@ class BaseChemblPipeline(
                 response = get(endpoint)
                 json_candidate = getattr(response, "json", None)
                 if callable(json_candidate):
-                    payload = json_candidate()
-                    if isinstance(payload, dict):
-                        candidate = payload.get(
-                            "chembl_db_version"
-                        ) or payload.get("chembl_release")
-                        if candidate is not None:
-                            release_raw = str(candidate)
-                            release_value = release_raw.strip()
-                            if not release_value:
-                                return None
-                            if hasattr(self, "_set_chembl_release"):
-                                self._set_chembl_release(release_value)
-                            api_value = None
-                            api_version = payload.get("api_version")
-                            if api_version is not None:
-                                candidate_api = str(api_version).strip()
-                                if candidate_api:
-                                    api_value = candidate_api
-                                    api_setter = getattr(
-                                        self, "_set_api_version", None
-                                    )
-                                    if callable(api_setter):
-                                        api_setter(api_value)
-                                    else:
-                                        self.__dict__["api_version"] = (
-                                            api_value
-                                        )
-                            metadata_update = {
-                                "chembl_db_version": release_value
-                            }
-                            if api_value is not None:
-                                metadata_update["api_version"] = api_value
-                            if hasattr(self, "update_chembl_release_metadata"):
-                                self.update_chembl_release_metadata(
-                                    **metadata_update
+                    payload_raw = json_candidate()
+                    if not isinstance(payload_raw, Mapping):
+                        return None
+                    payload = payload_raw
+                    candidate = payload.get(
+                        "chembl_db_version"
+                    ) or payload.get("chembl_release")
+                    if candidate is not None:
+                        release_raw = str(candidate)
+                        release_value = release_raw.strip()
+                        if not release_value:
+                            return None
+                        if hasattr(self, "_set_chembl_release"):
+                            self._set_chembl_release(release_value)
+                        api_value = None
+                        api_version = payload.get("api_version")
+                        if api_version is not None:
+                            candidate_api = str(api_version).strip()
+                            if candidate_api:
+                                api_value = candidate_api
+                                api_setter = getattr(
+                                    self, "_set_api_version", None
                                 )
-                            return release_raw
+                                if callable(api_setter):
+                                    api_setter(api_value)
+                                else:
+                                    self.__dict__["api_version"] = (
+                                        api_value
+                                    )
+                        metadata_update = {
+                            "chembl_db_version": release_value
+                        }
+                        if api_value is not None:
+                            metadata_update["api_version"] = api_value
+                        if hasattr(self, "update_chembl_release_metadata"):
+                            self.update_chembl_release_metadata(
+                                **metadata_update
+                            )
+                        return release_raw
             return None
         except Exception as exc:
             if log is not None:
@@ -408,13 +420,13 @@ class BaseChemblPipeline(
 
     def _get_entity_client(self, bundle: ChemblClientBundle) -> Any:
         """Get entity client from bundle, with special handling for document entity."""
-        if self.entity_name == "document" and hasattr(
-            self, "_build_document_client"
-        ):
-            try:
-                return self._build_document_client(bundle)
-            except Exception:
-                return bundle.entity_client
+        if self.entity_name == "document":
+            build_document_client = getattr(self, "_build_document_client", None)
+            if callable(build_document_client):
+                try:
+                    return build_document_client(bundle)
+                except Exception:
+                    return bundle.entity_client
         return bundle.entity_client
 
     # --- Extraction ---
@@ -448,7 +460,7 @@ class BaseChemblPipeline(
         ):
             msg = "Entity client does not support iterate_by_ids"
             raise RuntimeError(msg)
-        batch_size = self._resolve_batch_size("chembl", len(unique_ids))
+        batch_size = self._resolve_source_batch_size("chembl", len(unique_ids))
         results: list[Mapping[str, Any]] = []
         for start in range(0, len(unique_ids), batch_size):
             batch = unique_ids[start : start + batch_size]
@@ -480,14 +492,17 @@ class BaseChemblPipeline(
         if df.empty:
             return df
         # Convert DataFrame to records for processing
-        records = df.to_dict("records")
+        records_raw = df.to_dict("records")
+        records: list[Mapping[str, Any]] = [
+            {str(k): v for k, v in rec.items()} for rec in records_raw
+        ]
         normalized = self._normalize(records)
         enriched = self._enrich(normalized)
         return build_dataframe(enriched)
 
     def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
         """Override to add ChEMBL-specific column specs."""
-        base_specs = super()._schema_column_specs()
+        base_specs = dict(super()._schema_column_specs())
         base_specs["source"] = {
             "default": "ChEMBL",
             "dtype": pd.StringDtype(),

@@ -151,7 +151,7 @@ class ChemblTargetPipeline(BaseChemblPipeline):
         }
 
     def _normalize_data_types(
-        self, df: pd.DataFrame, schema: Any, log: Any
+        self, df: pd.DataFrame, schema: Any, log: BoundLogger
     ) -> pd.DataFrame:
         """Convert data types according to the schema for target pipeline."""
         import pandera as pa

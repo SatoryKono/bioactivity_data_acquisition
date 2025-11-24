@@ -383,7 +383,6 @@ def build_standard_chembl_context(
     RuntimeError
         Если entity_client не найден в bundle или имеет неверный тип.
     """
-    _ = log
     # Создаем bundle
     bundle = pipeline.build_chembl_entity_bundle(
         entity_name,
@@ -1056,8 +1055,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         logic. The default implementation is a no-op so tests can provide
         lightweight pipeline stubs without having to implement normalization.
         """
-
-        _ = log
         return df
 
     def _normalize_string_fields(
@@ -1069,8 +1066,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         implementation is intentionally a no-op to avoid forcing all call sites
         to provide custom behaviour.
         """
-
-        _ = log
         return df
 
     def _normalize_and_enforce_schema(

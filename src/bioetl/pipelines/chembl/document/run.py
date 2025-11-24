@@ -76,10 +76,27 @@ class ChemblDocumentPipeline(BaseChemblPipeline):
             elif hasattr(chembl_config, "dict"):
                 chembl_config = chembl_config.dict()
 
+            # Normalise to mapping for safe key access
+            config_mapping: Mapping[str, Any]
+            if isinstance(chembl_config, Mapping):
+                config_mapping = chembl_config
+            else:
+                config_mapping = {}
+
             # Check if document_term enrichment is enabled
-            doc_enrich = chembl_config.get("document", {}).get("enrich", {})
-            doc_term_enrich = doc_enrich.get("document_term", {})
-            if doc_term_enrich.get("enabled", False):
+            document_cfg = config_mapping.get("document", {})
+            if not isinstance(document_cfg, Mapping):
+                document_cfg = {}
+
+            enrich_cfg = document_cfg.get("enrich", {})
+            if not isinstance(enrich_cfg, Mapping):
+                enrich_cfg = {}
+
+            doc_term_enrich = enrich_cfg.get("document_term", {})
+            if not isinstance(doc_term_enrich, Mapping):
+                doc_term_enrich = {}
+
+            if bool(doc_term_enrich.get("enabled", False)):
                 # Get client from bundle
                 bundle = self.build_chembl_entity_bundle(
                     entity_name="document",
