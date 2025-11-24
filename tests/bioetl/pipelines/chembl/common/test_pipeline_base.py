@@ -11,17 +11,17 @@ import pytest
 from pytest import MonkeyPatch
 from structlog.testing import capture_logs
 
-from bioetl.chembl.common import ChemblPipelineBase
-from bioetl.config.models.models import PipelineConfig
-from bioetl.config.models.source import SourceConfig
+from infrastructure.chembl import ChemblPipelineBase
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.config.models.source import SourceConfig
 from bioetl.core import LogEvents, UnifiedLogger
-from bioetl.pipelines.chembl.activity import run as activity_run
-from bioetl.pipelines.chembl.assay import run as assay_run
-from bioetl.pipelines.chembl.document import run as document_run
-from bioetl.pipelines.chembl.target import run as target_run
-from bioetl.pipelines.chembl.testitem import run as testitem_run
-from bioetl.schemas import SchemaRegistryEntry
-from bioetl.schemas.pipeline_contracts import get_out_schema
+from application.pipelines.specs.chembl.activity import run as activity_run
+from application.pipelines.specs.chembl.assay import run as assay_run
+from application.pipelines.specs.chembl.document import run as document_run
+from application.pipelines.specs.chembl.target import run as target_run
+from application.pipelines.specs.chembl.testitem import run as testitem_run
+from infrastructure.schemas import SchemaRegistryEntry
+from infrastructure.schemas.pipeline_contracts import get_out_schema
 
 
 class _DummyChemblPipeline(ChemblPipelineBase):
@@ -94,7 +94,7 @@ def test_initialize_output_schema_uses_registry_lookup(
         raise KeyError(pipeline_code)
 
     monkeypatch.setattr(
-        "bioetl.chembl.common.descriptor.get_out_schema",
+        "infrastructure.chembl.descriptor.get_out_schema",
         fake_get_out_schema,
     )
 

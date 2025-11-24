@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 from structlog.stdlib import BoundLogger
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.mark.unit

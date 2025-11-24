@@ -232,7 +232,7 @@ def remove_object(candidate: Candidate, patch_dir: Path, apply_changes: bool) ->
 
 
 def ensure_deprecation_import(lines: List[str]) -> tuple[List[str], int | None]:
-    import_stmt = "from bioetl.utils.deprecation import deprecated"
+    import_stmt = "from common.utils.deprecation import deprecated"
     if any(import_stmt in line for line in lines):
         return lines, None
     insert_at = 0

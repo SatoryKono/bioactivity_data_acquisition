@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bioetl.config import load_config
-from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
+from infrastructure.config import load_config
+from application.pipelines.specs.chembl.target.run import ChemblTargetPipeline
 
 
 def create_mock_target_data(count: int = 5) -> list[dict[str, object]]:

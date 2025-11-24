@@ -5,16 +5,16 @@ import pandas as pd
 import pytest
 from structlog.stdlib import BoundLogger
 
-from bioetl.chembl.common.descriptor import (
+from infrastructure.chembl.descriptor import (
     ChemblDescriptorBuilderMixin,
     ChemblDescriptorSpec,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from bioetl.config.models.models import PipelineConfig, PipelineMetadata
-from bioetl.config.models.policies import HTTPClientConfig, HTTPConfig
-from bioetl.core.pipeline.errors import PipelineError
+from infrastructure.config.models.models import PipelineConfig, PipelineMetadata
+from infrastructure.config.models.policies import HTTPClientConfig, HTTPConfig
+from application.pipelines.errors import PipelineError
 
 
 class DummyChemblPipeline(  # pyright: ignore[reportIncompatibleMethodOverride]

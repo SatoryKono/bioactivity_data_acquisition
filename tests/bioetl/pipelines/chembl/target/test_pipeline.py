@@ -11,12 +11,12 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.clients.entities.client_target import ChemblTargetClient
-from bioetl.config.models.models import PipelineConfig
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.clients.entities.client_target import ChemblTargetClient
+from infrastructure.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.pipelines.chembl.target import run as target_run
-from bioetl.schemas.chembl_target_schema import COLUMN_ORDER, TargetSchema
+from application.pipelines.specs.chembl.target import run as target_run
+from infrastructure.schemas.chembl_target_schema import COLUMN_ORDER, TargetSchema
 
 
 @pytest.mark.unit

@@ -9,8 +9,8 @@ from typing import Any
 
 import pytest
 
-from bioetl.config import loader as config_loader
-from bioetl.config.environment import EnvironmentSettings
+from infrastructure.config import loader as config_loader
+from infrastructure.config.environment import EnvironmentSettings
 
 _deep_merge = config_loader._deep_merge  # pyright: ignore[reportPrivateUsage]
 _assign_nested = config_loader._assign_nested  # pyright: ignore[reportPrivateUsage]

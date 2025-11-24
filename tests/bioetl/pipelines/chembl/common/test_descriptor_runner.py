@@ -10,13 +10,13 @@ import pandas as pd
 import pytest
 from structlog.stdlib import BoundLogger
 
-from bioetl.chembl.common import (
+from infrastructure.chembl import (
     BatchExtractionStats,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from bioetl.config.models.models import PipelineConfig
+from infrastructure.config.models.models import PipelineConfig
 
 
 class DescriptorTestPipeline(ChemblPipelineBase):

@@ -15,7 +15,7 @@ from tests.support.golden import (
     normalize_meta_payload,
 )
 
-from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
+from application.pipelines.specs.chembl.document.run import ChemblDocumentPipeline
 
 PIPELINE_CODE = "document_chembl"
 GOLDEN_VERSION = "v2"
@@ -46,7 +46,7 @@ def test_document_pipeline_golden_snapshot(
     """ChemblDocumentPipeline output must match committed golden artefacts."""
 
     pipeline_config_fixture.validation.schema_out = (
-        "bioetl.schemas.chembl_document_schema.DocumentSchema"  # type: ignore[attr-defined]
+        "infrastructure.schemas.chembl_document_schema.DocumentSchema"  # type: ignore[attr-defined]
     )
     pipeline_config_fixture.determinism.sort.by = ["document_chembl_id"]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.sort.ascending = [True]  # type: ignore[attr-defined]

@@ -5,8 +5,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from bioetl.core.io import WriteResult
-from bioetl.core.pipeline import (
+from infrastructure.io import WriteResult
+from application.pipelines import (
     PipelineBase,
     PipelineExtractionMode,
     PipelineStageCommand,

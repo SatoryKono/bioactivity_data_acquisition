@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bioetl.pipelines.mixins import LoggingMixin, PaginatedExtractorMixin
+from application.pipelines.specs.mixins import LoggingMixin, PaginatedExtractorMixin
 
 
 class _LoggingProbe(LoggingMixin):
@@ -39,7 +39,7 @@ def test_stage_logger_records_duration(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_perf_counter() -> float:
         return next(counter)
 
-    monkeypatch.setattr("bioetl.pipelines.mixins.time.perf_counter", fake_perf_counter)
+    monkeypatch.setattr("application.pipelines.specs.mixins.time.perf_counter", fake_perf_counter)
 
     with probe.stage_logger("extract", rows=3) as logger:
         logger.info("custom_event")

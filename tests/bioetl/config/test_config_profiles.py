@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from bioetl.config.loader import load_config
+from infrastructure.config.loader import load_config
 
 PIPELINE_CONFIGS = [
     Path("configs/pipelines/activity/activity_chembl.yaml"),

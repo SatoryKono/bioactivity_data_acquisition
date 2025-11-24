@@ -5,8 +5,8 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
-from bioetl.pipelines.mixins import EnrichmentScenarioEngine
+from infrastructure.chembl.enrich import ChemblEnrichmentScenario
+from application.pipelines.specs.mixins import EnrichmentScenarioEngine
 
 
 class _LoggerProbe:

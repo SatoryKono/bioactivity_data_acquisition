@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 import bioetl.devtools.cli_vocab_audit as vocab_audit
-from bioetl.core.utils import VocabStoreError
+from common.core_utils import VocabStoreError
 
 
 class DummyLogger:

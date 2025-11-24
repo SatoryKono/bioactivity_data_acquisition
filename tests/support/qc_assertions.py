@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.core.io.output import WriteResult
+from infrastructure.io.output import WriteResult
 
 QUALITY_COLUMNS: tuple[str, ...] = (
     "section",

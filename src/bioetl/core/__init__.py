@@ -10,7 +10,7 @@ import warnings
 from importlib import import_module
 from typing import TYPE_CHECKING
 
-from .http import (
+from infrastructure.http import (
     APIClientFactory,
     CircuitBreaker,
     CircuitBreakerOpenError,
@@ -18,7 +18,7 @@ from .http import (
     UnifiedAPIClient,
     merge_http_configs,
 )
-from .io import (
+from infrastructure.io import (
     DeterministicWriteArtifacts,
     QCUnits,
     RunArtifacts,
@@ -42,7 +42,7 @@ from .io import (
     write_frame_like,
     write_yaml_atomic,
 )
-from .logging import (
+from infrastructure.logging import (
     DEFAULT_LOG_LEVEL,
     MANDATORY_FIELDS,
     LogConfig,
@@ -53,11 +53,11 @@ from .logging import (
     configure_logging,
     get_logger,
 )
-from .runtime.cli_base import CliCommandBase, CliEntrypoint
-from .runtime.errors import BioETLError
-from .runtime.lazy_loader import resolve_lazy_attr
-from .runtime.load_meta_store import LoadMetaStore
-from .schema import (
+from infrastructure.runtime.cli_base import CliCommandBase, CliEntrypoint
+from infrastructure.runtime.errors import BioETLError
+from infrastructure.runtime.lazy_loader import resolve_lazy_attr
+from infrastructure.runtime.load_meta_store import LoadMetaStore
+from infrastructure.schema import (
     IdentifierRule,
     IdentifierStats,
     SchemaColumnFactory,
@@ -68,7 +68,7 @@ from .schema import (
     normalize_string_columns,
     summarize_schema_errors,
 )
-from .utils import (
+from common.core_utils import (
     clear_vocab_store_cache,
     get_ids,
     load_vocab_store,
@@ -76,8 +76,8 @@ from .utils import (
 
 if TYPE_CHECKING:  # pragma: no cover - imports for static analyzers only
     from bioetl.base_classes import BaseApiClient, INormalizer, IParser
-    from bioetl.chembl.common import join_activity_with_molecule
-    from bioetl.chembl.common.release_tracker import ChemblReleaseMixin
+    from infrastructure.chembl import join_activity_with_molecule
+    from infrastructure.chembl.release_tracker import ChemblReleaseMixin
 
 __all__ = [
     # Common
@@ -149,31 +149,31 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "CliCommandBase": ("bioetl.core.runtime.cli_base", "CliCommandBase"),
-    "CliEntrypoint": ("bioetl.core.runtime.cli_base", "CliEntrypoint"),
-    "BioETLError": ("bioetl.core.runtime.errors", "BioETLError"),
-    "LoadMetaStore": ("bioetl.core.runtime.load_meta_store", "LoadMetaStore"),
+    "CliCommandBase": ("infrastructure.runtime.cli_base", "CliCommandBase"),
+    "CliEntrypoint": ("infrastructure.runtime.cli_base", "CliEntrypoint"),
+    "BioETLError": ("infrastructure.runtime.errors", "BioETLError"),
+    "LoadMetaStore": ("infrastructure.runtime.load_meta_store", "LoadMetaStore"),
 }
 
 _lazy_resolver = resolve_lazy_attr(globals(), _LAZY_EXPORTS, cache=True)
 
 _DEPRECATED_EXPORTS: dict[str, tuple[str, str, str]] = {
     "ChemblReleaseMixin": (
-        "bioetl.chembl.common.release_tracker",
+        "infrastructure.chembl.release_tracker",
         "ChemblReleaseMixin",
         (
             "'ChemblReleaseMixin' is now provided via "
-            "'bioetl.chembl.common.release_tracker'. "
+            "'infrastructure.chembl.release_tracker'. "
             "Importing it from 'bioetl.core' is deprecated and will "
             "be removed in a future release."
         ),
     ),
     "join_activity_with_molecule": (
-        "bioetl.chembl.common",
+        "infrastructure.chembl",
         "join_activity_with_molecule",
         (
             "'join_activity_with_molecule' is now provided via "
-            "'bioetl.chembl.common'. Importing it from 'bioetl.core' "
+            "'infrastructure.chembl'. Importing it from 'bioetl.core' "
             "is deprecated and will be removed in a future release."
         ),
     ),

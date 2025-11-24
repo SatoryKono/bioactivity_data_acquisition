@@ -7,13 +7,13 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from bioetl.chembl.common import ChemblPipelineBase
-from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.chembl.activity import run as activity_run
-from bioetl.pipelines.chembl.assay import run as assay_run
-from bioetl.pipelines.chembl.document import run as document_run
-from bioetl.pipelines.chembl.target import run as target_run
-from bioetl.pipelines.chembl.testitem import run as testitem_run
+from infrastructure.chembl import ChemblPipelineBase
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines.specs.chembl.activity import run as activity_run
+from application.pipelines.specs.chembl.assay import run as assay_run
+from application.pipelines.specs.chembl.document import run as document_run
+from application.pipelines.specs.chembl.target import run as target_run
+from application.pipelines.specs.chembl.testitem import run as testitem_run
 
 
 @pytest.mark.unit

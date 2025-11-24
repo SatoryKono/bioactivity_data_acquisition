@@ -4,7 +4,7 @@ from collections import UserDict
 
 import pytest
 
-from bioetl.schemas.metadata_utils import metadata_dict, normalize_sequence
+from infrastructure.schemas.metadata_utils import metadata_dict, normalize_sequence
 
 
 @pytest.mark.parametrize(

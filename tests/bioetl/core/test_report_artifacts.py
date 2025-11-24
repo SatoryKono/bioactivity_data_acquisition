@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from bioetl.tools.test_report_artifacts import (
+from interfaces.tools.test_report_artifacts import (
     TEST_REPORTS_ROOT,
     TestReportArtifacts,
     TestReportMeta,

@@ -27,7 +27,7 @@ class DummyUnifiedLogger:
 
 
 def _install_dummy_modules(monkeypatch: pytest.MonkeyPatch) -> None:
-    base_module = ModuleType("bioetl.core.pipeline")
+    base_module = ModuleType("application.pipelines")
 
     class DummyPipelineBase:
         def extract(self, value: int) -> int:
@@ -37,11 +37,11 @@ def _install_dummy_modules(monkeypatch: pytest.MonkeyPatch) -> None:
             return str(path)
 
     base_module.PipelineBase = DummyPipelineBase
-    monkeypatch.setitem(sys.modules, "bioetl.core.pipeline", base_module)
+    monkeypatch.setitem(sys.modules, "application.pipelines", base_module)
 
-    config_package = ModuleType("bioetl.config.models")
+    config_package = ModuleType("infrastructure.config.models")
     config_package.__path__ = []
-    monkeypatch.setitem(sys.modules, "bioetl.config.models", config_package)
+    monkeypatch.setitem(sys.modules, "infrastructure.config.models", config_package)
 
     class DummyField(SimpleNamespace):
         def is_required(self) -> bool:
@@ -53,22 +53,22 @@ def _install_dummy_modules(monkeypatch: pytest.MonkeyPatch) -> None:
             "version": DummyField(annotation=int, default=1, _required=True),
         }
 
-    models_module = ModuleType("bioetl.config.models.models")
+    models_module = ModuleType("infrastructure.config.models.models")
     models_module.PipelineConfig = DummyModel
     models_module.PipelineMetadata = DummyModel
-    monkeypatch.setitem(sys.modules, "bioetl.config.models.models", models_module)
+    monkeypatch.setitem(sys.modules, "infrastructure.config.models.models", models_module)
 
-    policies_module = ModuleType("bioetl.config.models.policies")
+    policies_module = ModuleType("infrastructure.config.models.policies")
     policies_module.DeterminismConfig = DummyModel
-    monkeypatch.setitem(sys.modules, "bioetl.config.models.policies", policies_module)
+    monkeypatch.setitem(sys.modules, "infrastructure.config.models.policies", policies_module)
 
-    cli_module = ModuleType("bioetl.cli.cli_registry")
+    cli_module = ModuleType("interfaces.cli.cli_registry")
     cli_module.COMMAND_REGISTRY = {"activity": object(), "assay": object()}
     cli_module.PIPELINE_REGISTRY = (
         SimpleNamespace(code="activity"),
         SimpleNamespace(code="assay"),
     )
-    monkeypatch.setitem(sys.modules, "bioetl.cli.cli_registry", cli_module)
+    monkeypatch.setitem(sys.modules, "interfaces.cli.cli_registry", cli_module)
 
 
 def test_catalog_code_symbols(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

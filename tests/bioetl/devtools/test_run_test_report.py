@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 import bioetl.devtools.cli_run_test_report as run_test_report
-from bioetl.tools.test_report_artifacts import TestReportArtifacts
+from interfaces.tools.test_report_artifacts import TestReportArtifacts
 
 
 class StubLogger:

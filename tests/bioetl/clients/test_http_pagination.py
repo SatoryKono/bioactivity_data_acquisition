@@ -7,8 +7,8 @@ from typing import Any, cast
 
 import pytest
 
-from bioetl.clients.http import Paginator, RetryingSession
-from bioetl.core.http.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from infrastructure.clients.http import Paginator, RetryingSession
+from infrastructure.http.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 
 
 class _StubResponse:

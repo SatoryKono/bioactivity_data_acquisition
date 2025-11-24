@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from bioetl.config import loader
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.schemas import SCHEMA_REGISTRY
-from bioetl.tools import get_project_root
+from infrastructure.config import loader
+from infrastructure.logging import LogEvents, UnifiedLogger
+from infrastructure.schemas import SCHEMA_REGISTRY
+from interfaces.tools import get_project_root
 
 __all__ = ["run_schema_guard"]
 

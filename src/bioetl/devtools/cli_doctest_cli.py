@@ -8,8 +8,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.tools import get_project_root
+from infrastructure.logging import LogEvents, UnifiedLogger
+from interfaces.tools import get_project_root
 
 __all__ = [
     "CLIExample",
@@ -81,8 +81,8 @@ def extract_bash_commands(content: str, file_path: Path) -> list[CLIExample]:
             continue
 
         if (
-            "python -m bioetl.cli.cli_app" not in stripped
-            and "bioetl.cli.cli_app" not in stripped
+            "python -m interfaces.cli.cli_app" not in stripped
+            and "interfaces.cli.cli_app" not in stripped
         ):
             continue
 

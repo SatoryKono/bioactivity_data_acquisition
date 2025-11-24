@@ -6,12 +6,12 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from bioetl.chembl.common.descriptor import (
+from infrastructure.chembl.descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
 )
-from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines.specs.chembl.document.run import ChemblDocumentPipeline
 
 
 def test_descriptor_dry_run_for_document(

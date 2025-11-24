@@ -36,7 +36,7 @@ def run_cli_command(
     text: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     """Execute the BioETL CLI with the provided arguments."""
-    command: list[str] = [sys.executable, "-m", "bioetl.cli.cli_app", *args]
+    command: list[str] = [sys.executable, "-m", "interfaces.cli.cli_app", *args]
     return subprocess.run(  # noqa: S603
         command,
         cwd=cwd or PROJECT_ROOT,
@@ -66,7 +66,7 @@ def run_cli_script(
     if cli_binary:
         command: Sequence[str] = [cli_binary, *args]
     else:
-        command = [sys.executable, "-m", "bioetl.cli.cli_app", *args]
+        command = [sys.executable, "-m", "interfaces.cli.cli_app", *args]
     return subprocess.run(  # noqa: S603
         command,
         cwd=cwd or PROJECT_ROOT,

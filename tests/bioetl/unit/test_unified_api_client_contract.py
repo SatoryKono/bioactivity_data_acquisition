@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from bioetl.base_classes import BaseApiClient
-from bioetl.config.models.http import HTTPClientConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
+from infrastructure.config.models.http import HTTPClientConfig
+from infrastructure.http.api_client import UnifiedAPIClient
 
 pytestmark = pytest.mark.unit
 

@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines.specs.chembl.target.run import ChemblTargetPipeline
 
 
 @pytest.mark.integration

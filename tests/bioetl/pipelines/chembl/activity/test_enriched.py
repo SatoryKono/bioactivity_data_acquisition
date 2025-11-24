@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from bioetl.config import load_config
+from infrastructure.config import load_config
 
 
 @pytest.mark.integration
@@ -39,7 +39,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+  schema_out: "infrastructure.schemas.chembl_activity_schema.ActivitySchema"
   strict: true
   coerce: true
 determinism:
@@ -100,7 +100,7 @@ cli:
         config = load_config(config_path)
 
         # Run pipeline (this will call transform which includes enrichment)
-        from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+        from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
 
         pipeline = ChemblActivityPipeline(config, run_id="test_run")
 
@@ -108,7 +108,7 @@ cli:
         pipeline.extract = lambda: sample_data  # type: ignore[method-assign]
 
         with patch(
-            "bioetl.clients.client_chembl.ChemblClient.fetch_compound_records_by_pairs"
+            "infrastructure.clients.client_chembl.ChemblClient.fetch_compound_records_by_pairs"
         ) as mock_fetch:
             mock_fetch.return_value = mock_records
 
@@ -157,7 +157,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+  schema_out: "infrastructure.schemas.chembl_activity_schema.ActivitySchema"
   strict: false
   coerce: true
 determinism:
@@ -190,7 +190,7 @@ cli:
         )
 
         config = load_config(config_path)
-        from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+        from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
 
         pipeline = ChemblActivityPipeline(config, run_id="test_run")
         # Mock extract method on the instance

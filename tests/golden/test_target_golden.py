@@ -16,7 +16,7 @@ from tests.support.golden import (
     normalize_meta_payload,
 )
 
-from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
+from application.pipelines.specs.chembl.target.run import ChemblTargetPipeline
 
 PIPELINE_CODE = "target_chembl"
 GOLDEN_VERSION = "v2"
@@ -47,7 +47,7 @@ def test_target_pipeline_golden_snapshot(
     """ChemblTargetPipeline output must match committed golden artefacts."""
 
     pipeline_config_fixture.validation.schema_out = (
-        "bioetl.schemas.chembl_target_schema.TargetSchema"  # type: ignore[attr-defined]
+        "infrastructure.schemas.chembl_target_schema.TargetSchema"  # type: ignore[attr-defined]
     )
     pipeline_config_fixture.determinism.sort.by = ["target_chembl_id"]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.sort.ascending = [True]  # type: ignore[attr-defined]
@@ -61,7 +61,7 @@ def test_target_pipeline_golden_snapshot(
             chembl_source.parameters.model_dump() if hasattr(chembl_source, "parameters") else {}
         )
         params_dict["component_limit"] = 2
-        from bioetl.config.models.source import SourceParameters
+        from infrastructure.config.models.source import SourceParameters
 
         chembl_source.parameters = SourceParameters.from_mapping(params_dict)  # type: ignore[assignment]
 

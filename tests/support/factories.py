@@ -8,21 +8,21 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.cli import CLIConfig
-from bioetl.config.models.determinism import (
+from infrastructure.config.models.base import PipelineMetadata
+from infrastructure.config.models.cli import CLIConfig
+from infrastructure.config.models.determinism import (
     DeterminismConfig,
     DeterminismHashingConfig,
     DeterminismSortingConfig,
 )
-from bioetl.config.models.domain import PipelineDomainConfig
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.infrastructure import PipelineInfrastructureConfig
-from bioetl.config.models.models import PipelineConfig
-from bioetl.config.models.paths import MaterializationConfig
-from bioetl.config.models.postprocess import PostprocessConfig
-from bioetl.config.models.source import SourceConfig, SourceParameters
-from bioetl.config.models.validation import ValidationConfig
+from infrastructure.config.models.domain import PipelineDomainConfig
+from infrastructure.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from infrastructure.config.models.infrastructure import PipelineInfrastructureConfig
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.config.models.paths import MaterializationConfig
+from infrastructure.config.models.postprocess import PostprocessConfig
+from infrastructure.config.models.source import SourceConfig, SourceParameters
+from infrastructure.config.models.validation import ValidationConfig
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "bioetl" / "data"

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-import bioetl.schemas.pipeline_contracts as pipeline_contracts
-from bioetl.schemas.pipeline_contracts import (
+import infrastructure.schemas.pipeline_contracts as pipeline_contracts
+from infrastructure.schemas.pipeline_contracts import (
     PipelineSchemaContract,
     get_business_key_fields,
     get_column_order,

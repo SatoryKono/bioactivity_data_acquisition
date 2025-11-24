@@ -9,8 +9,8 @@ from _cli_bootstrap import configure_path
 
 configure_path()
 
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
+from infrastructure.runtime.cli_base import CliCommandBase
+from infrastructure.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 from bioetl.devtools.cli_determinism_check import (
     DeterminismRunResult,
     run_determinism_check,

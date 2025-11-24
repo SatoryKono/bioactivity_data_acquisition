@@ -5,12 +5,12 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
-from bioetl.config.models.models import PipelineConfig
-from bioetl.config.models.transform import TransformConfig
-from bioetl.config.models.validation import ValidationConfig
-from bioetl.pipelines.chembl.assay import run as assay_run
+from infrastructure.config.models.base import PipelineMetadata
+from infrastructure.config.models.http import HTTPClientConfig, HTTPConfig
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.config.models.transform import TransformConfig
+from infrastructure.config.models.validation import ValidationConfig
+from application.pipelines.specs.chembl.assay import run as assay_run
 
 
 def _create_minimal_config() -> PipelineConfig:
@@ -23,7 +23,7 @@ def _create_minimal_config() -> PipelineConfig:
         ),
         sources={},
         http=HTTPConfig(default=HTTPClientConfig()),
-        validation=ValidationConfig(schema_out="bioetl.schemas.chembl_assay_schema.AssaySchema"),
+        validation=ValidationConfig(schema_out="infrastructure.schemas.chembl_assay_schema.AssaySchema"),
     )
 
 

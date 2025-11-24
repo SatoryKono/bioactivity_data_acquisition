@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bioetl.pipelines.qc import (
+from application.pipelines.specs.qc import (
     DEFAULT_PACKAGE,
     DEFAULT_SOURCE_ROOT,
     QC_MODULE_PREFIX,

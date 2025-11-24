@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.schemas.versioning import (
+from infrastructure.schemas.versioning import (
     SchemaMigration,
     SchemaMigrationPathError,
     SchemaMigrationRegistry,

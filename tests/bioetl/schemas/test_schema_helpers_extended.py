@@ -10,14 +10,14 @@ import pandas as pd
 import pytest
 from pandera import Column, DataFrameSchema
 
-from bioetl.schemas import SchemaDescriptor, SchemaRegistry, _split_identifier
-from bioetl.schemas.base_abstract_schema import create_schema
-from bioetl.schemas.chembl_activity_schema import (
+from infrastructure.schemas import SchemaDescriptor, SchemaRegistry, _split_identifier
+from infrastructure.schemas.base_abstract_schema import create_schema
+from infrastructure.schemas.chembl_activity_schema import (
     is_valid_activity_properties,
     is_valid_activity_property_item,
 )
-import bioetl.vocab.service as vocab_service
-from bioetl.vocab.service import VOCAB_STORE_ENV_VAR, refresh_vocab_cache, required_vocab_ids
+import domain.vocab.service as vocab_service
+from domain.vocab.service import VOCAB_STORE_ENV_VAR, refresh_vocab_cache, required_vocab_ids
 
 
 def test_activity_property_item_validation_branches() -> None:

@@ -10,15 +10,15 @@ from tests.support.qc_assertions import (
     assert_quality_report_structure,
 )
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.io.units import QCUnits
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.qc.metrics import (
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.io.units import QCUnits
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
+from application.qc.metrics import (
     compute_categorical_distributions,
     compute_correlation_matrix,
     compute_missingness,
 )
-from bioetl.qc.report import build_qc_metrics_payload, build_quality_report
+from application.qc.report import build_qc_metrics_payload, build_quality_report
 
 
 @pytest.mark.qc
@@ -236,7 +236,7 @@ class TestQCMetrics:
     ):
         """Test that pipeline creates QC artifacts."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.chembl_activity_schema:ActivitySchema"  # type: ignore[attr-defined]
+            "infrastructure.schemas.chembl_activity_schema:ActivitySchema"  # type: ignore[attr-defined]
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]  # type: ignore[attr-defined]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)  # type: ignore[attr-defined]

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from infrastructure.chembl.enrich import ChemblEnrichmentScenario
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
 
 
 def _noop_transform(

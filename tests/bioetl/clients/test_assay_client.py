@@ -7,8 +7,8 @@ from unittest.mock import MagicMock
 
 import pytest  # type: ignore[reportMissingImports]
 
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.clients.entities.client_assay import ChemblAssayClient
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.clients.entities.client_assay import ChemblAssayClient
 
 
 @pytest.fixture  # type: ignore[reportUntypedFunctionDecorator,reportUnknownMemberType]
