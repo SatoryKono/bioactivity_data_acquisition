@@ -1,6 +1,5 @@
 # 60 Document Crossref Validation
 
-> **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
 **Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 

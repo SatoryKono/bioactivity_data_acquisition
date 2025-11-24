@@ -59,6 +59,10 @@ bioetl config inspect \
 [`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
 [`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
 
+Статусы незавершённых пайплайнов хранятся в дорожной карте —
+[`docs/roadmap.md`](docs/roadmap.md) — чтобы help CLI оставался однозначным и
+без заглушек.
+
 ## Тестовые задачи и команды запуска
 
 - Базовая стратегия тестирования и пороги покрытия:
