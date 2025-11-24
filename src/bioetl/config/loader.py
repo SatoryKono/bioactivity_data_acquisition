@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
+from pydantic import ValidationError
 from yaml.nodes import ScalarNode
 
 from bioetl.core.utils.iterables import is_non_string_iterable
@@ -21,6 +22,14 @@ from .environment import (
 )
 from .helpers import build_env_overrides, resolve_directory
 from .models.base import PipelineConfig
+
+
+class ConfigValidationError(ValueError):
+    """Raised when a configuration file fails schema validation."""
+
+    def __init__(self, message: str, *, errors: Any | None = None) -> None:
+        super().__init__(message)
+        self.errors = errors
 
 DEFAULTS_DIR = Path("configs/defaults")
 _LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
@@ -114,6 +123,27 @@ def validate_config(payload: Mapping[str, Any]) -> PipelineConfig:
     """Validate the fully merged payload via the Pydantic schema."""
 
     return PipelineConfig.model_validate(payload)
+
+
+def load_pipeline_config(config_path: str | Path) -> PipelineConfig:
+    """Load a single YAML file into a validated :class:`PipelineConfig`.
+
+    The helper is intentionally minimal: it resolves ``extends`` directives,
+    parses the YAML payload, and validates the result against the canonical
+    Pydantic model. On validation errors a :class:`ConfigValidationError` is
+    raised with a human-friendly message that includes the config path.
+    """
+
+    resolved = _resolve_config_path(config_path)
+    try:
+        raw_payload = load_raw_config(resolved)
+        validator = getattr(PipelineConfig, "model_validate", None)
+        if callable(validator):
+            return validator(raw_payload)
+        return PipelineConfig.parse_obj(raw_payload)  # type: ignore[attr-defined]
+    except ValidationError as exc:  # pragma: no cover - exercised in tests
+        message = f"Validation failed for {resolved}: {exc}"
+        raise ConfigValidationError(message, errors=exc.errors()) from exc
 
 
 def finalize_pipeline_config(payload: Mapping[str, Any]) -> PipelineConfig:
