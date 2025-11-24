@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -99,7 +99,7 @@ class ChemblCompoundRecordRepository(CompoundRecordRepository):
             return {}
 
         fields = ["record_id", "compound_key", "compound_name"]
-        all_records: list[dict[str, Any]] = []
+        all_records: list[dict[str, object]] = []
         for i in range(0, len(unique_ids), self._batch_size):
             chunk = unique_ids[i : i + self._batch_size]
             params: dict[str, Any] = {
@@ -115,7 +115,11 @@ class ChemblCompoundRecordRepository(CompoundRecordRepository):
                     page_size=params["limit"],
                     items_key="compound_records",
                 ):
-                    all_records.append(dict(record))
+                    record_dict: dict[str, object] = {
+                        str(k): cast(object, v)
+                        for k, v in dict(record).items()
+                    }
+                    all_records.append(record_dict)
             except Exception as exc:  # pragma: no cover - defensive logging
                 self._log.warning(
                     LogEvents.COMPOUND_RECORD_FETCH_ERROR,
@@ -133,11 +137,12 @@ class ChemblCompoundRecordRepository(CompoundRecordRepository):
                 rid_key = str(rid).strip() if rid is not None else ""
             if not rid_key or rid_key in result:
                 continue
-            result[rid_key] = {
+            payload: dict[str, object] = {
                 "record_id": rid_key,
-                "compound_key": record.get("compound_key"),
-                "compound_name": record.get("compound_name"),
+                "compound_key": cast(object, record.get("compound_key")),
+                "compound_name": cast(object, record.get("compound_name")),
             }
+            result[rid_key] = payload
 
         self._log.info(
             LogEvents.COMPOUND_RECORD_FETCH_COMPLETE,

@@ -24,25 +24,57 @@ __all__ = ["join_activity_with_molecule"]
 def join_activity_with_molecule(
     activity_ids: Sequence[str] | pd.DataFrame,
     client: "ChemblClient",
-    cfg: Mapping[str, Any],
+    cfg: Mapping[str, Any] | None,
 ) -> pd.DataFrame:
     """Join activity records with compound_record and molecule metadata."""
 
     log = UnifiedLogger.get(__name__).bind(component="activity_molecule_join")
 
-    cfg = cfg or {}
-    page_limit_cfg = cfg.get("page_limit", 1000)
-    batch_size_cfg = cfg.get("batch_size", 25)
+    # Normalise configuration to a mapping
+    if isinstance(cfg, Mapping):
+        config_mapping: Mapping[str, Any] = cfg
+    else:
+        config_mapping = {}
 
-    activity_repo = ChemblActivityRepository(client, batch_size=int(batch_size_cfg) or 25)
+    # Resolve page_limit with a safe int cast and fallback
+    page_limit_raw = config_mapping.get("page_limit", 1000)
+    if page_limit_raw is None:
+        page_limit: int | None = None
+    else:
+        try:
+            page_limit = int(page_limit_raw)
+        except (TypeError, ValueError):
+            page_limit = 1000
+
+    # Resolve batch sizes separately to preserve previous defaults
+    activity_batch_raw = config_mapping.get("batch_size", 25)
+    try:
+        activity_batch_size = int(activity_batch_raw)
+    except (TypeError, ValueError):
+        activity_batch_size = 25
+    if activity_batch_size <= 0:
+        activity_batch_size = 25
+
+    compound_batch_raw = config_mapping.get("batch_size", 100)
+    try:
+        compound_batch_size = int(compound_batch_raw)
+    except (TypeError, ValueError):
+        compound_batch_size = 100
+    if compound_batch_size <= 0:
+        compound_batch_size = 100
+
+    activity_repo = ChemblActivityRepository(
+        client,
+        batch_size=activity_batch_size,
+    )
     compound_repo = ChemblCompoundRecordRepository(
         client,
-        page_limit=int(page_limit_cfg) if page_limit_cfg is not None else None,
-        batch_size=int(cfg.get("batch_size", 100)) or 100,
+        page_limit=page_limit,
+        batch_size=compound_batch_size,
     )
     molecule_repo = ChemblMoleculeRepository(
         client,
-        page_limit=int(page_limit_cfg) if page_limit_cfg is not None else None,
+        page_limit=page_limit,
     )
 
     joiner = MoleculeJoiner(activity_repo, compound_repo, molecule_repo)
