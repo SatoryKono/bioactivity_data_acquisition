@@ -2,17 +2,34 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from typing import Any, Mapping as TypingMapping
+from collections.abc import Callable, Iterable, Mapping
+from os import PathLike
+from typing import Any, Mapping as TypingMapping, Protocol, TypedDict
 
 import pandas as pd
+from structlog.stdlib import BoundLogger
 
 from application.pipelines.specs.chembl._constants import (
     API_TESTITEM_FIELDS,
     TESTITEM_MUST_HAVE_FIELDS,
 )
 from application.pipelines.specs.chembl.common import BaseChemblPipeline
+from infrastructure.chembl.descriptor import ChemblExtractionContext
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.http.api_client import UnifiedAPIClient
 from . import transform as testitem_transform
+
+
+class NormalizationRules(TypedDict):
+    """Normalization configuration for testitem records."""
+
+    field_mappings: Mapping[str, str]
+
+
+class ChemblHandshakeClient(Protocol):
+    """Protocol for clients exposing a handshake method used to fetch metadata."""
+
+    def handshake(self) -> Mapping[str, Any] | None: ...
 
 
 class ChemblTestItemPipeline(BaseChemblPipeline):
@@ -24,7 +41,7 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
 
     def __init__(
         self,
-        config: Any,
+        config: PipelineConfig,
         run_id: str,
         source: Iterable[dict[str, Any]] | None = None,
         *,
@@ -32,18 +49,24 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
     ) -> None:
         super().__init__(config, run_id, source, writer=writer)
 
-    def get_normalization_rules(self) -> Mapping[str, Any]:
+    def get_normalization_rules(self) -> NormalizationRules:
         return {
             "field_mappings": {"test_item_id": "test_item_id", "name": "name"}
         }
 
-    def get_schema(self):
+    def get_schema(self) -> Mapping[str, Callable[[pd.Series], pd.Series]]:
         return {"test_item_id": lambda series: series.notna()}
 
-    def save_results(self, df: pd.DataFrame, output_dir, **_: Any):
+    def save_results(
+        self, df: pd.DataFrame, output_dir: str | PathLike[str] | Any, **_: Any
+    ) -> Any:
         return super().save_results(df, output_dir)
 
-    def _fetch_chembl_release(self, client, log=None):
+    def _fetch_chembl_release(
+        self,
+        client: UnifiedAPIClient | ChemblHandshakeClient,
+        log: BoundLogger | None = None,
+    ) -> str | None:
         release = super()._fetch_chembl_release(client, log)
         # Normalize release value
         if release:
@@ -70,7 +93,9 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
                 pass  # Ignore errors when extracting api_version
         return release
 
-    def ensure_chembl_release(self, context, log):  # type: ignore[override]
+    def ensure_chembl_release(
+        self, context: ChemblExtractionContext, log: BoundLogger
+    ) -> tuple[str | None, dict[str, Any]]:  # type: ignore[override]
         """Ensure release is resolved and propagate api_version into extra_filters.
 
         This adapter keeps the behaviour of the shared Chembl pipeline base while
