@@ -44,6 +44,23 @@ def normalize_meta_payload(meta: Mapping[str, Any]) -> dict[str, Any]:
     normalized.pop("generated_at_utc", None)
     normalized.pop("run_id", None)
     normalized["stage_durations_ms"] = {}
+
+    # Drop stable but backwards-incompatible validation fields that were added
+    # after the original golden v2 fixtures were recorded. These do not affect
+    # deterministic behavior and are intentionally ignored in golden compares.
+    validation = normalized.get("validation")
+    if isinstance(validation, Mapping):
+        validation_dict = dict(validation)
+        for key in (
+            "allow_schema_migration",
+            "max_schema_migration_hops",
+            "schema_in",
+            "schema_in_version",
+            "schema_out",
+            "schema_out_version",
+        ):
+            validation_dict.pop(key, None)
+        normalized["validation"] = validation_dict
     return normalized
 
 

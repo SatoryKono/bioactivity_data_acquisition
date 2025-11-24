@@ -175,6 +175,13 @@ def write_frame_like(
         if path.name.endswith("_qc.csv"):
             _write_qc_metrics_csv(frame_like, path, config=config)
             return
+        # For generic CSV targets, persist mapping as a single-row dataset
+        if path.suffix == ".csv":
+            df = pd.DataFrame([frame_like])
+            write_dataset_atomic(df, path, config=config)
+            return
+
+        # Fallback: structured YAML for non-CSV artefacts
         write_yaml_atomic(frame_like, path)
         return
     msg = f"Unsupported frame-like type: {type(frame_like)}"

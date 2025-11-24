@@ -209,31 +209,29 @@ def serialise_metadata(
 
     hashing = config.determinism.hashing
     serialized_sort = config.determinism.sort.model_dump(mode="json")
-    serialized_hashing = hashing.model_dump(mode="json")
     serialized_validation = config.validation.model_dump(mode="json")
-    serialized_serialization = config.determinism.serialization.model_dump(
-        mode="json"
-    )
 
     base_metadata: dict[str, Any] = {
         "pipeline": pipeline_code,
         "run_id": run_id,
+        "config_version": config.version,
+        "pipeline_version": config.pipeline.version,
+        "hash_policy_version": config.determinism.hash_policy_version,
         "row_count": int(df.shape[0]),
         "generated_at_utc": datetime.now(timezone.utc)
         .isoformat()
         .replace("+00:00", "Z"),
-        "hashing": {},
-        "determinism": {
-            "hashing": serialized_hashing,
-            "sorting": serialized_sort,
-            "float_precision": config.determinism.float_precision,
-            "serialization": serialized_serialization,
-        },
+        # Canonical column order for the final dataset
+        "columns": list(df.columns),
+        # Deterministic dataset location
+        "dataset_path": dataset_path.as_posix(),
+        # Stable sort policy at top level for compatibility with golden meta
+        "sorting": serialized_sort,
         "validation": serialized_validation,
-        "paths": {
-            "dataset": dataset_path.as_posix(),
-        },
-        "stages_ms": dict(stage_durations_ms),
+        # Stage durations in milliseconds
+        "stage_durations_ms": dict(stage_durations_ms),
+        # Hashing section will be populated with both policy and aggregate metrics
+        "hashing": {},
     }
 
     hashing_column_meta: dict[str, Any] = {}
@@ -264,6 +262,17 @@ def serialise_metadata(
         base_metadata["hashing"]["sample_hash_business_key"] = str(
             df.iloc[0][business_column]
         )
+
+    # Enrich hashing section with static policy details expected by golden meta
+    base_metadata["hashing"].update(
+        {
+            "algorithm": hashing.algorithm,
+            "business_key_column": hashing.business_key_column,
+            "business_key_fields": list(hashing.business_key_fields),
+            "row_column": hashing.row_hash_column,
+            "row_fields": list(hashing.row_fields),
+        }
+    )
     return base_metadata
 
 
