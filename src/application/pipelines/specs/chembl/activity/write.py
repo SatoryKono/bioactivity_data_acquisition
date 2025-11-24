@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-from application.pipelines.specs.chembl.stage_runner import build_stage_functions
+from application.pipelines.specs.chembl.stage_runner import build_stage_function
 
 from .run import ChemblActivityPipeline
 
 __all__ = ["write"]
 
-PIPELINE, _STAGES = build_stage_functions(
-    ChemblActivityPipeline,
-    stages=("write",),
-)
-
-write = _STAGES["write"]
+write = build_stage_function(ChemblActivityPipeline, "write")

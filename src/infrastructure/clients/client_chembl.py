@@ -419,36 +419,6 @@ class ChemblClient:
         )
 
     # ------------------------------------------------------------------
-    # Assay class map fetching (DEPRECATED)
-    # ------------------------------------------------------------------
-
-    def fetch_assay_class_map_by_assay_ids(
-        self,
-        assay_ids: Iterable[str],
-        *,
-        fields: Sequence[str] | None = None,
-        page_limit: int | None = None,
-    ) -> pd.DataFrame:
-        """DEPRECATED: This endpoint does not exist in ChEMBL API.
-
-        Use data from /assay.json response (assay_classifications field) instead.
-        This method will raise an error to prevent accidental usage.
-        """
-        import warnings
-
-        warnings.warn(
-            "fetch_assay_class_map_by_assay_ids is deprecated. "
-            "The /assay_class_map.json endpoint does not exist in ChEMBL API. "
-            "Use data from /assay.json response (assay_classifications field) instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        raise NotImplementedError(
-            "The /assay_class_map.json endpoint does not exist in ChEMBL API. "
-            "Use data from /assay.json response (assay_classifications field) instead."
-        )
-
-    # ------------------------------------------------------------------
     # Assay parameters fetching
     # ------------------------------------------------------------------
 

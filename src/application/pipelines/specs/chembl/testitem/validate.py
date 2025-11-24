@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-from application.pipelines.specs.chembl.stage_runner import build_stage_functions
+from application.pipelines.specs.chembl.stage_runner import build_stage_function
 
 from .run import TestItemChemblPipeline
 
 __all__ = ["validate"]
 
-PIPELINE, _STAGES = build_stage_functions(
-    TestItemChemblPipeline,
-    stages=("validate",),
-)
-
-validate = _STAGES["validate"]
+validate = build_stage_function(TestItemChemblPipeline, "validate")

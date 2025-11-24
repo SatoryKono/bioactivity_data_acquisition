@@ -36,29 +36,6 @@ _PARAMETERS_COLUMNS: tuple[tuple[str, str], ...] = (
 )
 
 
-def _should_nullify_string_value(value: Any) -> bool:
-    """Return True when a value in a string column should be replaced with NA."""
-    if value is None:
-        return False
-    if value is pd.NA:
-        return False
-    if isinstance(value, float) and pd.isna(value):
-        return False
-    return not isinstance(value, str)
-
-
-def _stringify_record_keys(record: Mapping[Any, Any]) -> dict[str, Any]:
-    """Return copy of record with stringified keys."""
-    return {str(key): value for key, value in record.items()}
-
-
-def _stringify_records(
-    records: Iterable[Mapping[Any, Any]]
-) -> list[dict[str, Any]]:
-    """Return list of dictionaries that only use string keys."""
-    return [_stringify_record_keys(record) for record in records]
-
-
 def _normalize_parameter_value(value: Any) -> Any:
     """Convert pandas-centric nulls into plain None for JSON payloads."""
 

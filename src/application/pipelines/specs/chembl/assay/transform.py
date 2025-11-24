@@ -9,7 +9,7 @@ import pandas as pd
 
 from infrastructure.io import header_rows_serialize, serialize_array_fields
 from infrastructure.logging import LogEvents, UnifiedLogger
-from application.pipelines.specs.chembl.stage_runner import build_stage_functions
+from application.pipelines.specs.chembl.stage_runner import build_stage_function
 
 __all__ = [
     "header_rows_serialize",
@@ -261,9 +261,4 @@ def _load_pipeline() -> type["ChemblAssayPipeline"]:
     return ChemblAssayPipeline
 
 
-PIPELINE, _STAGES = build_stage_functions(
-    _load_pipeline,
-    stages=("transform",),
-)
-
-transform = _STAGES["transform"]
+transform = build_stage_function(_load_pipeline, "transform")

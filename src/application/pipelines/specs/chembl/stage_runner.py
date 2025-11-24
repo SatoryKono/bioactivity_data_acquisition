@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from types import MappingProxyType
-from typing import Any, Protocol
+from typing import Any
 
 from structlog.stdlib import BoundLogger
 
@@ -20,6 +20,7 @@ __all__ = [
     "PipelineStagesProtocol",
     "StageContext",
     "build_stage_functions",
+    "build_stage_function",
     "register_pipeline",
     "run_stage",
 ]
@@ -38,20 +39,6 @@ _DEFAULT_STAGE_SEQUENCE: tuple[str, ...] = (
 _KNOWN_STAGE_NAMES: frozenset[str] = frozenset(_DEFAULT_STAGE_SEQUENCE)
 
 _LOG = UnifiedLogger.get(__name__)
-
-
-class _PipelineResolver(Protocol):
-    """Protocol describing objects returning pipeline classes on demand."""
-
-    def resolve(
-        self,
-    ) -> type[PipelineBase]:  # pragma: no cover - structural protocol
-        """Return the concrete pipeline class."""
-        ...
-
-    def identifier(self) -> str:
-        """Return the stable identifier for the pipeline class."""
-        ...
 
 
 @dataclass(slots=True)
@@ -234,6 +221,15 @@ def build_stage_functions(
         stage: _make_stage_function(stage) for stage in stage_names
     }
     return pipeline_ref, MappingProxyType(stage_functions)
+
+
+def build_stage_function(
+    pipeline_cls: type[PipelineBase] | PipelineLoader, stage: str
+) -> StageCallable:
+    """Return a single stage callable for ``pipeline_cls`` and ``stage``."""
+
+    _, stages = build_stage_functions(pipeline_cls, stages=(stage,))
+    return stages[stage]
 
 
 def _normalize_stage_names(stages: Iterable[str] | None) -> tuple[str, ...]:

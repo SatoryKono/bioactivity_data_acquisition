@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-from application.pipelines.specs.chembl.stage_runner import build_stage_functions
+from application.pipelines.specs.chembl.stage_runner import build_stage_function
 
 from .run import TestItemChemblPipeline
 
 __all__ = ["extract", "extract_all", "extract_by_ids"]
 
-PIPELINE, _STAGES = build_stage_functions(
-    TestItemChemblPipeline,
-    stages=("extract", "extract_all", "extract_by_ids"),
-)
-
-extract = _STAGES["extract"]
-extract_all = _STAGES["extract_all"]
-extract_by_ids = _STAGES["extract_by_ids"]
+extract = build_stage_function(TestItemChemblPipeline, "extract")
+extract_all = build_stage_function(TestItemChemblPipeline, "extract_all")
+extract_by_ids = build_stage_function(TestItemChemblPipeline, "extract_by_ids")
