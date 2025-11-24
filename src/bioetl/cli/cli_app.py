@@ -19,15 +19,11 @@ from typing import Any, cast
 
 import yaml
 
+from bioetl.application.registry import get_command_registry, get_pipeline_specs
 from bioetl.cli.cli_command import create_pipeline_command
 from bioetl.cli.cli_entrypoint import TyperApp, run_app
 from bioetl.cli.cli_entrypoint import create_app as create_typer_app
-from bioetl.cli.cli_registry import (
-    COMMAND_REGISTRY,
-    PIPELINE_REGISTRY,
-    CommandConfig,
-    PipelineCommandSpec,
-)
+from bioetl.cli.cli_registry import CommandConfig, PipelineCommandSpec
 from bioetl.cli.run_chembl_all import run_chembl_all_command
 from bioetl.config.runtime import Config as RuntimeConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger
@@ -68,9 +64,9 @@ def create_app(
     pipeline_specs: Iterable[PipelineCommandSpec] | None = None,
 ) -> TyperApp:
     """Create and configure the Typer application with all registered commands."""
-    registry = dict(command_registry or COMMAND_REGISTRY)
+    registry = dict(command_registry or get_command_registry())
     specs: tuple[PipelineCommandSpec, ...] = tuple(
-        pipeline_specs or PIPELINE_REGISTRY
+        pipeline_specs or get_pipeline_specs()
     )
     known_names: set[str] = {
         name for spec in specs for name in (spec.code, *spec.aliases)
@@ -455,12 +451,21 @@ def create_app(
 
     registered_names: set[str] = set()
 
-    def _register_command(name: str, config: CommandConfig) -> None:
-        command_func = create_pipeline_command(
-            pipeline_class=config.pipeline_class,
-            command_config=config,
-        )
-        app.command(name=name, help=config.description)(command_func)
+    def _register_command(
+        name: str,
+        builder: Callable[[], CommandConfig],
+        *,
+        help_text: str | None,
+    ) -> None:
+        def command_handler(*args: Any, _builder=builder, **kwargs: Any):
+            config = _builder()
+            command_func = create_pipeline_command(
+                pipeline_class=config.pipeline_class,
+                command_config=config,
+            )
+            return command_func(*args, **kwargs)
+
+        app.command(name=name, help=help_text)(command_handler)
         registered_names.add(name)
 
     for spec in specs:
@@ -473,24 +478,21 @@ def create_app(
             warning_messages.append(warning_message)
             cli_feedback.emit_warning(warning_message)
             continue
-        try:
-            command_config = build_config_func()
-        except NotImplementedError:
-            continue
-        except Exception as exc:
-            _log.error(
-                LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
-                command=command_name,
-                error=str(exc),
-                exc_info=True,
+        if spec.pipeline_path is None:
+            message = spec.not_implemented_message or "not implemented"
+            warning_message = (
+                f"Command '{command_name}' not loaded ({message})"
             )
-            warning_message = f"Command '{command_name}' not loaded ({exc})"
             warning_messages.append(warning_message)
             cli_feedback.emit_warning(warning_message)
             continue
 
         try:
-            _register_command(command_name, command_config)
+            _register_command(
+                command_name,
+                build_config_func,
+                help_text=spec.description,
+            )
         except Exception as exc:  # noqa: BLE001
             _log.error(
                 LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
@@ -514,23 +516,18 @@ def create_app(
                 warning_messages.append(warning_message)
                 cli_feedback.emit_warning(warning_message)
                 continue
-            try:
-                alias_config = alias_builder()
-            except NotImplementedError:
-                continue
-            except Exception as exc:
-                _log.error(
-                    LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
-                    command=alias,
-                    error=str(exc),
-                    exc_info=True,
-                )
-                warning_message = f"Alias '{alias}' not loaded ({exc})"
+            if spec.pipeline_path is None:
+                message = spec.not_implemented_message or "not implemented"
+                warning_message = f"Alias '{alias}' not loaded ({message})"
                 warning_messages.append(warning_message)
                 cli_feedback.emit_warning(warning_message)
                 continue
             try:
-                _register_command(alias, alias_config)
+                _register_command(
+                    alias,
+                    alias_builder,
+                    help_text=spec.description,
+                )
             except Exception as exc:  # noqa: BLE001
                 _log.error(
                     LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
@@ -546,25 +543,10 @@ def create_app(
     extra_entries = sorted(set(registry.keys()) - registered_names)
     for command_name in extra_entries:
         build_config_func = registry[command_name]
-        try:
-            command_config = build_config_func()
-        except NotImplementedError:
-            continue
-        except Exception as exc:
-            _log.error(
-                LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
-                command=command_name,
-                error=str(exc),
-                exc_info=True,
-            )
-            warning_message = f"Command '{command_name}' not loaded ({exc})"
-            warning_messages.append(warning_message)
-            cli_feedback.emit_warning(warning_message)
-            continue
         if command_name in registered_names:
             continue
         try:
-            _register_command(command_name, command_config)
+            _register_command(command_name, build_config_func, help_text=None)
         except Exception as exc:  # noqa: BLE001
             _log.error(
                 LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
