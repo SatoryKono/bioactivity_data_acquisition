@@ -8,12 +8,13 @@ from typing import Any
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
+from bioetl.clients import client_exceptions
 from bioetl.pipelines.chembl._constants import (
     API_TESTITEM_FIELDS,
     TESTITEM_MUST_HAVE_FIELDS,
 )
 from bioetl.pipelines.chembl.common import BaseChemblPipeline
-from . import transform as testitem_transform
+from bioetl.pipelines.chembl.testitem import transform as testitem_transform
 
 
 class ChemblTestItemPipeline(BaseChemblPipeline):
@@ -71,7 +72,8 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
                         self, "_set_api_version"
                     ):
                         self._set_api_version(str(api_version))
-            except Exception as exc:  # pragma: no cover - defensive logging
+            # pragma: no cover - defensive logging
+            except client_exceptions.RequestException as exc:
                 if log is not None:
                     log.debug(
                         "chembl_testitem_api_version_extract_failed",
@@ -203,7 +205,7 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         return result
 
     def _deduplicate_molecules(
-        self, df: pd.DataFrame, log: BoundLogger
+        self, df: pd.DataFrame, _log: BoundLogger
     ) -> pd.DataFrame:  # noqa: D401
         """Deduplicate molecules by structural identifiers.
 

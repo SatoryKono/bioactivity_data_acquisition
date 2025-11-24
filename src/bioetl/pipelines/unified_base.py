@@ -56,16 +56,18 @@ class UnifiedPipelineBase(
 ):
     """ChEMBL-focused pipeline base that wires mixins into the public contract.
 
-    Наследники получают единый жизненный цикл `extract → transform → validate →
-    write` без переопределения ``run``. Каждый подключённый mixin отвечает за
-    конкретный контракт: `LoggingMixin` — за структурированные логи стадий,
-    `ReleaseHandshakeMixin` — за handshake и запись release, `BatchIdExtractionMixin`
-    — за `extract_by_ids`, `TransformMixin` — за трансформационный конвейер, а
-    `IOArtifactsMixin` — за детерминированную запись артефактов. Дочерним
-    пайплайнам достаточно реализовать `build_descriptor` и при необходимости
-    переопределить отдельные хуки (`pre_transform`, `domain_enrich`,
-    `augment_metadata` и т. д.). Stage-runner (`bioetl.pipelines.chembl.stage_runner`)
-    использует этот базовый класс и `PipelineStagesProtocol`, чтобы собирать
+    Наследники получают единый жизненный цикл
+    ``prepare_run → extract → transform → validate → save_results →
+    finalize_run`` без переопределения :meth:`run`. Каждый подключённый
+    mixin отвечает за конкретный контракт: :class:`LoggingMixin` — за
+    структурированные логи стадий, :class:`ReleaseHandshakeMixin` — за
+    handshake и запись release, :class:`BatchIdExtractionMixin` — за
+    :meth:`extract_by_ids`, :class:`TransformMixin` — за
+    трансформационный конвейер, а :class:`IOArtifactsMixin` — за
+    детерминированную запись артефактов.
+
+    Stage-runner (``bioetl.pipelines.chembl.stage_runner``) использует
+    этот базовый класс и :class:`PipelineStagesProtocol`, чтобы собирать
     частичные планы стадий; покрытие обеспечивается тестами в
     ``tests/bioetl/pipelines/chembl/test_stage_runner.py`` и
     ``tests/bioetl/pipelines/test_unified_base.py``.
@@ -82,11 +84,20 @@ class UnifiedPipelineBase(
         qc_thresholds: Mapping[str, float] | None = None,
         fail_on_qc_violation: bool = False,
     ) -> RunResult:
-        """Execute the unified ETL flow with deterministic output artifacts.
+        """Execute the unified ETL lifecycle and return collected artefacts.
 
-        Parameters mirror the public CLI flags и позволяют управлять
-        дополнительными отчётами (корреляции, QC метрики) без изменения
-        пользовательского контракта `PipelineBase.run`.
+        This method preserves the public contract of
+        :meth:`bioetl.core.pipeline.PipelineBase.run` and delegates to the
+        base implementation without altering the orchestration logic.
+        The lifecycle is executed as
+        ``prepare_run → extract → transform → validate → save_results →
+        finalize_run``.
+
+        Parameters mirror the public CLI flags and control optional
+        artefacts (correlation reports, QC metrics) while keeping the
+        underlying contract stable. All logging, stage duration tracking
+        and QC aggregation are handled by the base pipeline and reflected
+        in the returned :class:`RunResult`.
         """
         return super().run(
             output_dir,
@@ -101,9 +112,23 @@ class UnifiedPipelineBase(
     # Hooks -----------------------------------------------------------------
 
     def prepare_run(self) -> None:  # pragma: no cover - optional hook
-        """Hook invoked before the extract stage begins."""
+        """Hook invoked before the extract stage begins.
+
+        Subclasses may override this to perform per-run initialisation
+        such as warming caches or registering additional resources. The
+        default implementation delegates to the base pipeline so that
+        shared behaviour remains centralised.
+        """
+        super().prepare_run()
 
     def finalize_run(
         self, result: RunResult | None
     ) -> None:  # pragma: no cover
-        """Hook invoked after the write stage completes."""
+        """Hook invoked after the write stage completes.
+
+        Subclasses may override this to perform additional cleanup or
+        telemetry. The default implementation delegates to the base
+        pipeline so that finalisation logic, including retention and
+        client cleanup, stays centralised.
+        """
+        super().finalize_run(result)
