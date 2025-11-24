@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from bioetl.schemas import get_schema
-from bioetl.sources.chembl.activity.normalizer import ChemblActivityNormalizer
-from bioetl.sources.chembl.activity.parser import ChemblActivityParser
+from infrastructure.schemas import get_schema
+from infrastructure.sources.chembl.activity.normalizer import ChemblActivityNormalizer
+from infrastructure.sources.chembl.activity.parser import ChemblActivityParser
 
-_SCHEMA_IDENTIFIER = "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+_SCHEMA_IDENTIFIER = "infrastructure.schemas.chembl_activity_schema.ActivitySchema"
 
 
 @pytest.fixture(name="sample_raw_payload")

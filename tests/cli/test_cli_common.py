@@ -5,8 +5,8 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from bioetl.cli.common import create_app, register_commands, run_app
-from bioetl.cli.decorators import common_options
+from interfaces.cli.common import create_app, register_commands, run_app
+from interfaces.cli.decorators import common_options
 
 
 def test_help_includes_common_options() -> None:
@@ -33,7 +33,7 @@ def test_run_app_logs_exceptions(caplog) -> None:
     def fail() -> None:
         raise RuntimeError("boom")
 
-    caplog.set_level(logging.ERROR, logger="bioetl.cli.common")
+    caplog.set_level(logging.ERROR, logger="interfaces.cli.common")
     exit_code = run_app(app, argv=["fail"])
 
     assert exit_code == 1

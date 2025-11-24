@@ -9,13 +9,13 @@ import pytest  # type: ignore[reportMissingImports]
 from click.testing import CliRunner  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
-from bioetl.cli.cli_app import app, run  # type: ignore[reportUnknownVariableType]
-from bioetl.cli.cli_entrypoint import create_app  # type: ignore[reportUnknownVariableType]
-from bioetl.clients.client_exceptions import Timeout  # type: ignore[reportMissingImports]
-from bioetl.config import (
+from interfaces.cli.cli_app import app, run  # type: ignore[reportUnknownVariableType]
+from interfaces.cli.cli_entrypoint import create_app  # type: ignore[reportUnknownVariableType]
+from infrastructure.clients.client_exceptions import Timeout  # type: ignore[reportMissingImports]
+from infrastructure.config import (
     load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
 )
-from bioetl.core.runtime.cli_pipeline_runner import (
+from infrastructure.runtime.cli_pipeline_runner import (
     parse_set_overrides,
     validate_config_path,
     validate_output_dir,
@@ -86,7 +86,7 @@ class TestCLICommands:
 
     def test_run_invokes_app(self):
         """Ensure CLI entrypoint delegates to Typer app."""
-        with patch("bioetl.cli.cli_app.app") as app_mock:
+        with patch("interfaces.cli.cli_app.app") as app_mock:
             run()
         app_mock.assert_called_once_with()
 
@@ -171,7 +171,7 @@ class TestTyperDependencyHandling:
     def test_loader_raises_runtime_error_when_typer_missing(self, monkeypatch):
         """The shared loader should surface a descriptive error."""
 
-        import bioetl.cli._typer_loader as loader
+        import interfaces.cli._typer_loader as loader
 
         monkeypatch.setattr(loader, "_typer_module", None)
 
@@ -179,7 +179,7 @@ class TestTyperDependencyHandling:
             raise ModuleNotFoundError("typer")
 
         monkeypatch.setattr(
-            "bioetl.cli._typer_loader.importlib.import_module",
+            "interfaces.cli._typer_loader.importlib.import_module",
             _raise,
         )
 
@@ -189,7 +189,7 @@ class TestTyperDependencyHandling:
     def test_create_app_propagates_missing_typer_error(self, monkeypatch):
         """Application helpers should propagate the missing dependency message."""
 
-        import bioetl.cli._typer_loader as loader
+        import interfaces.cli._typer_loader as loader
 
         monkeypatch.setattr(loader, "_typer_module", None)
 
@@ -197,7 +197,7 @@ class TestTyperDependencyHandling:
             raise ModuleNotFoundError("typer")
 
         monkeypatch.setattr(
-            "bioetl.cli._typer_loader.importlib.import_module",
+            "interfaces.cli._typer_loader.importlib.import_module",
             _raise,
         )
 
@@ -236,9 +236,9 @@ sources:
         )
 
         with (
-            patch("bioetl.config.load_config") as mock_load_config,
+            patch("infrastructure.config.load_config") as mock_load_config,
             patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+                "application.pipelines.specs.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
             mock_load_config.return_value = real_config
@@ -304,7 +304,7 @@ sources:
         output_dir = tmp_path / "output"
 
         with patch(
-            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+            "application.pipelines.specs.chembl.activity.run.ChemblActivityPipeline"
         ) as mock_pipeline_class:
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
@@ -399,7 +399,7 @@ http:
         # We'll verify by checking that the command completes successfully
         # and that the overrides are applied (if config loading succeeds)
         with patch(
-            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+            "application.pipelines.specs.chembl.activity.run.ChemblActivityPipeline"
         ) as mock_pipeline_class:
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
@@ -459,7 +459,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema:ActivitySchema"
+  schema_out: "infrastructure.schemas.chembl_activity_schema:ActivitySchema"
 """
         )
 
@@ -467,9 +467,9 @@ validation:
 
         with (
             patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+                "application.pipelines.specs.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
-            patch("bioetl.core.logging.UnifiedLogger.configure") as mock_logger_configure,
+            patch("infrastructure.logging.UnifiedLogger.configure") as mock_logger_configure,
         ):
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
@@ -532,9 +532,9 @@ http:
         )
 
         with (
-            patch("bioetl.config.load_config") as mock_load_config,
+            patch("infrastructure.config.load_config") as mock_load_config,
             patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+                "application.pipelines.specs.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
             mock_load_config.return_value = real_config
@@ -585,7 +585,7 @@ http:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.cli.cli_command.load_environment_settings") as mock_env_settings:
+        with patch("interfaces.cli.cli_command.load_environment_settings") as mock_env_settings:
             mock_env_settings.side_effect = ValueError("invalid environment")
 
             result = runner.invoke(
@@ -630,9 +630,9 @@ http:
         )
 
         with (
-            patch("bioetl.config.load_config") as mock_load_config,
+            patch("infrastructure.config.load_config") as mock_load_config,
             patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+                "application.pipelines.specs.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
             mock_load_config.return_value = real_config
@@ -684,9 +684,9 @@ http:
         )
 
         with (
-            patch("bioetl.config.load_config") as mock_load_config,
+            patch("infrastructure.config.load_config") as mock_load_config,
             patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+                "application.pipelines.specs.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
             mock_load_config.return_value = real_config

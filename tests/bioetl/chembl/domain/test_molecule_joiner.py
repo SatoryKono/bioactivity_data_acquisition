@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.chembl.domain.molecule_joiner import MoleculeJoiner
+from domain.chembl.molecule_joiner import MoleculeJoiner
 
 
 class StubActivityRepo:

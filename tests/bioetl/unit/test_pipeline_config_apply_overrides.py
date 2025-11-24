@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bioetl.config.environment import EnvironmentSettings
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.runtime.cli_pipeline_runner import (
+from infrastructure.config.environment import EnvironmentSettings
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.runtime.cli_pipeline_runner import (
     PipelineCommandOptions,
     PipelineConfigFactory,
 )

@@ -6,8 +6,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from infrastructure.runtime.cli_base import CliCommandBase
+from infrastructure.runtime.cli_errors import CLI_ERROR_INTERNAL
 from bioetl.devtools.cli_audit_docs import (
     audit_broken_links,
     extract_pipeline_info,

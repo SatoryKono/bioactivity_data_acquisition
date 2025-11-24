@@ -1,4 +1,4 @@
-"""Tests for :mod:`bioetl.core.utils.typechecks`."""
+"""Tests for :mod:`common.core_utils.typechecks`."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.core.utils.typechecks import is_dict, is_list
+from common.core_utils.typechecks import is_dict, is_list
 
 
 @pytest.mark.parametrize(

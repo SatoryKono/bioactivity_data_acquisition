@@ -37,7 +37,7 @@ class DummyUnifiedLogger:
 
 
 def _install_dummy_pipeline_base(monkeypatch: pytest.MonkeyPatch) -> None:
-    module = ModuleType("bioetl.core.pipeline")
+    module = ModuleType("application.pipelines")
 
     class DummyPipelineBase:
         def extract(self, value: int, *, flag: bool = True) -> int:
@@ -56,13 +56,13 @@ def _install_dummy_pipeline_base(monkeypatch: pytest.MonkeyPatch) -> None:
             return str(path)
 
     module.PipelineBase = DummyPipelineBase
-    monkeypatch.setitem(sys.modules, "bioetl.core.pipeline", module)
+    monkeypatch.setitem(sys.modules, "application.pipelines", module)
 
 
 def _install_dummy_config_models(monkeypatch: pytest.MonkeyPatch) -> None:
-    package = ModuleType("bioetl.config.models")
+    package = ModuleType("infrastructure.config.models")
     package.__path__ = []
-    monkeypatch.setitem(sys.modules, "bioetl.config.models", package)
+    monkeypatch.setitem(sys.modules, "infrastructure.config.models", package)
 
     class DummyField(SimpleNamespace):
         def is_required(self) -> bool:
@@ -74,14 +74,14 @@ def _install_dummy_config_models(monkeypatch: pytest.MonkeyPatch) -> None:
             "version": DummyField(annotation=int, default=1, _required=True),
         }
 
-    models_module = ModuleType("bioetl.config.models.models")
+    models_module = ModuleType("infrastructure.config.models.models")
     models_module.PipelineConfig = DummyModel
     models_module.PipelineMetadata = DummyModel
-    monkeypatch.setitem(sys.modules, "bioetl.config.models.models", models_module)
+    monkeypatch.setitem(sys.modules, "infrastructure.config.models.models", models_module)
 
-    policies_module = ModuleType("bioetl.config.models.policies")
+    policies_module = ModuleType("infrastructure.config.models.policies")
     policies_module.DeterminismConfig = DummyModel
-    monkeypatch.setitem(sys.modules, "bioetl.config.models.policies", policies_module)
+    monkeypatch.setitem(sys.modules, "infrastructure.config.models.policies", policies_module)
 
 
 def test_extractors_and_compare_methods(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

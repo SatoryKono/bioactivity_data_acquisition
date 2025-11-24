@@ -9,15 +9,15 @@ from typing import Any, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.chembl.common.descriptor import (
+from infrastructure.chembl.descriptor import (
     ChemblContextSpec,
     ChemblDescriptorBuilderMixin,
     ChemblDescriptorSpec,
     ChemblExtractionContext,
     ChemblPipelineBase,
 )
-from bioetl.config.models.models import PipelineConfig
-from bioetl.config.target import TargetSourceConfig
+from infrastructure.config.models.models import PipelineConfig
+from infrastructure.config.target import TargetSourceConfig
 
 
 class _ProbePipeline(
@@ -123,7 +123,7 @@ def test_descriptor_builder_uses_spec(
         )
 
     monkeypatch.setattr(
-        "bioetl.chembl.common.descriptor.build_standard_chembl_context",
+        "infrastructure.chembl.descriptor.build_standard_chembl_context",
         fake_build_standard,
     )
 

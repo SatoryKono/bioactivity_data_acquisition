@@ -15,7 +15,7 @@ from tests.support.golden import (
     normalize_meta_payload,
 )
 
-from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
+from application.pipelines.specs.chembl.assay.run import ChemblAssayPipeline
 
 PIPELINE_CODE = "assay_chembl"
 GOLDEN_VERSION = "v2"
@@ -45,7 +45,7 @@ def test_assay_pipeline_golden_snapshot(
 ) -> None:
     """ChemblAssayPipeline output must match committed golden artefacts."""
 
-    pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_assay_schema.AssaySchema"  # type: ignore[attr-defined]
+    pipeline_config_fixture.validation.schema_out = "infrastructure.schemas.chembl_assay_schema.AssaySchema"  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.sort.by = ["assay_chembl_id", "row_subtype", "row_index"]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.sort.ascending = [True, True, True]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.hashing.business_key_fields = (

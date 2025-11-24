@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.chembl.repos import chembl_repositories
-from bioetl.chembl.repos.chembl_repositories import (
+from infrastructure.chembl.repos import chembl_repositories
+from infrastructure.chembl.repos.chembl_repositories import (
     ChemblActivityRepository,
     ChemblCompoundRecordRepository,
     ChemblMoleculeRepository,

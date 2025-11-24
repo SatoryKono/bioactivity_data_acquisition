@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.pipelines.chembl.target.transform import (
+from application.pipelines.specs.chembl.target.transform import (
     extract_and_serialize_component_synonyms,
     flatten_target_components,
     serialize_target_arrays,

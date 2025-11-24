@@ -10,8 +10,8 @@ import pandera.errors
 import pytest
 from pandera import DataFrameSchema
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.base import PipelineBase
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines.specs.base import PipelineBase
 
 
 class _ValidationProbePipeline(PipelineBase):

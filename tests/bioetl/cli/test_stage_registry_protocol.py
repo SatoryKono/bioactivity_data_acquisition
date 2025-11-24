@@ -4,9 +4,9 @@ from collections.abc import Sequence
 from unittest.mock import MagicMock
 
 import pytest
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.pipeline import PipelineBase
-from bioetl.pipelines.chembl.stage_runner import (
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines import PipelineBase
+from application.pipelines.specs.chembl.stage_runner import (
     PIPELINE_REGISTRY,
     StageContext,
     build_stage_functions,
@@ -97,7 +97,7 @@ def test_stage_function_respects_stage_context(
         return logger
 
     monkeypatch.setattr(
-        "bioetl.pipelines.chembl.stage_runner.get_pipeline_logger",
+        "application.pipelines.specs.chembl.stage_runner.get_pipeline_logger",
         _fake_logger,
     )
 

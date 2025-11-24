@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from bioetl.cli.cli_registry import COMMAND_REGISTRY, PIPELINE_REGISTRY, CommandConfig
-from bioetl.core.pipeline import PipelineBase
+from interfaces.cli.cli_registry import COMMAND_REGISTRY, PIPELINE_REGISTRY, CommandConfig
+from application.pipelines import PipelineBase
 
 
 def test_pipeline_registry_factories() -> None:

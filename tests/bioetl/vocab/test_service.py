@@ -1,6 +1,6 @@
 import yaml
 
-from bioetl.vocab.service import (
+from domain.vocab.service import (
     VOCAB_STORE_ENV_VAR,
     refresh_vocab_cache,
     required_vocab_ids,

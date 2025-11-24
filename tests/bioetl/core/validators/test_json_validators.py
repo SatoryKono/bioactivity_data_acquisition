@@ -6,7 +6,7 @@ import math
 
 import pandas as pd
 
-from bioetl.schemas._validators import validate_json_series
+from infrastructure.schemas._validators import validate_json_series
 
 
 def test_validate_json_series_rejects_invalid_payload() -> None:

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from bioetl.config.common import BatchSizeLimitMixin
-from bioetl.config.document import DocumentSourceConfig
-from bioetl.config.target import TargetSourceConfig
+from infrastructure.config.common import BatchSizeLimitMixin
+from infrastructure.config.document import DocumentSourceConfig
+from infrastructure.config.target import TargetSourceConfig
 
 
 @pytest.mark.unit

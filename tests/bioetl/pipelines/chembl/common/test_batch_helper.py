@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from bioetl.chembl.common import BatchExtractionContext, ChemblPipelineBase
+from infrastructure.chembl import BatchExtractionContext, ChemblPipelineBase
 
 
 class DummyChemblPipeline(ChemblPipelineBase):

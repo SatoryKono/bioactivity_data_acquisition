@@ -13,11 +13,11 @@ from requests.exceptions import (
     Timeout,
 )
 
-from bioetl.chembl.common.descriptor import ChemblExtractionContext
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.http.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.target import run as target_run
-from bioetl.pipelines.chembl.testitem import run as testitem_run
+from infrastructure.chembl.descriptor import ChemblExtractionContext
+from infrastructure.clients.client_chembl import ChemblClient
+from infrastructure.http.api_client import UnifiedAPIClient
+from application.pipelines.specs.chembl.target import run as target_run
+from application.pipelines.specs.chembl.testitem import run as testitem_run
 
 
 @pytest.mark.unit
@@ -77,7 +77,7 @@ def test_fetch_chembl_release_handles_network_error(
     mock_client = Mock(spec=ChemblClient)
     mock_client.handshake.side_effect = RequestsConnectionError("Network unreachable")
 
-    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+    with patch("infrastructure.chembl.descriptor.UnifiedLogger.get"):
         result = pipeline.fetch_chembl_release(mock_client)
 
     assert result is None
@@ -97,7 +97,7 @@ def test_fetch_chembl_release_handles_timeout(
     mock_client = Mock(spec=ChemblClient)
     mock_client.handshake.side_effect = Timeout("Request timeout")
 
-    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+    with patch("infrastructure.chembl.descriptor.UnifiedLogger.get"):
         result = pipeline.fetch_chembl_release(mock_client)
 
     assert result is None
@@ -119,7 +119,7 @@ def test_fetch_chembl_release_handles_http_error(
     mock_client = Mock(spec=UnifiedAPIClient)
     mock_client.get.side_effect = HTTPError("404 Not Found")
 
-    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+    with patch("infrastructure.chembl.descriptor.UnifiedLogger.get"):
         result = pipeline.fetch_chembl_release(mock_client)
 
     assert result is None
@@ -224,7 +224,7 @@ def test_fetch_chembl_release_invalid_json(
     mock_client = Mock(spec=UnifiedAPIClient)
     mock_client.get.return_value = mock_response
 
-    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+    with patch("infrastructure.chembl.descriptor.UnifiedLogger.get"):
         result = pipeline.fetch_chembl_release(mock_client)
 
     assert result is None
@@ -272,7 +272,7 @@ def test_fetch_chembl_release_generic_exception(
     mock_client = Mock(spec=ChemblClient)
     mock_client.handshake.side_effect = Exception("Unexpected error")
 
-    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+    with patch("infrastructure.chembl.descriptor.UnifiedLogger.get"):
         result = pipeline.fetch_chembl_release(mock_client)
 
     assert result is None

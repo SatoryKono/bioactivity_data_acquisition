@@ -7,17 +7,17 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
-from bioetl.config.models.models import (
+from infrastructure.config.models.base import PipelineMetadata
+from infrastructure.config.models.http import HTTPClientConfig, HTTPConfig
+from infrastructure.config.models.models import (
     PipelineConfig,
     PipelineDomainConfig,
     PipelineInfrastructureConfig,
 )
-from bioetl.config.models.transform import TransformConfig
-from bioetl.config.models.validation import ValidationConfig
-from bioetl.pipelines.chembl.assay import run as assay_run
-from bioetl.pipelines.chembl.assay.transform import header_rows_serialize
+from infrastructure.config.models.transform import TransformConfig
+from infrastructure.config.models.validation import ValidationConfig
+from application.pipelines.specs.chembl.assay import run as assay_run
+from application.pipelines.specs.chembl.assay.transform import header_rows_serialize
 
 
 def _create_minimal_config() -> PipelineConfig:
@@ -26,7 +26,7 @@ def _create_minimal_config() -> PipelineConfig:
         transform=TransformConfig(
             arrays_to_header_rows=["assay_classifications", "assay_parameters"]
         ),
-        validation=ValidationConfig(schema_out="bioetl.schemas.chembl_assay_schema.AssaySchema"),
+        validation=ValidationConfig(schema_out="infrastructure.schemas.chembl_assay_schema.AssaySchema"),
     )
     infrastructure = PipelineInfrastructureConfig(
         http=HTTPConfig(default=HTTPClientConfig()),

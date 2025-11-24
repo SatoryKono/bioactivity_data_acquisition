@@ -12,10 +12,10 @@ from tests.support.qc_assertions import (
     assert_quality_report_structure,
 )
 
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.pipeline import PipelineBase
-from bioetl.qc.plan import QCMetricsBundle, QCMetricsExecutor, QCPlan
-from bioetl.qc.report import (
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines import PipelineBase
+from application.qc.plan import QCMetricsBundle, QCMetricsExecutor, QCPlan
+from application.qc.report import (
     build_correlation_report,
     build_qc_metrics_payload,
     build_quality_report,

@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.tools import get_project_root
+from infrastructure.logging import LogEvents, UnifiedLogger
+from interfaces.tools import get_project_root
 
 __all__ = [
     "DocCodeMatrix",

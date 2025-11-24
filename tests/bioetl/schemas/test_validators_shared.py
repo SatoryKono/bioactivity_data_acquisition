@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.schemas._validators import (
+from infrastructure.schemas._validators import (
     RELATIONS,
     validate_membership_series,
     validate_relation_series,

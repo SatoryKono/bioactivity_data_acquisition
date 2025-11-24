@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 import requests
 
-from bioetl.schemas.common import default_schema_path, load_schema, refresh_vocabulary
+from infrastructure.schemas.common import default_schema_path, load_schema, refresh_vocabulary
 
 
 class DummyResponse:
@@ -50,7 +50,7 @@ def test_refresh_vocabulary_uses_etag(monkeypatch: pytest.MonkeyPatch, tmp_path:
         captured.update(headers or {})
         return DummyResponse(status_code=304)
 
-    monkeypatch.setattr("bioetl.schemas.common.requests.get", fake_get)
+    monkeypatch.setattr("infrastructure.schemas.common.requests.get", fake_get)
 
     refreshed = refresh_vocabulary(cache_file, "https://example.com/vocab.yaml")
     assert refreshed is False
@@ -66,7 +66,7 @@ def test_refresh_vocabulary_downloads(monkeypatch: pytest.MonkeyPatch, tmp_path:
         captured_headers.update(headers or {})
         return DummyResponse(status_code=200, content=b"payload", headers={"ETag": "fresh"})
 
-    monkeypatch.setattr("bioetl.schemas.common.requests.get", fake_get)
+    monkeypatch.setattr("infrastructure.schemas.common.requests.get", fake_get)
 
     refreshed = refresh_vocabulary(cache_file, "https://example.com/vocab.yaml")
     assert refreshed is True

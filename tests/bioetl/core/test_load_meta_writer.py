@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from bioetl.core.runtime.load_meta_writer import LoadMetaWriter
+from infrastructure.runtime.load_meta_writer import LoadMetaWriter
 
 
 def test_write_pandas_parquet(tmp_path: Path) -> None:

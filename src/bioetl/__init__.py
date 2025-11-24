@@ -16,11 +16,11 @@ __all__ = [
 
 if TYPE_CHECKING:
     from bioetl.base_classes import BaseApiClient, INormalizer, IParser
-    from bioetl.config import PipelineConfig, load_config
+    from infrastructure.config import PipelineConfig, load_config
 
 _EXPORTS: dict[str, tuple[str, str]] = {
-    "PipelineConfig": ("bioetl.config", "PipelineConfig"),
-    "load_config": ("bioetl.config", "load_config"),
+    "PipelineConfig": ("infrastructure.config", "PipelineConfig"),
+    "load_config": ("infrastructure.config", "load_config"),
     "BaseApiClient": ("bioetl.base_classes", "BaseApiClient"),
     "IParser": ("bioetl.base_classes", "IParser"),
     "INormalizer": ("bioetl.base_classes", "INormalizer"),

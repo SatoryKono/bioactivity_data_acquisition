@@ -10,7 +10,7 @@ import pytest  # type: ignore[reportMissingImports]
 from click.testing import CliRunner  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
-from bioetl.cli.cli_app import app  # type: ignore[reportUnknownVariableType]
+from interfaces.cli.cli_app import app  # type: ignore[reportUnknownVariableType]
 
 CLI_APP = get_command(app)  # type: ignore[reportUnknownVariableType]
 
@@ -41,7 +41,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema:ActivitySchema"
+  schema_out: "infrastructure.schemas.chembl_activity_schema:ActivitySchema"
 determinism:
   sort:
     by: ["activity_id"]
@@ -55,12 +55,12 @@ determinism:
 
         # Mock load_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.config.load_config") as mock_load_config,
+            patch("infrastructure.config.load_config") as mock_load_config,
             patch("bioetl.core.APIClientFactory.for_source") as mock_factory,
         ):
             from pathlib import Path as PathType
 
-            from bioetl.config.loader import load_config as real_load_config
+            from infrastructure.config.loader import load_config as real_load_config
 
             # Load config without default profiles for test
             # Use absolute path to avoid resolution issues
@@ -144,10 +144,10 @@ http:
 
         # Mock load_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.config.load_config") as mock_load_config,
-            patch("bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.run") as mock_run,
+            patch("infrastructure.config.load_config") as mock_load_config,
+            patch("application.pipelines.specs.chembl.activity.run.ChemblActivityPipeline.run") as mock_run,
         ):
-            from bioetl.config.loader import load_config as real_load_config
+            from infrastructure.config.loader import load_config as real_load_config
 
             # Load config without default profiles for test
             real_config = real_load_config(

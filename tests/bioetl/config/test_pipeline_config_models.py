@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 from pydantic import Field, PositiveInt
 
-from bioetl.config.models._proxy_utils import ProxyDefinition, build_section_proxies
-from bioetl.config.models.models import (
+from infrastructure.config.models._proxy_utils import ProxyDefinition, build_section_proxies
+from infrastructure.config.models.models import (
     PipelineCommonCompat,
     PipelineConfig,
     PipelineDomainConfig,
@@ -18,7 +18,7 @@ from bioetl.config.models.models import (
     SourceConfig,
     SourceParameters,
 )
-from bioetl.config.models.policies import (
+from infrastructure.config.models.policies import (
     CacheConfig,
     DeterminismConfig,
     DeterminismSortingConfig,

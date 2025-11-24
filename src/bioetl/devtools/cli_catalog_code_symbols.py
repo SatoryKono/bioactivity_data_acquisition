@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.tools import get_project_root
+from infrastructure.logging import LogEvents, UnifiedLogger
+from interfaces.tools import get_project_root
 
 from .signatures import signature_from_callable
 
@@ -57,7 +57,7 @@ def extract_method_signature(callable_obj: Any) -> dict[str, Any]:
 def extract_pipeline_base_signatures() -> dict[str, Any]:
     """Collect PipelineBase method signatures."""
 
-    from bioetl.core.pipeline import PipelineBase
+    from application.pipelines import PipelineBase
 
     signatures: dict[str, Any] = {}
 
@@ -97,11 +97,11 @@ def extract_config_models() -> dict[str, Any]:
     """Collect Pydantic config model metadata."""
 
     try:
-        from bioetl.config.models.models import (
+        from infrastructure.config.models.models import (
             PipelineConfig,
             PipelineMetadata,
         )
-        from bioetl.config.models.policies import DeterminismConfig
+        from infrastructure.config.models.policies import DeterminismConfig
     except ImportError as exc:  # pragma: no cover - infrastructure failure
         return {"error": f"Failed to import config models: {exc}"}
 
@@ -135,7 +135,7 @@ def extract_cli_commands() -> list[str]:
     """Collect CLI command names from the registry."""
 
     try:
-        from bioetl.cli.cli_registry import PIPELINE_REGISTRY
+        from interfaces.cli.cli_registry import PIPELINE_REGISTRY
     except ImportError as exc:  # pragma: no cover
         return [f"Error: {exc}"]
     return sorted(spec.code for spec in PIPELINE_REGISTRY)

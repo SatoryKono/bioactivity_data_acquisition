@@ -5,16 +5,16 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.chembl.common.descriptor import (
+from infrastructure.chembl.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
-from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
-from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
-from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
+from infrastructure.config.models.models import PipelineConfig
+from application.pipelines.specs.chembl.activity.run import ChemblActivityPipeline
+from application.pipelines.specs.chembl.assay.run import ChemblAssayPipeline
+from application.pipelines.specs.chembl.document.run import ChemblDocumentPipeline
+from application.pipelines.specs.chembl.target.run import ChemblTargetPipeline
+from application.pipelines.specs.chembl.testitem.run import TestItemChemblPipeline
 
 PipelineType = type[ChemblPipelineBase]
 

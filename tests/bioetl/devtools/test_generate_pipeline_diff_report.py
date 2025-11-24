@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from bioetl.tools import generate_pipeline_diff_report as gpdr
+from interfaces.tools import generate_pipeline_diff_report as gpdr
 
 
 def _build_module_content(prefix: str, operator: str) -> str:

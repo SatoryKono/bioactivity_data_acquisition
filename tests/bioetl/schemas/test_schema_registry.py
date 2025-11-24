@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from importlib import import_module
 
-from bioetl.schemas import SCHEMA_REGISTRY
-from bioetl.schemas.metadata_utils import metadata_dict, normalize_sequence
+from infrastructure.schemas import SCHEMA_REGISTRY
+from infrastructure.schemas.metadata_utils import metadata_dict, normalize_sequence
 
 
 def test_registry_column_order_and_versions() -> None:

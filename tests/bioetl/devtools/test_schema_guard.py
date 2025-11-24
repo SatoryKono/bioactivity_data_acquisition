@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.config import loader
+from infrastructure.config import loader
 from bioetl.devtools import cli_schema_guard as schema_guard
 
 

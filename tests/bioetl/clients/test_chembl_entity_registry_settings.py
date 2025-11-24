@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from bioetl.clients.chembl_entity_registry import (
+from infrastructure.clients.chembl_entity_registry import (
     _resolve_batch_size,
     _resolve_max_url_length,
 )

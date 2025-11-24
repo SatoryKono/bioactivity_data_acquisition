@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from bioetl.cli import _io
+from interfaces.cli import _io
 
 
 def test_atomic_write_yaml_invokes_fsync(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

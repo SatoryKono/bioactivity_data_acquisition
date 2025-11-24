@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bioetl.clients.base import (
+from infrastructure.clients.base import (
     build_filters_payload,
     merge_select_fields,
     normalize_select_fields,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bioetl.pipelines.chembl._constants import (
+from application.pipelines.specs.chembl._constants import (
     API_ACTIVITY_FIELDS,
     API_DOCUMENT_FIELDS,
     ASSAY_MUST_HAVE_FIELDS,

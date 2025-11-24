@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 from bioetl.core import hash_from_mapping
-from bioetl.core.runtime.load_meta_builder import LoadMetaBuilder
-from bioetl.schemas.chembl_metadata_schema import (
+from infrastructure.runtime.load_meta_builder import LoadMetaBuilder
+from infrastructure.schemas.chembl_metadata_schema import (
     BUSINESS_KEY_FIELDS,
     ROW_HASH_FIELDS,
     LoadMetaSchema,

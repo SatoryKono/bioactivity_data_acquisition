@@ -13,9 +13,9 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from bioetl.cli._io import atomic_write_yaml
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.tools.test_report_artifacts import (
+from interfaces.cli._io import atomic_write_yaml
+from infrastructure.logging import LogEvents, UnifiedLogger
+from interfaces.tools.test_report_artifacts import (
     TEST_REPORTS_ROOT,
     TestReportArtifacts,
     TestReportMeta,

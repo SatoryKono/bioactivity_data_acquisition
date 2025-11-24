@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.qc.plan import (
+from application.qc.plan import (
     QC_METRIC_REGISTRY,
     QCExecutionContext,
     QCMetricResult,
@@ -13,7 +13,7 @@ from bioetl.qc.plan import (
     QCPlan,
     register_qc_metric,
 )
-from bioetl.qc.report import build_qc_metrics_payload, build_quality_report
+from application.qc.report import build_qc_metrics_payload, build_quality_report
 
 
 @pytest.mark.unit
