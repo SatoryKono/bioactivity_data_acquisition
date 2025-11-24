@@ -37,13 +37,13 @@ from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.pipeline import PipelineBase, PipelineExtractionMode
 from bioetl.core.pipeline.errors import PipelineError
+from bioetl.infrastructure.clients import ChemblClientFactoryProtocol, default_chembl_factory
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 if TYPE_CHECKING:
     from bioetl.clients.chembl_entity_factory import (
         ChemblClientBundle,
-        ChemblEntityClientFactory,
     )
     from bioetl.pipelines.mixins.descriptor_builder import (
         DescriptorStrategyFactory,
@@ -929,11 +929,10 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
-        from bioetl.clients.chembl_entity_factory import ChemblEntityClientFactory
-
-        self._chembl_entity_factory = ChemblEntityClientFactory(
-            config,
-            api_client_factory=self._client_factory,
+        self._chembl_entity_factory: ChemblClientFactoryProtocol = (
+            default_chembl_factory(
+                config, api_client_factory=self._client_factory
+            )
         )
         self._api_version: str | None = None
         self._output_schema_entry: SchemaRegistryEntry | None = None

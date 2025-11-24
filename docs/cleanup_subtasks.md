@@ -17,6 +17,8 @@
   - `python -m bioetl.cli.cli_app list`
 
 ## Этап 3. Консолидация клиентского слоя
+- Сделано: пайплайны ChEMBL переводятся на фабрику `bioetl.infrastructure.clients.default_chembl_factory`, которая проксирует HTTP-клиент и сущностные адаптеры через единый протокол.
+- Следующий шаг: обновить оставшиеся вызовы, которые напрямую создают `ChemblEntityClientFactory`, и при необходимости добавить предупреждения в старые импорт-пути `bioetl.clients`.
 - Свести использование клиентов к `bioetl/infrastructure/clients`, оставить прокси в `bioetl/clients` при необходимости.
 - Проверки:
   - `pytest tests/clients tests/pipelines`
