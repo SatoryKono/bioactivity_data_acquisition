@@ -199,7 +199,7 @@ class TestDocumentPipelineSmoke:
         mock_documents = create_mock_document_data(count=3)
 
         with (
-            patch("bioetl.core.APIClientFactory.for_source") as mock_factory,
+            patch("bioetl.core.http.client_factory.APIClientFactory.for_source") as mock_factory,
         ):
             mock_client = setup_mock_api_client(mock_documents, mock_document_terms=None)
             mock_factory.return_value = mock_client
@@ -281,7 +281,7 @@ class TestDocumentPipelineSmoke:
         mock_document_terms = create_mock_document_term_data()
 
         with (
-            patch("bioetl.core.APIClientFactory.for_source") as mock_factory,
+            patch("bioetl.core.http.client_factory.APIClientFactory.for_source") as mock_factory,
         ):
             mock_client = setup_mock_api_client(
                 mock_documents, mock_document_terms=mock_document_terms
@@ -371,7 +371,7 @@ class TestDocumentPipelineSmoke:
         mock_documents = create_mock_document_data(count=2)
 
         with (
-            patch("bioetl.core.APIClientFactory.for_source") as mock_factory,
+            patch("bioetl.core.http.client_factory.APIClientFactory.for_source") as mock_factory,
         ):
             mock_client = setup_mock_api_client(mock_documents, mock_document_terms=None)
             mock_factory.return_value = mock_client

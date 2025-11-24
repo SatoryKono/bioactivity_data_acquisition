@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.core import (
+from bioetl.core.io import (
     escape_delims,
     header_rows_serialize,
     serialize_array_fields,

@@ -14,7 +14,7 @@ import pytest
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.schemas.chembl_target_schema import COLUMN_ORDER, TargetSchema
 

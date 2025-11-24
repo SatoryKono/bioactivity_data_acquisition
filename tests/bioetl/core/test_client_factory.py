@@ -14,7 +14,7 @@ from bioetl.config.models.models import (
     PipelineInfrastructureConfig,
 )
 from bioetl.config.models.source import SourceConfig, SourceParameters
-from bioetl.core import APIClientFactory, UnifiedAPIClient
+from bioetl.core.http import APIClientFactory, UnifiedAPIClient
 
 
 @pytest.fixture

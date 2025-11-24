@@ -36,9 +36,8 @@ from bioetl.clients.chembl_entity_factory import (
 )
 from bioetl.clients.client_chembl import _resolve_status_endpoint
 from bioetl.config.models.source import SourceConfig
-from bioetl.core import APIClientFactory
 from bioetl.core.common import ChemblReleaseMixin
-from bioetl.core.http import UnifiedAPIClient
+from bioetl.core.http import APIClientFactory, UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.pipeline import PipelineBase, PipelineExtractionMode
 from bioetl.core.pipeline.errors import PipelineError

@@ -32,7 +32,7 @@ class TestPipelineLifecycle:
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
         pipeline_config_fixture.validation.schema_out = None
 
-        with patch("bioetl.core.APIClientFactory.for_source") as mock_factory:
+        with patch("bioetl.core.http.client_factory.APIClientFactory.for_source") as mock_factory:
             mock_client = MagicMock()
             mock_status_response = MagicMock()
             mock_status_response.json.return_value = {"chembl_release": "33"}
@@ -100,7 +100,7 @@ class TestPipelineLifecycle:
         pipeline_config_fixture.determinism.sort.by = []
         pipeline_config_fixture.determinism.sort.ascending = []
 
-        with patch("bioetl.core.APIClientFactory.for_source") as mock_factory:
+        with patch("bioetl.core.http.client_factory.APIClientFactory.for_source") as mock_factory:
             mock_client = MagicMock()
             mock_status_response = MagicMock()
             mock_status_response.json.return_value = {"chembl_release": "33"}
@@ -143,7 +143,7 @@ class TestPipelineLifecycle:
         pipeline_config_fixture.validation.schema_out = None
         pipeline_config_fixture.determinism.sort.by = []
         pipeline_config_fixture.determinism.sort.ascending = []
-        with patch("bioetl.core.APIClientFactory.for_source") as mock_factory:
+        with patch("bioetl.core.http.client_factory.APIClientFactory.for_source") as mock_factory:
             mock_client = MagicMock()
             mock_status_response = MagicMock()
             mock_status_response.json.return_value = {"chembl_release": "33"}

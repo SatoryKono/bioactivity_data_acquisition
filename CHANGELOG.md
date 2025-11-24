@@ -40,14 +40,27 @@
   `join_activity_with_molecule` как устаревшие shim-обёртки над
   `bioetl.chembl.common.*`; при импорте из `bioetl.core` теперь
   выдаётся `DeprecationWarning`.
+- Инвентаризированы импорты из `bioetl.core`: рабочий код и тесты переведены на
+  прямые обращения к подмодулям (`bioetl.core.http`, `.logging`, `.io`,
+  `.schema`, `.runtime`), а фасад оставлен только как compat-слой.
+
+### Устаревшее
+
+- Устаревшие шорткаты из `_DEPRECATED_EXPORTS` (`ChemblReleaseMixin`,
+  `join_activity_with_molecule`, `BaseApiClient`, `IParser`, `INormalizer`)
+  продолжают выдавать `DeprecationWarning` при импорте из `bioetl.core` и будут
+  удалены после следующего релиза; используйте исходные модули
+  (`bioetl.chembl.common.release_tracker`, `bioetl.chembl.common`,
+  `bioetl.base_classes`).
 
 ### Удалено
 
 - Удалён устаревший слой `bioetl.config.models`: корневой пакет больше не
   реэкспортирует модели, а модуль `bioetl/config/models.py` исключён. Импорты
   должны указывать на `bioetl.config.models.models` или `.policies`.
-- Пакет `bioetl.core` перестал прокидывать `BaseApiClient`, `IParser` и
-  `INormalizer`; используйте `bioetl.base_classes` напрямую.
+- Пакет `bioetl.core` больше не должен использоваться как точка доступа к
+  `BaseApiClient`, `IParser` и `INormalizer`; используйте
+  `bioetl.base_classes` напрямую (compat-импорт временно сохранён).
 - Убран легаси-префикс `BIOACTIVITY__` и связанные DeprecationWarning — для
   оверрайдов конфигурации теперь поддерживается только `BIOETL__` (при
   необходимости можно передать пользовательский префикс в `load_config`).

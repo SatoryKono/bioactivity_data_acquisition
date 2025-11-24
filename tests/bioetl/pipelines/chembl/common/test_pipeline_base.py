@@ -14,7 +14,7 @@ from structlog.testing import capture_logs
 from bioetl.chembl.common import ChemblPipelineBase
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
-from bioetl.core import LogEvents, UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.pipelines.chembl.activity import run as activity_run
 from bioetl.pipelines.chembl.assay import run as assay_run
 from bioetl.pipelines.chembl.document import run as document_run
