@@ -24,7 +24,7 @@ class QCPipeline(PipelineBaseCommon):
         return None
 
     def extract(self, descriptor: object, options: StageExecutionOptions) -> pd.DataFrame:
-        return pd.DataFrame({"value": [1, 2]})
+        return pd.DataFrame({"id": [1, 2], "value": [1, 2]})
 
     def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         return df
