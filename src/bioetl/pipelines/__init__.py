@@ -1,6 +1,6 @@
 """Pipeline orchestration package for BioETL."""
 
-from bioetl.pipelines.base import PipelineBase, PipelineFactory
-from bioetl.pipelines.unified_base import UnifiedPipelineBase
+# Легковесный __init__: реальные классы подключаются точечно, чтобы избежать
+# циклических импортов при загрузке подмодулей.
 
-__all__ = ["PipelineBase", "PipelineFactory", "UnifiedPipelineBase"]
+__all__ = []

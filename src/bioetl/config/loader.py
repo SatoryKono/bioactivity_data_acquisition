@@ -30,6 +30,9 @@ def load_config(
     Merge priority (low → high): profiles → main config → CLI ``--set`` overrides
     → prefixed environment variables. ``extends`` and ``!include`` are resolved
     eagerly for every loaded YAML file.
+
+    If ``config_path`` does not exist, :class:`FileNotFoundError` is raised
+    before any parsing is attempted.
     """
 
     path = _resolve_config_path(config_path)

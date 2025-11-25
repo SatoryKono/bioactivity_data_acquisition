@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
+
+import pandas as pd
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -45,4 +49,35 @@ class QCPlan(BaseModel):
         return cls(metrics=defaults)
 
 
-__all__ = ["MetricSpec", "QCPlan"]
+class QCMetricsExecutor:
+    """Minimal executor placeholder used by pipelines."""
+
+    def execute(
+        self,
+        df,
+        *,
+        plan: QCPlan | None = None,
+        business_key_fields=None,
+        dataset_name: str = "dataset",
+        output_dir=None,
+    ):
+        base_dir = Path(output_dir) if output_dir else Path(".")
+        base_dir.mkdir(parents=True, exist_ok=True)
+        quality_report = base_dir / f"{dataset_name}_quality_report.csv"
+        pd.DataFrame(
+            [
+                {
+                    "dataset": dataset_name,
+                    "metric": "row_count",
+                    "metric_type": "custom",
+                    "value": len(df),
+                    "threshold": None,
+                    "status": "PASS",
+                    "message": None,
+                }
+            ]
+        ).to_csv(quality_report, index=False)
+        return SimpleNamespace(report_paths={"quality_report": quality_report})
+
+
+__all__ = ["MetricSpec", "QCPlan", "QCMetricsExecutor"]
