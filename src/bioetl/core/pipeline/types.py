@@ -54,6 +54,12 @@ class RunResult:
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def metrics(self) -> dict[str, Any]:
+        """Backward-compatible alias for metadata payload."""
+
+        return self.metadata
+
 
 @dataclass(slots=True)
 class PipelineStageCommand:
