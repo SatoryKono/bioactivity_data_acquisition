@@ -9,6 +9,7 @@ from typing import Any, Callable, Protocol, runtime_checkable
 import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
+from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
 
 
 class PipelineExtractionMode(str, Enum):
@@ -35,30 +36,11 @@ class StageExecutionOptions:
 
 
 @dataclass(slots=True)
-class WriteArtifacts:
-    """Paths produced by the ``save_results`` stage."""
-
-    data_path: Path | None = None
-    manifest_path: Path | None = None
-    extra: dict[str, Path] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
 class WriteResult:
     """Result of persisting transformed data."""
 
     rows: int
     artifacts: WriteArtifacts
-
-
-@dataclass(slots=True)
-class RunArtifacts:
-    """Top-level artifacts describing the executed run."""
-
-    output_dir: Path
-    logs_directory: Path
-    write_artifacts: WriteArtifacts | None = None
-    qc_metrics_path: Path | None = None
 
 
 @dataclass(slots=True)
