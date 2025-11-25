@@ -1,34 +1,21 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import pandas as pd
 
+from bioetl.sources.chembl.common import ColumnMapping, build_records_from_payload
 
-def _extract_items(payload: Any) -> Iterable[Mapping[str, Any]]:
-    if isinstance(payload, Mapping):
-        results = payload.get("results")
-        if isinstance(results, list):
-            for item in results:
-                if isinstance(item, Mapping):
-                    yield item
-        elif payload:
-            yield payload
-    elif isinstance(payload, list):
-        for item in payload:
-            if isinstance(item, Mapping):
-                yield item
+
+_TARGET_MAPPINGS = [
+    ColumnMapping("target_id", ("target_chembl_id", "target_id")),
+    ColumnMapping("pref_name", ("pref_name",)),
+    ColumnMapping("organism", ("organism",)),
+    ColumnMapping("target_type", ("target_type",)),
+]
 
 
 def parse_target_payload(payload: Any) -> pd.DataFrame:
-    records = []
-    for item in _extract_items(payload):
-        records.append(
-            {
-                "target_id": item.get("target_chembl_id") or item.get("target_id"),
-                "pref_name": item.get("pref_name"),
-                "organism": item.get("organism"),
-                "target_type": item.get("target_type"),
-            }
-        )
-    return pd.DataFrame.from_records(records, columns=["target_id", "pref_name", "organism", "target_type"])
+    records = build_records_from_payload(payload, _TARGET_MAPPINGS)
+    columns = [mapping.column for mapping in _TARGET_MAPPINGS]
+    return pd.DataFrame.from_records(records, columns=columns)
