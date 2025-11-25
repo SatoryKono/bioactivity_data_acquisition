@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-"""Stage runner utilities and registry for ChEMBL pipelines."""
+"""Adapters for running ChEMBL pipeline stages via the unified runner."""
 
 from collections.abc import Callable
 from pathlib import Path
-from dataclasses import dataclass
 from typing import Any
 
+import pandas as pd
+
+from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
-    PipelineStagesProtocol,
     StageContext,
     StageExecutionOptions,
 )
@@ -18,42 +19,17 @@ from bioetl.pipelines.chembl.common import ChemblPipelineContract
 
 _PIPELINE_REGISTRY: dict[str, Callable[[], ChemblPipelineContract]] = {}
 
-__all__ = ["register_pipeline", "get_pipeline_specs", "build_extract_plan", "StageRunner"]
+__all__ = [
+    "register_pipeline",
+    "get_pipeline_specs",
+    "build_extract_plan",
+    "run_chembl_stage",
+]
 
 
-@dataclass(slots=True)
-class StageAlias:
-    stage: str
-    handler: Callable[[Any, dict[str, Any]], Any]
-
-
-class StageRunner:
-    """Backward-compatible runner for executing individual pipeline stages."""
-
-    def __init__(self, pipeline: PipelineStagesProtocol) -> None:
-        self.pipeline = pipeline
-        self._aliases: dict[str, StageAlias] = {}
-
-    def register_alias(self, alias: str, stage: str) -> None:
-        self._aliases[alias] = StageAlias(stage=stage, handler=self._resolve_stage(stage))
-
-    def _resolve_stage(self, stage: str) -> Callable[[Any, dict[str, Any]], Any]:
-        def _runner(pipeline: Any, options: dict[str, Any]) -> Any:
-            method = getattr(pipeline, stage)
-            if stage == "write":
-                return method(options.get("df"), Path(options["output_dir"]), extended=options.get("extended", False))
-            if stage == "run":
-                return method(Path(options["output_dir"]), **{k: v for k, v in options.items() if k != "output_dir"})
-            if "df" in options:
-                return method(options["df"])
-            return method()
-
-        return _runner
-
-    def run_stage(self, name: str, **options: Any) -> Any:
-        alias = self._aliases.get(name)
-        handler = alias.handler if alias else self._resolve_stage(name)
-        return handler(self.pipeline, options)
+_STAGE_ALIASES: dict[str, str] = {
+    "write": "save_results",
+}
 
 
 def register_pipeline(code: str, factory: Callable[[], ChemblPipelineContract]) -> None:
@@ -75,13 +51,15 @@ def _build_stage_context(
     run_tag: str | None = None,
     mode: str | None = None,
 ) -> StageContext:
-    options = StageExecutionOptions(run_tag=run_tag, mode=mode)
     target_dir, artifacts = pipeline.plan_run_artifacts(output_dir, run_tag, mode)  # type: ignore[arg-type]
-    # plan_run_artifacts is implemented on UnifiedPipelineBase; we keep typing narrow for contract users.
+    logger = UnifiedLogger.get(pipeline.__class__.__name__).bind(
+        run_id=getattr(pipeline, "run_id", ""),
+        pipeline=getattr(pipeline, "pipeline_code", pipeline.__class__.__name__),
+    )
     return StageContext(
         pipeline=pipeline,  # type: ignore[arg-type]
         output_dir=target_dir,
-        logger=None,  # type: ignore[arg-type]
+        logger=logger,
         run_id=getattr(pipeline, "run_id", ""),
         run_tag=run_tag,
         mode=mode,
@@ -109,3 +87,70 @@ def build_extract_plan(
         if command.name == "extract":
             command.handler(context, options)
     return plan
+
+
+def run_chembl_stage(
+    pipeline: ChemblPipelineContract,
+    stage: str,
+    *,
+    output_dir: Path | None = None,
+    df: pd.DataFrame | None = None,
+    run_tag: str | None = None,
+    mode: str | None = None,
+    extended: bool = False,
+    dry_run: bool | None = None,
+    sample: int | None = None,
+    limit: int | None = None,
+    include_qc_metrics: bool = False,
+    fail_on_schema_drift: bool = True,
+    descriptor: Any | None = None,
+) -> Any:
+    """Execute a single pipeline stage using the unified runner helpers."""
+
+    normalized_stage = _STAGE_ALIASES.get(stage, stage)
+    output_root = output_dir or Path.cwd()
+
+    if normalized_stage == "run":
+        return pipeline.run(
+            output_root,
+            run_tag=run_tag,
+            mode=mode,
+            extended=extended,
+            dry_run=dry_run,
+            sample=sample,
+            limit=limit,
+            include_qc_metrics=include_qc_metrics,
+            fail_on_schema_drift=fail_on_schema_drift,
+        )
+
+    if dry_run is not None:
+        pipeline.dry_run = dry_run
+
+    options = StageExecutionOptions(
+        run_tag=run_tag,
+        mode=mode,
+        extended=extended,
+        dry_run=pipeline.dry_run,
+        sample=sample,
+        limit=limit,
+        include_qc_metrics=include_qc_metrics,
+        fail_on_schema_drift=fail_on_schema_drift,
+    )
+    context = _build_stage_context(pipeline, output_root, run_tag=run_tag, mode=mode)
+    context.current_df = df
+    if descriptor is None and normalized_stage == "extract":
+        descriptor = getattr(pipeline, "build_descriptor", lambda: None)()
+    context.descriptor = descriptor
+
+    factory = StageFactory(pipeline)  # type: ignore[arg-type]
+    stage_plan = factory.build(context, options, stages=(normalized_stage,))
+
+    if not stage_plan:
+        raise ValueError(f"No stage plan available for stage '{normalized_stage}'")
+
+    result: Any = None
+    for command in stage_plan:
+        result = command.handler(context, options)
+
+    return result
+
