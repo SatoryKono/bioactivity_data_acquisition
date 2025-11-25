@@ -23,6 +23,7 @@ from bioetl.core.pipeline.types import (
     StageExecutionOptions,
     WriteArtifacts,
 )
+from bioetl.core.pipeline.services import ValidationService, WriteService
 from bioetl.qc.executor import QCMetricsExecutor
 from bioetl.qc.plan import QCPlan
 
@@ -203,6 +204,9 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         *,
         run_id: str | None = None,
         validator: Any | None = None,
+        validation_service_factory: Callable[["PipelineRuntimeBase"], ValidationService]
+        | None = None,
+        write_service_factory: Callable[["PipelineRuntimeBase"], WriteService] | None = None,
         qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None,
         qc_plan: QCPlan | None = None,
         stage_plan_executor: StagePlanExecutor | None = None,
@@ -213,6 +217,10 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         self.run_id = run_id or uuid.uuid4().hex
         self.validator = validator
         self.pipeline_code = self._resolve_pipeline_code(config)
+        materialization = getattr(config, "materialization", None)
+        root = getattr(materialization, "root", None)
+        self.output_root = Path(root) if root else Path.cwd()
+        self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
         self.qc_executor_adapter = qc_executor_adapter or QCExecutorAdapter(
             executor_factory=qc_executor_factory, qc_plan=qc_plan
         )
@@ -222,6 +230,14 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         self.dry_run = False
         self._git_commit = self.run_metadata_builder.git_commit
         self._config_hash = self.run_metadata_builder.config_hash
+        self.validation_service = (
+            validation_service_factory(self)
+            if validation_service_factory is not None
+            else None
+        )
+        self.write_service = (
+            write_service_factory(self) if write_service_factory is not None else None
+        )
 
     # Lifecycle -----------------------------------------------------------
     def run(
@@ -279,9 +295,15 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         )
 
         if options.extended and self.dry_run:
-            metadata_writer = getattr(self, "_write_metadata", None)
-            if callable(metadata_writer):  # pragma: no cover - defensive
-                metadata_writer(target_dir, context.current_df)
+            metadata_writer = None
+            if self.write_service is not None:
+                metadata_writer = getattr(self.write_service, "write_metadata", None)
+                if callable(metadata_writer):
+                    metadata_writer(target_dir, artifacts, context.current_df, dry_run=True)
+            if metadata_writer is None:
+                legacy_writer = getattr(self, "_write_metadata", None)
+                if callable(legacy_writer):  # pragma: no cover - defensive
+                    legacy_writer(target_dir, context.current_df)
 
         rows = 0 if context.current_df is None else int(context.current_df.shape[0])
         success = error is None
@@ -327,6 +349,14 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         output_dir.mkdir(parents=True, exist_ok=True)
         artifacts = WriteArtifacts(data_path=output_dir / f"{self.pipeline_code}.csv")
         return output_dir, artifacts
+
+    def build_run_stem(self, run_tag: str | None, mode: str | None) -> str:
+        suffix = [self.pipeline_code]
+        if mode:
+            suffix.append(mode)
+        if run_tag:
+            suffix.append(run_tag)
+        return self.deterministic_folder_prefix + "-".join(suffix)
 
     def build_run_metadata(
         self,

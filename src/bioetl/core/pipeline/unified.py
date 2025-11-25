@@ -4,14 +4,17 @@ import time
 import json
 from abc import abstractmethod
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Generic, Mapping, Sequence, TypeVar
 
 import pandas as pd
 import pandera as pa
-
-from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
+from bioetl.core.pipeline.services import (
+    ValidationService,
+    WriteService,
+    default_validation_service_factory,
+    default_write_service_factory,
+)
 from bioetl.core.pipeline.stage_plan import build_default_stage_plan
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
@@ -47,14 +50,15 @@ class PipelineBase(PipelineRuntimeBase):
         *,
         run_id: str | None = None,
         validator: pa.DataFrameSchema | None = None,
-        artifact_writer: ArtifactWriter | None = None,
+        validation_service_factory: Callable[[PipelineRuntimeBase], ValidationService] | None = None,
+        write_service_factory: Callable[[PipelineRuntimeBase], WriteService] | None = None,
     ) -> None:
-        super().__init__(config, run_id=run_id, validator=validator)
-        self.artifact_writer = artifact_writer or ArtifactWriter(
-            pipeline_code=self.pipeline_code,
-            run_id=self.run_id,
-            git_commit=self._git_commit,
-            config_hash=self._config_hash,
+        super().__init__(
+            config,
+            run_id=run_id,
+            validator=validator,
+            validation_service_factory=validation_service_factory or default_validation_service_factory,
+            write_service_factory=write_service_factory or default_write_service_factory,
         )
 
     @abstractmethod
@@ -65,15 +69,14 @@ class PipelineBase(PipelineRuntimeBase):
     def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         ...
 
-    @abstractmethod
     def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        ...
+        return df
 
-    @abstractmethod
     def save_results(
         self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
     ) -> WriteResult:
-        ...
+        msg = "write_service is not configured; provide write_service_factory or override save_results"
+        raise NotImplementedError(msg)
 
     @property
     def pipeline_name(self) -> str:
@@ -94,32 +97,6 @@ class UnifiedPipelineBase(PipelineBase):
         self, context: StageContext, options: StageExecutionOptions
     ) -> tuple[PipelineStageCommand, ...]:
         return build_default_stage_plan(self, context, options)
-
-    # Stage helpers ------------------------------------------------------
-    def _validate_with_schema(self, df: pd.DataFrame) -> pd.DataFrame:
-        if self.validator is None:
-            return df
-        return self.validator.validate(df)
-
-    def _empty_frame_from_schema(self) -> pd.DataFrame:
-        if self.validator is None:
-            return pd.DataFrame()
-        columns = {name: pd.Series(dtype=str(schema.dtype)) for name, schema in self.validator.columns.items()}
-        return pd.DataFrame(columns)
-
-    # Default save_results ------------------------------------------------
-    def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
-    ) -> WriteResult:
-        output_dir = artifacts.data_path.parent if artifacts.data_path else Path.cwd()
-        return self.artifact_writer.write(
-            df,
-            artifacts,
-            output_dir=output_dir,
-            dry_run=self.dry_run,
-            extended=options.extended,
-        )
-
 
 ChemblPipelineT = TypeVar("ChemblPipelineT", bound="ChemblPipelineBase")
 
