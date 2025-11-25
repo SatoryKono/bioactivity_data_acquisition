@@ -1,48 +1,45 @@
+"""Lightweight pipeline definition helpers."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Mapping
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping, Sequence
 
-from bioetl.core.pipeline.types import Stage, StageContext, StageExecutionOptions
+from bioetl.core.pipeline.factory import StageFactory
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class PipelineDefinition:
-    """Immutable pipeline description decoupled from runtime concerns."""
+    """Declarative wrapper for pipeline factories.
 
-    stages: tuple[Stage, ...]
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-    version: str = "1.0.0"
+    The definition bundles together the factory that builds a runtime pipeline
+    instance along with optional stage/QC helpers. The ``validate`` method is
+    intentionally strict to catch configuration errors before any pipeline code
+    executes.
+    """
+
+    name: str
+    runtime_factory: Callable[[], Any]
+    stages: Sequence[str] | None = None
+    stage_factory: type[StageFactory] | None = None
+    qc_registry: Mapping[str, Any] | None = None
 
     def validate(self) -> None:
-        """Ensure the definition is structurally sound without runtime deps."""
-
-        if not self.version:
-            raise ValueError("PipelineDefinition.version must be a non-empty string")
-
-        seen: set[str] = set()
-        for stage in self.stages:
-            stage.validate()
-            if stage.name in seen:
-                raise ValueError(f"Duplicate stage name detected: {stage.name}")
-            seen.add(stage.name)
-
-    def stage_names(self) -> tuple[str, ...]:
-        return tuple(stage.name for stage in self.stages)
-
-
-def build_pipeline_definition(
-    stages: Iterable[tuple[str, Callable[[StageContext, StageExecutionOptions], Any]]],
-    *,
-    metadata: Mapping[str, Any] | None = None,
-    version: str = "1.0.0",
-) -> PipelineDefinition:
-    """Helper to construct a :class:`PipelineDefinition` from raw handlers."""
-
-    stage_objects = tuple(Stage(name, handler) for name, handler in stages)
-    definition = PipelineDefinition(stage_objects, metadata=metadata or {}, version=version)
-    definition.validate()
-    return definition
+        if not self.name:
+            msg = "pipeline name must be provided"
+            raise ValueError(msg)
+        if not callable(self.runtime_factory):
+            msg = "runtime_factory must be callable"
+            raise ValueError(msg)
+        if self.stages is not None:
+            if any(not stage for stage in self.stages):
+                msg = "stages must not contain empty names"
+                raise ValueError(msg)
+            if len(set(self.stages)) != len(tuple(self.stages)):
+                msg = "stages must be unique"
+                raise ValueError(msg)
+        if self.stage_factory is not None and not issubclass(self.stage_factory, StageFactory):
+            msg = "stage_factory must be a StageFactory subclass"
+            raise ValueError(msg)
 
 
-__all__ = ["PipelineDefinition", "build_pipeline_definition"]
+__all__ = ["PipelineDefinition"]
