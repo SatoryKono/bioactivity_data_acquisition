@@ -1,9 +1,6 @@
 from __future__ import annotations
-
-from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, Mapping
-from urllib.parse import urljoin
 
 import requests
 import structlog
@@ -12,6 +9,7 @@ from bioetl.core.http.cache import CacheStrategy
 from bioetl.core.http.circuit_breaker import CircuitBreakerStrategy
 from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
 from bioetl.core.http.rate_limiter import RateLimiter
+from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.request_executor import HTTPClientError, _ResilientRequestExecutor
 from bioetl.core.http.resilience import ResilientRequestExecutorFactory
 from bioetl.core.http.retry import RetryStrategy
@@ -40,12 +38,12 @@ class UnifiedAPIClient:
         config: APIConfig,
         *,
         request_executor: _ResilientRequestExecutor,
-        session: requests.Session,
+        request_builder: RequestBuilder,
         pagination_strategy: PaginationStrategy | None = None,
     ) -> None:
         self.config = config
         self._logger = structlog.get_logger(__name__).bind(api_base=config.base_url)
-        self._session = session
+        self._request_builder = request_builder
         self._pagination = pagination_strategy or DefaultPaginationStrategy()
         self._request_executor = request_executor
 
@@ -60,24 +58,29 @@ class UnifiedAPIClient:
         cache: CacheStrategy | None = None,
         circuit_breaker: CircuitBreakerStrategy | None = None,
         pagination_strategy: PaginationStrategy | None = None,
+        request_builder: RequestBuilder | None = None,
         verify_ssl: bool = True,
         default_headers: Mapping[str, str] | None = None,
     ) -> "UnifiedAPIClient":
+        builder = request_builder or RequestBuilder(
+            config,
+            session=session,
+            verify_ssl=verify_ssl,
+            default_headers=default_headers,
+        )
         factory = ResilientRequestExecutorFactory(config)
         components = factory.create(
-            session=session,
+            request_builder=builder,
             retry_strategy=retry_strategy,
             rate_limiter=rate_limiter,
             cache=cache,
             circuit_breaker=circuit_breaker,
             pagination_strategy=pagination_strategy,
-            verify_ssl=verify_ssl,
-            default_headers=default_headers,
         )
         return cls(
             config,
             request_executor=components.executor,
-            session=components.session,
+            request_builder=components.request_builder,
             pagination_strategy=components.pagination_strategy,
         )
 
@@ -134,7 +137,7 @@ class UnifiedAPIClient:
         )
 
     def close(self) -> None:
-        self._session.close()
+        self._request_builder.close()
 
     # --------------------------- internals -----------------------------
     def request(
@@ -146,8 +149,8 @@ class UnifiedAPIClient:
         params: Mapping[str, Any] | None = None,
         json: Any | None = None,
     ) -> Dict[str, Any]:
-        url = self._resolve_url(path)
-        merged_headers = {**self._session.headers, **(headers or {})}
+        url = self._request_builder.build_url(path)
+        merged_headers = self._request_builder.merge_headers(headers)
         return self._request_executor.request(
             method,
             url,
@@ -156,14 +159,9 @@ class UnifiedAPIClient:
             json=json,
         )
 
-    def _resolve_url(self, path: str) -> str:
-        if path.startswith("http://") or path.startswith("https://"):
-            return path
-        return urljoin(self.config.base_url.rstrip("/") + "/", path.lstrip("/"))
-
-__all__ = [
-    "APIConfig",
-    "UnifiedAPIClient",
-    "HTTPClientError",
-    "ResilientRequestExecutorFactory",
-]
+    __all__ = [
+        "APIConfig",
+        "UnifiedAPIClient",
+        "HTTPClientError",
+        "ResilientRequestExecutorFactory",
+    ]

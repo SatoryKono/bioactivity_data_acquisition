@@ -60,7 +60,7 @@ def default_chembl_factory(
         shared_client = UnifiedAPIClient(
             api_config,
             request_executor=components.executor,
-            session=components.session,
+            request_builder=components.request_builder,
             pagination_strategy=components.pagination_strategy,
         )
 

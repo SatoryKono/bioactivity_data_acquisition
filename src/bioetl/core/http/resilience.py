@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Mapping
 
-import requests
 import structlog
 from structlog.typing import FilteringBoundLogger
 
 if TYPE_CHECKING:
     from bioetl.core.http.api_client import APIConfig
+from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.cache import CacheStrategy, TTLCache, TTLCacheConfig
 from bioetl.core.http.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerStrategy
 from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
@@ -19,7 +19,7 @@ from bioetl.core.http.retry import RetryPolicy, RetryStrategy
 
 @dataclass
 class ResilienceComponents:
-    session: requests.Session
+    request_builder: RequestBuilder
     executor: _ResilientRequestExecutor
     pagination_strategy: PaginationStrategy
     retry_strategy: RetryStrategy
@@ -38,6 +38,7 @@ class ResilientRequestExecutorFactory:
     def create(
         self,
         *,
+        request_builder: RequestBuilder | None = None,
         session: requests.Session | None = None,
         retry_strategy: RetryStrategy | None = None,
         rate_limiter: RateLimiter | None = None,
@@ -47,7 +48,12 @@ class ResilientRequestExecutorFactory:
         verify_ssl: bool = True,
         default_headers: Mapping[str, str] | None = None,
     ) -> ResilienceComponents:
-        prepared_session = self._prepare_session(session=session, verify_ssl=verify_ssl, default_headers=default_headers)
+        builder = request_builder or RequestBuilder(
+            self._config,
+            session=session,
+            verify_ssl=verify_ssl,
+            default_headers=default_headers,
+        )
         prepared_retry = retry_strategy or RetryPolicy(
             max_retries=self._config.max_retries,
             backoff_factor=self._config.backoff_factor,
@@ -69,7 +75,7 @@ class ResilientRequestExecutorFactory:
             )
         )
         executor = _ResilientRequestExecutor(
-            session=prepared_session,
+            session=builder.session,
             logger=self._logger,
             retry_strategy=prepared_retry,
             rate_limiter=prepared_rate_limiter,
@@ -80,7 +86,7 @@ class ResilientRequestExecutorFactory:
         pagination = pagination_strategy or DefaultPaginationStrategy()
 
         return ResilienceComponents(
-            session=prepared_session,
+            request_builder=builder,
             executor=executor,
             pagination_strategy=pagination,
             retry_strategy=prepared_retry,
@@ -88,21 +94,6 @@ class ResilientRequestExecutorFactory:
             cache=prepared_cache,
             circuit_breaker=prepared_breaker,
         )
-
-    def _prepare_session(
-        self,
-        *,
-        session: requests.Session | None,
-        verify_ssl: bool,
-        default_headers: Mapping[str, str] | None,
-    ) -> requests.Session:
-        prepared_session = session or requests.Session()
-        headers = {"User-Agent": self._config.user_agent, **self._config.default_headers}
-        if default_headers:
-            headers.update(default_headers)
-        prepared_session.headers.update(headers)
-        prepared_session.verify = verify_ssl
-        return prepared_session
 
 
 __all__ = ["ResilientRequestExecutorFactory", "ResilienceComponents"]

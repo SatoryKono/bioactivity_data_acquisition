@@ -3,6 +3,7 @@ from .cache import CacheStrategy, TTLCache, TTLCacheConfig
 from .circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerOpenError, CircuitBreakerStrategy
 from .interfaces import BaseApiClient
 from .pagination import DefaultPaginationStrategy, PaginationStrategy
+from .request_builder import RequestBuilder
 from .rate_limiter import RateLimiter, TokenBucketConfig, TokenBucketRateLimiter
 from .retry import RetryPolicy, RetryStrategy
 
@@ -15,6 +16,7 @@ __all__ = [
     "RetryPolicy",
     "UnifiedAPIClient",
     "ResilientRequestExecutorFactory",
+    "RequestBuilder",
     "BaseApiClient",
     "TokenBucketConfig",
     "TokenBucketRateLimiter",

@@ -130,7 +130,7 @@ def test_unified_client_composes_injected_strategies():
     client = UnifiedAPIClient(
         config,
         request_executor=components.executor,
-        session=components.session,
+        request_builder=components.request_builder,
         pagination_strategy=components.pagination_strategy,
     )
 
@@ -155,7 +155,7 @@ def test_default_component_factories_used_when_missing():
     client = UnifiedAPIClient(
         config,
         request_executor=components.executor,
-        session=components.session,
+        request_builder=components.request_builder,
         pagination_strategy=components.pagination_strategy,
     )
 
