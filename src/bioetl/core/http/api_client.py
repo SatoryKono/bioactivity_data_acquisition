@@ -166,9 +166,9 @@ class UnifiedAPIClient:
         headers: Mapping[str, str] | None = None,
         *,
         paginate: bool = False,
-    ) -> Dict[str, Any] | Iterator[Dict[str, Any]]:
+    ) -> Dict[str, Any] | list[Dict[str, Any]]:
         if paginate:
-            return self.iterate_paginated(path, params=params or {})
+            return list(self.iterate_paginated(path, params=params or {}))
         return self.request("GET", path, headers=headers, params=params)
 
     def post_json(
@@ -184,28 +184,50 @@ class UnifiedAPIClient:
         path: str,
         params: Mapping[str, Any] | None = None,
         *,
-        page_key: str = "items",
-        page_param: str = "page",
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
-        yield from self.iterate_paginated(path, params=params or {}, page_key=page_key, page_param=page_param)
+        yield from self.iterate_paginated(
+            path, params=params or {}, page_key=page_key, next_key=next_key, page_param=page_param
+        )
 
     def iterate_paginated(
         self,
         path: str,
         params: Mapping[str, Any],
         *,
-        page_key: str = "items",
-        page_param: str = "page",
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
+        next_path: str | None = path
         page_params: MutableMapping[str, Any] = dict(params)
-        page_params.setdefault(page_param, 1)
-        while True:
-            payload = self.request("GET", path, params=page_params)
+        if page_param:
+            page_params.setdefault(page_param, 1)
+
+        while next_path:
+            payload = self.request("GET", next_path, params=page_params)
             yield payload
-            items = payload.get(page_key) if isinstance(payload, Mapping) else None
-            if not items:
+
+            if not isinstance(payload, Mapping):
                 break
-            page_params[page_param] = page_params.get(page_param, 1) + 1
+
+            next_candidate = payload.get(next_key)
+            if isinstance(next_candidate, str):
+                next_path = next_candidate
+                page_params = {}
+                continue
+
+            items = payload.get(page_key)
+            if items and page_param:
+                page_params[page_param] = page_params.get(page_param, 1) + 1
+                next_path = path
+            else:
+                break
+
+    def close(self) -> None:
+        self._session.close()
 
     # --------------------------- internals -----------------------------
     def request(

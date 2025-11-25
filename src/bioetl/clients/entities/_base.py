@@ -1,22 +1,45 @@
 from __future__ import annotations
 
-from typing import Any, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
+from typing import Any, Callable
 
-from bioetl.core.http.api_client import UnifiedAPIClient
+import structlog
+
+from bioetl.base_classes import BaseApiClient
+from bioetl.clients import client_exceptions
 
 
 class _BaseEntityClient:
-    def __init__(self, api_client: UnifiedAPIClient, entity: str) -> None:
+    def __init__(self, api_client: BaseApiClient, entity: str) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
+        self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
 
-    def fetch_by_ids(self, ids: Sequence[str]) -> dict[str, dict[str, Any]]:
-        results: dict[str, dict[str, Any]] = {}
-        for entity_id in ids:
-            response = self.api_client.get(f"/{self.entity}/{entity_id}")
-            response.raise_for_status()
-            results[str(entity_id)] = response.json()
-        return results
+    def _iter_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
+        if isinstance(payload, Mapping):
+            yield dict(payload)
+        elif isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
+            for item in payload:
+                if isinstance(item, Mapping):
+                    yield dict(item)
+
+    def _wrap_iterator(self, func: Callable[[], Iterator[dict[str, Any]]]) -> Iterator[dict[str, Any]]:
+        try:
+            yield from func()
+        except client_exceptions.HTTPError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
+            raise client_exceptions.RequestException(str(exc)) from exc
+
+    def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
+        def iterator() -> Iterator[dict[str, Any]]:
+            for entity_id in ids:
+                payload = self.api_client.get_json(f"/{self.entity}/{entity_id}")
+                self._logger.info("api_call", entity=self.entity, entity_id=str(entity_id))
+                yield from self._iter_payload(payload)
+
+        return self._wrap_iterator(iterator)
 
     def fetch_all(
         self,
@@ -24,16 +47,18 @@ class _BaseEntityClient:
         page_size: int = 1000,
         params: Mapping[str, Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
-        query_params: MutableMapping[str, Any] = {"limit": page_size}
-        if params:
-            query_params.update(params)
+        def iterator() -> Iterator[dict[str, Any]]:
+            query_params: MutableMapping[str, Any] = {"limit": page_size}
+            if params:
+                query_params.update(params)
 
-        next_path: str | None = f"/{self.entity}"
-        while next_path:
-            response = self.api_client.get(next_path, params=query_params)
-            response.raise_for_status()
-            payload = response.json()
-            if isinstance(payload, Mapping):
+            for payload in self.api_client.paginate_json(
+                f"/{self.entity}", params=query_params, page_key="results", next_key="next", page_param=None
+            ):
+                if not isinstance(payload, Mapping):
+                    yield from self._iter_payload(payload)
+                    continue
+
                 items = payload.get("results")
                 if isinstance(items, list):
                     for item in items:
@@ -41,12 +66,5 @@ class _BaseEntityClient:
                             yield dict(item)
                 elif payload:
                     yield dict(payload)
-                next_path = payload.get("next") if isinstance(payload.get("next"), str) else None
-                query_params = {}
-            elif isinstance(payload, list):
-                for item in payload:
-                    if isinstance(item, Mapping):
-                        yield dict(item)
-                next_path = None
-            else:
-                next_path = None
+
+        return self._wrap_iterator(iterator)
