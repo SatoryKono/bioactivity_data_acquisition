@@ -77,7 +77,7 @@ def _build_stage_context(
 ) -> StageContext:
     options = StageExecutionOptions(run_tag=run_tag, mode=mode)
     target_dir, artifacts = pipeline.plan_run_artifacts(output_dir, run_tag, mode)  # type: ignore[arg-type]
-    # plan_run_artifacts is implemented on PipelineBaseCommon; we keep typing narrow for contract users.
+    # plan_run_artifacts is implemented on UnifiedPipelineBase; we keep typing narrow for contract users.
     return StageContext(
         pipeline=pipeline,  # type: ignore[arg-type]
         output_dir=target_dir,
