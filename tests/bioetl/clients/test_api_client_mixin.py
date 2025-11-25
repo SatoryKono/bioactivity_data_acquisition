@@ -75,6 +75,88 @@ def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
     ]
 
 
+def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
+    api_client = MagicMock()
+    pagination = MagicMock()
+    pagination.paginate.return_value = iter([{"id": 1}, {"id": 2}])
+
+    client = _BaseEntityClient(api_client=api_client, entity="targets", pagination_strategy=pagination)
+    client._logger = MagicMock()
+
+    result = list(
+        client.fetch_all(
+            page_size=2,
+            params={"foo": "bar"},
+            page_key="items",
+            next_key="next_link",
+            page_param=None,
+        )
+    )
+
+    assert result == [{"id": 1}, {"id": 2}]
+    pagination.paginate.assert_called_once_with(
+        api_client,
+        "/targets",
+        params={"limit": 2, "foo": "bar"},
+        logger=client._logger,
+        page_key="items",
+        next_key="next_link",
+        page_param=None,
+    )
+
+
+def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
+    api_client = MagicMock()
+    pagination = MagicMock()
+    pagination.paginate.return_value = iter([{"id": 1}])
+
+    client = BaseChemblClient(api_client=api_client, entity="molecule", pagination_strategy=pagination)
+    client._logger = MagicMock()
+
+    result = list(
+        client.fetch_all(
+            page_size=10,
+            params={"offset": 5},
+            page_key="items",
+            next_key="next_link",
+            page_param="page_num",
+        )
+    )
+
+    assert result == [{"id": 1}]
+    pagination.paginate.assert_called_once_with(
+        api_client,
+        "/molecule",
+        params={"limit": 10, "offset": 5},
+        logger=client._logger,
+        page_key="items",
+        next_key="next_link",
+        page_param="page_num",
+    )
+
+
+def test_entity_client_fetch_all_wraps_errors() -> None:
+    api_client = MagicMock()
+    pagination = MagicMock()
+    pagination.paginate.side_effect = RuntimeError("boom")
+
+    client = _BaseEntityClient(api_client=api_client, entity="targets", pagination_strategy=pagination)
+    client._logger = MagicMock()
+
+    with pytest.raises(client_exceptions.RequestException):
+        list(client.fetch_all())
+
+
+def test_chembl_client_fetch_all_wraps_errors() -> None:
+    api_client = MagicMock()
+    pagination = MagicMock()
+    pagination.paginate.side_effect = RuntimeError("boom")
+
+    client = BaseChemblClient(api_client=api_client, entity="molecule", pagination_strategy=pagination)
+    client._logger = MagicMock()
+
+    with pytest.raises(client_exceptions.RequestException):
+        list(client.fetch_all())
 def test_normalize_payload_extracts_results_key() -> None:
     client = _DummyApiClient()
     payload = {"results": [{"a": 1}, {"a": 2}], "next": None}
