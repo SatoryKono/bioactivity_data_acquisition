@@ -8,7 +8,8 @@ from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.core.pipeline.unified import BatchExtractionStats, CircuitBreakerOpenError
+from bioetl.core.http import CircuitBreakerOpenError
+from bioetl.core.pipeline.unified import BatchExtractionStats
 
 
 @dataclass(slots=True)
