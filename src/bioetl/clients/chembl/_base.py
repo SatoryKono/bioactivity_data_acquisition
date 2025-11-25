@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
-from bioetl.base_classes import BaseApiClient
-from bioetl.clients import client_exceptions
-from bioetl.clients.common import NextLinkPagination, PaginationStrategy
+from bioetl.base_classes import BaseApiClient, EntityClientProtocol
+from bioetl.clients import client_exceptions, ApiClientMixin, NextLinkPagination, PaginationStrategy
+from bioetl.clients.common import (
+    DEFAULT_NEXT_KEY,
+    DEFAULT_PAGE_KEY,
+    DEFAULT_PAGE_PARAM,
+    NextLinkPagination,
+    PaginationStrategy,
+)
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
-from bioetl.clients.mixins import ApiClientMixin
 
 
-class BaseChemblClient(ApiClientMixin, BaseApiClient):
+class BaseChemblClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
     def __init__(
         self,
         api_client: BaseApiClient,
@@ -25,39 +30,63 @@ class BaseChemblClient(ApiClientMixin, BaseApiClient):
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
         self.pagination_strategy = pagination_strategy or NextLinkPagination()
 
-    def _wrap_callable(self, func: Callable[[], Any]) -> Any:
-        try:
-            return func()
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
-            raise client_exceptions.RequestException(str(exc)) from exc
-
-    def _wrap_iterator(self, func: Callable[[], Iterator[dict[str, Any]]]) -> Iterator[dict[str, Any]]:
-        try:
-            for item in func():
-                yield item
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
-            raise client_exceptions.RequestException(str(exc)) from exc
-
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         return self.iter_ids(ids, "/{entity}/{id}")
 
-    def fetch_all(self, page_size: int = 1000) -> Iterator[dict[str, Any]]:
+    def fetch_all(
+        self,
+        *,
+        page_size: int = 1000,
+        params: Mapping[str, Any] | None = None,
+        page_key: str = DEFAULT_PAGE_KEY,
+        next_key: str = DEFAULT_NEXT_KEY,
+        page_param: str | None = DEFAULT_PAGE_PARAM,
+    ) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
+            query_params: dict[str, Any] = {"limit": page_size}
+            if params:
+                query_params.update(params)
+
             for payload in self.pagination_strategy.paginate(
                 self.api_client,
                 f"/{self.entity}",
-                params={"limit": page_size},
+                params=query_params,
                 logger=self._logger,
+                page_key=page_key,
+                next_key=next_key,
+                page_param=page_param,
             ):
                 yield from self._normalize_payload(payload)
 
         return self._wrap_iterator(iterator)
+
+    def get_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
+        return self.api_client.get_json(endpoint, params=params, headers=headers)
+
+    def paginate_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = DEFAULT_PAGE_KEY,
+        next_key: str = DEFAULT_NEXT_KEY,
+        page_param: str | None = DEFAULT_PAGE_PARAM,
+    ) -> Iterator[Mapping[str, Any]]:
+        return self.api_client.paginate_json(
+            endpoint,
+            params=params,
+            headers=headers,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+        )
 
     def close(self) -> None:
         close = getattr(self.api_client, "close", None)

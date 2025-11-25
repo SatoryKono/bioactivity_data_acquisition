@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Type
 
 from bioetl.clients.entities._base import _BaseEntityClient
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.base_classes import BaseApiClient
 
 
 class ChemblEntity(str, Enum):
@@ -16,14 +16,14 @@ class ChemblEntity(str, Enum):
 
 
 class ChemblEntityClient(_BaseEntityClient):
-    def __init__(self, api_client: UnifiedAPIClient, entity: ChemblEntity | str) -> None:
+    def __init__(self, api_client: BaseApiClient, entity: ChemblEntity | str) -> None:
         entity_name = ChemblEntity(entity).value if not isinstance(entity, ChemblEntity) else entity.value
         super().__init__(api_client, entity_name)
 
 
 def _build_entity_client(name: str, entity: ChemblEntity) -> Type[ChemblEntityClient]:
     class EntityClient(ChemblEntityClient):
-        def __init__(self, api_client: UnifiedAPIClient):
+        def __init__(self, api_client: BaseApiClient):
             super().__init__(api_client, entity)
 
     EntityClient.__name__ = name
@@ -35,27 +35,27 @@ class ChemblEntityClientFactory:
     """Factory helpers for building typed ChEMBL entity clients."""
 
     @staticmethod
-    def create(entity: ChemblEntity | str, api_client: UnifiedAPIClient) -> ChemblEntityClient:
+    def create(entity: ChemblEntity | str, api_client: BaseApiClient) -> ChemblEntityClient:
         return ChemblEntityClient(api_client, entity)
 
     @staticmethod
-    def activity(api_client: UnifiedAPIClient) -> ChemblEntityClient:
+    def activity(api_client: BaseApiClient) -> ChemblEntityClient:
         return ChemblEntityClientFactory.create(ChemblEntity.ACTIVITY, api_client)
 
     @staticmethod
-    def assay(api_client: UnifiedAPIClient) -> ChemblEntityClient:
+    def assay(api_client: BaseApiClient) -> ChemblEntityClient:
         return ChemblEntityClientFactory.create(ChemblEntity.ASSAY, api_client)
 
     @staticmethod
-    def target(api_client: UnifiedAPIClient) -> ChemblEntityClient:
+    def target(api_client: BaseApiClient) -> ChemblEntityClient:
         return ChemblEntityClientFactory.create(ChemblEntity.TARGET, api_client)
 
     @staticmethod
-    def testitem(api_client: UnifiedAPIClient) -> ChemblEntityClient:
+    def testitem(api_client: BaseApiClient) -> ChemblEntityClient:
         return ChemblEntityClientFactory.create(ChemblEntity.TESTITEM, api_client)
 
     @staticmethod
-    def document(api_client: UnifiedAPIClient) -> ChemblEntityClient:
+    def document(api_client: BaseApiClient) -> ChemblEntityClient:
         return ChemblEntityClientFactory.create(ChemblEntity.DOCUMENT, api_client)
 
 

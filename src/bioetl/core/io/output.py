@@ -24,7 +24,8 @@ from bioetl.core.io.artifacts import (
     hash_business_key,
     hash_row,
 )
-from bioetl.qc.plan import QCPlan, QCMetricsExecutor
+from bioetl.qc.plan import QCPlan
+from bioetl.qc.executor import QCMetricsExecutor
 
 
 @dataclass(slots=True)
@@ -180,21 +181,30 @@ def emit_qc_artifact(
     plan: QCPlan | None = None,
     business_key_fields: Sequence[str] | None = None,
 ) -> Mapping[str, Path]:
+    _ = business_key_fields  # reserved for future extensions
+    plan = plan or QCPlan.with_default_metrics()
     executor = QCMetricsExecutor()
-    dataset_name = artifacts.write_artifacts.data_path.stem if artifacts.write_artifacts and artifacts.write_artifacts.data_path else "dataset"
-    bundle = executor.execute(
-        df,
-        plan=plan,
-        business_key_fields=business_key_fields,
-        dataset_name=dataset_name,
-        output_dir=artifacts.output_dir,
+    dataset_name = (
+        artifacts.write_artifacts.data_path.stem
+        if artifacts.write_artifacts and artifacts.write_artifacts.data_path
+        else "dataset"
     )
+    quality_report, metrics_payload = executor.execute(
+        df, plan, dataset_name=dataset_name, dry_run=plan.dry_run
+    )
+
+    qc_dir = artifacts.output_dir / "qc"
+    qc_dir.mkdir(parents=True, exist_ok=True)
+    quality_report_path = qc_dir / f"{dataset_name}_quality_report.csv"
+    qc_summary_path = qc_dir / f"{dataset_name}_qc_metrics.json"
+    quality_report.to_csv(quality_report_path, index=False)
+    write_json_atomic(metrics_payload, qc_summary_path)
+
     if artifacts.write_artifacts is None:
         artifacts.write_artifacts = WriteArtifacts()
-    if bundle.report_paths:
-        artifacts.write_artifacts.quality_report_path = bundle.report_paths.get("quality_report")
-        artifacts.write_artifacts.qc_summary_path = bundle.report_paths.get("qc_json")
-    return bundle.report_paths or {}
+    artifacts.write_artifacts.quality_report_path = quality_report_path
+    artifacts.write_artifacts.qc_summary_path = qc_summary_path
+    return {"quality_report": quality_report_path, "qc_json": qc_summary_path}
 
 
 def _hash_business_keys(df: pd.DataFrame, fields: Sequence[str]) -> str | None:
