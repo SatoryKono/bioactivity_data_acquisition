@@ -1,11 +1,8 @@
-"""Переэкспорт абстракций утилит для обратной совместимости."""
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Generic, Mapping, MutableMapping, TypeVar
-
-
-ConfigT = TypeVar("ConfigT")
+from typing import Any, Mapping, MutableMapping
 
 
 class ErrorAction(Enum):
@@ -16,18 +13,12 @@ class ErrorAction(Enum):
     RETRY = "retry"
 
 
-class ConfigResolverABC(Generic[ConfigT], ABC):
+class ConfigResolverABC(ABC):
     """Загружает и резолвит конфигурацию пайплайна."""
 
     @abstractmethod
     def load(self, path: str) -> Mapping[str, Any]:
         """Возвращает словарь конфигурации из файла."""
-
-    @abstractmethod
-    def resolve(
-        self, path: str, model: type[ConfigT], overrides: Mapping[str, Any] | None = None
-    ) -> ConfigT:
-        """Собирает финальную модель конфигурации."""
 
 
 class SecretProviderABC(ABC):
@@ -43,7 +34,7 @@ class CacheABC(ABC):
 
     @abstractmethod
     def get(self, key: str) -> Any | None:
-        """Возвращает значение по ключу или None."""
+        """Возвращает значение по ключу или ``None``."""
 
     @abstractmethod
     def set(self, key: str, value: Any) -> None:
