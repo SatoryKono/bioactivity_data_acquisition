@@ -99,10 +99,10 @@ class MinimalPipeline(UnifiedPipelineBase):
         self._extracted = True
         return pd.DataFrame({"id": [1, 2], "value": ["a", "b"]})
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, df: pd.DataFrame, _options=None) -> pd.DataFrame:
         return df.assign(value=df["value"].str.upper())
 
-    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
+    def validate(self, df: pd.DataFrame, _options=None) -> pd.DataFrame:
         return df
 
 
