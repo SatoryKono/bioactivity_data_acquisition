@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Protocol, runtime_checkable
 
-__all__ = ["BaseApiClient", "JSONPayload", "JSONPage"]
+__all__ = ["BaseApiClient", "EntityClientProtocol", "JSONPayload", "JSONPage"]
 
 JSONPayload = Mapping[str, Any] | list[Mapping[str, Any]]
 JSONPage = Iterator[Mapping[str, Any]]
@@ -42,6 +42,28 @@ class BaseApiClient(Protocol):
         page_param: str | None = "page",
     ) -> JSONPage:
         """Iterate over paginated JSON resources for the given ``endpoint``."""
+
+    def close(self) -> None:
+        """Release any resources (e.g. sessions) associated with the client."""
+
+
+@runtime_checkable
+class EntityClientProtocol(Protocol):
+    """Protocol describing common ChEMBL entity client operations."""
+
+    def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
+        """Fetch multiple entities by their identifiers."""
+
+    def fetch_all(
+        self,
+        *,
+        page_size: int = 1000,
+        params: Mapping[str, Any] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+    ) -> Iterator[dict[str, Any]]:
+        """Iterate through all available entities using pagination."""
 
     def close(self) -> None:
         """Release any resources (e.g. sessions) associated with the client."""

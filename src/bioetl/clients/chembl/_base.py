@@ -5,12 +5,12 @@ from typing import Any, Callable
 
 import structlog
 
-from bioetl.base_classes import BaseApiClient
+from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients import client_exceptions
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
-class BaseChemblClient(BaseApiClient):
+class BaseChemblClient(EntityClientProtocol):
     def __init__(self, api_client: BaseApiClient, entity: str) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
@@ -52,27 +52,35 @@ class BaseChemblClient(BaseApiClient):
 
         return self._wrap_iterator(iterator)
 
-    def fetch_all(self, page_size: int = 1000) -> Iterator[dict[str, Any]]:
+    def fetch_all(
+        self,
+        *,
+        page_size: int = 1000,
+        params: Mapping[str, Any] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+    ) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
-            next_path: str | None = f"/{self.entity}"
-            params: MutableMapping[str, Any] = {"limit": page_size}
-            while next_path:
-                payload = self.api_client.get_json(next_path, params=params)
-                self._logger.info("api_call", entity=self.entity, path=next_path)
-                next_path = None
-                params = {}
-                if isinstance(payload, Mapping):
-                    items = payload.get("results") if isinstance(payload.get("results"), list) else None
-                    if items:
-                        for item in items:
-                            if isinstance(item, Mapping):
-                                yield dict(item)
-                    elif payload:
-                        yield dict(payload)
-                    next_candidate = payload.get("next")
-                    next_path = next_candidate if isinstance(next_candidate, str) else None
-                else:
+            query_params: MutableMapping[str, Any] = {"limit": page_size}
+            if params:
+                query_params.update(params)
+
+            for payload in self.api_client.paginate_json(
+                f"/{self.entity}", params=query_params, page_key=page_key, next_key=next_key, page_param=page_param
+            ):
+                self._logger.info("api_call", entity=self.entity, path=f"/{self.entity}")
+                if not isinstance(payload, Mapping):
                     yield from self._iter_payload(payload)
+                    continue
+
+                items = payload.get(page_key)
+                if isinstance(items, list):
+                    for item in items:
+                        if isinstance(item, Mapping):
+                            yield dict(item)
+                elif payload:
+                    yield dict(payload)
 
         return self._wrap_iterator(iterator)
 

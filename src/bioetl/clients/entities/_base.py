@@ -5,11 +5,11 @@ from typing import Any, Callable
 
 import structlog
 
-from bioetl.base_classes import BaseApiClient
+from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients import client_exceptions
 
 
-class _BaseEntityClient:
+class _BaseEntityClient(EntityClientProtocol):
     def __init__(self, api_client: BaseApiClient, entity: str) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
@@ -46,6 +46,9 @@ class _BaseEntityClient:
         *,
         page_size: int = 1000,
         params: Mapping[str, Any] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
     ) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
             query_params: MutableMapping[str, Any] = {"limit": page_size}
@@ -53,13 +56,13 @@ class _BaseEntityClient:
                 query_params.update(params)
 
             for payload in self.api_client.paginate_json(
-                f"/{self.entity}", params=query_params, page_key="results", next_key="next", page_param=None
+                f"/{self.entity}", params=query_params, page_key=page_key, next_key=next_key, page_param=page_param
             ):
                 if not isinstance(payload, Mapping):
                     yield from self._iter_payload(payload)
                     continue
 
-                items = payload.get("results")
+                items = payload.get(page_key)
                 if isinstance(items, list):
                     for item in items:
                         if isinstance(item, Mapping):
@@ -68,3 +71,8 @@ class _BaseEntityClient:
                     yield dict(payload)
 
         return self._wrap_iterator(iterator)
+
+    def close(self) -> None:
+        close = getattr(self.api_client, "close", None)
+        if callable(close):
+            close()
