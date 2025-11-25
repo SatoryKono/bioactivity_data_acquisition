@@ -18,7 +18,7 @@ class RetryStrategy(Protocol):
 
 
 @dataclass
-class RetryPolicy(RetryStrategy):
+class RetryPolicy:
     max_retries: int
     backoff_factor: float
     max_backoff_sec: float
