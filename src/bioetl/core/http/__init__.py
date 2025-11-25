@@ -2,7 +2,13 @@ from .api_client import APIConfig, HTTPClientError, ResilientRequestExecutorFact
 from .cache import CacheStrategy, TTLCache, TTLCacheConfig
 from .circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerOpenError, CircuitBreakerStrategy
 from .interfaces import BaseApiClient
-from .pagination import DefaultPaginationStrategy, PaginationStrategy
+from .pagination import (
+    ApiTransportProtocol,
+    DefaultPaginationStrategy,
+    NextLinkPagination,
+    PageParamPagination,
+    PaginationStrategy,
+)
 from .request_builder import RequestBuilder
 from .rate_limiter import RateLimiter, TokenBucketConfig, TokenBucketRateLimiter
 from .retry import RetryPolicy, RetryStrategy
@@ -26,6 +32,9 @@ __all__ = [
     "CircuitBreakerStrategy",
     "DefaultPaginationStrategy",
     "PaginationStrategy",
+    "ApiTransportProtocol",
+    "NextLinkPagination",
+    "PageParamPagination",
     "RateLimiter",
     "RetryStrategy",
 ]
