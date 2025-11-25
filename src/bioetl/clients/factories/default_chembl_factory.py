@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 from bioetl.clients.entities import ChemblEntityClientFactory
-from bioetl.base_classes import BaseApiClient
+from bioetl.base_classes import EntityClientProtocol
 from bioetl.clients.chembl import (
     ChemblActivityClient,
     ChemblAssayClient,
@@ -44,7 +44,7 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
 
 def default_chembl_factory(
     config: PipelineConfig, api_client: UnifiedAPIClient | None = None
-) -> dict[str, Callable[[], BaseApiClient]]:
+) -> dict[str, Callable[[], EntityClientProtocol]]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
