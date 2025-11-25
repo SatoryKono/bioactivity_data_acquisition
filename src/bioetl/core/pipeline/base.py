@@ -12,8 +12,9 @@ import pandas as pd
 import structlog
 import yaml
 
+from bioetl.core.utils.interfaces import ErrorAction, ErrorPolicyABC
+
 from .dto import RunResult, StageMetrics, WriteResult
-from .utils.interfaces import ErrorAction, ErrorPolicyABC
 from .validation.interfaces import DQIssue, DQRuleABC, ValidatorABC
 
 
