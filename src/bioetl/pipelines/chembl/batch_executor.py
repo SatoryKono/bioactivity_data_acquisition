@@ -24,10 +24,7 @@ class ChemblBatchExecutor:
         self,
         fetcher: Callable[[Sequence[str] | None], Any],
         ids: Sequence[str] | None,
-    ) -> tuple[
-        pd.DataFrame,
-        BatchExtractionStats,
-    ]:
+    ) -> tuple[pd.DataFrame, BatchExtractionStats]:
         batches = self._build_batches(ids)
         start = time.perf_counter()
 
@@ -51,23 +48,21 @@ class ChemblBatchExecutor:
                 and len(result) == 2
                 and isinstance(result[1], Mapping)
             ):
-                batch_df = (
-                    result[0]
-                    if isinstance(result[0], pd.DataFrame)
-                    else pd.DataFrame(result[0])
-                )
+                if isinstance(result[0], pd.DataFrame):
+                    batch_df = result[0]
+                else:
+                    batch_df = pd.DataFrame(result[0])
                 meta = result[1]
             else:
-                batch_df = (
-                    result
-                    if isinstance(result, pd.DataFrame)
-                    else pd.DataFrame(result)
-                )
+                if isinstance(result, pd.DataFrame):
+                    batch_df = result
+                else:
+                    batch_df = pd.DataFrame(result)
 
             frames.append(batch_df)
             meta = meta or {}
             api_calls += int(
-                meta.get("api_calls", 0 if meta.get("cache_hit") else 1)
+                meta.get("api_calls", 0 if meta.get("cache_hit") else 1),
             )
             cache_hits += int(meta.get("cache_hit", False)) * max(
                 batch_df.shape[0],
@@ -91,7 +86,10 @@ class ChemblBatchExecutor:
         )
         return dataframe, stats
 
-    def _build_batches(self, ids: Sequence[str] | None) -> list[Sequence[str] | None]:
+    def _build_batches(
+        self,
+        ids: Sequence[str] | None,
+    ) -> list[Sequence[str] | None]:
         effective_size = int(self.batch_size) if self.batch_size else 25
         effective_size = max(1, min(effective_size, 25))
         sanitized_ids = list(ids) if ids else []
