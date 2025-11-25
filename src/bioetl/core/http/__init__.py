@@ -9,6 +9,7 @@ from .api_client import (
 )
 from ._rate_limiter import TokenBucketConfig, TokenBucketRateLimiter
 from ._cache import TTLCache, TTLCacheConfig
+from .interfaces import CacheStrategy, CircuitBreakerStrategy, RateLimiter, RetryStrategy
 
 __all__ = [
     "APIConfig",
@@ -22,4 +23,8 @@ __all__ = [
     "TokenBucketRateLimiter",
     "TTLCache",
     "TTLCacheConfig",
+    "CacheStrategy",
+    "CircuitBreakerStrategy",
+    "RateLimiter",
+    "RetryStrategy",
 ]
