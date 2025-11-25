@@ -1,20 +1,27 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, Callable
 
 import structlog
 
 from bioetl.base_classes import BaseApiClient
 from bioetl.clients import client_exceptions
+from bioetl.clients.common import NextLinkPagination, PaginationStrategy
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
 class BaseChemblClient(BaseApiClient):
-    def __init__(self, api_client: BaseApiClient, entity: str) -> None:
+    def __init__(
+        self,
+        api_client: BaseApiClient,
+        entity: str,
+        pagination_strategy: PaginationStrategy | None = None,
+    ) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
+        self._pagination_strategy = pagination_strategy or NextLinkPagination()
 
     def _wrap_callable(self, func: Callable[[], Any]) -> Any:
         try:
@@ -52,27 +59,30 @@ class BaseChemblClient(BaseApiClient):
 
         return self._wrap_iterator(iterator)
 
+    def _normalize_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
+        if isinstance(payload, Mapping):
+            items = payload.get("results")
+            if isinstance(items, list) and items:
+                for item in items:
+                    if isinstance(item, Mapping):
+                        yield dict(item)
+            elif payload:
+                yield dict(payload)
+        elif isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
+            for item in payload:
+                if isinstance(item, Mapping):
+                    yield dict(item)
+
     def fetch_all(self, page_size: int = 1000) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
-            next_path: str | None = f"/{self.entity}"
-            params: MutableMapping[str, Any] = {"limit": page_size}
-            while next_path:
-                payload = self.api_client.get_json(next_path, params=params)
-                self._logger.info("api_call", entity=self.entity, path=next_path)
-                next_path = None
-                params = {}
-                if isinstance(payload, Mapping):
-                    items = payload.get("results") if isinstance(payload.get("results"), list) else None
-                    if items:
-                        for item in items:
-                            if isinstance(item, Mapping):
-                                yield dict(item)
-                    elif payload:
-                        yield dict(payload)
-                    next_candidate = payload.get("next")
-                    next_path = next_candidate if isinstance(next_candidate, str) else None
-                else:
-                    yield from self._iter_payload(payload)
+            for payload in self._pagination_strategy.paginate(
+                self.api_client,
+                f"/{self.entity}",
+                params={"limit": page_size},
+                page_size=page_size,
+                logger=self._logger,
+            ):
+                yield from self._normalize_payload(payload)
 
         return self._wrap_iterator(iterator)
 

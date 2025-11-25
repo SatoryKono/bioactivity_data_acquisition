@@ -7,13 +7,20 @@ import structlog
 
 from bioetl.base_classes import BaseApiClient
 from bioetl.clients import client_exceptions
+from bioetl.clients.common import PageParamPagination, PaginationStrategy
 
 
 class _BaseEntityClient:
-    def __init__(self, api_client: BaseApiClient, entity: str) -> None:
+    def __init__(
+        self,
+        api_client: BaseApiClient,
+        entity: str,
+        pagination_strategy: PaginationStrategy | None = None,
+    ) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
+        self._pagination_strategy = pagination_strategy or PageParamPagination()
 
     def _iter_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
         if isinstance(payload, Mapping):
@@ -22,6 +29,18 @@ class _BaseEntityClient:
             for item in payload:
                 if isinstance(item, Mapping):
                     yield dict(item)
+
+    def _normalize_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
+        if isinstance(payload, Mapping):
+            items = payload.get("results")
+            if isinstance(items, list) and items:
+                for item in items:
+                    if isinstance(item, Mapping):
+                        yield dict(item)
+            elif payload:
+                yield dict(payload)
+        else:
+            yield from self._iter_payload(payload)
 
     def _wrap_iterator(self, func: Callable[[], Iterator[dict[str, Any]]]) -> Iterator[dict[str, Any]]:
         try:
@@ -52,19 +71,13 @@ class _BaseEntityClient:
             if params:
                 query_params.update(params)
 
-            for payload in self.api_client.paginate_json(
-                f"/{self.entity}", params=query_params, page_key="results", next_key="next", page_param=None
+            for payload in self._pagination_strategy.paginate(
+                self.api_client,
+                f"/{self.entity}",
+                params=query_params,
+                page_size=page_size,
+                logger=self._logger,
             ):
-                if not isinstance(payload, Mapping):
-                    yield from self._iter_payload(payload)
-                    continue
-
-                items = payload.get("results")
-                if isinstance(items, list):
-                    for item in items:
-                        if isinstance(item, Mapping):
-                            yield dict(item)
-                elif payload:
-                    yield dict(payload)
+                yield from self._normalize_payload(payload)
 
         return self._wrap_iterator(iterator)
