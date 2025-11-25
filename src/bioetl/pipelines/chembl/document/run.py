@@ -8,6 +8,7 @@ from typing import Any, Mapping, TYPE_CHECKING
 import pandas as pd
 
 from bioetl.core.io.artifacts import RunArtifacts
+from bioetl.core.pipeline.services import DefaultValidationService
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.pipelines.chembl.common import ChemblEntityPipeline, ConfigValidationError
 from bioetl.schemas import DocumentSchema
@@ -25,6 +26,7 @@ class ChemblDocumentPipeline(ChemblEntityPipeline):
     def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
         super().__init__(config, run_id=run_id)
         self.validator = DocumentSchema
+        self.validation_service = DefaultValidationService(self.validator)
         self.mode = self._resolve_mode(config)
         self.fallback_policy = self._resolve_fallback_policy(config)
         self.enrichment_chain = self._build_enrichment_chain()

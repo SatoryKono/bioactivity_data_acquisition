@@ -46,9 +46,15 @@ def build_default_stage_plan(
 ) -> tuple[PipelineStageCommand, ...]:
     """Assemble a deterministic stage plan shared across pipeline bases."""
 
+    validation_service = getattr(pipeline, "validation_service", None)
+    write_service = getattr(pipeline, "write_service", None)
+
     def _run_extract(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
         if exec_options.dry_run:
-            frame = _empty_frame_from_schema(pipeline)
+            if validation_service:
+                frame = validation_service.empty_frame()
+            else:
+                frame = _empty_frame_from_schema(pipeline)
         else:
             frame = pipeline.extract(stage_context.descriptor, exec_options)
         if exec_options.limit is not None and frame is not None:
@@ -67,21 +73,35 @@ def build_default_stage_plan(
     def _run_validate(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
         if stage_context.current_df is None:
             raise RuntimeError("validate stage requires transformed data")
-        frame = _validate_with_schema(pipeline, stage_context.current_df)
-        frame = pipeline.validate(frame, exec_options)
-        stage_context.current_df = _sort_dataframe(frame)
+        if validation_service:
+            frame = validation_service.validate(
+                stage_context.current_df, pipeline=pipeline, options=exec_options
+            )
+        else:
+            frame = _validate_with_schema(pipeline, stage_context.current_df)
+            frame = pipeline.validate(frame, exec_options)
+            frame = _sort_dataframe(frame)
+        stage_context.current_df = frame
         return stage_context.current_df
 
     def _run_save_results(
         stage_context: StageContext, exec_options: StageExecutionOptions
-    ) -> Any:
+        ) -> Any:
         if stage_context.current_df is None:
             raise RuntimeError("save_results stage requires validated data")
         artifacts = stage_context.artifacts or WriteArtifacts(
             data_path=stage_context.output_dir / f"{_pipeline_name(pipeline)}.csv"
         )
         stage_context.artifacts = artifacts
-        result = pipeline.save_results(stage_context.current_df, artifacts, exec_options)
+        if write_service:
+            result = write_service.save(
+                stage_context.current_df,
+                artifacts,
+                exec_options,
+                context=stage_context,
+            )
+        else:
+            result = pipeline.save_results(stage_context.current_df, artifacts, exec_options)
         if hasattr(result, "artifacts") and result.artifacts:
             stage_context.artifacts = result.artifacts
         stage_context.metadata.setdefault("write_result", result)

@@ -10,6 +10,7 @@ import pandas as pd
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.clients.factories.default_chembl_factory import default_activity_client_factory
 from bioetl.core.io.artifacts import SchemaRegistry, SchemaRegistryEntry, WriteArtifacts
+from bioetl.core.pipeline.services import WriteService
 from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
@@ -28,6 +29,25 @@ from bioetl.pipelines.chembl.common import (
 from bioetl.pipelines.chembl.stage_runner import register_pipeline
 from bioetl.pipelines.chembl.activity.stages import ActivityExtractor, ActivityTransformer, ActivityWriter
 from bioetl.schemas.activity_schema import ActivityColumns, ActivitySchema
+
+
+class ActivityWriteService(WriteService):
+    def __init__(self, writer: ActivityWriter) -> None:
+        self.writer = writer
+
+    def save(
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
+        *,
+        context,
+    ) -> WriteResult:
+        output_dir = artifacts.data_path.parent if artifacts.data_path else context.output_dir
+        run_stem = (
+            output_dir.name if artifacts.data_path else context.pipeline.build_run_stem(options.run_tag, options.mode)
+        )
+        return self.writer.write(df, artifacts, run_stem=run_stem, output_dir=output_dir)
 
 
 class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
@@ -59,6 +79,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
             output_root=self.output_root,
             logs_directory=self.logs_directory,
         )
+        self.write_service = ActivityWriteService(self.writer)
 
     # Descriptor lifecycle -------------------------------------------------
     def build_descriptor(self) -> ChemblExtractionDescriptor:

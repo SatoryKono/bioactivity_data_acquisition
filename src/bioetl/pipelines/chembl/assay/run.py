@@ -9,6 +9,7 @@ import pandas as pd
 import pandera as pa
 
 from bioetl.core.io.artifacts import RunArtifacts
+from bioetl.core.pipeline.services import DefaultValidationService
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.pipelines.chembl.common import ChemblEntityPipeline
 from bioetl.schemas import AssaySchema
@@ -26,6 +27,7 @@ class ChemblAssayPipeline(ChemblEntityPipeline):
     def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
         super().__init__(config, run_id=run_id)
         self.validator = AssaySchema
+        self.validation_service = DefaultValidationService(self.validator)
 
     def build_descriptor(self):  # pragma: no cover - тонкий слой
         return self._build_generic_descriptor()
