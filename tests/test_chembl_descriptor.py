@@ -3,11 +3,11 @@ from __future__ import annotations
 import pandas as pd
 import pandera as pa
 
+from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.pipeline.unified import (
     BatchExtractionStats,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
-    CircuitBreakerOpenError,
     RunResult,
     UnifiedPipelineBase,
 )
@@ -88,6 +88,39 @@ def test_run_descriptor_extraction_stats_and_data():
     assert stats.cache_hits == 2
     assert stats.fallback_count == 1
     assert stats.error_count == 1
+
+
+def test_run_descriptor_extraction_handles_circuit_breaker():
+    def build_context(_pipeline: DummyChemblPipeline):
+        return {}
+
+    def fetcher_factory(_context):
+        def fetch(_batch):
+            raise CircuitBreakerOpenError("circuit open")
+
+        return fetch
+
+    def finalizer_factory(_context):
+        return lambda df: df.assign(processed=True)
+
+    descriptor = ChemblExtractionDescriptor[
+        DummyChemblPipeline
+    ](
+        build_context=build_context,
+        fetcher_factory=fetcher_factory,
+        finalizer_factory=finalizer_factory,
+    )
+
+    pipeline = DummyChemblPipeline(config={})
+    df, stats = pipeline.run_descriptor_extraction(
+        descriptor,
+        ["X"],
+        summary_event="summary",
+    )
+
+    assert df.empty
+    assert stats.error_count == 1
+    assert stats.rows == 0
 
 
 class MinimalPipeline(UnifiedPipelineBase):

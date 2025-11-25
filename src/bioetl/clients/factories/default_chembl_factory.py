@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from bioetl.base_classes import BaseApiClient
+from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.clients.chembl import (
     ChemblActivityClient,
