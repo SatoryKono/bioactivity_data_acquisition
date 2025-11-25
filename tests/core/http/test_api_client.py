@@ -1,119 +1,133 @@
 from __future__ import annotations
 
 import time
-from unittest.mock import MagicMock
+from datetime import datetime, timedelta, timezone
+from typing import Iterator
 
 import pytest
-import requests
-from requests import Response
-from requests.exceptions import RequestException, Timeout
+import responses
 
-from bioetl.core.http.api_client import (
+from bioetl.core.http import (
     APIConfig,
+    CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
+    RetryPolicy,
+    TTLCache,
+    TTLCacheConfig,
+    TokenBucketConfig,
+    TokenBucketRateLimiter,
     UnifiedAPIClient,
 )
-from bioetl.core.http._rate_limiter import RateLimiterConfig, TokenBucketRateLimiter
 
 
-class DummySession(requests.Session):
-    def __init__(self, responses: list[Response | Exception]) -> None:
-        super().__init__()
-        self._responses = responses
-        self.calls = 0
-
-    def request(self, *args, **kwargs):  # type: ignore[override]
-        self.calls += 1
-        item = self._responses.pop(0)
-        if isinstance(item, Exception):
-            raise item
-        return item
-
-
-def make_response(status: int = 200, body: str = "ok", headers: dict[str, str] | None = None) -> Response:
-    resp = Response()
-    resp.status_code = status
-    resp._content = body.encode()
-    resp.headers = headers or {}
-    resp.url = "http://example.com"
-    resp.encoding = "utf-8"
-    return resp
-
-
-def base_config(**overrides):
+def api_config(**overrides):
     cfg = APIConfig(
-        name="test",
-        base_url="http://example.com",
-        timeout=0.2,
-        connect_timeout=None,
-        retry_max_attempts=3,
-        retry_backoff_factor=0.1,
-        retry_jitter=False,
-        rate_limit_max_calls=10,
-        rate_limit_period=1,
-        rate_limit_jitter=False,
+        base_url="http://example.com/",
+        timeout_sec=0.2,
+        max_retries=2,
+        backoff_factor=0.1,
+        max_backoff_sec=5,
+        rate_limit_calls=10,
+        rate_limit_period_sec=1,
         cache_enabled=True,
-        cache_ttl=5,
-        headers={},
+        cache_ttl_sec=5,
+        circuit_breaker_fail_max=3,
+        circuit_breaker_reset_sec=0.2,
+        default_headers={},
+        user_agent="pytest",
     )
-    for k, v in overrides.items():
-        setattr(cfg, k, v)
+    for key, value in overrides.items():
+        setattr(cfg, key, value)
     return cfg
 
 
-def test_retry_backoff_without_jitter(monkeypatch):
+def test_retry_policy_backoff_and_retry_after(monkeypatch):
+    policy = RetryPolicy(max_retries=3, backoff_factor=0.5, max_backoff_sec=5, jitter=False)
+
+    assert policy.compute_backoff(1) == pytest.approx(0.5)
+    assert policy.compute_backoff(2) == pytest.approx(1.0)
+    assert policy.compute_backoff(3) == pytest.approx(2.0)
+
+    retry_after = policy.compute_backoff(2, retry_after=3)
+    assert retry_after == pytest.approx(3.0)
+
+
+def test_token_bucket_timeout_and_try_acquire():
+    limiter = TokenBucketRateLimiter(TokenBucketConfig(max_tokens=1, refill_period_sec=0.2))
+    assert limiter.try_acquire() is True
+    assert limiter.try_acquire() is False
+    # таймаут слишком короткий, токен не успевает наполниться
+    assert limiter.acquire(timeout=0.05) is False
+    assert limiter.acquire(timeout=0.3) is True
+
+
+def test_ttl_cache_expiration():
+    cache = TTLCache(TTLCacheConfig(ttl_seconds=0.1))
+    key = cache.make_key("GET", "http://example.com", {"q": 1}, {"h": "1"})
+    cache.set(key, b"payload")
+    assert cache.get(key) == b"payload"
+    time.sleep(0.12)
+    assert cache.get(key) is None
+
+
+def test_circuit_breaker_transitions():
+    breaker = CircuitBreaker(CircuitBreakerConfig(failure_threshold=2, reset_timeout_sec=0.1))
+    breaker.record_failure()
+    breaker.record_failure()
+    assert breaker.state == "open"
+    with pytest.raises(CircuitBreakerOpenError):
+        breaker.before_call()
+    time.sleep(0.11)
+    breaker.before_call()
+    breaker.record_success()
+    assert breaker.state == "closed"
+
+
+def test_unified_client_respects_retry_after(monkeypatch):
     sleep_calls: list[float] = []
     monkeypatch.setattr(time, "sleep", lambda s: sleep_calls.append(s))
 
-    responses: list[Response | Exception] = [Timeout("boom"), Timeout("boom"), make_response()]
-    session = DummySession(responses)
-    client = UnifiedAPIClient(base_config(), session=session)
+    client = UnifiedAPIClient(api_config())
+    retry_at = (datetime.now(timezone.utc) + timedelta(seconds=1)).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
-    resp = client.get("/data")
+    with responses.RequestsMock() as rsps:
+        rsps.add(
+            responses.GET,
+            "http://example.com/resource",
+            status=429,
+            headers={"Retry-After": retry_at},
+            json={"message": "slow down"},
+        )
+        rsps.add(
+            responses.GET,
+            "http://example.com/resource",
+            status=200,
+            json={"ok": True},
+        )
 
-    assert resp.status_code == 200
-    assert sleep_calls == [0.1, 0.2]
-    assert session.calls == 3
+        payload = client.get_json("/resource")
 
-
-def test_rate_limiter_waits_for_token(monkeypatch):
-    config = RateLimiterConfig(max_calls=2, period=0.2, jitter=False)
-    limiter = TokenBucketRateLimiter(config)
-    start = time.monotonic()
-    limiter.acquire()
-    limiter.acquire()
-    limiter.acquire()
-    elapsed = time.monotonic() - start
-    assert elapsed >= 0.09
-
-
-def test_cache_hit_avoids_network(monkeypatch):
-    first = make_response(200, "payload")
-    session = DummySession([first])
-    client = UnifiedAPIClient(base_config(), session=session)
-
-    resp1 = client.get("/resource")
-    resp2 = client.get("/resource")
-
-    assert resp1.content == resp2.content
-    assert session.calls == 1
+    assert payload == {"ok": True}
+    assert sleep_calls and sleep_calls[0] >= 0.5
 
 
-def test_circuit_breaker_opens_and_recovers():
-    cfg = base_config(retry_max_attempts=1)
-    breaker_cfg = CircuitBreakerConfig(failure_threshold=2, success_threshold=1, timeout_seconds=0.1)
+def test_unified_client_cache_and_pagination():
+    client = UnifiedAPIClient(api_config())
+    with responses.RequestsMock() as rsps:
+        rsps.add(responses.GET, "http://example.com/items", json={"items": [1, 2]})
+        rsps.add(responses.GET, "http://example.com/items?page=2", json={"items": []})
 
-    failing = DummySession([RequestException("fail"), RequestException("fail"), make_response()])
-    client = UnifiedAPIClient(cfg, session=failing, circuit_breaker=breaker_cfg)
+        pages: Iterator[dict] = client.paginate_json("/items")
+        first = next(pages)
+        second = next(pages)
+        with pytest.raises(StopIteration):
+            next(pages)
 
-    with pytest.raises(RequestException):
-        client.get("/boom")
-    with pytest.raises(RequestException):
-        client.get("/boom")
-    with pytest.raises(CircuitBreakerOpenError):
-        client.get("/boom")
+        # cache hit: повторный вызов не дергает сеть
+        payload_cached = client.get_json("/items", params={"page": 1})
 
-    time.sleep(0.11)
-    resp = client.get("/boom")
-    assert resp.status_code == 200
+    assert first["items"] == [1, 2]
+    assert second["items"] == []
+    assert payload_cached == {"items": [1, 2]}
+

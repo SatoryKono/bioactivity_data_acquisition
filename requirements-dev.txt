@@ -1,5 +1,6 @@
 # Development and test dependencies
 responses>=0.25.0
+structlog>=24.4.0
 pandas>=2.2
 pydantic>=2.6
 pydantic-settings>=2.2
