@@ -10,7 +10,7 @@ import pandas as pd
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.clients.factories.default_chembl_factory import default_activity_client_factory
 from bioetl.core.io.artifacts import SchemaRegistry, SchemaRegistryEntry, WriteArtifacts
-from bioetl.core.pipeline.orchestration import PipelineBaseCommon
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -30,7 +30,7 @@ from bioetl.pipelines.chembl.activity.stages import ActivityExtractor, ActivityT
 from bioetl.schemas.activity_schema import ActivityColumns, ActivitySchema
 
 
-class ChemblActivityPipeline(PipelineBaseCommon, ChemblPipelineContract):
+class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
     """Implements the activity_chembl pipeline contract."""
 
     id_column: str | None = "activity_id"

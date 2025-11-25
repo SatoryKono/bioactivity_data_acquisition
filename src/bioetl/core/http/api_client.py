@@ -1,32 +1,31 @@
 from __future__ import annotations
 
 import json
-import random
 import time
+
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterator, Mapping, MutableMapping
+from typing import Any, Dict, Iterator, Mapping
 from urllib.parse import urljoin
 
 import requests
 from requests import Response
 from requests.exceptions import RequestException
 import structlog
+from structlog.typing import FilteringBoundLogger
 
-from bioetl.core.http._cache import TTLCache, TTLCacheConfig
-from bioetl.core.http._rate_limiter import TokenBucketConfig, TokenBucketRateLimiter
-from bioetl.core.http.interfaces import (
-    CacheStrategy,
+from bioetl.core.http.cache import CacheStrategy, TTLCache, TTLCacheConfig
+from bioetl.core.http.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerOpenError,
     CircuitBreakerStrategy,
-    RateLimiter,
-    RetryStrategy,
 )
+from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
+from bioetl.core.http.rate_limiter import RateLimiter, TokenBucketConfig, TokenBucketRateLimiter
+from bioetl.core.http.retry import RetryPolicy, RetryStrategy
 
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
-
-
-class CircuitBreakerOpenError(RuntimeError):
-    """Исключение при открытом circuit breaker."""
 
 
 class HTTPClientError(RuntimeError):
@@ -50,87 +49,6 @@ class APIConfig:
     user_agent: str = "bioetl-http-client"
 
 
-@dataclass
-class RetryPolicy:
-    max_retries: int
-    backoff_factor: float
-    max_backoff_sec: float
-    jitter: bool = True
-
-    def compute_backoff(self, attempt: int, retry_after: float | None = None) -> float:
-        base = self.backoff_factor * (2 ** max(0, attempt - 1))
-        if self.jitter:
-            base *= random.uniform(0.8, 1.2)
-        backoff = min(base, self.max_backoff_sec)
-        if retry_after is not None:
-            backoff = max(backoff, retry_after)
-        return max(0.0, backoff)
-
-
-@dataclass
-class CircuitBreakerConfig:
-    failure_threshold: int
-    reset_timeout_sec: float
-
-
-class CircuitBreaker:
-    def __init__(self, config: CircuitBreakerConfig) -> None:
-        if config.failure_threshold <= 0:
-            raise ValueError("failure_threshold must be positive")
-        if config.reset_timeout_sec <= 0:
-            raise ValueError("reset_timeout_sec must be positive")
-        self._config = config
-        self._state = "closed"
-        self._failures = 0
-        self._opened_at: float | None = None
-        self._logger = structlog.get_logger(__name__).bind(component="circuit_breaker")
-
-    @property
-    def state(self) -> str:
-        return self._state
-
-    def _transition(self, new_state: str, reason: str) -> None:
-        self._state = new_state
-        self._logger.warning("circuit_breaker_transition", state=new_state, reason=reason)
-
-    def before_call(self) -> None:
-        if self._state != "open":
-            return
-        assert self._opened_at is not None
-        elapsed = time.monotonic() - self._opened_at
-        if elapsed >= self._config.reset_timeout_sec:
-            self._state = "half-open"
-        else:
-            raise CircuitBreakerOpenError("Circuit breaker is open")
-
-    def record_success(self) -> None:
-        self._failures = 0
-        if self._state in {"open", "half-open"}:
-            self._transition("closed", "success")
-            self._opened_at = None
-
-    def record_failure(self) -> None:
-        self._failures += 1
-        if self._failures >= self._config.failure_threshold:
-            self._opened_at = time.monotonic()
-            self._transition("open", "failure_threshold")
-
-    def call(self, func: callable[[], Response]) -> Response:
-        self.before_call()
-        try:
-            response = func()
-        except Exception:
-            self.record_failure()
-            raise
-        return response
-
-    def time_until_half_open(self) -> float | None:
-        if self._state != "open" or self._opened_at is None:
-            return None
-        elapsed = time.monotonic() - self._opened_at
-        return max(0.0, self._config.reset_timeout_sec - elapsed)
-
-
 class UnifiedAPIClient:
     def __init__(
         self,
@@ -141,6 +59,7 @@ class UnifiedAPIClient:
         cache: CacheStrategy | None = None,
         retry_strategy: RetryStrategy | None = None,
         circuit_breaker: CircuitBreakerStrategy | None = None,
+        pagination_strategy: PaginationStrategy | None = None,
         verify_ssl: bool = True,
     ) -> None:
         self.config = config
@@ -168,6 +87,16 @@ class UnifiedAPIClient:
                 failure_threshold=config.circuit_breaker_fail_max,
                 reset_timeout_sec=config.circuit_breaker_reset_sec,
             )
+        )
+        self._pagination = pagination_strategy or DefaultPaginationStrategy()
+        self._request_executor = _ResilientRequestExecutor(
+            session=self._session,
+            logger=self._logger,
+            retry_strategy=self._retry_strategy,
+            rate_limiter=self._rate_limiter,
+            cache=self._cache,
+            circuit_breaker=self._breaker,
+            timeout_sec=self.config.timeout_sec,
         )
 
     # ---------------------------- public API ---------------------------
@@ -213,30 +142,14 @@ class UnifiedAPIClient:
         next_key: str = "next",
         page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
-        next_path: str | None = path
-        page_params: MutableMapping[str, Any] = dict(params)
-        if page_param:
-            page_params.setdefault(page_param, 1)
-
-        while next_path:
-            payload = self.request("GET", next_path, params=page_params)
-            yield payload
-
-            if not isinstance(payload, Mapping):
-                break
-
-            next_candidate = payload.get(next_key)
-            if isinstance(next_candidate, str):
-                next_path = next_candidate
-                page_params = {}
-                continue
-
-            items = payload.get(page_key)
-            if items and page_param:
-                page_params[page_param] = page_params.get(page_param, 1) + 1
-                next_path = path
-            else:
-                break
+        yield from self._pagination.paginate(
+            path,
+            params,
+            lambda next_path, page_params: self.request("GET", next_path, params=page_params),
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+        )
 
     def close(self) -> None:
         self._session.close()
@@ -253,9 +166,52 @@ class UnifiedAPIClient:
     ) -> Dict[str, Any]:
         url = self._resolve_url(path)
         merged_headers = {**self._session.headers, **(headers or {})}
+        return self._request_executor.request(
+            method,
+            url,
+            headers=merged_headers,
+            params=params,
+            json=json,
+        )
+
+    def _resolve_url(self, path: str) -> str:
+        if path.startswith("http://") or path.startswith("https://"):
+            return path
+        return urljoin(self.config.base_url.rstrip("/") + "/", path.lstrip("/"))
+
+
+class _ResilientRequestExecutor:
+    def __init__(
+        self,
+        *,
+        session: requests.Session,
+        logger: FilteringBoundLogger,
+        retry_strategy: RetryStrategy,
+        rate_limiter: RateLimiter,
+        cache: CacheStrategy | None,
+        circuit_breaker: CircuitBreakerStrategy,
+        timeout_sec: float,
+    ) -> None:
+        self._session = session
+        self._logger = logger
+        self._retry_strategy = retry_strategy
+        self._rate_limiter = rate_limiter
+        self._cache = cache
+        self._breaker = circuit_breaker
+        self._timeout_sec = timeout_sec
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, Any] | None = None,
+        json: Any | None = None,
+    ) -> Dict[str, Any]:
         cache_key = None
         if method.upper() == "GET" and self._cache:
-            cache_key = self._cache.make_key(method, url, params, merged_headers)
+            cache_key = self._cache.make_key(method, url, params, headers)
             cached = self._cache.get(cache_key)
             if cached is not None:
                 return self._deserialize(cached)
@@ -274,8 +230,8 @@ class UnifiedAPIClient:
                         url,
                         params=params,
                         json=json,
-                        headers=merged_headers,
-                        timeout=self.config.timeout_sec,
+                        headers=headers,
+                        timeout=self._timeout_sec,
                     )
                 )
                 latency_ms = (time.perf_counter() - start) * 1000
@@ -333,11 +289,6 @@ class UnifiedAPIClient:
             return None
         return max(0.0, parsed.timestamp() - datetime.now(tz=timezone.utc).timestamp())
 
-    def _resolve_url(self, path: str) -> str:
-        if path.startswith("http://") or path.startswith("https://"):
-            return path
-        return urljoin(self.config.base_url.rstrip("/") + "/", path.lstrip("/"))
-
     def _serialize(self, payload: Dict[str, Any]) -> bytes:
         return json.dumps(payload, sort_keys=True).encode("utf-8")
 
@@ -345,7 +296,6 @@ class UnifiedAPIClient:
         data = json.loads(payload.decode("utf-8"))
         self._logger.info("api_call", cache_hit=True)
         return data
-
 
 __all__ = [
     "APIConfig",

@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import hashlib
 import json
-import subprocess
 import time
-import uuid
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Generic, Mapping, Sequence, TypeVar
@@ -14,9 +11,7 @@ import pandas as pd
 import pandera as pa
 import yaml
 
-from bioetl.core.logging import UnifiedLogger
-from bioetl.core.io.artifacts import RunArtifacts
-from bioetl.core.pipeline.orchestration import _execute_stage_plan
+from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
     RunResult,
@@ -40,7 +35,7 @@ class BatchExtractionStats:
     duration_seconds: float
 
 
-class PipelineBase(ABC):
+class PipelineBase(PipelineRuntimeBase):
     """Интерфейс стадий пайплайна."""
 
     def __init__(
@@ -50,14 +45,7 @@ class PipelineBase(ABC):
         run_id: str | None = None,
         validator: pa.DataFrameSchema | None = None,
     ) -> None:
-        self.config = config
-        self.run_id = run_id or uuid.uuid4().hex
-        self.validator = validator
-        self.dry_run = False
-
-    @property
-    def pipeline_name(self) -> str:
-        return self.__class__.__name__
+        super().__init__(config, run_id=run_id, validator=validator)
 
     @abstractmethod
     def extract(self, descriptor: Any | None, options: StageExecutionOptions) -> pd.DataFrame:
@@ -77,9 +65,9 @@ class PipelineBase(ABC):
     ) -> WriteResult:
         ...
 
-    @abstractmethod
-    def run(self, output_dir: Path, **kwargs: Any) -> RunResult:
-        ...
+    @property
+    def pipeline_name(self) -> str:
+        return self.pipeline_code
 
     # Hooks ---------------------------------------------------------------
     def prepare_run(self, options: StageExecutionOptions) -> None:  # pragma: no cover - optional hook
@@ -92,64 +80,9 @@ class PipelineBase(ABC):
 class UnifiedPipelineBase(PipelineBase):
     """Базовая реализация общего жизненного цикла ETL."""
 
-    def __init__(
-        self,
-        config: Mapping[str, Any],
-        *,
-        run_id: str | None = None,
-        validator: pa.DataFrameSchema | None = None,
-    ) -> None:
-        super().__init__(config, run_id=run_id, validator=validator)
-        self._git_commit = self._resolve_git_commit()
-        self._config_hash = self._compute_config_hash(config)
-
-    # Lifecycle -----------------------------------------------------------
-    def run(
-        self,
-        output_dir: Path,
-        *,
-        run_tag: str | None = None,
-        mode: str | None = None,
-        extended: bool = False,
-        dry_run: bool | None = None,
-        limit: int | None = None,
-        sample: int | None = None,
-        include_qc_metrics: bool = False,
-        fail_on_schema_drift: bool = True,
-    ) -> RunResult:
-        if dry_run is not None:
-            self.dry_run = dry_run
-
-        logger = UnifiedLogger.get(self.__class__.__name__).bind(
-            run_id=self.run_id, pipeline=self.pipeline_name
-        )
-        options = StageExecutionOptions(
-            run_tag=run_tag,
-            mode=mode,
-            extended=extended,
-            dry_run=self.dry_run,
-            sample=sample,
-            limit=limit,
-            include_qc_metrics=include_qc_metrics,
-            fail_on_schema_drift=fail_on_schema_drift,
-        )
-
-        logger.info("STAGE_RUN_START", stage="prepare_run")
-        self.prepare_run(options)
-
-        output_dir.mkdir(parents=True, exist_ok=True)
-        artifacts = WriteArtifacts(data_path=output_dir / f"{self.pipeline_name}.csv")
-        context = StageContext(
-            pipeline=self,  # type: ignore[arg-type]
-            output_dir=output_dir,
-            logger=logger,
-            run_id=self.run_id,
-            run_tag=run_tag,
-            mode=mode,
-            descriptor=None,
-            artifacts=artifacts,
-        )
-
+    def build_stage_plan(
+        self, context: StageContext, options: StageExecutionOptions
+    ) -> tuple[PipelineStageCommand, ...]:
         def _run_extract(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
             if exec_options.dry_run:
                 frame = self._empty_frame_from_schema()
@@ -201,42 +134,7 @@ class UnifiedPipelineBase(PipelineBase):
         if options.dry_run:
             stage_plan = tuple(cmd for cmd in stage_plan if cmd.name != "save_results")
 
-        durations, error, qc_path = _execute_stage_plan(
-            stage_plan, context, options, include_qc_metrics=include_qc_metrics
-        )
-
-        success = error is None
-        rows = 0 if context.current_df is None else int(context.current_df.shape[0])
-        metadata: dict[str, Any] = {
-            "stage_plan": [cmd.name for cmd in stage_plan],
-            "extract_metadata": context.metadata,
-            "git_commit": self._git_commit,
-            "config_hash": self._config_hash,
-            "pipeline": self.pipeline_name,
-            "run_tag": run_tag,
-            "mode": mode,
-            "duration_seconds": sum(durations.values()) / 1000,
-        }
-        if context.artifacts and context.artifacts.data_path:
-            metadata["output_path"] = str(context.artifacts.data_path)
-        if qc_path is not None:
-            metadata["qc_metrics_path"] = str(qc_path)
-        run_result = RunResult(
-            success=success,
-            rows=rows,
-            artifacts=RunArtifacts(
-                output_dir=output_dir,
-                logs_directory=output_dir / "logs",
-                write_artifacts=context.artifacts or WriteArtifacts(),
-                qc_metrics_path=qc_path,
-            ),
-            duration_ms=durations,
-            error=error,
-            metadata=metadata,
-        )
-        self.finalize_run(run_result)
-        logger.info("STAGE_RUN_END", stage="pipeline", success=success)
-        return run_result
+        return stage_plan
 
     # Stage helpers ------------------------------------------------------
     def _validate_with_schema(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -276,20 +174,6 @@ class UnifiedPipelineBase(PipelineBase):
             "metrics": payload,
         }
         manifest_path.write_text(json.dumps(manifest, indent=2))
-
-    # Utils --------------------------------------------------------------
-    def _resolve_git_commit(self) -> str | None:
-        try:
-            completed = subprocess.run(
-                ["git", "rev-parse", "HEAD"], capture_output=True, check=True, text=True
-            )
-        except Exception:
-            return None
-        return completed.stdout.strip() or None
-
-    def _compute_config_hash(self, config: Mapping[str, Any]) -> str:
-        serialized = yaml.safe_dump(dict(config), sort_keys=True).encode("utf-8")
-        return hashlib.sha256(serialized).hexdigest()
 
     # Default save_results ------------------------------------------------
     def save_results(
