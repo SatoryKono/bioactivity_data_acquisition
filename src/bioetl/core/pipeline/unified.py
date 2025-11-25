@@ -23,6 +23,7 @@ from bioetl.core.pipeline.types import (
     StageContext,
     StageExecutionOptions,
     WriteArtifacts,
+    WriteResult,
 )
 
 
@@ -59,19 +60,21 @@ class PipelineBase(ABC):
         return self.__class__.__name__
 
     @abstractmethod
-    def extract(self, *args, **kwargs) -> pd.DataFrame:
+    def extract(self, descriptor: Any | None, options: StageExecutionOptions) -> pd.DataFrame:
         ...
 
     @abstractmethod
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         ...
 
     @abstractmethod
-    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
+    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         ...
 
     @abstractmethod
-    def write(self, df: pd.DataFrame, output_dir: Path, *, extended: bool = False) -> Path:
+    def save_results(
+        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+    ) -> WriteResult:
         ...
 
     @abstractmethod
@@ -79,10 +82,10 @@ class PipelineBase(ABC):
         ...
 
     # Hooks ---------------------------------------------------------------
-    def prepare_run(self) -> None:  # pragma: no cover - optional hook
+    def prepare_run(self, options: StageExecutionOptions) -> None:  # pragma: no cover - optional hook
         """Вызывается перед началом extract."""
 
-    def finalize_run(self, result: RunResult | None) -> None:  # pragma: no cover
+    def finalize_run(self, result: RunResult) -> None:  # pragma: no cover
         """Вызывается после завершения write."""
 
 
@@ -105,11 +108,14 @@ class UnifiedPipelineBase(PipelineBase):
         self,
         output_dir: Path,
         *,
+        run_tag: str | None = None,
+        mode: str | None = None,
         extended: bool = False,
         dry_run: bool | None = None,
         limit: int | None = None,
         sample: int | None = None,
         include_qc_metrics: bool = False,
+        fail_on_schema_drift: bool = True,
     ) -> RunResult:
         if dry_run is not None:
             self.dry_run = dry_run
@@ -118,18 +124,18 @@ class UnifiedPipelineBase(PipelineBase):
             run_id=self.run_id, pipeline=self.pipeline_name
         )
         options = StageExecutionOptions(
-            run_tag=None,
-            mode=None,
+            run_tag=run_tag,
+            mode=mode,
             extended=extended,
             dry_run=self.dry_run,
             sample=sample,
             limit=limit,
             include_qc_metrics=include_qc_metrics,
-            fail_on_schema_drift=True,
+            fail_on_schema_drift=fail_on_schema_drift,
         )
 
         logger.info("STAGE_RUN_START", stage="prepare_run")
-        self.prepare_run()
+        self.prepare_run(options)
 
         output_dir.mkdir(parents=True, exist_ok=True)
         artifacts = WriteArtifacts(data_path=output_dir / f"{self.pipeline_name}.csv")
@@ -138,8 +144,8 @@ class UnifiedPipelineBase(PipelineBase):
             output_dir=output_dir,
             logger=logger,
             run_id=self.run_id,
-            run_tag=None,
-            mode=None,
+            run_tag=run_tag,
+            mode=mode,
             descriptor=None,
             artifacts=artifacts,
         )
@@ -148,7 +154,7 @@ class UnifiedPipelineBase(PipelineBase):
             if exec_options.dry_run:
                 frame = self._empty_frame_from_schema()
             else:
-                frame = self.extract()
+                frame = self.extract(stage_context.descriptor, exec_options)
             if exec_options.limit is not None and frame is not None:
                 frame = frame.head(exec_options.limit)
             if exec_options.sample is not None and frame is not None and not frame.empty:
@@ -159,33 +165,41 @@ class UnifiedPipelineBase(PipelineBase):
         def _run_transform(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
             if stage_context.current_df is None:
                 raise RuntimeError("transform stage requires extracted data")
-            stage_context.current_df = self.transform(stage_context.current_df)
+            stage_context.current_df = self.transform(stage_context.current_df, exec_options)
             return stage_context.current_df
 
         def _run_validate(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
             if stage_context.current_df is None:
                 raise RuntimeError("validate stage requires transformed data")
             frame = self._validate_with_schema(stage_context.current_df)
-            frame = self.validate(frame)
+            frame = self.validate(frame, exec_options)
             stage_context.current_df = self._sort_dataframe(frame)
             return stage_context.current_df
 
-        def _run_write(stage_context: StageContext, exec_options: StageExecutionOptions) -> Path:
+        def _run_save_results(
+            stage_context: StageContext, exec_options: StageExecutionOptions
+        ) -> WriteResult:
             if stage_context.current_df is None:
                 raise RuntimeError("save_results stage requires validated data")
-            dataset_path = self.write(
-                stage_context.current_df, stage_context.output_dir, extended=exec_options.extended
+            artifacts = stage_context.artifacts or WriteArtifacts(
+                data_path=stage_context.output_dir / f"{self.pipeline_name}.csv"
             )
-            stage_context.artifacts = stage_context.artifacts or WriteArtifacts()
-            stage_context.artifacts.data_path = dataset_path
-            return dataset_path
+            stage_context.artifacts = artifacts
+            result = self.save_results(stage_context.current_df, artifacts, exec_options)
+            if result.artifacts:
+                stage_context.artifacts = result.artifacts
+            stage_context.metadata.setdefault("write_result", result)
+            return result
 
         stage_plan = (
             PipelineStageCommand("extract", _run_extract),
             PipelineStageCommand("transform", _run_transform),
             PipelineStageCommand("validate", _run_validate),
-            PipelineStageCommand("save_results", _run_write),
+            PipelineStageCommand("save_results", _run_save_results),
         )
+
+        if options.dry_run:
+            stage_plan = tuple(cmd for cmd in stage_plan if cmd.name != "save_results")
 
         durations, error, qc_path = _execute_stage_plan(
             stage_plan, context, options, include_qc_metrics=include_qc_metrics
@@ -194,9 +208,13 @@ class UnifiedPipelineBase(PipelineBase):
         success = error is None
         rows = 0 if context.current_df is None else int(context.current_df.shape[0])
         metadata: dict[str, Any] = {
+            "stage_plan": [cmd.name for cmd in stage_plan],
+            "extract_metadata": context.metadata,
             "git_commit": self._git_commit,
             "config_hash": self._config_hash,
             "pipeline": self.pipeline_name,
+            "run_tag": run_tag,
+            "mode": mode,
             "duration_seconds": sum(durations.values()) / 1000,
         }
         if context.artifacts and context.artifacts.data_path:
@@ -273,16 +291,20 @@ class UnifiedPipelineBase(PipelineBase):
         serialized = yaml.safe_dump(dict(config), sort_keys=True).encode("utf-8")
         return hashlib.sha256(serialized).hexdigest()
 
-    # Default write ------------------------------------------------------
-    def write(self, df: pd.DataFrame, output_dir: Path, *, extended: bool = False) -> Path:
+    # Default save_results ------------------------------------------------
+    def save_results(
+        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+    ) -> WriteResult:
+        output_dir = artifacts.data_path.parent if artifacts.data_path else Path.cwd()
         output_dir.mkdir(parents=True, exist_ok=True)
-        dataset_path = output_dir / f"{self.pipeline_name}.csv"
+        dataset_path = artifacts.data_path or output_dir / f"{self.pipeline_name}.csv"
+        artifacts.data_path = dataset_path
         tmp_path = dataset_path.with_suffix(dataset_path.suffix + ".tmp")
         df.to_csv(tmp_path, index=False)
         tmp_path.replace(dataset_path)
-        if extended:
+        if options.extended:
             self._write_metadata(output_dir, df)
-        return dataset_path
+        return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)
 
 
 ChemblPipelineT = TypeVar("ChemblPipelineT", bound="ChemblPipelineBase")
