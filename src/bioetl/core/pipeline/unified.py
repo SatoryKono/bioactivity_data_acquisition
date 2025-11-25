@@ -209,10 +209,14 @@ class ChemblPipelineBase(UnifiedPipelineBase):
 
         fetcher = descriptor.fetcher_factory(context)
         finalizer = descriptor.finalizer_factory(context)
-        from bioetl.pipelines.chembl.batch_executor import execute_chembl_batches
+        from bioetl.pipelines.chembl.batch_executor import (
+            execute_chembl_batches,
+        )
 
         dataframe, stats = execute_chembl_batches(
-            fetcher, ids, batch_size=batch_kwargs.get("batch_size")
+            fetcher,
+            ids,
+            batch_size=batch_kwargs.get("batch_size"),
         )
 
         finalize_start = time.perf_counter()
