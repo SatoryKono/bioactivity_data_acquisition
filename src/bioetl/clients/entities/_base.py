@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
 from bioetl.base_classes import BaseApiClient
-from bioetl.clients import client_exceptions
-from bioetl.clients.common import PageParamPagination, PaginationStrategy
-from bioetl.clients.mixins import ApiClientMixin
+from bioetl.clients.common import ApiClientMixin, PageParamPagination, PaginationStrategy
 
 
 class _BaseEntityClient(ApiClientMixin):
@@ -23,15 +21,6 @@ class _BaseEntityClient(ApiClientMixin):
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
         self.pagination_strategy = pagination_strategy or PageParamPagination()
-
-    def _wrap_iterator(self, func: Callable[[], Iterator[dict[str, Any]]]) -> Iterator[dict[str, Any]]:
-        try:
-            yield from func()
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
-            raise client_exceptions.RequestException(str(exc)) from exc
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         return self.iter_ids(ids, "/{entity}/{id}")
