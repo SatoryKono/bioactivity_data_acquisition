@@ -7,13 +7,14 @@ import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients.common import (
+    ApiClientMixin,
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
     ApiClientMixin,
     ClosableMixin,
     NextLinkPagination,
-    PaginationStrategy,
+    PaginatedFetcher,
 )
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
@@ -26,7 +27,7 @@ class BaseChemblClient(
         api_client: BaseApiClient,
         entity: str,
         *,
-        pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy: PaginatedFetcher | None = None,
     ) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
@@ -50,7 +51,7 @@ class BaseChemblClient(
             if params:
                 query_params.update(params)
 
-            for payload in self.pagination_strategy.paginate(
+            yield from self.pagination_strategy.paginate(
                 self.api_client,
                 f"/{self.entity}",
                 params=query_params,
@@ -58,8 +59,8 @@ class BaseChemblClient(
                 page_key=page_key,
                 next_key=next_key,
                 page_param=page_param,
-            ):
-                yield from self._normalize_payload(payload)
+                normalize=self._normalize_payload,
+            )
 
         return self._wrap_iterator(iterator)
 
@@ -90,6 +91,9 @@ class BaseChemblClient(
             next_key=next_key,
             page_param=page_param,
         )
+
+    def default_pagination_strategy(self) -> PaginationStrategy:
+        return NextLinkPagination()
 
     def iterate_records(self, descriptor: ChemblExtractionDescriptor) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
