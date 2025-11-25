@@ -1,0 +1,1 @@
+from .activity_normalizer import normalize_activity
