@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import typer
 
+from bioetl.cli.cli_command import create_pipeline_command
 from bioetl.cli.cli_registry import PIPELINE_REGISTRY
 
 app = typer.Typer(help="BioETL pipelines", add_completion=False)
@@ -22,3 +23,7 @@ def list_pipelines() -> None:
         return
     for name in sorted(PIPELINE_REGISTRY):
         typer.echo(name)
+
+
+for pipeline_name, factory in PIPELINE_REGISTRY.items():
+    app.command(pipeline_name)(create_pipeline_command(pipeline_name, factory))
