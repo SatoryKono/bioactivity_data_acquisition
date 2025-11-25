@@ -77,8 +77,9 @@ def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
 
 def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
     api_client = MagicMock()
+    api_client.get_json.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
-    pagination.paginate.return_value = iter([{"id": 1}, {"id": 2}])
+    pagination.iter_pages.return_value = iter([{"items": [{"id": 1}, {"id": 2}]}])
 
     client = _BaseEntityClient(api_client=api_client, entity="targets", pagination_strategy=pagination)
     client._logger = MagicMock()
@@ -94,21 +95,25 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
     )
 
     assert result == [{"id": 1}, {"id": 2}]
-    pagination.paginate.assert_called_once_with(
-        api_client,
-        "/targets",
-        params={"limit": 2, "foo": "bar"},
-        logger=client._logger,
-        page_key="items",
-        next_key="next_link",
-        page_param=None,
-    )
+    pagination.iter_pages.assert_called_once()
+    initial_payload, transport = pagination.iter_pages.call_args[0][:2]
+    kwargs = pagination.iter_pages.call_args.kwargs
+
+    assert initial_payload == {"items": [{"id": 1}]}
+    assert kwargs["path"] == "/targets"
+    assert kwargs["params"] == {"limit": 2, "foo": "bar"}
+    assert kwargs["page_key"] == "items"
+    assert kwargs["next_key"] == "next_link"
+    assert kwargs["page_param"] is None
+    assert kwargs["logger"] is client._logger
+    assert hasattr(transport, "get")
 
 
 def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
     api_client = MagicMock()
+    api_client.get_json.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
-    pagination.paginate.return_value = iter([{"id": 1}])
+    pagination.iter_pages.return_value = iter([{"items": [{"id": 1}]}])
 
     client = BaseChemblClient(api_client=api_client, entity="molecule", pagination_strategy=pagination)
     client._logger = MagicMock()
@@ -124,21 +129,25 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
     )
 
     assert result == [{"id": 1}]
-    pagination.paginate.assert_called_once_with(
-        api_client,
-        "/molecule",
-        params={"limit": 10, "offset": 5},
-        logger=client._logger,
-        page_key="items",
-        next_key="next_link",
-        page_param="page_num",
-    )
+    pagination.iter_pages.assert_called_once()
+    initial_payload, transport = pagination.iter_pages.call_args[0][:2]
+    kwargs = pagination.iter_pages.call_args.kwargs
+
+    assert initial_payload == {"items": [{"id": 1}]}
+    assert kwargs["path"] == "/molecule"
+    assert kwargs["params"] == {"limit": 10, "offset": 5}
+    assert kwargs["page_key"] == "items"
+    assert kwargs["next_key"] == "next_link"
+    assert kwargs["page_param"] == "page_num"
+    assert kwargs["logger"] is client._logger
+    assert hasattr(transport, "get")
 
 
 def test_entity_client_fetch_all_wraps_errors() -> None:
     api_client = MagicMock()
     pagination = MagicMock()
-    pagination.paginate.side_effect = RuntimeError("boom")
+    api_client.get_json.return_value = {}
+    pagination.iter_pages.side_effect = RuntimeError("boom")
 
     client = _BaseEntityClient(api_client=api_client, entity="targets", pagination_strategy=pagination)
     client._logger = MagicMock()
@@ -150,7 +159,8 @@ def test_entity_client_fetch_all_wraps_errors() -> None:
 def test_chembl_client_fetch_all_wraps_errors() -> None:
     api_client = MagicMock()
     pagination = MagicMock()
-    pagination.paginate.side_effect = RuntimeError("boom")
+    api_client.get_json.return_value = {}
+    pagination.iter_pages.side_effect = RuntimeError("boom")
 
     client = BaseChemblClient(api_client=api_client, entity="molecule", pagination_strategy=pagination)
     client._logger = MagicMock()

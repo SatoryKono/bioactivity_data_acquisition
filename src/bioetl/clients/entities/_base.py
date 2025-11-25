@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-from bioetl.base_classes import BaseApiClient
-from bioetl.clients.common import PageParamPagination, PaginationStrategy, UnifiedEntityClientBase
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any
 
+import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients.common import (
     ApiClientMixin,
+    ClosableMixin,
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    ApiClientMixin,
-    ClosableMixin,
     PageParamPagination,
-    PaginatedFetcher,
+    PaginationStrategy,
 )
 
 
@@ -23,7 +23,7 @@ class _BaseEntityClient(ClosableMixin, ApiClientMixin, BaseApiClient, EntityClie
         api_client: BaseApiClient,
         entity: str,
         *,
-        pagination_strategy: PaginatedFetcher | None = None,
+        pagination_strategy: PaginationStrategy | None = None,
     ) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
@@ -47,15 +47,13 @@ class _BaseEntityClient(ClosableMixin, ApiClientMixin, BaseApiClient, EntityClie
             if params:
                 query_params.update(params)
 
-            yield from self.pagination_strategy.paginate(
-                self.api_client,
-                f"/{self.entity}",
+            yield from self._paginate_with_strategy(
+                path=f"/{self.entity}",
                 params=query_params,
-                logger=self._logger,
                 page_key=page_key,
                 next_key=next_key,
                 page_param=page_param,
-                normalize=self._normalize_payload,
+                normalize=None,
             )
 
         return self._wrap_iterator(iterator)

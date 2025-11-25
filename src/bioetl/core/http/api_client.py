@@ -7,7 +7,7 @@ import structlog
 
 from bioetl.core.http.cache import CacheStrategy
 from bioetl.core.http.circuit_breaker import CircuitBreakerStrategy
-from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
+from bioetl.core.http.pagination import ApiTransportProtocol, DefaultPaginationStrategy, PaginationStrategy
 from bioetl.core.http.rate_limiter import RateLimiter
 from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.request_executor import HTTPClientError, _ResilientRequestExecutor
@@ -127,13 +127,22 @@ class UnifiedAPIClient:
         next_key: str = "next",
         page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
-        yield from self._pagination.paginate(
-            path,
-            params,
-            lambda next_path, page_params: self.request("GET", next_path, params=page_params),
+        transport = _APIClientTransport(self)
+        initial_params = dict(params)
+        if page_param and page_param not in initial_params:
+            initial_params[page_param] = 1
+
+        initial_payload = transport.get(path, params=initial_params)
+
+        yield from self._pagination.iter_pages(
+            initial_payload,
+            transport,
+            path=path,
+            params=initial_params,
             page_key=page_key,
             next_key=next_key,
             page_param=page_param,
+            logger=self._logger,
         )
 
     def close(self) -> None:
@@ -159,9 +168,21 @@ class UnifiedAPIClient:
             json=json,
         )
 
-    __all__ = [
-        "APIConfig",
-        "UnifiedAPIClient",
-        "HTTPClientError",
-        "ResilientRequestExecutorFactory",
-    ]
+
+# -------------------------- transports ---------------------------
+
+
+class _APIClientTransport(ApiTransportProtocol):
+    def __init__(self, client: "UnifiedAPIClient") -> None:
+        self._client = client
+
+    def get(self, path: str, *, params: Mapping[str, Any] | None = None) -> Dict[str, Any]:
+        return self._client.request("GET", path, params=params)
+
+
+__all__ = [
+    "APIConfig",
+    "UnifiedAPIClient",
+    "HTTPClientError",
+    "ResilientRequestExecutorFactory",
+]

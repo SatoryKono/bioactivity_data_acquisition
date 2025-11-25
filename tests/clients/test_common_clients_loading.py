@@ -3,6 +3,9 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from typing import Any
 
+from collections.abc import Iterator, Mapping
+from typing import Any
+
 import pytest
 from structlog.testing import capture_logs
 
@@ -27,8 +30,8 @@ class _DummyApiClient:
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> Mapping[str, Any]:
-        del headers
-        return {"results": [{"endpoint": endpoint, "params": dict(params or {})}]}
+        del headers, endpoint, params
+        return self.payloads[0] if self.payloads else {"results": []}
 
     def paginate_json(
         self,
@@ -51,21 +54,23 @@ class _DummyPagination(PaginationStrategy):
     def __init__(self, payloads: list[Mapping[str, Any]]) -> None:
         self.payloads = payloads
 
-    def paginate(
+    def iter_pages(
         self,
-        api_client: Any,
-        endpoint: str,
+        initial_response: Mapping[str, Any],
+        transport: Any,
         *,
-        params: Mapping[str, Any] | None = None,
+        path: str,
+        params: Mapping[str, Any],
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
         logger: Any | None = None,
-        page_key: str | None = None,
-        next_key: str | None = None,
-        page_param: str | None = None,
     ) -> Iterator[Any]:
-        del api_client, page_key, next_key, page_param
+        del transport, page_key, next_key, page_param
         if logger:
-            logger.info("paginate_called", path=endpoint, params=dict(params or {}))
-        yield from self.payloads
+            logger.info("paginate_called", path=path, params=dict(params or {}))
+        yield initial_response
+        yield from self.payloads[1:]
 
 
 class _DummyEntityClient(UnifiedEntityClientBase):
