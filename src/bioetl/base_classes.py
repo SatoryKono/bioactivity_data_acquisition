@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Protocol, runtime_checkable
 
 __all__ = [
     "BaseApiClient",
+    "EntityClientProtocol",
     "JSONPayload",
     "JSONPage",
     "JSONRecord",
@@ -53,6 +54,27 @@ class BaseApiClient(Protocol):
 
     def close(self) -> None:
         """Release any resources (e.g. sessions) associated with the client."""
+
+
+class EntityClientProtocol(Protocol):
+    """Protocol capturing shared entity client operations."""
+
+    def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
+        ...
+
+    def fetch_all(
+        self,
+        *,
+        page_size: int = 1000,
+        params: Mapping[str, Any] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        ...
+
+    def close(self) -> None:
+        ...
 
 
 # ---------------------------------------------------------------------------
