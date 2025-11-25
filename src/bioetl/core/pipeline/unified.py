@@ -15,11 +15,11 @@ from bioetl.core.pipeline.services import (
     default_validation_service_factory,
     default_write_service_factory,
 )
-from bioetl.core.pipeline.stage_plan import build_default_stage_plan
+from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
 from bioetl.core.pipeline.types import (
-    PipelineStageCommand,
     RunResult,
     StageContext,
+    StageDescriptor,
     StageExecutionOptions,
     WriteArtifacts,
     WriteResult,
@@ -95,8 +95,9 @@ class UnifiedPipelineBase(PipelineBase):
 
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
-    ) -> tuple[PipelineStageCommand, ...]:
-        return build_default_stage_plan(self, context, options)
+    ) -> tuple[StageDescriptor, ...]:
+        metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=self.validator is not None)
+        return tuple(build_default_stage_plan(context.descriptor, metadata))
 
 ChemblPipelineT = TypeVar("ChemblPipelineT", bound="ChemblPipelineBase")
 

@@ -70,6 +70,42 @@ class PipelineStageCommand:
     description: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class StageDescriptor:
+    """Pure description of a pipeline stage independent of runtime deps."""
+
+    id: str
+    kind: str
+    params: dict[str, Any]
+    next: list[str]
+
+
+@dataclass(slots=True)
+class StageRuntimeContext:
+    """Runtime payload passed into instantiated stages."""
+
+    context: "StageContext"
+    options: StageExecutionOptions
+
+
+@dataclass(slots=True)
+class StageResult:
+    """Result of executing a stage."""
+
+    name: str
+    output: Any = None
+
+
+@runtime_checkable
+class Stage(Protocol):
+    """Executable stage with deterministic contract."""
+
+    name: str
+
+    def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
+        ...
+
+
 @runtime_checkable
 class PipelineStagesProtocol(Protocol):
     """Protocol describing the default ETL stages."""
@@ -119,7 +155,7 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
 
     def build_stage_plan(
         self, context: "StageContext", options: StageExecutionOptions
-    ) -> tuple[PipelineStageCommand, ...]:
+    ) -> tuple[StageDescriptor, ...]:
         ...
 
     def plan_run_artifacts(
@@ -130,7 +166,7 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
     def build_run_metadata(
         self,
         context: "StageContext",
-        stage_plan: Iterable[PipelineStageCommand],
+        stage_plan: Iterable[Stage],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
@@ -187,6 +223,10 @@ __all__ = [
     "PipelineBaseProtocol",
     "PipelineStageCommand",
     "PipelineStagesProtocol",
+    "Stage",
+    "StageDescriptor",
+    "StageResult",
+    "StageRuntimeContext",
     "RunArtifacts",
     "RunResult",
     "StageContext",

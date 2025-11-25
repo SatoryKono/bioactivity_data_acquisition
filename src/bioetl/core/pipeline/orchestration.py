@@ -10,11 +10,12 @@ import pandas as pd
 
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
+from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
 from bioetl.core.pipeline.types import (
     PipelineConfig,
-    PipelineStageCommand,
     PipelineStagesProtocol,
     StageContext,
+    StageDescriptor,
     StageExecutionOptions,
     WriteArtifacts,
 )
@@ -34,7 +35,7 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         super().__init__(config, run_id=run_id)
         self.output_root = Path(config.materialization.root)
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
-        self.stage_plan: tuple[PipelineStageCommand, ...] = ()
+        self.stage_plan: tuple[object, ...] = ()
 
     # Hook methods -----------------------------------------------------
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -56,9 +57,9 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
     # Orchestration ----------------------------------------------------
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
-    ) -> tuple[PipelineStageCommand, ...]:
-        factory = self.create_stage_factory()
-        plan = factory.build(context, options)
+    ) -> tuple[StageDescriptor, ...]:
+        metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=self.validator is not None)
+        plan = tuple(build_default_stage_plan(context.descriptor, metadata))
         self.stage_plan = plan
         return plan
 

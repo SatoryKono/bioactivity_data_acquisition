@@ -10,11 +10,7 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.types import (
-    PipelineStageCommand,
-    StageContext,
-    StageExecutionOptions,
-)
+from bioetl.core.pipeline.types import StageContext, StageDescriptor, StageExecutionOptions, StageRuntimeContext
 from bioetl.pipelines.chembl.common import ChemblPipelineContract
 
 _PIPELINE_REGISTRY: dict[str, Callable[[], ChemblPipelineContract]] = {}
@@ -68,25 +64,31 @@ def _build_stage_context(
     )
 
 
+def _filter_descriptors(
+    descriptors: tuple[StageDescriptor, ...], stages: tuple[str, ...]
+) -> tuple[StageDescriptor, ...]:
+    return tuple(descriptor for descriptor in descriptors if descriptor.id in stages)
+
+
 def build_extract_plan(
     pipeline: ChemblPipelineContract,
     output_dir: Path,
     *,
     run_tag: str | None = None,
     mode: str | None = None,
-) -> tuple[PipelineStageCommand, ...]:
+) -> tuple[StageDescriptor, ...]:
     """Construct an extract-only stage plan for a pipeline."""
 
     context = _build_stage_context(pipeline, output_dir, run_tag=run_tag, mode=mode)
     options = StageExecutionOptions(run_tag=run_tag, mode=mode, dry_run=False)
-    factory = StageFactory(pipeline)  # type: ignore[arg-type]
-    plan = factory.build(context, options, stages=("extract",))
-    # Seed descriptor so the pipeline can reuse it during execution.
+    descriptors = pipeline.build_stage_plan(context, options)
     context.descriptor = pipeline.build_descriptor()
-    for command in plan:
-        if command.name == "extract":
-            command.handler(context, options)
-    return plan
+    factory = StageFactory(pipeline)  # type: ignore[arg-type]
+    stages = factory.build(_filter_descriptors(descriptors, ("extract",)), context)
+    runtime_context = StageRuntimeContext(context=context, options=options)
+    for stage in stages:
+        stage.execute(runtime_context)
+    return descriptors
 
 
 def run_chembl_stage(
@@ -142,15 +144,19 @@ def run_chembl_stage(
         descriptor = getattr(pipeline, "build_descriptor", lambda: None)()
     context.descriptor = descriptor
 
-    factory = StageFactory(pipeline)  # type: ignore[arg-type]
-    stage_plan = factory.build(context, options, stages=(normalized_stage,))
+    descriptors = pipeline.build_stage_plan(context, options)
+    descriptor_plan = _filter_descriptors(descriptors, (normalized_stage,))
 
-    if not stage_plan:
+    if not descriptor_plan:
         raise ValueError(f"No stage plan available for stage '{normalized_stage}'")
 
+    factory = StageFactory(pipeline)  # type: ignore[arg-type]
+    stages = factory.build(descriptor_plan, context)
+
     result: Any = None
-    for command in stage_plan:
-        result = command.handler(context, options)
+    runtime_context = StageRuntimeContext(context=context, options=options)
+    for stage in stages:
+        result = stage.execute(runtime_context).output
 
     return result
 
