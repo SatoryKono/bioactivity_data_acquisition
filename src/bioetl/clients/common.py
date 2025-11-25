@@ -56,6 +56,7 @@ class EntityClientProtocol(Protocol):
 
 _T = TypeVar("_T")
 Normalizer = Callable[[Any], Iterator[dict[str, Any]]]
+_T = TypeVar("_T")
 
 
 class ApiClientMixin:
@@ -132,10 +133,31 @@ class ClosableMixin:
                 yield from self._normalize_payload(payload)
 
         return self._wrap_iterator(iterator)
-
 DEFAULT_PAGE_KEY = "results"
 DEFAULT_NEXT_KEY = "next"
 DEFAULT_PAGE_PARAM = "page"
+
+
+def iterate_by_ids(
+    *,
+    ids: Sequence[str],
+    entity: str,
+    api_client: BaseApiClient,
+    normalize: Normalizer,
+    wrap_callable: Callable[[Callable[[], _T], Mapping[str, Any] | None], _T],
+    wrap_iterator: Callable[[Callable[[], Iterator[dict[str, Any]]], Mapping[str, Any] | None], Iterator[dict[str, Any]]],
+    logger: structlog.stdlib.BoundLogger | structlog.types.BindableLogger,
+    path_template: str = "/{entity}/{id}",
+) -> Iterator[dict[str, Any]]:
+    def iterator() -> Iterator[dict[str, Any]]:
+        for raw_id in ids:
+            entity_id = str(raw_id)
+            path = path_template.format(entity=entity, id=entity_id)
+            payload = wrap_callable(lambda: api_client.get_json(path), log_context={"path": path})
+            logger.info("api_call", entity=entity, entity_id=entity_id)
+            yield from normalize(payload)
+
+    return wrap_iterator(iterator)
 
 
 class PaginatedFetcher(Protocol):
@@ -321,7 +343,15 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
         )
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
-        return self.iter_ids(ids, "/{entity}/{id}")
+        return iterate_by_ids(
+            ids=ids,
+            entity=self.entity,
+            api_client=self.api_client,
+            normalize=self._normalize_payload,
+            wrap_callable=self._wrap_callable,
+            wrap_iterator=self._wrap_iterator,
+            logger=self._logger,
+        )
 
     def list(
         self,
@@ -432,6 +462,7 @@ __all__ = [
     "DEFAULT_PAGE_PARAM",
     "ApiClientMixin",
     "ClosableMixin",
+    "iterate_by_ids",
     "PaginationStrategy",
     "NextLinkPagination",
     "PageParamPagination",

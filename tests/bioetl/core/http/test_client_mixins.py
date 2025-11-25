@@ -6,11 +6,12 @@ from structlog.testing import capture_logs
 
 from bioetl.clients import client_exceptions
 from bioetl.clients.chembl._base import ChemblEntityClient
-from bioetl.clients.common import ApiClientMixin, ApiTransportProtocol
+from bioetl.clients.common import ApiTransportProtocol
 from bioetl.clients.entities._base import _BaseEntityClient
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
-class _DummyApiClient(ApiClientMixin):
+class _DummyApiClient(ApiClientMixin, ClosableMixin):
     def __init__(self) -> None:
         self.transport = MagicMock(spec=ApiTransportProtocol)
         self.entity = "dummy"
@@ -183,7 +184,7 @@ def test_wrap_callable_converts_errors() -> None:
 
 
 def test_wrap_callable_preserves_bound_logger_context() -> None:
-    class _StructuredClient(ApiClientMixin):
+    class _StructuredClient(ApiClientMixin, ClosableMixin):
         def __init__(self) -> None:
             self.transport = MagicMock(spec=ApiTransportProtocol)
             self._logger = structlog.get_logger(__name__).bind(entity="molecule")

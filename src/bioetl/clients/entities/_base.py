@@ -7,6 +7,7 @@ from bioetl.clients.common import (
     PaginationStrategy,
     UnifiedEntityClientBase,
 )
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
 class _BaseEntityClient(UnifiedEntityClientBase):
