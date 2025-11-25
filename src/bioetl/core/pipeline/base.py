@@ -14,6 +14,7 @@ import yaml
 
 from .dto import RunResult, StageMetrics, WriteResult
 from .utils.interfaces import ErrorAction, ErrorPolicyABC
+from .validation.interfaces import DQIssue, DQRuleABC, ValidatorABC
 
 
 class PipelineBase(ABC):
@@ -25,11 +26,17 @@ class PipelineBase(ABC):
         *,
         error_policy: ErrorPolicyABC | None = None,
         hooks: Iterable["PipelineHookABC"] | None = None,
+        validator: "ValidatorABC | None" = None,
+        dq_rules: Iterable["DQRuleABC"] | None = None,
+        strict_validation: bool = False,
     ) -> None:
         self.run_id = run_id
         self._error_policy = error_policy
         self._hooks: list[PipelineHookABC] = list(hooks or [])
         self._clients: dict[str, object] = {}
+        self._validator = validator
+        self._dq_rules: list[DQRuleABC] = list(dq_rules or [])
+        self.strict_validation = strict_validation
         self.logger = structlog.get_logger().bind(
             pipeline=self.pipeline_name,
             run_id=self.run_id,
@@ -51,9 +58,47 @@ class PipelineBase(ABC):
         """Выполняет преобразования данных."""
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Базовая проверка данных (может быть переопределена)."""
+        """Проверяет данные согласно схеме и правилам качества."""
 
-        self.logger.info("validation_skipped", stage="validate", reason="no_schema")
+        if self._validator is None and not self._dq_rules:
+            self.logger.info("validation_skipped", stage="validate", reason="no_rules")
+            return df
+
+        records = df.to_dict(orient="records")
+        dq_issues: list["DQIssue"] = []
+        if self._validator is not None:
+            validation_result = self._validator.validate(records)
+        else:
+            validation_result = None
+
+        for rule in self._dq_rules:
+            dq_issues.extend(rule.evaluate(records))
+
+        has_schema_errors = validation_result is not None and not validation_result.is_valid
+        has_dq_errors = any(issue.severity.lower() == "error" for issue in dq_issues)
+        has_warnings = bool(validation_result and validation_result.warnings) or any(
+            issue.severity.lower() == "warning" for issue in dq_issues
+        )
+
+        if has_schema_errors or has_dq_errors or (self.strict_validation and has_warnings):
+            self.logger.error(
+                "validation_failed",
+                stage="validate",
+                errors=len(validation_result.errors) if validation_result else 0,
+                dq_issues=len(dq_issues),
+                warnings=len(validation_result.warnings) if validation_result else 0,
+                strict=self.strict_validation,
+            )
+            raise ValueError("Validation stage failed")
+
+        self.logger.info(
+            "validation_passed",
+            stage="validate",
+            errors=len(validation_result.errors) if validation_result else 0,
+            dq_issues=len(dq_issues),
+            warnings=len(validation_result.warnings) if validation_result else 0,
+            strict=self.strict_validation,
+        )
         return df
 
     def write(self, df: pd.DataFrame, output_path: str | Path) -> WriteResult:
