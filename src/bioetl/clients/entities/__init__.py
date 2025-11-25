@@ -1,16 +1,5 @@
 """Клиенты ChEMBL entities."""
 
-from bioetl.clients.entities.common import (
-    ChemblActivityClient,
-    ChemblAssayClient,
-    ChemblDocumentClient,
-    ChemblEntity,
-    ChemblEntityClient,
-    ChemblEntityClientFactory,
-    ChemblTargetClient,
-    ChemblTestItemClient,
-)
-
 __all__ = [
     "ChemblActivityClient",
     "ChemblAssayClient",
@@ -21,3 +10,11 @@ __all__ = [
     "ChemblTargetClient",
     "ChemblTestItemClient",
 ]
+
+
+def __getattr__(name: str):
+    if name in __all__:
+        from bioetl.clients.entities import common
+
+        return getattr(common, name)
+    raise AttributeError(name)

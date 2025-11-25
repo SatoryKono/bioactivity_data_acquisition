@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from bioetl.base_classes import BaseApiClient
-from bioetl.clients.chembl._base import BaseChemblClient
+from bioetl.clients.chembl._base import ChemblEntityClient
+from bioetl.clients.common import ApiTransportProtocol
 
 
-class ChemblActivityClient(BaseChemblClient):
-    def __init__(self, api_client: BaseApiClient) -> None:
-        super().__init__(api_client, "activity")
+class ChemblActivityClient(ChemblEntityClient):
+    def __init__(self, transport: ApiTransportProtocol) -> None:
+        super().__init__(transport, "activity")
 
 
 __all__ = ["ChemblActivityClient"]

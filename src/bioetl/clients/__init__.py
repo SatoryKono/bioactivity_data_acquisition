@@ -3,9 +3,12 @@
 from bioetl.clients.client_exceptions import ConnectionError, HTTPError, RequestException, Timeout
 from bioetl.clients.common import (
     ApiClientMixin,
+    ApiTransportProtocol,
+    EntityClientProtocol,
     NextLinkPagination,
     PageParamPagination,
     PaginationStrategy,
+    cache_entity_client,
 )
 from bioetl.clients.chembl import (
     ChemblActivityClient,
@@ -14,6 +17,7 @@ from bioetl.clients.chembl import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
+from bioetl.clients.transports import AioHttpTransport, RequestsTransport
 from bioetl.clients.factories import default_chembl_factory
 
 __all__ = [
@@ -22,6 +26,9 @@ __all__ = [
     "RequestException",
     "Timeout",
     "ApiClientMixin",
+    "ApiTransportProtocol",
+    "EntityClientProtocol",
+    "cache_entity_client",
     "PaginationStrategy",
     "NextLinkPagination",
     "PageParamPagination",
@@ -31,4 +38,6 @@ __all__ = [
     "ChemblTargetClient",
     "ChemblTestItemClient",
     "default_chembl_factory",
+    "RequestsTransport",
+    "AioHttpTransport",
 ]
