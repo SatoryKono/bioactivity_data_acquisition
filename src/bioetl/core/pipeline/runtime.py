@@ -15,6 +15,7 @@ import yaml
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import (
+    PipelineBaseProtocol,
     PipelineStageCommand,
     RunArtifacts,
     RunResult,
@@ -78,7 +79,7 @@ def _execute_stage_plan(
     return durations, error, qc_metrics_path
 
 
-class PipelineRuntimeBase(ABC):
+class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     """Common runtime for pipelines that orchestrate ETL stage plans."""
 
     deterministic_folder_prefix: str = "_"

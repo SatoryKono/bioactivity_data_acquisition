@@ -10,6 +10,7 @@ from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
+    PipelineBaseProtocol,
     RunResult,
     StageExecutionOptions,
     WriteArtifacts,
@@ -93,3 +94,14 @@ def test_dry_run_skips_writing(pipeline: DummyPipeline, tmp_path: Path) -> None:
     data_path = result.artifacts.write_artifacts.data_path
     assert data_path is not None
     assert not data_path.exists()
+
+
+def test_pipeline_adheres_to_base_protocol(pipeline: DummyPipeline) -> None:
+    assert isinstance(pipeline, PipelineBaseProtocol)
+
+
+def test_pipeline_sample_option_limits_rows(pipeline: DummyPipeline, tmp_path: Path) -> None:
+    output_dir = tmp_path / "output"
+    result = pipeline.run(output_dir, sample=1)
+
+    assert result.rows == 1

@@ -102,7 +102,7 @@ def build_extract_plan(
     context = _build_stage_context(pipeline, output_dir, run_tag=run_tag, mode=mode)
     options = StageExecutionOptions(run_tag=run_tag, mode=mode, dry_run=False)
     factory = StageFactory(pipeline)  # type: ignore[arg-type]
-    plan = factory.build(options, stages=("extract",))
+    plan = factory.build(context, options, stages=("extract",))
     # Seed descriptor so the pipeline can reuse it during execution.
     context.descriptor = pipeline.build_descriptor()
     for command in plan:
