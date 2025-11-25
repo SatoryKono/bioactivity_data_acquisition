@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import time
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -9,8 +8,8 @@ from typing import Any, Callable, Generic, Mapping, Sequence, TypeVar
 
 import pandas as pd
 import pandera as pa
-import yaml
 
+from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.stage_plan import build_default_stage_plan
 from bioetl.core.pipeline.types import (
@@ -45,8 +44,15 @@ class PipelineBase(PipelineRuntimeBase):
         *,
         run_id: str | None = None,
         validator: pa.DataFrameSchema | None = None,
+        artifact_writer: ArtifactWriter | None = None,
     ) -> None:
         super().__init__(config, run_id=run_id, validator=validator)
+        self.artifact_writer = artifact_writer or ArtifactWriter(
+            pipeline_code=self.pipeline_code,
+            run_id=self.run_id,
+            git_commit=self._git_commit,
+            config_hash=self._config_hash,
+        )
 
     @abstractmethod
     def extract(self, descriptor: Any | None, options: StageExecutionOptions) -> pd.DataFrame:
@@ -92,53 +98,24 @@ class UnifiedPipelineBase(PipelineBase):
             return df
         return self.validator.validate(df)
 
-    def _sort_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        columns = sorted(df.columns)
-        return df.loc[:, columns].sort_values(by=columns).reset_index(drop=True)
-
     def _empty_frame_from_schema(self) -> pd.DataFrame:
         if self.validator is None:
             return pd.DataFrame()
         columns = {name: pd.Series(dtype=str(schema.dtype)) for name, schema in self.validator.columns.items()}
         return pd.DataFrame(columns)
 
-    # Metadata -----------------------------------------------------------
-    def _write_metadata(self, output_dir: Path, df: pd.DataFrame | None) -> None:
-        meta_path = output_dir / "meta.yaml"
-        manifest_path = output_dir / "run_manifest.json"
-        payload = {
-            "run_id": self.run_id,
-            "pipeline": self.pipeline_name,
-            "git_commit": self._git_commit,
-            "config_hash": self._config_hash,
-            "rows": 0 if df is None else int(df.shape[0]),
-            "columns": [] if df is None else list(df.columns),
-            "dry_run": self.dry_run,
-        }
-        meta_path.write_text(yaml.safe_dump(payload, allow_unicode=True))
-        manifest = {
-            "run_id": self.run_id,
-            "artifacts": {
-                "meta": meta_path.name,
-            },
-            "metrics": payload,
-        }
-        manifest_path.write_text(json.dumps(manifest, indent=2))
-
     # Default save_results ------------------------------------------------
     def save_results(
         self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
     ) -> WriteResult:
         output_dir = artifacts.data_path.parent if artifacts.data_path else Path.cwd()
-        output_dir.mkdir(parents=True, exist_ok=True)
-        dataset_path = artifacts.data_path or output_dir / f"{self.pipeline_name}.csv"
-        artifacts.data_path = dataset_path
-        tmp_path = dataset_path.with_suffix(dataset_path.suffix + ".tmp")
-        df.to_csv(tmp_path, index=False)
-        tmp_path.replace(dataset_path)
-        if options.extended:
-            self._write_metadata(output_dir, df)
-        return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)
+        return self.artifact_writer.write(
+            df,
+            artifacts,
+            output_dir=output_dir,
+            dry_run=self.dry_run,
+            extended=options.extended,
+        )
 
 
 ChemblPipelineT = TypeVar("ChemblPipelineT", bound="ChemblPipelineBase")

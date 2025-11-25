@@ -10,7 +10,6 @@ from bioetl.core.io.artifacts import (
     hash_business_key,
     hash_row,
 )
-
 try:  # pragma: no cover - допускаем отсутствие тяжёлых зависимостей при импорте
     from bioetl.core.io.output import (
         AtomicWriter,
@@ -31,6 +30,7 @@ except Exception:  # pragma: no cover - заглушки для ленивой �
     write_yaml_atomic = None
 
 __all__ = [
+    "ArtifactWriter",
     "DeterminismSettings",
     "RunArtifacts",
     "SchemaRegistry",
@@ -44,6 +44,7 @@ __all__ = [
 
 def __getattr__(name: str):  # pragma: no cover - thin lazy loader
     if name in {
+        "ArtifactWriter",
         "AtomicWriter",
         "UnifiedOutputWriter",
         "build_meta_yaml",
@@ -52,6 +53,7 @@ def __getattr__(name: str):  # pragma: no cover - thin lazy loader
         "write_json_atomic",
         "write_yaml_atomic",
     }:
-        module = import_module("bioetl.core.io.output")
+        module_name = "bioetl.core.io.writer" if name == "ArtifactWriter" else "bioetl.core.io.output"
+        module = import_module(module_name)
         return getattr(module, name)
     raise AttributeError(name)
