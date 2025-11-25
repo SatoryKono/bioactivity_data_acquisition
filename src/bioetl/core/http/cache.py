@@ -6,9 +6,29 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping
+from typing import Any, Mapping, MutableMapping, Protocol, runtime_checkable
 
 import structlog
+
+
+@runtime_checkable
+class CacheStrategy(Protocol):
+    """Контракт для кэшей HTTP-ответов."""
+
+    @staticmethod
+    def make_key(
+        method: str,
+        url: str,
+        params: Mapping[str, Any] | None,
+        headers: Mapping[str, str] | None,
+    ) -> str:
+        ...
+
+    def get(self, key: str) -> bytes | None:
+        ...
+
+    def set(self, key: str, value: bytes) -> None:
+        ...
 
 
 @dataclass(frozen=True)
@@ -17,7 +37,7 @@ class TTLCacheConfig:
     path: Path | None = None
 
 
-class TTLCache:
+class TTLCache(CacheStrategy):
     """Потокобезопасный TTL-кэш в памяти или файле."""
 
     def __init__(self, config: TTLCacheConfig) -> None:
@@ -78,4 +98,4 @@ class TTLCache:
                 store.sync()  # type: ignore[operator]
 
 
-__all__ = ["TTLCache", "TTLCacheConfig"]
+__all__ = ["CacheStrategy", "TTLCache", "TTLCacheConfig"]

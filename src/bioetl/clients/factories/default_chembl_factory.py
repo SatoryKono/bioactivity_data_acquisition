@@ -14,6 +14,11 @@ from bioetl.clients.chembl import (
 )
 from bioetl.config.models import PipelineConfig
 from bioetl.core.http.api_client import APIConfig, UnifiedAPIClient
+from bioetl.core.http.cache import TTLCache, TTLCacheConfig
+from bioetl.core.http.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from bioetl.core.http.pagination import DefaultPaginationStrategy
+from bioetl.core.http.rate_limiter import TokenBucketConfig, TokenBucketRateLimiter
+from bioetl.core.http.retry import RetryPolicy
 
 
 def _resolve_api_config(config: PipelineConfig) -> APIConfig:
@@ -48,7 +53,28 @@ def default_chembl_factory(
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
-    shared_client = api_client or UnifiedAPIClient(api_config)
+    shared_client = api_client or UnifiedAPIClient(
+        api_config,
+        retry_strategy=RetryPolicy(
+            max_retries=api_config.max_retries,
+            backoff_factor=api_config.backoff_factor,
+            max_backoff_sec=api_config.max_backoff_sec,
+        ),
+        rate_limiter=TokenBucketRateLimiter(
+            TokenBucketConfig(
+                max_tokens=api_config.rate_limit_calls,
+                refill_period_sec=float(api_config.rate_limit_period_sec),
+            )
+        ),
+        cache=TTLCache(TTLCacheConfig(ttl_seconds=api_config.cache_ttl_sec)) if api_config.cache_enabled else None,
+        circuit_breaker=CircuitBreaker(
+            CircuitBreakerConfig(
+                failure_threshold=api_config.circuit_breaker_fail_max,
+                reset_timeout_sec=api_config.circuit_breaker_reset_sec,
+            )
+        ),
+        pagination_strategy=DefaultPaginationStrategy(),
+    )
 
     return {
         "activity": lambda: ChemblActivityClient(shared_client),

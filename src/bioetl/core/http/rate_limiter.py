@@ -3,9 +3,20 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Protocol, runtime_checkable
 
 import structlog
+
+
+@runtime_checkable
+class RateLimiter(Protocol):
+    """Контракт для ограничителей скорости."""
+
+    def try_acquire(self) -> bool:
+        ...
+
+    def acquire(self, *, timeout: Optional[float] = None) -> bool:
+        ...
 
 
 @dataclass(frozen=True)
@@ -14,7 +25,7 @@ class TokenBucketConfig:
     refill_period_sec: float
 
 
-class TokenBucketRateLimiter:
+class TokenBucketRateLimiter(RateLimiter):
     """Простой и потокобезопасный token-bucket лимитер.
 
     Поддерживает блокирующее ``acquire`` с опциональным таймаутом и
@@ -87,4 +98,4 @@ class TokenBucketRateLimiter:
             waited_total += sleep_for
 
 
-__all__ = ["TokenBucketConfig", "TokenBucketRateLimiter"]
+__all__ = ["RateLimiter", "TokenBucketConfig", "TokenBucketRateLimiter"]
