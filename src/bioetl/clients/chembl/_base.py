@@ -12,13 +12,16 @@ from bioetl.clients.common import (
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
     ApiClientMixin,
+    ClosableMixin,
     NextLinkPagination,
     PaginatedFetcher,
 )
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
-class BaseChemblClient(UnifiedEntityClientBase):
+class BaseChemblClient(
+    ClosableMixin, ApiClientMixin, BaseApiClient, EntityClientProtocol
+):
     def __init__(
         self,
         api_client: BaseApiClient,

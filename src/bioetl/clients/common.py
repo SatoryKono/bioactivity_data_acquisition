@@ -37,6 +37,14 @@ class ApiClientMixin:
             yield {"result": payload}
 
 
+class ClosableMixin:
+    api_client: BaseApiClient
+
+    def close(self) -> None:
+        close = getattr(self.api_client, "close", None)
+        if callable(close):
+            close()
+
     def _wrap_callable(
         self, func: Callable[[], _T], *, log_context: Mapping[str, Any] | None = None
     ) -> _T:
@@ -299,7 +307,7 @@ __all__ = [
     "DEFAULT_PAGE_KEY",
     "DEFAULT_PAGE_PARAM",
     "ApiClientMixin",
-    "PaginatedFetcher",
+    "ClosableMixin",
     "PaginationStrategy",
     "NextLinkPagination",
     "PageParamPagination",
