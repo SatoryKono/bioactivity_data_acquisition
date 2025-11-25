@@ -14,6 +14,7 @@ from bioetl.clients import (
     RequestException,
 )
 from bioetl.clients.common import UnifiedEntityClientBase
+from bioetl.infra import PaginationRegistry
 
 
 class _DummyApiClient:
@@ -61,19 +62,44 @@ class _DummyPagination(PaginationStrategy):
         page_key: str | None = None,
         next_key: str | None = None,
         page_param: str | None = None,
+        normalize=None,
     ) -> Iterator[Any]:
-        del api_client, page_key, next_key, page_param
+        del api_client, page_key, next_key, page_param, normalize
         if logger:
             logger.info("paginate_called", path=endpoint, params=dict(params or {}))
         yield from self.payloads
 
 
 class _DummyEntityClient(UnifiedEntityClientBase):
-    def __init__(self, api_client: _DummyApiClient, payloads: list[Mapping[str, Any]]) -> None:
+    def __init__(
+        self,
+        api_client: _DummyApiClient,
+        payloads: list[Mapping[str, Any]],
+        *,
+        pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
+    ) -> None:
         self._payloads = payloads
-        super().__init__(api_client, "dummy", pagination_strategy=_DummyPagination(payloads))
+        strategy = pagination_strategy
+        if strategy is None and pagination_strategy_name is None:
+            strategy = _DummyPagination(payloads)
+        super().__init__(
+            api_client,
+            "dummy",
+            pagination_strategy=strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=pagination_registry,
+        )
 
-    def default_pagination_strategy(self) -> PaginationStrategy:
+    def default_pagination_strategy(
+        self,
+        *,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
+    ) -> PaginationStrategy:
+        if pagination_strategy_name and pagination_registry:
+            return pagination_registry.get(pagination_strategy_name)
         return _DummyPagination(self._payloads)
 
 
@@ -108,3 +134,22 @@ def test_wrap_callable_converts_exceptions_and_logs_error() -> None:
         client._wrap_callable(lambda: (_ for _ in ()).throw(ValueError("boom")))
 
     assert any(entry.get("event") == "api_call_failed" for entry in logs)
+
+
+def test_client_uses_registry_strategy_by_name() -> None:
+    registry_payloads = [{"results": [{"id": "registry"}]}]
+    registry = PaginationRegistry()
+    registry.register("custom", lambda: _DummyPagination(registry_payloads))
+
+    client = _DummyEntityClient(
+        _DummyApiClient(registry_payloads),
+        [],
+        pagination_strategy_name="custom",
+        pagination_registry=registry,
+    )
+
+    records = list(client.fetch_all())
+
+    assert client.pagination_strategy is not None
+    assert isinstance(client.pagination_strategy, _DummyPagination)
+    assert records == [{"id": "registry"}]

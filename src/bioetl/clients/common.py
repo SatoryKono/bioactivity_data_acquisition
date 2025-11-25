@@ -8,6 +8,7 @@ import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients import client_exceptions
+from bioetl.infra import PaginationRegistry, default_pagination_registry
 
 
 _T = TypeVar("_T")
@@ -219,7 +220,13 @@ class PageParamPagination:
             yield from _iter_payload_items(payload, page_key=page_key, normalize=normalize)
 
 
-class UnifiedEntityClientBase(ApiClientMixin, BaseApiClient, EntityClientProtocol, ABC):
+default_pagination_registry.register("next_link", NextLinkPagination)
+default_pagination_registry.register("page_param", PageParamPagination)
+
+
+class UnifiedEntityClientBase(
+    ApiClientMixin, ClosableMixin, BaseApiClient, EntityClientProtocol, ABC
+):
     """Общая база для клиентов ChEMBL-подобных сущностей."""
 
     def __init__(
@@ -228,14 +235,25 @@ class UnifiedEntityClientBase(ApiClientMixin, BaseApiClient, EntityClientProtoco
         entity: str,
         *,
         pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
-        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy()
+        self._pagination_registry = pagination_registry or default_pagination_registry
+        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy(
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=self._pagination_registry,
+        )
 
     @abstractmethod
-    def default_pagination_strategy(self) -> PaginationStrategy:
+    def default_pagination_strategy(
+        self,
+        *,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
+    ) -> PaginationStrategy:
         """Выбор стратегии пагинации по умолчанию для конкретного клиента."""
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:

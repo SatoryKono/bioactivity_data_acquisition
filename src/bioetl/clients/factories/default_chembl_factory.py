@@ -16,6 +16,7 @@ from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
 from bioetl.core.http.api_client import APIConfig
 from bioetl.core.http.pagination import DefaultPaginationStrategy
+from bioetl.infra import PaginationRegistry, default_pagination_registry
 
 
 def _resolve_api_config(config: PipelineConfig) -> APIConfig:
@@ -45,11 +46,16 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
 
 
 def default_chembl_factory(
-    config: PipelineConfig, api_client: BaseApiClient | None = None
+    config: PipelineConfig,
+    api_client: BaseApiClient | None = None,
+    *,
+    pagination_strategy_name: str | None = None,
+    pagination_registry: PaginationRegistry | None = None,
 ) -> dict[str, Callable[[], BaseApiClient]]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
+    registry = pagination_registry or default_pagination_registry
 
     if api_client is not None:
         shared_client = api_client
@@ -65,18 +71,49 @@ def default_chembl_factory(
         )
 
     return {
-        "activity": lambda: ChemblActivityClient(shared_client),
-        "assay": lambda: ChemblAssayClient(shared_client),
-        "document": lambda: ChemblDocumentClient(shared_client),
-        "target": lambda: ChemblTargetClient(shared_client),
-        "testitem": lambda: ChemblTestItemClient(shared_client),
+        "activity": lambda: ChemblActivityClient(
+            shared_client,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=registry,
+        ),
+        "assay": lambda: ChemblAssayClient(
+            shared_client,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=registry,
+        ),
+        "document": lambda: ChemblDocumentClient(
+            shared_client,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=registry,
+        ),
+        "target": lambda: ChemblTargetClient(
+            shared_client,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=registry,
+        ),
+        "testitem": lambda: ChemblTestItemClient(
+            shared_client,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=registry,
+        ),
     }
 
 
-def default_activity_client_factory(config: PipelineConfig, api_client: BaseApiClient | None = None) -> ChemblActivityClient:
+def default_activity_client_factory(
+    config: PipelineConfig,
+    api_client: BaseApiClient | None = None,
+    *,
+    pagination_strategy_name: str | None = None,
+    pagination_registry: PaginationRegistry | None = None,
+) -> ChemblActivityClient:
     """Построить клиент ChEMBL Activity с настройками по умолчанию."""
 
-    factory = default_chembl_factory(config, api_client=api_client)
+    factory = default_chembl_factory(
+        config,
+        api_client=api_client,
+        pagination_strategy_name=pagination_strategy_name,
+        pagination_registry=pagination_registry,
+    )
     builder = factory.get("activity")
     if builder is None:  # pragma: no cover - защитная проверка
         raise RuntimeError("Activity client builder is not configured")

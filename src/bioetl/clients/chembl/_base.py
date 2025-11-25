@@ -11,11 +11,11 @@ from bioetl.clients.common import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    ApiClientMixin,
     ClosableMixin,
-    NextLinkPagination,
     PaginatedFetcher,
+    PaginationStrategy,
 )
+from bioetl.infra import PaginationRegistry, default_pagination_registry
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
@@ -28,11 +28,17 @@ class BaseChemblClient(
         entity: str,
         *,
         pagination_strategy: PaginatedFetcher | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
-        self.pagination_strategy = pagination_strategy or NextLinkPagination()
+        self._pagination_registry = pagination_registry or default_pagination_registry
+        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy(
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=self._pagination_registry,
+        )
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         return self.iter_ids(ids, "/{entity}/{id}")
@@ -92,8 +98,15 @@ class BaseChemblClient(
             page_param=page_param,
         )
 
-    def default_pagination_strategy(self) -> PaginationStrategy:
-        return NextLinkPagination()
+    def default_pagination_strategy(
+        self,
+        *,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
+    ) -> PaginationStrategy:
+        registry = pagination_registry or self._pagination_registry
+        strategy_name = pagination_strategy_name or "next_link"
+        return registry.get(strategy_name)
 
     def iterate_records(self, descriptor: ChemblExtractionDescriptor) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:

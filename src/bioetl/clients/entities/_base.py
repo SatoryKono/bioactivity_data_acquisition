@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from bioetl.base_classes import BaseApiClient
-from bioetl.clients.common import PageParamPagination, PaginationStrategy, UnifiedEntityClientBase
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any
 
+import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients.common import (
@@ -10,11 +11,10 @@ from bioetl.clients.common import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    ApiClientMixin,
     ClosableMixin,
-    PageParamPagination,
     PaginatedFetcher,
 )
+from bioetl.infra import PaginationRegistry, default_pagination_registry
 
 
 class _BaseEntityClient(ClosableMixin, ApiClientMixin, BaseApiClient, EntityClientProtocol):
@@ -24,11 +24,16 @@ class _BaseEntityClient(ClosableMixin, ApiClientMixin, BaseApiClient, EntityClie
         entity: str,
         *,
         pagination_strategy: PaginatedFetcher | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
-        self.pagination_strategy = pagination_strategy or PageParamPagination()
+        self._pagination_registry = pagination_registry or default_pagination_registry
+        self.pagination_strategy = pagination_strategy or self._pagination_registry.get(
+            pagination_strategy_name or "page_param"
+        )
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         return self.iter_ids(ids, "/{entity}/{id}")
