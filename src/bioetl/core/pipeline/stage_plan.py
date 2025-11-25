@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -8,8 +9,8 @@ from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     PipelineStageCommand,
-    StageContext,
-    StageExecutionOptions,
+    StageContextProtocol,
+    StageRuntimeContext,
 )
 
 
@@ -42,69 +43,73 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_default_stage_plan(
-    pipeline: PipelineBaseProtocol, context: StageContext, options: StageExecutionOptions
+    pipeline: PipelineBaseProtocol,
+    context: StageContextProtocol,
+    runtime: StageRuntimeContext,
 ) -> tuple[PipelineStageCommand, ...]:
     """Assemble a deterministic stage plan shared across pipeline bases."""
 
     validation_service = getattr(pipeline, "validation_service", None)
     write_service = getattr(pipeline, "write_service", None)
 
-    def _run_extract(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-        if exec_options.dry_run:
+    def _run_extract(stage_context: StageContextProtocol, exec_runtime: StageRuntimeContext) -> pd.DataFrame:
+        options = exec_runtime.options
+        descriptor = exec_runtime.input_data
+        if descriptor is None:
+            descriptor = exec_runtime.attributes.get("descriptor")
+        if options.dry_run:
             if validation_service:
                 frame = validation_service.empty_frame()
             else:
                 frame = _empty_frame_from_schema(pipeline)
         else:
-            frame = pipeline.extract(stage_context.descriptor, exec_options)
-        if exec_options.limit is not None and frame is not None:
-            frame = frame.head(exec_options.limit)
-        if exec_options.sample is not None and frame is not None and not frame.empty:
-            frame = frame.sample(min(exec_options.sample, len(frame)), random_state=0)
-        stage_context.current_df = frame
+            frame = pipeline.extract(descriptor, options)
+        if options.limit is not None and frame is not None:
+            frame = frame.head(options.limit)
+        if options.sample is not None and frame is not None and not frame.empty:
+            frame = frame.sample(min(options.sample, len(frame)), random_state=0)
         return frame
 
-    def _run_transform(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-        if stage_context.current_df is None:
+    def _run_transform(stage_context: StageContextProtocol, exec_runtime: StageRuntimeContext) -> pd.DataFrame:
+        if exec_runtime.input_data is None:
             raise RuntimeError("transform stage requires extracted data")
-        stage_context.current_df = pipeline.transform(stage_context.current_df, exec_options)
-        return stage_context.current_df
+        return pipeline.transform(exec_runtime.input_data, exec_runtime.options)
 
-    def _run_validate(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-        if stage_context.current_df is None:
+    def _run_validate(stage_context: StageContextProtocol, exec_runtime: StageRuntimeContext) -> pd.DataFrame:
+        if exec_runtime.input_data is None:
             raise RuntimeError("validate stage requires transformed data")
         if validation_service:
             frame = validation_service.validate(
-                stage_context.current_df, pipeline=pipeline, options=exec_options
+                exec_runtime.input_data, pipeline=pipeline, options=exec_runtime.options
             )
         else:
-            frame = _validate_with_schema(pipeline, stage_context.current_df)
-            frame = pipeline.validate(frame, exec_options)
+            frame = _validate_with_schema(pipeline, exec_runtime.input_data)
+            frame = pipeline.validate(frame, exec_runtime.options)
             frame = _sort_dataframe(frame)
-        stage_context.current_df = frame
-        return stage_context.current_df
+        return frame
 
     def _run_save_results(
-        stage_context: StageContext, exec_options: StageExecutionOptions
-        ) -> Any:
-        if stage_context.current_df is None:
+        stage_context: StageContextProtocol, exec_runtime: StageRuntimeContext
+    ) -> Any:
+        if exec_runtime.input_data is None:
             raise RuntimeError("save_results stage requires validated data")
-        artifacts = stage_context.artifacts or WriteArtifacts(
-            data_path=stage_context.output_dir / f"{_pipeline_name(pipeline)}.csv"
+        artifacts = exec_runtime.attributes.get("artifacts") or WriteArtifacts(
+            data_path=exec_runtime.attributes.get("output_dir", Path.cwd())
+            / f"{_pipeline_name(pipeline)}.csv"
         )
-        stage_context.artifacts = artifacts
         if write_service:
             result = write_service.save(
-                stage_context.current_df,
+                exec_runtime.input_data,
                 artifacts,
-                exec_options,
+                exec_runtime.options,
                 context=stage_context,
+                runtime=exec_runtime,
             )
         else:
-            result = pipeline.save_results(stage_context.current_df, artifacts, exec_options)
+            result = pipeline.save_results(exec_runtime.input_data, artifacts, exec_runtime.options)
         if hasattr(result, "artifacts") and result.artifacts:
-            stage_context.artifacts = result.artifacts
-        stage_context.metadata.setdefault("write_result", result)
+            exec_runtime.attributes["artifacts"] = result.artifacts
+        exec_runtime.attributes.setdefault("metadata", {}).setdefault("write_result", result)
         return result
 
     stage_plan: tuple[PipelineStageCommand, ...] = (
@@ -114,7 +119,7 @@ def build_default_stage_plan(
         PipelineStageCommand("save_results", _run_save_results),
     )
 
-    if options.dry_run:
+    if runtime.options.dry_run:
         stage_plan = tuple(command for command in stage_plan if command.name != "save_results")
         if getattr(pipeline, "validator", None) is None:
             stage_plan = tuple(command for command in stage_plan if command.name == "extract")

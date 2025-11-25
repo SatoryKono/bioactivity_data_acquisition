@@ -19,8 +19,9 @@ from bioetl.core.pipeline.stage_plan import build_default_stage_plan
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
     RunResult,
-    StageContext,
+    StageContextProtocol,
     StageExecutionOptions,
+    StageRuntimeContext,
     WriteArtifacts,
     WriteResult,
 )
@@ -94,9 +95,9 @@ class UnifiedPipelineBase(PipelineBase):
     """Базовая реализация общего жизненного цикла ETL."""
 
     def build_stage_plan(
-        self, context: StageContext, options: StageExecutionOptions
+        self, context: StageContextProtocol, runtime: StageRuntimeContext
     ) -> tuple[PipelineStageCommand, ...]:
-        return build_default_stage_plan(self, context, options)
+        return build_default_stage_plan(self, context, runtime)
 
 ChemblPipelineT = TypeVar("ChemblPipelineT", bound="ChemblPipelineBase")
 
