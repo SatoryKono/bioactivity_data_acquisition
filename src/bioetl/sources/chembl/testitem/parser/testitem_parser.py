@@ -1,37 +1,21 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import pandas as pd
 
+from bioetl.sources.chembl.common import ColumnMapping, build_records_from_payload
 
-def _extract_items(payload: Any) -> Iterable[Mapping[str, Any]]:
-    if isinstance(payload, Mapping):
-        results = payload.get("results")
-        if isinstance(results, list):
-            for item in results:
-                if isinstance(item, Mapping):
-                    yield item
-        elif payload:
-            yield payload
-    elif isinstance(payload, list):
-        for item in payload:
-            if isinstance(item, Mapping):
-                yield item
+
+_TESTITEM_MAPPINGS = [
+    ColumnMapping("test_item_id", ("molecule_chembl_id", "test_item_id")),
+    ColumnMapping("name", ("pref_name", "name")),
+    ColumnMapping("molecule_type", ("molecule_type",)),
+    ColumnMapping("inchi_key", ("inchi_key",)),
+]
 
 
 def parse_testitem_payload(payload: Any) -> pd.DataFrame:
-    records = []
-    for item in _extract_items(payload):
-        records.append(
-            {
-                "test_item_id": item.get("molecule_chembl_id") or item.get("test_item_id"),
-                "name": item.get("pref_name") or item.get("name"),
-                "molecule_type": item.get("molecule_type"),
-                "inchi_key": item.get("inchi_key"),
-            }
-        )
-    return pd.DataFrame.from_records(
-        records,
-        columns=["test_item_id", "name", "molecule_type", "inchi_key"],
-    )
+    records = build_records_from_payload(payload, _TESTITEM_MAPPINGS)
+    columns = [mapping.column for mapping in _TESTITEM_MAPPINGS]
+    return pd.DataFrame.from_records(records, columns=columns)

@@ -1,34 +1,21 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import pandas as pd
 
+from bioetl.sources.chembl.common import ColumnMapping, build_records_from_payload
 
-def _extract_items(payload: Any) -> Iterable[Mapping[str, Any]]:
-    if isinstance(payload, Mapping):
-        results = payload.get("results")
-        if isinstance(results, list):
-            for item in results:
-                if isinstance(item, Mapping):
-                    yield item
-        elif payload:
-            yield payload
-    elif isinstance(payload, list):
-        for item in payload:
-            if isinstance(item, Mapping):
-                yield item
+
+_DOCUMENT_MAPPINGS = [
+    ColumnMapping("document_id", ("document_chembl_id", "document_id")),
+    ColumnMapping("doi", ("doi",)),
+    ColumnMapping("title", ("title",)),
+    ColumnMapping("journal", ("journal",)),
+]
 
 
 def parse_document_payload(payload: Any) -> pd.DataFrame:
-    records = []
-    for item in _extract_items(payload):
-        records.append(
-            {
-                "document_id": item.get("document_chembl_id") or item.get("document_id"),
-                "doi": item.get("doi"),
-                "title": item.get("title"),
-                "journal": item.get("journal"),
-            }
-        )
-    return pd.DataFrame.from_records(records, columns=["document_id", "doi", "title", "journal"])
+    records = build_records_from_payload(payload, _DOCUMENT_MAPPINGS)
+    columns = [mapping.column for mapping in _DOCUMENT_MAPPINGS]
+    return pd.DataFrame.from_records(records, columns=columns)
