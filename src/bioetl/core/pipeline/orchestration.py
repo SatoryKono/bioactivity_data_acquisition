@@ -9,7 +9,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.runtime import PipelineRuntimeBase, QCMetricsExecutor
+from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.types import (
     PipelineConfig,
     PipelineStageCommand,
@@ -97,4 +97,4 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         return self.logs_directory
 
 
-__all__ = ["PipelineBaseCommon", "QCMetricsExecutor"]
+__all__ = ["PipelineBaseCommon"]

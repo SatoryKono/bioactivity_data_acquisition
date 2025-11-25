@@ -1,9 +1,9 @@
 from .plan import MetricSpec, QCPlan
+from .executor import QCMetricsExecutor
 from .metrics import (
     DEFAULT_REGISTRY,
     MetricRegistry,
     QCFailureException,
-    QCMetricsExecutor,
     QCMetricCallable,
     QCMetricResult,
     metric_distribution_summary,
