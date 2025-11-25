@@ -10,8 +10,9 @@ from pydantic import ValidationError
 from rich.progress import Progress
 
 from bioetl.config import PipelineConfig, load_config
+from bioetl.core.pipeline.types import PipelineBaseProtocol
 
-PipelineFactory = Callable[[PipelineConfig, str | None], Any]
+PipelineFactory = Callable[[PipelineConfig, str | None], PipelineBaseProtocol]
 
 CONFIG_EXCEPTIONS: tuple[type[Exception], ...] = (FileNotFoundError, TypeError, ValueError, ValidationError)
 try:  # pragma: no cover - optional dependency

@@ -5,10 +5,12 @@ from pathlib import Path
 import pandas as pd
 
 from bioetl.core.pipeline.factory import StageFactory
+from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
+    StageContext,
     StageExecutionOptions,
     WriteArtifacts,
 )
@@ -52,10 +54,23 @@ CONFIG = PipelineConfig(
 OPTIONS = StageExecutionOptions(run_tag=None, mode=None)
 
 
+def _stage_context(pipeline: PipelineBaseCommon) -> StageContext:
+    logger = UnifiedLogger.get("StageFactoryTest")
+    return StageContext(
+        pipeline=pipeline,
+        output_dir=Path("/tmp/out"),
+        logger=logger,
+        run_id="test",
+        run_tag=None,
+        mode=None,
+        artifacts=WriteArtifacts(),
+    )
+
+
 def test_default_stage_plan_contains_all_steps() -> None:
     pipeline = CommandSpyPipeline(CONFIG, run_id="spy-1")
     factory = StageFactory(pipeline)
-    plan = factory.build(OPTIONS)
+    plan = factory.build(_stage_context(pipeline), OPTIONS)
 
     assert [cmd.name for cmd in plan] == ["extract", "transform", "validate", "save_results"]
 
@@ -63,7 +78,7 @@ def test_default_stage_plan_contains_all_steps() -> None:
 def test_partial_plan_respects_requested_stages() -> None:
     pipeline = CommandSpyPipeline(CONFIG, run_id="spy-2")
     factory = StageFactory(pipeline)
-    plan = factory.build(OPTIONS, stages=["extract", "validate"])
+    plan = factory.build(_stage_context(pipeline), OPTIONS, stages=["extract", "validate"])
 
     assert [cmd.name for cmd in plan] == ["extract", "validate"]
 
@@ -71,6 +86,7 @@ def test_partial_plan_respects_requested_stages() -> None:
 def test_dry_run_skips_save_results_stage() -> None:
     pipeline = CommandSpyPipeline(CONFIG, run_id="spy-3")
     factory = StageFactory(pipeline)
-    plan = factory.build(StageExecutionOptions(run_tag=None, mode=None, dry_run=True))
+    context = _stage_context(pipeline)
+    plan = factory.build(context, StageExecutionOptions(run_tag=None, mode=None, dry_run=True))
 
     assert "save_results" not in [cmd.name for cmd in plan]

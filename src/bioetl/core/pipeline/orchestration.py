@@ -58,7 +58,7 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         self, context: StageContext, options: StageExecutionOptions
     ) -> tuple[PipelineStageCommand, ...]:
         factory = self.create_stage_factory()
-        plan = factory.build(options)
+        plan = factory.build(context, options)
         self.stage_plan = plan
         return plan
 

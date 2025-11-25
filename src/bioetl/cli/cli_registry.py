@@ -4,8 +4,9 @@ from collections.abc import Callable
 from typing import Any
 
 from bioetl.config import PipelineConfig
+from bioetl.core.pipeline.types import PipelineBaseProtocol
 
-PipelineFactory = Callable[[PipelineConfig, str | None], object]
+PipelineFactory = Callable[[PipelineConfig, str | None], PipelineBaseProtocol]
 
 PIPELINE_REGISTRY: dict[str, PipelineFactory] = {}
 
