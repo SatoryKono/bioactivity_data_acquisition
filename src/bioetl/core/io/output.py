@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
 
@@ -337,6 +337,8 @@ class UnifiedOutputWriter:
 
 __all__ = [
     "AtomicWriter",
+    "OutputPlan",
+    "OutputWriter",
     "UnifiedOutputWriter",
     "build_meta_yaml",
     "emit_qc_artifact",
@@ -344,3 +346,137 @@ __all__ = [
     "write_json_atomic",
     "write_yaml_atomic",
 ]
+@dataclass(slots=True)
+class OutputPlan:
+    data_path: Path
+    quality_report_path: Path
+    meta_path: Path
+    manifest_path: Path
+    logs_dir: Path
+    log_file: Path
+
+
+class OutputWriter:
+    """Планирует и записывает артефакты пайплайна."""
+
+    def __init__(self, base_dir: Path, config: Mapping[str, Any] | PipelineConfig) -> None:
+        self.base_dir = base_dir
+        self.config = config
+
+    # ------------------------------------------------------------------
+    # Публичный интерфейс
+    # ------------------------------------------------------------------
+    def write_outputs(
+        self,
+        *,
+        df: pd.DataFrame,
+        stem: str,
+        run_id: str,
+        pipeline_name: str,
+        entity_name: str,
+        quality_report: pd.DataFrame,
+    ) -> WriteArtifacts:
+        plan = self._plan_paths(stem)
+        plan.data_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with AtomicWriter(plan.data_path) as writer:
+            df.to_csv(writer.temp_path, index=False)
+
+        plan.quality_report_path.parent.mkdir(parents=True, exist_ok=True)
+        with AtomicWriter(plan.quality_report_path) as writer:
+            quality_report.to_csv(writer.temp_path, index=False)
+
+        payload = {
+            "run_id": run_id,
+            "pipeline": pipeline_name,
+            "entity": entity_name,
+            "rows": int(df.shape[0]),
+            "columns": list(df.columns),
+            "generated_at": datetime.utcnow().isoformat(),
+        }
+        write_yaml_atomic(payload, plan.meta_path)
+
+        manifest_payload = {
+            "run_id": run_id,
+            "artifacts": {
+                "dataset": plan.data_path.name,
+                "quality_report": plan.quality_report_path.name,
+                "meta": plan.meta_path.name,
+            },
+        }
+        write_yaml_atomic(manifest_payload, plan.manifest_path)
+
+        plan.logs_dir.mkdir(parents=True, exist_ok=True)
+        plan.log_file.touch()
+
+        artifacts = WriteArtifacts(
+            data_path=plan.data_path,
+            meta_path=plan.meta_path,
+            manifest_path=plan.manifest_path,
+            quality_report_path=plan.quality_report_path,
+        )
+        return artifacts
+
+    # ------------------------------------------------------------------
+    # Планирование путей
+    # ------------------------------------------------------------------
+    def _plan_paths(self, stem: str) -> OutputPlan:
+        output_cfg = self._extract_output_cfg()
+        base_dir = self._resolve_base_dir(output_cfg)
+        date_suffix = date.today().isoformat()
+
+        dataset_default = base_dir / f"{stem}_all_{date_suffix}.csv"
+        quality_report_default = base_dir / f"{stem}_quality_report.csv"
+        meta_default = base_dir / f"{stem}_meta.yaml"
+        manifest_default = base_dir / f"{stem}_run_manifest.json"
+
+        data_path = self._resolve_path(output_cfg.get("dataset_path"), base_dir, dataset_default)
+        quality_report_path = self._resolve_path(
+            output_cfg.get("quality_report_path"), base_dir, quality_report_default
+        )
+        meta_path = self._resolve_path(output_cfg.get("meta_path"), base_dir, meta_default)
+        manifest_path = self._resolve_path(output_cfg.get("manifest_path"), base_dir, manifest_default)
+
+        logs_dir_cfg = output_cfg.get("logs_dir")
+        logs_dir = self._resolve_path(logs_dir_cfg, base_dir, Path("/data/logs") / stem)
+        log_file_name = output_cfg.get("log_file") or f"{stem}.log"
+        log_file = logs_dir / log_file_name
+
+        return OutputPlan(
+            data_path=data_path,
+            quality_report_path=quality_report_path,
+            meta_path=meta_path,
+            manifest_path=manifest_path,
+            logs_dir=logs_dir,
+            log_file=log_file,
+        )
+
+    def _extract_output_cfg(self) -> Mapping[str, Any]:
+        if isinstance(self.config, Mapping):
+            section = self.config.get("output")
+            if isinstance(section, Mapping):
+                return section
+        metadata = getattr(self.config, "metadata", None)
+        if isinstance(metadata, Mapping):
+            section = metadata.get("output")
+            if isinstance(section, Mapping):
+                return section
+        return {}
+
+    def _resolve_base_dir(self, output_cfg: Mapping[str, Any]) -> Path:
+        root_override = output_cfg.get("root")
+        if root_override is None:
+            return self.base_dir
+        root_path = Path(root_override)
+        if not root_path.is_absolute():
+            return (self.base_dir / root_path).resolve()
+        return root_path
+
+    def _resolve_path(self, candidate: Any, base_dir: Path, default: Path) -> Path:
+        if candidate is None:
+            return default
+        path = Path(candidate)
+        if path.is_absolute():
+            return path
+        return (base_dir / path).resolve()
+

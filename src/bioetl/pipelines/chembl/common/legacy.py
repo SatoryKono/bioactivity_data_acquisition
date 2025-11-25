@@ -2,13 +2,13 @@ from __future__ import annotations
 
 """Общие утилиты и базовые классы для ChEMBL пайплайнов."""
 
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 import pandas as pd
-import yaml
 
+from bioetl.core.io.output import OutputWriter
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor, ChemblPipelineBase
 
 
@@ -82,56 +82,34 @@ class ChemblEntityPipeline(ChemblPipelineBase):
         return df
 
     def write(self, df: pd.DataFrame, output_dir: Path, *, extended: bool = False) -> Path:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        date_suffix = date.today().isoformat()
+        writer = OutputWriter(output_dir, self.config)
         stem = f"{self.entity_name}_chembl"
-        dataset_path = output_dir / f"{stem}_all_{date_suffix}.csv"
-        quality_report_path = output_dir / f"{stem}_quality_report.csv"
-        meta_path = output_dir / f"{stem}_meta.yaml"
-        manifest_path = output_dir / f"{stem}_run_manifest.json"
-
-        df.to_csv(dataset_path, index=False)
-        self._write_quality_report(df, quality_report_path)
-
-        payload = {
-            "run_id": self.run_id,
-            "pipeline": self.pipeline_name,
-            "entity": self.entity_name,
-            "rows": int(df.shape[0]),
-            "columns": list(df.columns),
-            "generated_at": datetime.utcnow().isoformat(),
-        }
-        meta_path.write_text(yaml.safe_dump(payload, allow_unicode=True))
-        manifest_path.write_text(
-            yaml.safe_dump(
-                {
-                    "run_id": self.run_id,
-                    "artifacts": {
-                        "dataset": dataset_path.name,
-                        "quality_report": quality_report_path.name,
-                        "meta": meta_path.name,
-                    },
-                }
-            )
+        quality_report = self._build_quality_report(df)
+        artifacts = writer.write_outputs(
+            df=df,
+            stem=stem,
+            run_id=self.run_id,
+            pipeline_name=self.pipeline_name,
+            entity_name=self.entity_name,
+            quality_report=quality_report,
         )
-
-        log_dir = Path("/data/logs") / stem
-        log_dir.mkdir(parents=True, exist_ok=True)
-        (log_dir / f"{stem}.log").touch()
-
         if extended:
             # Делегируем базовой реализации запись meta/run_manifest.
             self._write_metadata(output_dir, df)
-        return dataset_path
+        return artifacts.data_path
 
     # ------------------------------------------------------------------
-    def _write_quality_report(self, df: pd.DataFrame, output_path: Path) -> None:
+    def _build_quality_report(self, df: pd.DataFrame) -> pd.DataFrame:
         summary = {
             "rows": int(df.shape[0]),
             "columns": len(df.columns),
             "missing_values": int(df.isna().sum().sum()) if not df.empty else 0,
         }
-        pd.DataFrame([summary]).to_csv(output_path, index=False)
+        return pd.DataFrame([summary])
+
+    def _write_quality_report(self, df: pd.DataFrame, output_path: Path) -> None:
+        report = self._build_quality_report(df)
+        report.to_csv(output_path, index=False)
 
     # ------------------------------------------------------------------
     def _fallback_rows(self, ids: Iterable[str], exc: Exception) -> list[dict[str, Any]]:

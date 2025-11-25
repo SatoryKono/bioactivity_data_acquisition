@@ -14,6 +14,8 @@ from bioetl.core.io.artifacts import (
 try:  # pragma: no cover - допускаем отсутствие тяжёлых зависимостей при импорте
     from bioetl.core.io.output import (
         AtomicWriter,
+        OutputPlan,
+        OutputWriter,
         UnifiedOutputWriter,
         build_meta_yaml,
         emit_qc_artifact,
@@ -23,6 +25,8 @@ try:  # pragma: no cover - допускаем отсутствие тяжёлы�
     )
 except Exception:  # pragma: no cover - заглушки для ленивой загрузки
     AtomicWriter = None
+    OutputPlan = None
+    OutputWriter = None
     UnifiedOutputWriter = None
     build_meta_yaml = None
     emit_qc_artifact = None
@@ -39,12 +43,18 @@ __all__ = [
     "compute_file_hash",
     "hash_business_key",
     "hash_row",
+    "AtomicWriter",
+    "OutputPlan",
+    "OutputWriter",
+    "UnifiedOutputWriter",
 ]
 
 
 def __getattr__(name: str):  # pragma: no cover - thin lazy loader
     if name in {
         "AtomicWriter",
+        "OutputPlan",
+        "OutputWriter",
         "UnifiedOutputWriter",
         "build_meta_yaml",
         "emit_qc_artifact",
