@@ -5,11 +5,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from bioetl.qc.metrics import (
-    QCFailureException,
-    QCMetricsExecutor,
-    metric_null_percentage,
-)
+from bioetl.qc.executor import QCMetricsExecutor
+from bioetl.qc.metrics import QCFailureException, metric_null_percentage
 from bioetl.qc.plan import MetricSpec, QCPlan
 from bioetl.qc.report import build_correlation_report, golden_test_compare
 

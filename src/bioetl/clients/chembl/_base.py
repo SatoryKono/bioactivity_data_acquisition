@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Callable
+from typing import Any
 
 import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
-from bioetl.clients import client_exceptions
+from bioetl.clients import client_exceptions, ApiClientMixin, NextLinkPagination, PaginationStrategy
 from bioetl.clients.common import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
@@ -15,7 +15,6 @@ from bioetl.clients.common import (
     PaginationStrategy,
 )
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
-from bioetl.clients.mixins import ApiClientMixin
 
 
 class BaseChemblClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
@@ -30,25 +29,6 @@ class BaseChemblClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
         self.pagination_strategy = pagination_strategy or NextLinkPagination()
-
-    def _wrap_callable(self, func: Callable[[], Any]) -> Any:
-        try:
-            return func()
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
-            raise client_exceptions.RequestException(str(exc)) from exc
-
-    def _wrap_iterator(self, func: Callable[[], Iterator[dict[str, Any]]]) -> Iterator[dict[str, Any]]:
-        try:
-            for item in func():
-                yield item
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
-            raise client_exceptions.RequestException(str(exc)) from exc
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         return self.iter_ids(ids, "/{entity}/{id}")
