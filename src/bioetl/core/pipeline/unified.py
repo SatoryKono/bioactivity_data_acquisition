@@ -14,6 +14,15 @@ import pandas as pd
 import pandera as pa
 import yaml
 
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.pipeline.orchestration import _execute_stage_plan
+from bioetl.core.pipeline.types import (
+    PipelineStageCommand,
+    StageContext,
+    StageExecutionOptions,
+    WriteArtifacts,
+)
+
 
 @dataclass(slots=True)
 class RunResult:
@@ -107,52 +116,104 @@ class UnifiedPipelineBase(PipelineBase):
         dry_run: bool | None = None,
         limit: int | None = None,
         sample: int | None = None,
+        include_qc_metrics: bool = False,
     ) -> RunResult:
-        started = time.perf_counter()
         if dry_run is not None:
             self.dry_run = dry_run
 
+        logger = UnifiedLogger.get(self.__class__.__name__).bind(
+            run_id=self.run_id, pipeline=self.pipeline_name
+        )
+        options = StageExecutionOptions(
+            run_tag=None,
+            mode=None,
+            extended=extended,
+            dry_run=self.dry_run,
+            sample=sample,
+            limit=limit,
+            include_qc_metrics=include_qc_metrics,
+            fail_on_schema_drift=True,
+        )
+
+        logger.info("STAGE_RUN_START", stage="prepare_run")
         self.prepare_run()
-        df: pd.DataFrame | None = None
-        error: str | None = None
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        artifacts = WriteArtifacts(data_path=output_dir / f"{self.pipeline_name}.csv")
+        context = StageContext(
+            pipeline=self,  # type: ignore[arg-type]
+            output_dir=output_dir,
+            logger=logger,
+            run_id=self.run_id,
+            run_tag=None,
+            mode=None,
+            descriptor=None,
+            artifacts=artifacts,
+        )
+
+        def _run_extract(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
+            if exec_options.dry_run:
+                frame = self._empty_frame_from_schema()
+            else:
+                frame = self.extract()
+            if exec_options.limit is not None and frame is not None:
+                frame = frame.head(exec_options.limit)
+            if exec_options.sample is not None and frame is not None and not frame.empty:
+                frame = frame.sample(min(exec_options.sample, len(frame)), random_state=0)
+            stage_context.current_df = frame
+            return frame
+
+        def _run_transform(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
+            if stage_context.current_df is None:
+                raise RuntimeError("transform stage requires extracted data")
+            stage_context.current_df = self.transform(stage_context.current_df)
+            return stage_context.current_df
+
+        def _run_validate(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
+            if stage_context.current_df is None:
+                raise RuntimeError("validate stage requires transformed data")
+            frame = self._validate_with_schema(stage_context.current_df)
+            frame = self.validate(frame)
+            stage_context.current_df = self._sort_dataframe(frame)
+            return stage_context.current_df
+
+        def _run_write(stage_context: StageContext, exec_options: StageExecutionOptions) -> Path:
+            if stage_context.current_df is None:
+                raise RuntimeError("save_results stage requires validated data")
+            dataset_path = self.write(
+                stage_context.current_df, stage_context.output_dir, extended=exec_options.extended
+            )
+            stage_context.artifacts = stage_context.artifacts or WriteArtifacts()
+            stage_context.artifacts.data_path = dataset_path
+            return dataset_path
+
+        stage_plan = (
+            PipelineStageCommand("extract", _run_extract),
+            PipelineStageCommand("transform", _run_transform),
+            PipelineStageCommand("validate", _run_validate),
+            PipelineStageCommand("save_results", _run_write),
+        )
+
+        durations, error, qc_path = _execute_stage_plan(
+            stage_plan, context, options, include_qc_metrics=include_qc_metrics
+        )
+
+        success = error is None
         metrics: dict[str, Any] = {
             "git_commit": self._git_commit,
             "config_hash": self._config_hash,
             "pipeline": self.pipeline_name,
+            "duration_seconds": sum(durations.values()) / 1000,
+            "rows": 0 if context.current_df is None else int(context.current_df.shape[0]),
         }
-
-        try:
-            if self.dry_run:
-                df = self._empty_frame_from_schema()
-            else:
-                df = self.extract()
-            if limit is not None and df is not None:
-                df = df.head(limit)
-            if sample is not None and df is not None and not df.empty:
-                df = df.sample(min(sample, len(df)), random_state=0)
-            if df is not None:
-                df = self.transform(df)
-                df = self._validate_with_schema(df)
-                df = self.validate(df)
-                df = self._sort_dataframe(df)
-
-            output_dir.mkdir(parents=True, exist_ok=True)
-            if df is not None:
-                output_path = self.write(df, output_dir, extended=extended)
-                metrics["output_path"] = str(output_path)
-            if extended:
-                self._write_metadata(output_dir, df)
-            success = True
-        except Exception as exc:  # pragma: no cover - surfaced via RunResult
-            error = str(exc)
-            success = False
-        finally:
-            duration = time.perf_counter() - started
-            metrics["duration_seconds"] = duration
-            metrics["rows"] = 0 if df is None else int(df.shape[0])
-            self.finalize_run(RunResult(success=success, error=error, metrics=metrics))
-
-        return RunResult(success=success, error=error, metrics=metrics)
+        if context.artifacts and context.artifacts.data_path:
+            metrics["output_path"] = str(context.artifacts.data_path)
+        if qc_path is not None:
+            metrics["qc_metrics_path"] = str(qc_path)
+        run_result = RunResult(success=success, error=error, metrics=metrics)
+        self.finalize_run(run_result)
+        logger.info("STAGE_RUN_END", stage="pipeline", success=success)
+        return run_result
 
     # Stage helpers ------------------------------------------------------
     def _validate_with_schema(self, df: pd.DataFrame) -> pd.DataFrame:

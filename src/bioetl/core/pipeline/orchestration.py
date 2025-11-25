@@ -6,6 +6,7 @@ import time
 from abc import ABC
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterable
 
 import pandas as pd
 
@@ -114,32 +115,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
 
         factory = self.create_stage_factory()
         self.stage_plan = factory.build(options)
-        durations: dict[str, int] = {}
-        error: str | None = None
-
-        for command in self.stage_plan:
-            started = time.perf_counter()
-            logger.info("STAGE_RUN_START", stage=command.name)
-            try:
-                result = command.handler(context, options)
-                if command.name == "extract" and isinstance(result, pd.DataFrame):
-                    context.metadata["extract_rows"] = int(result.shape[0])
-                if command.name == "save_results" and hasattr(result, "artifacts"):
-                    artifacts = result.artifacts  # type: ignore[attr-defined]
-                    if isinstance(artifacts, WriteArtifacts):
-                        context.artifacts = artifacts
-            except Exception as exc:  # pragma: no cover - surfaced via RunResult
-                error = str(exc)
-                logger.error("STAGE_RUN_ERROR", stage=command.name, error=error)
-                break
-            finally:
-                duration_ms = int((time.perf_counter() - started) * 1000)
-                durations[command.name] = duration_ms
-                logger.info("STAGE_RUN_END", stage=command.name, duration_ms=duration_ms)
-
-        if error is None and include_qc_metrics and context.current_df is not None:
-            qc_path = QCMetricsExecutor().execute(context.current_df, target_dir)
-            artifacts.qc_metrics_path = qc_path  # type: ignore[attr-defined]
+        durations, error, qc_path = _execute_stage_plan(
+            self.stage_plan, context, options, include_qc_metrics=include_qc_metrics
+        )
 
         rows = 0 if context.current_df is None else int(context.current_df.shape[0])
         success = error is None
@@ -158,7 +136,7 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 output_dir=target_dir,
                 logs_directory=self.logs_directory,
                 write_artifacts=context.artifacts,
-                qc_metrics_path=artifacts.qc_metrics_path if hasattr(artifacts, "qc_metrics_path") else None,
+                qc_metrics_path=qc_path,
             ),
             duration_ms=durations,
             error=error,
@@ -185,6 +163,49 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         target_dir.mkdir(parents=True, exist_ok=True)
         artifacts = WriteArtifacts(data_path=target_dir / f"{self.pipeline_code}.csv")
         return target_dir, artifacts
+
+
+def _execute_stage_plan(
+    stage_plan: Iterable[PipelineStageCommand],
+    context: StageContext,
+    options: StageExecutionOptions,
+    *,
+    include_qc_metrics: bool,
+) -> tuple[dict[str, int], str | None, Path | None]:
+    logger = context.logger
+    durations: dict[str, int] = {}
+    error: str | None = None
+    artifacts = context.artifacts or WriteArtifacts()
+    qc_metrics_path: Path | None = None
+
+    for command in stage_plan:
+        started = time.perf_counter()
+        if logger:
+            logger.info("STAGE_RUN_START", stage=command.name)
+        try:
+            result = command.handler(context, options)
+            if command.name == "extract" and isinstance(result, pd.DataFrame):
+                context.metadata["extract_rows"] = int(result.shape[0])
+            if command.name == "save_results" and hasattr(result, "artifacts"):
+                artifacts = result.artifacts  # type: ignore[attr-defined]
+                if isinstance(artifacts, WriteArtifacts):
+                    context.artifacts = artifacts
+        except Exception as exc:  # pragma: no cover - surfaced via RunResult
+            error = str(exc)
+            if logger:
+                logger.error("STAGE_RUN_ERROR", stage=command.name, error=error)
+            break
+        finally:
+            duration_ms = int((time.perf_counter() - started) * 1000)
+            durations[command.name] = duration_ms
+            if logger:
+                logger.info("STAGE_RUN_END", stage=command.name, duration_ms=duration_ms)
+
+    if error is None and include_qc_metrics and context.current_df is not None:
+        qc_metrics_path = QCMetricsExecutor().execute(context.current_df, context.output_dir)
+        context.artifacts = artifacts
+
+    return durations, error, qc_metrics_path
 
 
 __all__ = ["PipelineBaseCommon", "QCMetricsExecutor"]
