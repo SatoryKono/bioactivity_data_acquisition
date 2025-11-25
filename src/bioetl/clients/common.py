@@ -7,84 +7,38 @@ from typing import Any, Protocol, TypeVar
 import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
-from bioetl.clients import client_exceptions
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
-_T = TypeVar("_T")
 Normalizer = Callable[[Any], Iterator[dict[str, Any]]]
+_T = TypeVar("_T")
 
-
-class ApiClientMixin:
-    def _normalize_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
-        if isinstance(payload, Mapping):
-            results = payload.get("results")
-            if isinstance(results, Iterable) and not isinstance(results, (str, bytes, bytearray)):
-                for item in results:
-                    if isinstance(item, Mapping):
-                        yield dict(item)
-                return
-
-            yield dict(payload)
-            return
-
-        if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
-            for item in payload:
-                if isinstance(item, Mapping):
-                    yield dict(item)
-            return
-
-        if payload is not None:
-            yield {"result": payload}
-
-
-class ClosableMixin:
-    api_client: BaseApiClient
-
-    def close(self) -> None:
-        close = getattr(self.api_client, "close", None)
-        if callable(close):
-            close()
-
-    def _wrap_callable(
-        self, func: Callable[[], _T], *, log_context: Mapping[str, Any] | None = None
-    ) -> _T:
-        try:
-            return func()
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            context = dict(log_context or {})
-            self._logger.error("api_call_failed", error=str(exc), **context)
-            raise client_exceptions.RequestException(str(exc)) from exc
-
-    def _wrap_iterator(
-        self, func: Callable[[], Iterator[dict[str, Any]]], *, log_context: Mapping[str, Any] | None = None
-    ) -> Iterator[dict[str, Any]]:
-        try:
-            yield from func()
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            context = dict(log_context or {})
-            self._logger.error("api_call_failed", error=str(exc), **context)
-            raise client_exceptions.RequestException(str(exc)) from exc
-
-    def iter_ids(self, ids: Sequence[str], path_template: str = "/{entity}/{id}") -> Iterator[dict[str, Any]]:
-        def iterator() -> Iterator[dict[str, Any]]:
-            for raw_id in ids:
-                entity_id = str(raw_id)
-                path = path_template.format(entity=self.entity, id=entity_id)
-                payload = self._wrap_callable(
-                    lambda: self.api_client.get_json(path), log_context={"path": path}
-                )
-                self._logger.info("api_call", entity=self.entity, entity_id=entity_id)
-                yield from self._normalize_payload(payload)
-
-        return self._wrap_iterator(iterator)
 
 DEFAULT_PAGE_KEY = "results"
 DEFAULT_NEXT_KEY = "next"
 DEFAULT_PAGE_PARAM = "page"
+
+
+def iterate_by_ids(
+    *,
+    ids: Sequence[str],
+    entity: str,
+    api_client: BaseApiClient,
+    normalize: Normalizer,
+    wrap_callable: Callable[[Callable[[], _T], Mapping[str, Any] | None], _T],
+    wrap_iterator: Callable[[Callable[[], Iterator[dict[str, Any]]], Mapping[str, Any] | None], Iterator[dict[str, Any]]],
+    logger: structlog.stdlib.BoundLogger | structlog.types.BindableLogger,
+    path_template: str = "/{entity}/{id}",
+) -> Iterator[dict[str, Any]]:
+    def iterator() -> Iterator[dict[str, Any]]:
+        for raw_id in ids:
+            entity_id = str(raw_id)
+            path = path_template.format(entity=entity, id=entity_id)
+            payload = wrap_callable(lambda: api_client.get_json(path), log_context={"path": path})
+            logger.info("api_call", entity=entity, entity_id=entity_id)
+            yield from normalize(payload)
+
+    return wrap_iterator(iterator)
 
 
 class PaginatedFetcher(Protocol):
@@ -219,7 +173,9 @@ class PageParamPagination:
             yield from _iter_payload_items(payload, page_key=page_key, normalize=normalize)
 
 
-class UnifiedEntityClientBase(ApiClientMixin, BaseApiClient, EntityClientProtocol, ABC):
+class UnifiedEntityClientBase(
+    ApiClientMixin, ClosableMixin, BaseApiClient, EntityClientProtocol, ABC
+):
     """Общая база для клиентов ChEMBL-подобных сущностей."""
 
     def __init__(
@@ -239,7 +195,15 @@ class UnifiedEntityClientBase(ApiClientMixin, BaseApiClient, EntityClientProtoco
         """Выбор стратегии пагинации по умолчанию для конкретного клиента."""
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
-        return self.iter_ids(ids, "/{entity}/{id}")
+        return iterate_by_ids(
+            ids=ids,
+            entity=self.entity,
+            api_client=self.api_client,
+            normalize=self._normalize_payload,
+            wrap_callable=self._wrap_callable,
+            wrap_iterator=self._wrap_iterator,
+            logger=self._logger,
+        )
 
     def fetch_all(
         self,
@@ -308,6 +272,7 @@ __all__ = [
     "DEFAULT_PAGE_PARAM",
     "ApiClientMixin",
     "ClosableMixin",
+    "iterate_by_ids",
     "PaginationStrategy",
     "NextLinkPagination",
     "PageParamPagination",

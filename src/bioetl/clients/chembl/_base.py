@@ -7,15 +7,14 @@ import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients.common import (
-    ApiClientMixin,
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    ApiClientMixin,
-    ClosableMixin,
     NextLinkPagination,
     PaginatedFetcher,
+    iterate_by_ids,
 )
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
@@ -35,7 +34,15 @@ class BaseChemblClient(
         self.pagination_strategy = pagination_strategy or NextLinkPagination()
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
-        return self.iter_ids(ids, "/{entity}/{id}")
+        return iterate_by_ids(
+            ids=ids,
+            entity=self.entity,
+            api_client=self.api_client,
+            normalize=self._normalize_payload,
+            wrap_callable=self._wrap_callable,
+            wrap_iterator=self._wrap_iterator,
+            logger=self._logger,
+        )
 
     def fetch_all(
         self,

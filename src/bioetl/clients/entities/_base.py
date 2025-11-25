@@ -1,20 +1,20 @@
 from __future__ import annotations
 
-from bioetl.base_classes import BaseApiClient
-from bioetl.clients.common import PageParamPagination, PaginationStrategy, UnifiedEntityClientBase
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any
 
+import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients.common import (
-    ApiClientMixin,
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    ApiClientMixin,
-    ClosableMixin,
     PageParamPagination,
     PaginatedFetcher,
+    iterate_by_ids,
 )
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
 class _BaseEntityClient(ClosableMixin, ApiClientMixin, BaseApiClient, EntityClientProtocol):
@@ -31,7 +31,15 @@ class _BaseEntityClient(ClosableMixin, ApiClientMixin, BaseApiClient, EntityClie
         self.pagination_strategy = pagination_strategy or PageParamPagination()
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
-        return self.iter_ids(ids, "/{entity}/{id}")
+        return iterate_by_ids(
+            ids=ids,
+            entity=self.entity,
+            api_client=self.api_client,
+            normalize=self._normalize_payload,
+            wrap_callable=self._wrap_callable,
+            wrap_iterator=self._wrap_iterator,
+            logger=self._logger,
+        )
 
     def fetch_all(
         self,

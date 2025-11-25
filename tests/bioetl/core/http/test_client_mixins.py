@@ -2,17 +2,19 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, call
 
+from unittest.mock import MagicMock, call
+
 import pytest
 import structlog
 from structlog.testing import capture_logs
 
 from bioetl.clients import client_exceptions
-from bioetl.clients.common import ApiClientMixin
 from bioetl.clients.chembl._base import BaseChemblClient
 from bioetl.clients.entities._base import _BaseEntityClient
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
-class _DummyApiClient(ApiClientMixin):
+class _DummyApiClient(ApiClientMixin, ClosableMixin):
     def __init__(self) -> None:
         self.api_client = MagicMock()
         self.entity = "dummy"
@@ -102,6 +104,7 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
         page_key="items",
         next_key="next_link",
         page_param=None,
+        normalize=client._normalize_payload,
     )
 
 
@@ -132,6 +135,7 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
         page_key="items",
         next_key="next_link",
         page_param="page_num",
+        normalize=client._normalize_payload,
     )
 
 
@@ -181,7 +185,7 @@ def test_wrap_callable_converts_errors() -> None:
 
 
 def test_wrap_callable_preserves_bound_logger_context() -> None:
-    class _StructuredClient(ApiClientMixin):
+    class _StructuredClient(ApiClientMixin, ClosableMixin):
         def __init__(self) -> None:
             self._logger = structlog.get_logger(__name__).bind(entity="molecule")
             self.entity = "molecule"
