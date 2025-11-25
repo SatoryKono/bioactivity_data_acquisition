@@ -25,10 +25,10 @@ class DummyChemblPipeline(ChemblPipelineBase):
     def extract(self, *args, **kwargs) -> pd.DataFrame:  # pragma: no cover - not used
         return pd.DataFrame()
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - passthrough
+    def transform(self, df: pd.DataFrame, *_args, **_kwargs) -> pd.DataFrame:  # pragma: no cover - passthrough
         return df
 
-    def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - passthrough
+    def validate(self, df: pd.DataFrame, *_args, **_kwargs) -> pd.DataFrame:  # pragma: no cover - passthrough
         return df
 
 
@@ -99,10 +99,10 @@ class MinimalPipeline(UnifiedPipelineBase):
         self._extracted = True
         return pd.DataFrame({"id": [1, 2], "value": ["a", "b"]})
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, df: pd.DataFrame, *_args, **_kwargs) -> pd.DataFrame:
         return df.assign(value=df["value"].str.upper())
 
-    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
+    def validate(self, df: pd.DataFrame, *_args, **_kwargs) -> pd.DataFrame:
         return df
 
 
@@ -114,7 +114,7 @@ def test_unified_pipeline_dry_run_metadata(tmp_path):
 
     assert isinstance(result, RunResult)
     assert result.success is True
-    assert result.metrics["rows"] == 0
+    assert result.rows == 0
     assert (tmp_path / "out" / "meta.yaml").exists()
     assert (tmp_path / "out" / "run_manifest.json").exists()
     # dry_run не должен запускать extract

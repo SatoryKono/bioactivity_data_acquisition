@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
-import time
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -205,6 +204,9 @@ class UnifiedPipelineBase(PipelineBase):
             stage_plan, context, options, include_qc_metrics=include_qc_metrics
         )
 
+        if options.dry_run and options.extended:
+            self._write_metadata(output_dir, context.current_df)
+
         success = error is None
         rows = 0 if context.current_df is None else int(context.current_df.shape[0])
         metadata: dict[str, Any] = {
@@ -380,46 +382,10 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         fetcher = descriptor.fetcher_factory(context)
         finalizer = descriptor.finalizer_factory(context)
         batch_size = min(int(batch_kwargs.get("batch_size", 25)), 25)
-        batches = [ids[i : i + batch_size] for i in range(0, len(ids or []), batch_size)]
-        if not batches:
-            batches = [None]
+        from bioetl.pipelines.chembl.batch_executor import execute_batch_extraction
 
-        start = time.perf_counter()
-        frames: list[pd.DataFrame] = []
-        api_calls = cache_hits = success = fallback = errors = 0
-        for batch in batches:
-            try:
-                result = fetcher(batch)
-                meta: dict[str, Any] = {}
-                batch_df: pd.DataFrame
-                if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], Mapping):
-                    batch_df = pd.DataFrame(result[0]) if not isinstance(result[0], pd.DataFrame) else result[0]
-                    meta = dict(result[1])
-                else:
-                    batch_df = pd.DataFrame(result)
-                frames.append(batch_df)
-                api_calls += int(meta.get("api_calls", 0 if meta.get("cache_hit") else 1))
-                cache_hits += int(meta.get("cache_hit", False)) * max(len(batch_df), 1)
-                fallback += int(meta.get("fallback", 0))
-                success += int(batch_df.shape[0])
-            except CircuitBreakerOpenError:
-                errors += 1
-                break
-            except Exception:
-                errors += 1
-                continue
-
-        dataframe = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        dataframe, stats = execute_batch_extraction(fetcher, ids=ids, batch_size=batch_size)
         dataframe = finalizer(dataframe)
-        duration = time.perf_counter() - start
-        stats = BatchExtractionStats(
-            rows=int(dataframe.shape[0]),
-            api_calls=api_calls,
-            cache_hits=cache_hits,
-            success_count=success,
-            fallback_count=fallback,
-            error_count=errors,
-            duration_seconds=duration,
-        )
+        stats.rows = int(dataframe.shape[0])
         return dataframe, stats
 
