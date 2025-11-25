@@ -10,11 +10,7 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.types import (
-    PipelineStageCommand,
-    StageContext,
-    StageExecutionOptions,
-)
+from bioetl.core.pipeline.types import Stage, StageContext, StageExecutionOptions
 from bioetl.pipelines.chembl.common import ChemblPipelineContract
 
 _PIPELINE_REGISTRY: dict[str, Callable[[], ChemblPipelineContract]] = {}
@@ -74,12 +70,12 @@ def build_extract_plan(
     *,
     run_tag: str | None = None,
     mode: str | None = None,
-) -> tuple[PipelineStageCommand, ...]:
+) -> tuple[Stage, ...]:
     """Construct an extract-only stage plan for a pipeline."""
 
     context = _build_stage_context(pipeline, output_dir, run_tag=run_tag, mode=mode)
     options = StageExecutionOptions(run_tag=run_tag, mode=mode, dry_run=False)
-    factory = StageFactory(pipeline)  # type: ignore[arg-type]
+    factory = StageFactory(pipeline.pipeline_definition)  # type: ignore[arg-type]
     plan = factory.build(context, options, stages=("extract",))
     # Seed descriptor so the pipeline can reuse it during execution.
     context.descriptor = pipeline.build_descriptor()
@@ -142,7 +138,7 @@ def run_chembl_stage(
         descriptor = getattr(pipeline, "build_descriptor", lambda: None)()
     context.descriptor = descriptor
 
-    factory = StageFactory(pipeline)  # type: ignore[arg-type]
+    factory = StageFactory(pipeline.pipeline_definition)  # type: ignore[arg-type]
     stage_plan = factory.build(context, options, stages=(normalized_stage,))
 
     if not stage_plan:

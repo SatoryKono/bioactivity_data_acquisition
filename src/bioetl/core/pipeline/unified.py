@@ -12,15 +12,8 @@ import pandera as pa
 
 from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
-from bioetl.core.pipeline.stage_plan import build_default_stage_plan
-from bioetl.core.pipeline.types import (
-    PipelineStageCommand,
-    RunResult,
-    StageContext,
-    StageExecutionOptions,
-    WriteArtifacts,
-    WriteResult,
-)
+from bioetl.core.pipeline.stage_plan import build_default_pipeline_definition
+from bioetl.core.pipeline.types import RunResult, StageContext, StageExecutionOptions, WriteArtifacts, WriteResult
 if TYPE_CHECKING:
     from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
 
@@ -49,7 +42,12 @@ class PipelineBase(PipelineRuntimeBase):
         validator: pa.DataFrameSchema | None = None,
         artifact_writer: ArtifactWriter | None = None,
     ) -> None:
-        super().__init__(config, run_id=run_id, validator=validator)
+        self.validator = validator
+        self.pipeline_code = (
+            getattr(getattr(config, "pipeline", None), "name", None) or self.__class__.__name__
+        )
+        pipeline_definition = build_default_pipeline_definition(self)
+        super().__init__(config, pipeline_definition, run_id=run_id, validator=validator)
         self.artifact_writer = artifact_writer or ArtifactWriter(
             pipeline_code=self.pipeline_code,
             run_id=self.run_id,
@@ -89,11 +87,6 @@ class PipelineBase(PipelineRuntimeBase):
 
 class UnifiedPipelineBase(PipelineBase):
     """Базовая реализация общего жизненного цикла ETL."""
-
-    def build_stage_plan(
-        self, context: StageContext, options: StageExecutionOptions
-    ) -> tuple[PipelineStageCommand, ...]:
-        return build_default_stage_plan(self, context, options)
 
     # Stage helpers ------------------------------------------------------
     def _validate_with_schema(self, df: pd.DataFrame) -> pd.DataFrame:

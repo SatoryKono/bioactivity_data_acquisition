@@ -5,12 +5,8 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.io.artifacts import WriteArtifacts
-from bioetl.core.pipeline.types import (
-    PipelineBaseProtocol,
-    PipelineStageCommand,
-    StageContext,
-    StageExecutionOptions,
-)
+from bioetl.core.pipeline.definition import PipelineDefinition
+from bioetl.core.pipeline.types import PipelineBaseProtocol, Stage, StageContext, StageExecutionOptions
 
 
 def _pipeline_name(pipeline: PipelineBaseProtocol) -> str:
@@ -41,10 +37,8 @@ def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df.loc[:, columns].sort_values(by=columns).reset_index(drop=True)
 
 
-def build_default_stage_plan(
-    pipeline: PipelineBaseProtocol, context: StageContext, options: StageExecutionOptions
-) -> tuple[PipelineStageCommand, ...]:
-    """Assemble a deterministic stage plan shared across pipeline bases."""
+def build_default_pipeline_definition(pipeline: PipelineBaseProtocol) -> PipelineDefinition:
+    """Construct default immutable definition for classic ETL pipelines."""
 
     def _run_extract(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
         if exec_options.dry_run:
@@ -87,19 +81,16 @@ def build_default_stage_plan(
         stage_context.metadata.setdefault("write_result", result)
         return result
 
-    stage_plan: tuple[PipelineStageCommand, ...] = (
-        PipelineStageCommand("extract", _run_extract),
-        PipelineStageCommand("transform", _run_transform),
-        PipelineStageCommand("validate", _run_validate),
-        PipelineStageCommand("save_results", _run_save_results),
+    stage_plan: tuple[Stage, ...] = (
+        Stage("extract", _run_extract),
+        Stage("transform", _run_transform),
+        Stage("validate", _run_validate),
+        Stage("save_results", _run_save_results),
     )
 
-    if options.dry_run:
-        stage_plan = tuple(command for command in stage_plan if command.name != "save_results")
-        if getattr(pipeline, "validator", None) is None:
-            stage_plan = tuple(command for command in stage_plan if command.name == "extract")
-
-    return stage_plan
+    metadata = {"name": _pipeline_name(pipeline)}
+    version = getattr(pipeline, "pipeline_version", "1.0.0")
+    return PipelineDefinition(stage_plan, metadata=metadata, version=version)
 
 
-__all__ = ["build_default_stage_plan"]
+__all__ = ["build_default_pipeline_definition"]

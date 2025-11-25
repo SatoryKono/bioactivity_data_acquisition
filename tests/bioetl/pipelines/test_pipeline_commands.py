@@ -69,7 +69,7 @@ def _stage_context(pipeline: PipelineBaseCommon) -> StageContext:
 
 def test_default_stage_plan_contains_all_steps() -> None:
     pipeline = CommandSpyPipeline(CONFIG, run_id="spy-1")
-    factory = StageFactory(pipeline)
+    factory = StageFactory(pipeline.pipeline_definition)
     plan = factory.build(_stage_context(pipeline), OPTIONS)
 
     assert [cmd.name for cmd in plan] == ["extract", "transform", "validate", "save_results"]
@@ -77,7 +77,7 @@ def test_default_stage_plan_contains_all_steps() -> None:
 
 def test_partial_plan_respects_requested_stages() -> None:
     pipeline = CommandSpyPipeline(CONFIG, run_id="spy-2")
-    factory = StageFactory(pipeline)
+    factory = StageFactory(pipeline.pipeline_definition)
     plan = factory.build(_stage_context(pipeline), OPTIONS, stages=["extract", "validate"])
 
     assert [cmd.name for cmd in plan] == ["extract", "validate"]
@@ -85,7 +85,7 @@ def test_partial_plan_respects_requested_stages() -> None:
 
 def test_dry_run_skips_save_results_stage() -> None:
     pipeline = CommandSpyPipeline(CONFIG, run_id="spy-3")
-    factory = StageFactory(pipeline)
+    factory = StageFactory(pipeline.pipeline_definition)
     context = _stage_context(pipeline)
     plan = factory.build(context, StageExecutionOptions(run_tag=None, mode=None, dry_run=True))
 

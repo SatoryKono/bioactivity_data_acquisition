@@ -10,10 +10,11 @@ import pandas as pd
 
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
+from bioetl.core.pipeline.stage_plan import build_default_pipeline_definition
 from bioetl.core.pipeline.types import (
     PipelineConfig,
-    PipelineStageCommand,
     PipelineStagesProtocol,
+    Stage,
     StageContext,
     StageExecutionOptions,
     WriteArtifacts,
@@ -31,10 +32,12 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
             DeprecationWarning,
             stacklevel=2,
         )
-        super().__init__(config, run_id=run_id)
+        self.pipeline_code = config.pipeline.name
+        pipeline_definition = build_default_pipeline_definition(self)
+        super().__init__(config, pipeline_definition, run_id=run_id)
         self.output_root = Path(config.materialization.root)
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
-        self.stage_plan: tuple[PipelineStageCommand, ...] = ()
+        self.stage_plan: tuple[Stage, ...] = ()
 
     # Hook methods -----------------------------------------------------
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -51,12 +54,12 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
 
     # Factory helpers --------------------------------------------------
     def create_stage_factory(self) -> StageFactory:
-        return StageFactory(self)
+        return StageFactory(self.pipeline_definition)
 
     # Orchestration ----------------------------------------------------
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
-    ) -> tuple[PipelineStageCommand, ...]:
+    ) -> tuple[Stage, ...]:
         factory = self.create_stage_factory()
         plan = factory.build(context, options)
         self.stage_plan = plan
@@ -84,7 +87,7 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
     def build_run_metadata(
         self,
         context: StageContext,
-        stage_plan: tuple[PipelineStageCommand, ...],
+        stage_plan: tuple[Stage, ...],
         durations: dict[str, int],
         run_tag: str | None,
         mode: str | None,

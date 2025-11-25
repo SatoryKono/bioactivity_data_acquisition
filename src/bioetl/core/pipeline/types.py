@@ -61,13 +61,24 @@ class RunResult:
         return self.metadata
 
 
-@dataclass(slots=True)
-class PipelineStageCommand:
+@dataclass(slots=True, frozen=True)
+class Stage:
     """Lightweight callable used to execute a pipeline stage."""
 
     name: str
     handler: Callable[["StageContext", StageExecutionOptions], Any]
     description: str | None = None
+
+    def run(self, context: "StageContext", options: StageExecutionOptions) -> Any:
+        return self.handler(context, options)
+
+    def validate(self) -> None:
+        if not self.name:
+            raise ValueError("Stage name must be provided")
+
+
+# Backwards-compatible alias
+PipelineStageCommand = Stage
 
 
 @runtime_checkable
@@ -119,7 +130,7 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
 
     def build_stage_plan(
         self, context: "StageContext", options: StageExecutionOptions
-    ) -> tuple[PipelineStageCommand, ...]:
+    ) -> tuple[Stage, ...]:
         ...
 
     def plan_run_artifacts(
@@ -130,7 +141,7 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
     def build_run_metadata(
         self,
         context: "StageContext",
-        stage_plan: Iterable[PipelineStageCommand],
+        stage_plan: Iterable[Stage],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
@@ -143,7 +154,7 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
 
 @dataclass(slots=True)
 class StageContext:
-    """Shared context passed to :class:`PipelineStageCommand` handlers."""
+    """Shared context passed to stage handlers."""
 
     pipeline: PipelineBaseProtocol
     output_dir: Path
@@ -189,6 +200,7 @@ __all__ = [
     "PipelineStagesProtocol",
     "RunArtifacts",
     "RunResult",
+    "Stage",
     "StageContext",
     "StageExecutionOptions",
     "WriteArtifacts",
