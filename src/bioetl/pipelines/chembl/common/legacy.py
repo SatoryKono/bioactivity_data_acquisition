@@ -9,6 +9,7 @@ from typing import Any, Iterable, Mapping, Sequence
 import pandas as pd
 import yaml
 
+from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor, ChemblPipelineBase
 
 
@@ -62,9 +63,9 @@ class ChemblEntityPipeline(ChemblPipelineBase):
     # ------------------------------------------------------------------
     # Обработка стадий
     # ------------------------------------------------------------------
-    def extract(self) -> pd.DataFrame:
+    def extract(self, descriptor: Any | None, options: StageExecutionOptions) -> pd.DataFrame:
         ids = self.config.get("ids") if isinstance(self.config, Mapping) else None
-        descriptor = self.build_descriptor()
+        descriptor = descriptor or self.build_descriptor()
         frame, _stats = self.run_descriptor_extraction(
             descriptor,
             ids if isinstance(ids, Sequence) else None,
@@ -73,22 +74,31 @@ class ChemblEntityPipeline(ChemblPipelineBase):
         )
         return frame
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         # Тонкий слой для переопределения в наследниках.
         return df
 
-    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
+    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         # Дополнительные пользовательские проверки можно внедрить в наследниках.
         return df
 
-    def write(self, df: pd.DataFrame, output_dir: Path, *, extended: bool = False) -> Path:
-        output_dir.mkdir(parents=True, exist_ok=True)
+    def save_results(
+        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+    ) -> WriteResult:
         date_suffix = date.today().isoformat()
         stem = f"{self.entity_name}_chembl"
-        dataset_path = output_dir / f"{stem}_all_{date_suffix}.csv"
-        quality_report_path = output_dir / f"{stem}_quality_report.csv"
-        meta_path = output_dir / f"{stem}_meta.yaml"
-        manifest_path = output_dir / f"{stem}_run_manifest.json"
+        dataset_path = artifacts.data_path or artifacts.extra.get("dataset")
+        output_dir = (dataset_path.parent if dataset_path else Path.cwd()).resolve()
+        output_dir.mkdir(parents=True, exist_ok=True)
+        dataset_path = dataset_path or output_dir / f"{stem}_all_{date_suffix}.csv"
+        quality_report_path = artifacts.quality_report_path or output_dir / f"{stem}_quality_report.csv"
+        meta_path = artifacts.meta_path or output_dir / f"{stem}_meta.yaml"
+        manifest_path = artifacts.manifest_path or output_dir / f"{stem}_run_manifest.json"
+
+        artifacts.data_path = dataset_path
+        artifacts.quality_report_path = quality_report_path
+        artifacts.meta_path = meta_path
+        artifacts.manifest_path = manifest_path
 
         df.to_csv(dataset_path, index=False)
         self._write_quality_report(df, quality_report_path)
@@ -119,10 +129,10 @@ class ChemblEntityPipeline(ChemblPipelineBase):
         log_dir.mkdir(parents=True, exist_ok=True)
         (log_dir / f"{stem}.log").touch()
 
-        if extended:
+        if options.extended:
             # Делегируем базовой реализации запись meta/run_manifest.
             self._write_metadata(output_dir, df)
-        return dataset_path
+        return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)
 
     # ------------------------------------------------------------------
     def _write_quality_report(self, df: pd.DataFrame, output_path: Path) -> None:
