@@ -6,18 +6,21 @@ from typing import Any
 import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
-from bioetl.clients import client_exceptions, ApiClientMixin, NextLinkPagination, PaginationStrategy
 from bioetl.clients.common import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
+    ApiClientMixin,
+    ClosableMixin,
     NextLinkPagination,
     PaginationStrategy,
 )
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
-class BaseChemblClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
+class BaseChemblClient(
+    ClosableMixin, ApiClientMixin, BaseApiClient, EntityClientProtocol
+):
     def __init__(
         self,
         api_client: BaseApiClient,
@@ -87,11 +90,6 @@ class BaseChemblClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
             next_key=next_key,
             page_param=page_param,
         )
-
-    def close(self) -> None:
-        close = getattr(self.api_client, "close", None)
-        if callable(close):
-            close()
 
     def iterate_records(self, descriptor: ChemblExtractionDescriptor) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:

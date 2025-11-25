@@ -6,10 +6,10 @@ from typing import Any
 import structlog
 
 from bioetl.base_classes import BaseApiClient, JSONRecordStream
-from bioetl.clients.common import ApiClientMixin
+from bioetl.clients.common import ApiClientMixin, ClosableMixin
 
 
-class _BaseEnricherClient(ApiClientMixin):
+class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
     def __init__(self, api_client: BaseApiClient, source: str) -> None:
         self.api_client = api_client
         self._logger = structlog.get_logger(__name__).bind(source=source)
@@ -32,11 +32,6 @@ class _BaseEnricherClient(ApiClientMixin):
                 yield {"result": payload}
 
         return self._wrap_iterator(iterator, log_context={"path": path})
-
-    def close(self) -> None:
-        close = getattr(self.api_client, "close", None)
-        if callable(close):
-            close()
 
 
 __all__ = ["_BaseEnricherClient"]

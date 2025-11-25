@@ -6,18 +6,18 @@ from typing import Any
 import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
-from bioetl.clients import client_exceptions,  ApiClientMixin, PageParamPagination, PaginationStrategy
 from bioetl.clients.common import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
+    ApiClientMixin,
+    ClosableMixin,
     PageParamPagination,
     PaginationStrategy,
 )
-from bioetl.clients.mixins import ApiClientMixin
 
 
-class _BaseEntityClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
+class _BaseEntityClient(ClosableMixin, ApiClientMixin, BaseApiClient, EntityClientProtocol):
     def __init__(
         self,
         api_client: BaseApiClient,
@@ -59,11 +59,6 @@ class _BaseEntityClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
                 yield from self._normalize_payload(payload)
 
         return self._wrap_iterator(iterator)
-
-    def close(self) -> None:
-        close = getattr(self.api_client, "close", None)
-        if callable(close):
-            close()
 
     def get_json(
         self,
