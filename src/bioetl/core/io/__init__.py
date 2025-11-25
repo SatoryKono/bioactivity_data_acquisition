@@ -1,3 +1,5 @@
+from importlib import import_module
+
 from bioetl.core.io.artifacts import (
     DeterminismSettings,
     RunArtifacts,
@@ -7,15 +9,6 @@ from bioetl.core.io.artifacts import (
     compute_file_hash,
     hash_business_key,
     hash_row,
-)
-from bioetl.core.io.output import (
-    AtomicWriter,
-    UnifiedOutputWriter,
-    build_meta_yaml,
-    emit_qc_artifact,
-    validate_with_schema,
-    write_json_atomic,
-    write_yaml_atomic,
 )
 
 __all__ = [
@@ -35,3 +28,18 @@ __all__ = [
     "write_json_atomic",
     "write_yaml_atomic",
 ]
+
+
+def __getattr__(name: str):  # pragma: no cover - thin lazy loader
+    if name in {
+        "AtomicWriter",
+        "UnifiedOutputWriter",
+        "build_meta_yaml",
+        "emit_qc_artifact",
+        "validate_with_schema",
+        "write_json_atomic",
+        "write_yaml_atomic",
+    }:
+        module = import_module("bioetl.core.io.output")
+        return getattr(module, name)
+    raise AttributeError(name)
