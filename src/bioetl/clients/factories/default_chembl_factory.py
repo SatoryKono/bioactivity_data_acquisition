@@ -59,4 +59,17 @@ def default_chembl_factory(
     }
 
 
-__all__ = ["default_chembl_factory"]
+def default_activity_client_factory(config: PipelineConfig, api_client: UnifiedAPIClient | None = None) -> ChemblActivityClient:
+    """Построить клиент ChEMBL Activity с настройками по умолчанию."""
+
+    factory = default_chembl_factory(config, api_client=api_client)
+    builder = factory.get("activity")
+    if builder is None:  # pragma: no cover - защитная проверка
+        raise RuntimeError("Activity client builder is not configured")
+    client = builder()
+    if not isinstance(client, ChemblActivityClient):
+        raise TypeError("Configured activity builder did not produce ChemblActivityClient")
+    return client
+
+
+__all__ = ["default_chembl_factory", "default_activity_client_factory"]
