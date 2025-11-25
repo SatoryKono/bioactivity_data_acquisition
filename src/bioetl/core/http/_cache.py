@@ -1,56 +1,81 @@
 from __future__ import annotations
 
-import os
+import json
 import shelve
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping, MutableMapping
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
+import structlog
+
+
+@dataclass(frozen=True)
+class TTLCacheConfig:
+    ttl_seconds: float
+    path: Path | None = None
 
 
 class TTLCache:
-    """Файловый TTL-кэш на основе ``shelve``."""
+    """Потокобезопасный TTL-кэш в памяти или файле."""
 
-    def __init__(self, path: str | Path | None = None) -> None:
-        cache_path = Path(
-            path or (Path("/tmp") / f"bioetl_http_cache_{os.getpid()}.db")
-        )
-        self._path = cache_path
+    def __init__(self, config: TTLCacheConfig) -> None:
+        self._config = config
         self._lock = threading.Lock()
-        self._logger = UnifiedLogger.get(__name__).bind(component="ttl_cache")
+        self._logger = structlog.get_logger(__name__).bind(component="ttl_cache")
+        self._store: MutableMapping[str, tuple[float, bytes]] | None = None
+        if config.path is None:
+            self._store = {}
+        else:
+            config.path.parent.mkdir(parents=True, exist_ok=True)
 
-    def _open(self) -> shelve.DbfilenameShelf:
-        return shelve.open(str(self._path))
+    def _open(self) -> MutableMapping[str, tuple[float, bytes]]:
+        if self._store is not None:
+            return self._store
+        return shelve.open(str(self._config.path), writeback=False)  # type: ignore[return-value]
 
+    @staticmethod
     def make_key(
-        self,
         method: str,
-        path: str,
+        url: str,
         params: Mapping[str, Any] | None,
         headers: Mapping[str, str] | None,
     ) -> str:
-        params_items: Iterable[tuple[str, Any]] = sorted((params or {}).items())
-        header_items: Iterable[tuple[str, str]] = sorted((headers or {}).items())
-        return str((method.upper(), path, tuple(params_items), tuple(header_items)))
+        serialized = json.dumps(
+            {
+                "method": method.upper(),
+                "url": url,
+                "params": sorted((params or {}).items()),
+                "headers": sorted((headers or {}).items()),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return serialized
 
-    def get(self, key: str, ttl: float) -> bytes | None:
-        now = time.time()
+    def get(self, key: str) -> bytes | None:
+        now = time.monotonic()
         with self._lock:
-            with self._open() as shelf:
-                if key not in shelf:
-                    self._logger.debug(LogEvents.CACHE_MISS, key=key)
-                    return None
-                created, payload = shelf[key]
-                if now - created > ttl:
-                    del shelf[key]
-                    self._logger.debug(LogEvents.CACHE_MISS, key=key, reason="expired")
-                    return None
-                self._logger.info(LogEvents.CACHE_HIT, key=key)
-                return payload
+            store = self._open()
+            payload = store.get(key)
+            if payload is None:
+                self._logger.debug("cache_miss", key=key)
+                return None
+            created, data = payload
+            if now - created > self._config.ttl_seconds:
+                del store[key]
+                self._logger.debug("cache_miss", key=key, reason="expired")
+                return None
+            self._logger.info("cache_hit", key=key)
+            return data
 
-    def set(self, key: str, payload: bytes) -> None:
+    def set(self, key: str, value: bytes) -> None:
         with self._lock:
-            with self._open() as shelf:
-                shelf[key] = (time.time(), payload)
+            store = self._open()
+            store[key] = (time.monotonic(), value)
+            if hasattr(store, "sync"):
+                store.sync()  # type: ignore[operator]
+
+
+__all__ = ["TTLCache", "TTLCacheConfig"]

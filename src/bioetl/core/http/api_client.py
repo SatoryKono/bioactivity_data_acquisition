@@ -3,139 +3,126 @@ from __future__ import annotations
 import json
 import random
 import time
-from dataclasses import dataclass
-from typing import Any, Mapping, MutableMapping
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterator, Mapping, MutableMapping
 from urllib.parse import urljoin
 
 import requests
 from requests import Response
-from requests.exceptions import RequestException, Timeout
+from requests.exceptions import RequestException
+import structlog
 
-from bioetl.core.http._cache import TTLCache
-from bioetl.core.http._rate_limiter import RateLimiterConfig, TokenBucketRateLimiter
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.http._cache import TTLCache, TTLCacheConfig
+from bioetl.core.http._rate_limiter import TokenBucketConfig, TokenBucketRateLimiter
 
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
+class CircuitBreakerOpenError(RuntimeError):
+    """Исключение при открытом circuit breaker."""
+
+
+class HTTPClientError(RuntimeError):
+    """Базовое исключение клиента."""
+
+
 @dataclass
 class APIConfig:
-    name: str
     base_url: str
-    timeout: float
-    connect_timeout: float | None
-    retry_max_attempts: int
-    retry_backoff_factor: float
-    retry_jitter: bool
-    rate_limit_max_calls: int
-    rate_limit_period: int
-    rate_limit_jitter: bool
+    timeout_sec: float
+    max_retries: int
+    backoff_factor: float
+    max_backoff_sec: float
+    rate_limit_calls: int
+    rate_limit_period_sec: float
     cache_enabled: bool
-    cache_ttl: int
-    headers: dict[str, str]
+    cache_ttl_sec: int
+    circuit_breaker_fail_max: int
+    circuit_breaker_reset_sec: int
+    default_headers: dict[str, str] = field(default_factory=dict)
+    user_agent: str = "bioetl-http-client"
 
 
 @dataclass
 class RetryPolicy:
-    max_attempts: int
+    max_retries: int
     backoff_factor: float
-    jitter: bool
+    max_backoff_sec: float
+    jitter: bool = True
+
+    def compute_backoff(self, attempt: int, retry_after: float | None = None) -> float:
+        base = self.backoff_factor * (2 ** max(0, attempt - 1))
+        if self.jitter:
+            base *= random.uniform(0.8, 1.2)
+        backoff = min(base, self.max_backoff_sec)
+        if retry_after is not None:
+            backoff = max(backoff, retry_after)
+        return max(0.0, backoff)
 
 
 @dataclass
 class CircuitBreakerConfig:
     failure_threshold: int
-    success_threshold: int
-    timeout_seconds: float
-
-
-class CircuitBreakerOpenError(RequestException):
-    """Исключение при открытом circuit breaker."""
+    reset_timeout_sec: float
 
 
 class CircuitBreaker:
     def __init__(self, config: CircuitBreakerConfig) -> None:
         if config.failure_threshold <= 0:
-            msg = "failure_threshold must be positive"
-            raise ValueError(msg)
-        if config.success_threshold <= 0:
-            msg = "success_threshold must be positive"
-            raise ValueError(msg)
-        if config.timeout_seconds <= 0:
-            msg = "timeout_seconds must be positive"
-            raise ValueError(msg)
+            raise ValueError("failure_threshold must be positive")
+        if config.reset_timeout_sec <= 0:
+            raise ValueError("reset_timeout_sec must be positive")
         self._config = config
-        self._state: str = "closed"
-        self._failure_count = 0
-        self._success_count = 0
+        self._state = "closed"
+        self._failures = 0
         self._opened_at: float | None = None
-        self._logger = UnifiedLogger.get(__name__).bind(component="circuit_breaker")
-
-    def _transition(self, state: str, reason: str) -> None:
-        self._state = state
-        self._logger.info(
-            LogEvents.CIRCUIT_BREAKER,
-            state=state,
-            reason=reason,
-            failures=self._failure_count,
-            successes=self._success_count,
-        )
-
-    def _before_call(self) -> None:
-        if self._state == "open":
-            assert self._opened_at is not None
-            elapsed = time.monotonic() - self._opened_at
-            if elapsed >= self._config.timeout_seconds:
-                self._state = "half-open"
-                self._success_count = 0
-            else:
-                raise CircuitBreakerOpenError(
-                    "Circuit breaker is open; retry after cooldown"
-                )
-
-    def record_success(self) -> None:
-        if self._state in {"half-open", "open"}:
-            self._success_count += 1
-            if self._success_count >= self._config.success_threshold:
-                self._state = "closed"
-                self._failure_count = 0
-                self._success_count = 0
-                self._opened_at = None
-                self._transition("closed", "success_threshold_met")
-        elif self._state == "closed":
-            self._failure_count = 0
-
-    def record_failure(self) -> None:
-        self._failure_count += 1
-        if self._state == "half-open":
-            self._state = "open"
-            self._opened_at = time.monotonic()
-            self._transition("open", "failure_in_half_open")
-            return
-        if self._state == "closed" and self._failure_count >= self._config.failure_threshold:
-            self._state = "open"
-            self._opened_at = time.monotonic()
-            self._transition("open", "failure_threshold_exceeded")
-
-    def call(self, func: callable[[], Response]) -> Response:
-        self._before_call()
-        try:
-            result = func()
-        except Exception:
-            self.record_failure()
-            raise
-        return result
+        self._logger = structlog.get_logger(__name__).bind(component="circuit_breaker")
 
     @property
     def state(self) -> str:
         return self._state
 
+    def _transition(self, new_state: str, reason: str) -> None:
+        self._state = new_state
+        self._logger.warning("circuit_breaker_transition", state=new_state, reason=reason)
+
+    def before_call(self) -> None:
+        if self._state != "open":
+            return
+        assert self._opened_at is not None
+        elapsed = time.monotonic() - self._opened_at
+        if elapsed >= self._config.reset_timeout_sec:
+            self._state = "half-open"
+        else:
+            raise CircuitBreakerOpenError("Circuit breaker is open")
+
+    def record_success(self) -> None:
+        self._failures = 0
+        if self._state in {"open", "half-open"}:
+            self._transition("closed", "success")
+            self._opened_at = None
+
+    def record_failure(self) -> None:
+        self._failures += 1
+        if self._failures >= self._config.failure_threshold:
+            self._opened_at = time.monotonic()
+            self._transition("open", "failure_threshold")
+
+    def call(self, func: callable[[], Response]) -> Response:
+        self.before_call()
+        try:
+            response = func()
+        except Exception:
+            self.record_failure()
+            raise
+        return response
+
     def time_until_half_open(self) -> float | None:
         if self._state != "open" or self._opened_at is None:
             return None
         elapsed = time.monotonic() - self._opened_at
-        remaining = self._config.timeout_seconds - elapsed
-        return max(0.0, remaining)
+        return max(0.0, self._config.reset_timeout_sec - elapsed)
 
 
 class UnifiedAPIClient:
@@ -144,255 +131,194 @@ class UnifiedAPIClient:
         config: APIConfig,
         *,
         session: requests.Session | None = None,
-        circuit_breaker: CircuitBreakerConfig | None = None,
+        verify_ssl: bool = True,
     ) -> None:
         self.config = config
+        self._logger = structlog.get_logger(__name__).bind(api_base=config.base_url)
         self._session = session or requests.Session()
-        self._session.headers.update(config.headers)
+        default_headers = {"User-Agent": config.user_agent, **config.default_headers}
+        self._session.headers.update(default_headers)
+        self._session.verify = verify_ssl
         self._retry_policy = RetryPolicy(
-            max_attempts=config.retry_max_attempts,
-            backoff_factor=config.retry_backoff_factor,
-            jitter=config.retry_jitter,
+            max_retries=config.max_retries,
+            backoff_factor=config.backoff_factor,
+            max_backoff_sec=config.max_backoff_sec,
         )
         self._rate_limiter = TokenBucketRateLimiter(
-            RateLimiterConfig(
-                max_calls=config.rate_limit_max_calls,
-                period=float(config.rate_limit_period),
-                jitter=config.rate_limit_jitter,
+            TokenBucketConfig(
+                max_tokens=config.rate_limit_calls,
+                refill_period_sec=float(config.rate_limit_period_sec),
             )
         )
-        self._cache = TTLCache() if config.cache_enabled else None
-        breaker_config = circuit_breaker or CircuitBreakerConfig(
-            failure_threshold=max(1, config.retry_max_attempts),
-            success_threshold=1,
-            timeout_seconds=max(config.timeout, 1.0),
+        self._cache = TTLCache(TTLCacheConfig(ttl_seconds=config.cache_ttl_sec)) if config.cache_enabled else None
+        self._breaker = CircuitBreaker(
+            CircuitBreakerConfig(
+                failure_threshold=config.circuit_breaker_fail_max,
+                reset_timeout_sec=config.circuit_breaker_reset_sec,
+            )
         )
-        self._circuit_breaker = CircuitBreaker(breaker_config)
-        self._logger = UnifiedLogger.get(__name__).bind(api=config.name)
 
-    # ------------------------------------------------------------------
-    # Публичные методы
-    # ------------------------------------------------------------------
-    def get(
+    # ---------------------------- public API ---------------------------
+    def get_json(
         self,
         path: str,
-        *,
         params: Mapping[str, Any] | None = None,
-        timeout: float | None = None,
-    ) -> Response:
-        return self.request("GET", path, params=params, timeout=timeout)
+        headers: Mapping[str, str] | None = None,
+        *,
+        paginate: bool = False,
+    ) -> Dict[str, Any] | Iterator[Dict[str, Any]]:
+        if paginate:
+            return self.iterate_paginated(path, params=params or {})
+        return self.request("GET", path, headers=headers, params=params)
 
-    def post(
+    def post_json(
         self,
         path: str,
-        *,
-        data: Any | None = None,
-        json_data: Any | None = None,
-        timeout: float | None = None,
-    ) -> Response:
-        return self.request("POST", path, data=data, json=json_data, timeout=timeout)
+        json: Any,
+        headers: Mapping[str, str] | None = None,
+    ) -> Dict[str, Any]:
+        return self.request("POST", path, headers=headers, json=json)
 
-    def fetch_all_pages(
+    def paginate_json(
         self,
         path: str,
-        *,
         params: Mapping[str, Any] | None = None,
-        timeout: float | None = None,
-    ) -> list[Response]:
-        responses: list[Response] = []
-        next_path: str | None = path
-        current_params: MutableMapping[str, Any] = dict(params or {})
-        while next_path:
-            response = self.get(next_path, params=current_params, timeout=timeout)
-            responses.append(response)
-            try:
-                payload = response.json()
-            except Exception:
+        *,
+        page_key: str = "items",
+        page_param: str = "page",
+    ) -> Iterator[Dict[str, Any]]:
+        yield from self.iterate_paginated(path, params=params or {}, page_key=page_key, page_param=page_param)
+
+    def iterate_paginated(
+        self,
+        path: str,
+        params: Mapping[str, Any],
+        *,
+        page_key: str = "items",
+        page_param: str = "page",
+    ) -> Iterator[Dict[str, Any]]:
+        page_params: MutableMapping[str, Any] = dict(params)
+        page_params.setdefault(page_param, 1)
+        while True:
+            payload = self.request("GET", path, params=page_params)
+            yield payload
+            items = payload.get(page_key) if isinstance(payload, Mapping) else None
+            if not items:
                 break
-            next_path = payload.get("next") if isinstance(payload, Mapping) else None
-            if next_path:
-                current_params = {}
-        return responses
+            page_params[page_param] = page_params.get(page_param, 1) + 1
 
-    # ------------------------------------------------------------------
-    # Внутренние помощники
-    # ------------------------------------------------------------------
+    # --------------------------- internals -----------------------------
     def request(
         self,
         method: str,
         path: str,
         *,
-        params: Mapping[str, Any] | None = None,
-        data: Any | None = None,
-        json: Any | None = None,
         headers: Mapping[str, str] | None = None,
-        timeout: float | None = None,
-    ) -> Response:
+        params: Mapping[str, Any] | None = None,
+        json: Any | None = None,
+    ) -> Dict[str, Any]:
         url = self._resolve_url(path)
-        merged_headers = self._merge_headers(headers)
-        cache_key = (
-            self._cache.make_key(method, url, params, merged_headers)
-            if self._cache
-            else None
-        )
-
-        if method.upper() == "GET" and cache_key and self._cache:
-            cached = self._cache.get(cache_key, self.config.cache_ttl)
+        merged_headers = {**self._session.headers, **(headers or {})}
+        cache_key = None
+        if method.upper() == "GET" and self._cache:
+            cache_key = self._cache.make_key(method, url, params, merged_headers)
+            cached = self._cache.get(cache_key)
             if cached is not None:
-                response = self._deserialize_response(cached)
-                self._logger.info(LogEvents.API_CALL, url=url, cached=True)
-                return response
+                return self._deserialize(cached)
 
-        attempt = 1
+        attempt = 0
         last_error: Exception | None = None
-        while attempt <= self._retry_policy.max_attempts:
+        while attempt <= self._retry_policy.max_retries:
+            attempt += 1
             try:
-                waited = self._rate_limiter.acquire()
-                if waited > 0:
-                    self._logger.info(LogEvents.RATE_LIMIT, waited=waited)
-                response = self._circuit_breaker.call(
-                    lambda: self._send_request(
+                if not self._rate_limiter.acquire():
+                    raise HTTPClientError("Rate limiter timeout")
+                start = time.perf_counter()
+                response = self._breaker.call(
+                    lambda: self._session.request(
                         method,
                         url,
                         params=params,
-                        data=data,
                         json=json,
                         headers=merged_headers,
-                        timeout=timeout,
+                        timeout=self.config.timeout_sec,
                     )
                 )
+                latency_ms = (time.perf_counter() - start) * 1000
+                if response.status_code in _RETRYABLE_STATUS_CODES:
+                    retry_after = self._parse_retry_after(response)
+                    if attempt > self._retry_policy.max_retries:
+                        response.raise_for_status()
+                    wait_for = self._retry_policy.compute_backoff(attempt, retry_after=retry_after)
+                    self._logger.warning(
+                        "api_retry",
+                        attempt=attempt,
+                        url=url,
+                        status=response.status_code,
+                        retry_after_sec=retry_after,
+                        wait_sec=wait_for,
+                    )
+                    time.sleep(wait_for)
+                    self._breaker.record_failure()
+                    continue
+                response.raise_for_status()
+                payload = response.json()
+                self._breaker.record_success()
+                self._logger.info(
+                    "api_call",
+                    status=response.status_code,
+                    latency_ms=latency_ms,
+                    attempts=attempt,
+                    cache_hit=False,
+                )
+                if cache_key and self._cache:
+                    self._cache.set(cache_key, self._serialize(payload))
+                return payload
             except CircuitBreakerOpenError:
                 raise
-            except (Timeout, RequestException) as exc:
+            except (RequestException, ValueError) as exc:
                 last_error = exc
-                if attempt >= self._retry_policy.max_attempts:
-                    raise
-                sleep_for = self._compute_backoff(attempt)
-                self._logger.warning(LogEvents.RETRY, attempt=attempt, url=url)
-                time.sleep(sleep_for)
-                attempt += 1
-                continue
+                self._breaker.record_failure()
+                if attempt > self._retry_policy.max_retries:
+                    raise HTTPClientError(str(exc)) from exc
+                wait_for = self._retry_policy.compute_backoff(attempt)
+                self._logger.warning("api_retry", attempt=attempt, url=url, error=str(exc), wait_sec=wait_for)
+                time.sleep(wait_for)
 
-            if response.status_code in _RETRYABLE_STATUS_CODES:
-                if attempt >= self._retry_policy.max_attempts:
-                    response.raise_for_status()
-                retry_after = self._parse_retry_after(response)
-                sleep_for = max(self._compute_backoff(attempt), retry_after or 0)
-                self._logger.warning(
-                    LogEvents.RETRY,
-                    attempt=attempt,
-                    url=url,
-                    status=response.status_code,
-                    retry_after=retry_after,
-                )
-                time.sleep(sleep_for)
-                attempt += 1
-                self._circuit_breaker.record_failure()
-                continue
-
-            if response.status_code >= 400:
-                self._circuit_breaker.record_failure()
-                response.raise_for_status()
-
-            self._circuit_breaker.record_success()
-            if method.upper() == "GET" and cache_key and self._cache:
-                self._cache.set(cache_key, self._serialize_response(response))
-            self._logger.info(
-                LogEvents.API_CALL,
-                url=url,
-                status=response.status_code,
-                attempt=attempt,
-                cached=False,
-            )
-            return response
-
-        raise last_error or Timeout("Request failed after retries")
-
-    def _send_request(
-        self,
-        method: str,
-        url: str,
-        *,
-        params: Mapping[str, Any] | None,
-        data: Any | None,
-        json: Any | None,
-        headers: Mapping[str, str],
-        timeout: float | None,
-    ) -> Response:
-        effective_timeout: float | tuple[float, float]
-        total_timeout = timeout or self.config.timeout
-        if self.config.connect_timeout is not None:
-            effective_timeout = (self.config.connect_timeout, total_timeout)
-        else:
-            effective_timeout = total_timeout
-        return self._session.request(
-            method,
-            url,
-            params=params,
-            data=data,
-            json=json,
-            headers=headers,
-            timeout=effective_timeout,
-        )
-
-    def _compute_backoff(self, attempt: int) -> float:
-        base = self._retry_policy.backoff_factor * (2 ** (attempt - 1))
-        if not self._retry_policy.jitter:
-            return base
-        jitter = random.uniform(-0.1 * base, 0.1 * base)
-        return max(0.0, base + jitter)
+        raise HTTPClientError("Request failed") from last_error
 
     def _parse_retry_after(self, response: Response) -> float | None:
-        header = response.headers.get("Retry-After")
-        if not header:
+        raw = response.headers.get("Retry-After")
+        if not raw:
             return None
-        if header.isdigit():
-            return float(header)
+        if raw.isdigit():
+            return float(raw)
         try:
-            retry_after = requests.utils.parse_date(header)
+            parsed = datetime.strptime(raw, "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
         except Exception:
             return None
-        if retry_after is None:
-            return None
-        seconds = retry_after - time.time()
-        return max(0.0, seconds)
+        return max(0.0, parsed.timestamp() - datetime.now(tz=timezone.utc).timestamp())
 
     def _resolve_url(self, path: str) -> str:
         if path.startswith("http://") or path.startswith("https://"):
             return path
         return urljoin(self.config.base_url.rstrip("/") + "/", path.lstrip("/"))
 
-    def _merge_headers(self, headers: Mapping[str, str] | None) -> Mapping[str, str]:
-        merged: dict[str, str] = dict(self._session.headers)
-        if headers:
-            merged.update(headers)
-        return merged
+    def _serialize(self, payload: Dict[str, Any]) -> bytes:
+        return json.dumps(payload, sort_keys=True).encode("utf-8")
 
-    def _serialize_response(self, response: Response) -> bytes:
-        payload = {
-            "status": response.status_code,
-            "headers": dict(response.headers),
-            "url": response.url,
-            "content": response.content.decode(response.encoding or "utf-8", errors="ignore"),
-            "encoding": response.encoding,
-        }
-        return json.dumps(payload).encode("utf-8")
-
-    def _deserialize_response(self, payload: bytes) -> Response:
-        raw = json.loads(payload.decode("utf-8"))
-        resp = Response()
-        resp.status_code = int(raw["status"])
-        resp._content = (raw.get("content") or "").encode(raw.get("encoding") or "utf-8")
-        resp.headers = raw.get("headers") or {}
-        resp.url = raw.get("url")
-        resp.encoding = raw.get("encoding")
-        return resp
+    def _deserialize(self, payload: bytes) -> Dict[str, Any]:
+        data = json.loads(payload.decode("utf-8"))
+        self._logger.info("api_call", cache_hit=True)
+        return data
 
 
 __all__ = [
     "APIConfig",
     "RetryPolicy",
+    "CircuitBreaker",
     "CircuitBreakerConfig",
     "CircuitBreakerOpenError",
     "UnifiedAPIClient",
+    "HTTPClientError",
 ]
