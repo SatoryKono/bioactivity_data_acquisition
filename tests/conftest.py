@@ -4,4 +4,6 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+SRC = ROOT / "src"
+if SRC.exists():
+    sys.path.insert(0, str(SRC))
