@@ -16,7 +16,6 @@ from .metrics import (
 from .report import (
     build_correlation_report,
     build_quality_report,
-    emit_qc_artifact,
     golden_test_compare,
 )
 
@@ -37,6 +36,5 @@ __all__ = [
     "metric_unique_count",
     "build_correlation_report",
     "build_quality_report",
-    "emit_qc_artifact",
     "golden_test_compare",
 ]
