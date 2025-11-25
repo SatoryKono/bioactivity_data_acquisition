@@ -1,0 +1,2 @@
+# Development and test dependencies
+responses>=0.25.0
