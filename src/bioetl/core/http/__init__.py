@@ -7,9 +7,11 @@ from .api_client import (
     RetryPolicy,
     UnifiedAPIClient,
 )
-from ._rate_limiter import TokenBucketConfig, TokenBucketRateLimiter
-from ._cache import TTLCache, TTLCacheConfig
-from .interfaces import CacheStrategy, CircuitBreakerStrategy, RateLimiter, RetryStrategy
+from .cache import CacheStrategy, TTLCache, TTLCacheConfig
+from .circuit_breaker import CircuitBreakerStrategy
+from .pagination import DefaultPaginationStrategy, PaginationStrategy
+from .rate_limiter import RateLimiter, TokenBucketConfig, TokenBucketRateLimiter
+from .retry import RetryStrategy
 
 __all__ = [
     "APIConfig",
@@ -25,6 +27,8 @@ __all__ = [
     "TTLCacheConfig",
     "CacheStrategy",
     "CircuitBreakerStrategy",
+    "DefaultPaginationStrategy",
+    "PaginationStrategy",
     "RateLimiter",
     "RetryStrategy",
 ]
