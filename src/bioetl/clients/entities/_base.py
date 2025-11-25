@@ -6,15 +6,14 @@ from typing import Any
 import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
-from bioetl.clients import client_exceptions,  ApiClientMixin, PageParamPagination, PaginationStrategy
 from bioetl.clients.common import (
+    ApiClientMixin,
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
     PageParamPagination,
     PaginationStrategy,
 )
-from bioetl.clients.mixins import ApiClientMixin
 
 
 class _BaseEntityClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):

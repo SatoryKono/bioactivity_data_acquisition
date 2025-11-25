@@ -6,8 +6,8 @@ from typing import Any
 import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
-from bioetl.clients import client_exceptions, ApiClientMixin, NextLinkPagination, PaginationStrategy
 from bioetl.clients.common import (
+    ApiClientMixin,
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
