@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.cli import main
-from bioetl.pipelines.activity_chembl import ActivityChemblPipeline
-from bioetl.pipelines.documents_chembl import DocumentsChemblPipeline
+from pipelines.cli import main
+from pipelines.activity_chembl import ActivityChemblPipeline
+from pipelines.documents_chembl import DocumentsChemblPipeline
 
 
 def test_activity_pipeline_hashing(tmp_path):
