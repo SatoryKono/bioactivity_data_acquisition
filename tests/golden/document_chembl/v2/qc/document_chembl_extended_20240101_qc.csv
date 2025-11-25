@@ -1,2 +1,0 @@
-"row_count","duplicate_count","duplicate_ratio","deduplicated_count","total_missing_values","columns_with_missing","units_distribution","relation_distribution","iqr_outliers","business_key_fields"
-"3","0","0.000000","3","51","abstract, authors, authors_count, doc_type, doi, doi_clean, first_page, issue, journal, journal_full_title, last_page, pubmed_id, src_id, term, volume, weight, year","{}","{}","{}","['document_chembl_id']"

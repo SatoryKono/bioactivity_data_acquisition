@@ -1,2 +1,0 @@
-extends:
-  - ../../../../../../configs/pipelines/assay/assay_chembl.yaml

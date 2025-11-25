@@ -1,3 +1,0 @@
-extends:
-  - ../../../../../../configs/pipelines/target/target_chembl.yaml
-
