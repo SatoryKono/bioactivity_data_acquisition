@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field as dc_field
 from typing import Iterable, Mapping, Sequence
 
 
@@ -12,7 +12,7 @@ class ValidationError:
     message: str
     field: str | None = None
     row_index: int | None = None
-    context: Mapping[str, object] = field(default_factory=dict)
+    context: Mapping[str, object] = dc_field(default_factory=dict)
 
 
 @dataclass
@@ -20,8 +20,8 @@ class ValidationResult:
     """Итог проверки данных."""
 
     is_valid: bool
-    errors: Sequence[ValidationError] = field(default_factory=tuple)
-    warnings: Sequence[str] = field(default_factory=tuple)
+    errors: Sequence[ValidationError] = dc_field(default_factory=tuple)
+    warnings: Sequence[str] = dc_field(default_factory=tuple)
 
 
 @dataclass
@@ -32,7 +32,7 @@ class DQIssue:
     severity: str
     message: str
     affected_rows: int | None = None
-    context: Mapping[str, object] = field(default_factory=dict)
+    context: Mapping[str, object] = dc_field(default_factory=dict)
 
 
 class SchemaProviderABC(ABC):
