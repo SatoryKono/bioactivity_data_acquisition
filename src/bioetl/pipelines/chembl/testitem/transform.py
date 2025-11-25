@@ -6,10 +6,9 @@ from bioetl.core.pipeline.unified import PipelineBase
 from bioetl.pipelines.chembl.stage_runner import StageRunner
 
 
-def run_extract(pipeline: PipelineBase, **kwargs: Any):  # pragma: no cover
+def run_transform(pipeline: PipelineBase, df, **kwargs: Any):  # pragma: no cover - proxy
     runner = StageRunner(pipeline)
-    return runner.run_stage("extract", **kwargs)
+    return runner.run_stage("transform", df=df, **kwargs)
 
 
-__all__ = ["run_extract"]
-
+__all__ = ["run_transform"]

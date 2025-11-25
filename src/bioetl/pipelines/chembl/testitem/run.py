@@ -1,43 +1,43 @@
 from __future__ import annotations
 
-"""Запуск ChEMBL Target pipeline."""
+"""Запуск ChEMBL TestItem pipeline."""
 
-from typing import Any, Mapping, TYPE_CHECKING
+from typing import Mapping, TYPE_CHECKING
 
 import pandas as pd
 
 from bioetl.core.io.artifacts import RunArtifacts
 from bioetl.pipelines.chembl.common import ChemblEntityPipeline
-from bioetl.schemas import TargetSchema
+from bioetl.schemas import TestItemSchema
 
 if TYPE_CHECKING:  # pragma: no cover
     from bioetl.core.io.output import UnifiedOutputWriter
 
 
-class ChemblTargetPipeline(ChemblEntityPipeline):
-    """Каркас пайплайна для ChEMBL Target с обогащением UniProt/IUPHAR."""
+class TestItemChemblPipeline(ChemblEntityPipeline):
+    """Скелет пайплайна для testitem: молекулы + PubChem обогащение."""
 
-    entity_name = "target"
-    required_sort_fields = ("target_chembl_id",)
+    entity_name = "testitem"
+    required_sort_fields = ("test_item_id",)
 
     def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
         super().__init__(config, run_id=run_id)
-        self.validator = TargetSchema
+        self.validator = TestItemSchema
 
     def build_descriptor(self):  # pragma: no cover
         return self._build_generic_descriptor()
 
-    # ------------------------------------------------------------------
-    # Stage hooks
-    # ------------------------------------------------------------------
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         df = super().transform(df)
-        return self._merge_enrichment(df)
+        df = self._canonicalize_inchikey(df)
+        df = self._enrich_pubchem(df)
+        df = self._normalize_molecule_properties(df)
+        return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         df = super().validate(df)
-        if "target_chembl_id" in df.columns and df["target_chembl_id"].isna().any():
-            raise ValueError("target_chembl_id обязательный для сущности target")
+        if "test_item_id" in df.columns and df["test_item_id"].isna().any():
+            raise ValueError("test_item_id обязателен для testitem")
         return df
 
     def write(self, df: pd.DataFrame, output_dir, *, extended: bool = False):
@@ -60,28 +60,34 @@ class ChemblTargetPipeline(ChemblEntityPipeline):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-    def _merge_enrichment(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty:
+    def _canonicalize_inchikey(self, df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty or "inchi_key" not in df.columns:
             return df
-
         df = df.copy()
-        if "uniprot_id" in df.columns:
-            df["uniprot_payload"] = df["uniprot_id"].apply(self._enrich_uniprot)
-        if "iuphar_id" in df.columns:
-            df["iuphar_payload"] = df["iuphar_id"].apply(self._enrich_iuphar)
+        df["inchi_key"] = df["inchi_key"].str.upper().str.strip()
         return df
 
-    def _enrich_uniprot(self, uniprot_id: Any) -> Mapping[str, Any] | None:
-        client = self.config.get("enrichers", {}).get("uniprot_client") if isinstance(self.config, Mapping) else None
-        if callable(getattr(client, "fetch", None)) and pd.notna(uniprot_id):
-            return client.fetch(uniprot_id)
-        return None
+    def _enrich_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
+        client = self.config.get("enrichers", {}).get("pubchem_client") if isinstance(self.config, Mapping) else None
+        if df.empty or client is None:
+            return df
+        if not callable(getattr(client, "lookup", None)):
+            return df
+        df = df.copy()
+        df["pubchem_enrichment"] = df["inchi_key"].apply(
+            lambda inchikey: client.lookup(inchikey) if pd.notna(inchikey) else None
+        )
+        return df
 
-    def _enrich_iuphar(self, iuphar_id: Any) -> Mapping[str, Any] | None:
-        client = self.config.get("enrichers", {}).get("iuphar_client") if isinstance(self.config, Mapping) else None
-        if callable(getattr(client, "fetch", None)) and pd.notna(iuphar_id):
-            return client.fetch(iuphar_id)
-        return None
+    def _normalize_molecule_properties(self, df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            return df
+        df = df.copy()
+        if "smiles" in df.columns:
+            df["smiles"] = df["smiles"].fillna("")
+        if "molecular_weight" in df.columns:
+            df["molecular_weight"] = pd.to_numeric(df["molecular_weight"], errors="coerce").round(3)
+        return df
 
     def _resolve_unified_writer(self, output_dir):
         io_cfg = self.config.get("io") if isinstance(self.config, Mapping) else None
@@ -94,5 +100,4 @@ class ChemblTargetPipeline(ChemblEntityPipeline):
         return None
 
 
-__all__ = ["ChemblTargetPipeline"]
-
+__all__ = ["TestItemChemblPipeline"]
