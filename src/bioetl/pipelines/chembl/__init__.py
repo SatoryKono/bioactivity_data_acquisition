@@ -9,7 +9,7 @@ from .activity import ChemblActivityPipeline
 from .assay import ChemblAssayPipeline
 from .document import ChemblDocumentPipeline
 from .target import ChemblTargetPipeline
-from .test_item import TestItemChemblPipeline
+from .testitem import TestItemChemblPipeline
 
 __all__ = [
     "run_extract",

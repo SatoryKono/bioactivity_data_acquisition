@@ -7,10 +7,9 @@ from bioetl.core.pipeline.unified import PipelineBase
 from bioetl.pipelines.chembl.stage_runner import StageRunner
 
 
-def run_write(pipeline: PipelineBase, df, output_dir: Path, **kwargs: Any):  # pragma: no cover
+def run_write(pipeline: PipelineBase, df, output_dir: Path, **kwargs: Any):  # pragma: no cover - proxy
     runner = StageRunner(pipeline)
     return runner.run_stage("write", df=df, output_dir=output_dir, **kwargs)
 
 
 __all__ = ["run_write"]
-
