@@ -6,6 +6,7 @@ from .descriptor import (
     descriptor_from_csv,
     descriptor_from_options,
 )
+from .chembl_extraction_service import ChemblExtractionService
 from .legacy import ChemblEntityPipeline
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "ConfigValidationError",
     "descriptor_from_csv",
     "descriptor_from_options",
+    "ChemblExtractionService",
     "ChemblEntityPipeline",
 ]

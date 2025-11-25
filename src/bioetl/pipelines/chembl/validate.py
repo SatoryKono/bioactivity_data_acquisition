@@ -3,10 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from bioetl.core.pipeline.unified import PipelineBase
-from bioetl.pipelines.chembl.stage_runner import StageRunner
+from bioetl.pipelines.chembl.stage_runner import run_chembl_stage
 
 
 def run_validate(pipeline: PipelineBase, df, **kwargs: Any):
-    runner = StageRunner(pipeline)
-    return runner.run_stage("validate", df=df, **kwargs)
+    return run_chembl_stage(pipeline, "validate", df=df, **kwargs)
 

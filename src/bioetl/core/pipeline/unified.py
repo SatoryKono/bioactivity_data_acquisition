@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import time
+import json
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Generic, Mapping, Sequence, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generic, Mapping, Sequence, TypeVar
 
 import pandas as pd
 import pandera as pa
@@ -20,6 +21,8 @@ from bioetl.core.pipeline.types import (
     WriteArtifacts,
     WriteResult,
 )
+if TYPE_CHECKING:
+    from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
 
 
 @dataclass(slots=True)
@@ -137,21 +140,30 @@ class ChemblExtractionDescriptor(Generic[ChemblPipelineT]):
 
 
 class ChemblPipelineBase(UnifiedPipelineBase):
-    """Базовый пайплайн для ChEMBL с общей логикой выгрузки дескрипторов."""
+    """Базовый пайплайн для ChEMBL с делегированием доменной логики сервису."""
 
-    def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
+    def __init__(
+        self,
+        config: Mapping[str, Any],
+        *,
+        run_id: str | None = None,
+        extraction_service: "ChemblExtractionService" | None = None,
+    ) -> None:
         super().__init__(config, run_id=run_id)
-        self._chembl_release: str | None = None
+        if extraction_service is None:
+            from bioetl.pipelines.chembl.common.chembl_extraction_service import (
+                ChemblExtractionService,
+            )
+
+            extraction_service = ChemblExtractionService()
+        self.extraction_service = extraction_service
+
+    @property
+    def chembl_release(self) -> str | None:
+        return self.extraction_service.chembl_release
 
     def resolve_chembl_release(self, chembl_client: Any) -> str:
-        if self._chembl_release:
-            return self._chembl_release
-        status = chembl_client.status()
-        release = status.get("chembl_release") if isinstance(status, Mapping) else None
-        if not release:
-            raise RuntimeError("Не удалось определить chembl_release")
-        self._chembl_release = str(release)
-        return self._chembl_release
+        return self.extraction_service.resolve_chembl_release(chembl_client)
 
     def run_descriptor_extraction(
         self,
@@ -163,42 +175,13 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         fetch_mode: str = "default",
         **batch_kwargs: Any,
     ) -> tuple[pd.DataFrame, BatchExtractionStats]:
-        context = dict(descriptor.build_context(self))
-        if metadata_filters:
-            context["metadata_filters"] = metadata_filters
-        context["fetch_mode"] = fetch_mode
-        chembl_client = context.get("chembl_client")
-        if chembl_client is not None:
-            context["chembl_release"] = self.resolve_chembl_release(chembl_client)
-
-        if self.dry_run:
-            empty = pd.DataFrame()
-            stats = BatchExtractionStats(
-                rows=0,
-                api_calls=0,
-                cache_hits=0,
-                success_count=0,
-                fallback_count=0,
-                error_count=0,
-                duration_seconds=0.0,
-            )
-            return empty, stats
-
-        fetcher = descriptor.fetcher_factory(context)
-        finalizer = descriptor.finalizer_factory(context)
-        from bioetl.pipelines.chembl.batch_executor import (
-            execute_chembl_batches,
-        )
-
-        dataframe, stats = execute_chembl_batches(
-            fetcher,
+        return self.extraction_service.run_descriptor_extraction(
+            self,
+            descriptor,
             ids,
-            batch_size=batch_kwargs.get("batch_size"),
+            summary_event=summary_event,
+            metadata_filters=metadata_filters,
+            fetch_mode=fetch_mode,
+            **batch_kwargs,
         )
-
-        finalize_start = time.perf_counter()
-        dataframe = finalizer(dataframe)
-        stats.rows = int(dataframe.shape[0])
-        stats.duration_seconds += time.perf_counter() - finalize_start
-        return dataframe, stats
 
