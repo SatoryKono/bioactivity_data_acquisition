@@ -1,6 +1,12 @@
 """HTTP-клиенты BioETL."""
 
 from bioetl.clients.client_exceptions import ConnectionError, HTTPError, RequestException, Timeout
+from bioetl.clients.common import (
+    ApiClientMixin,
+    NextLinkPagination,
+    PageParamPagination,
+    PaginationStrategy,
+)
 from bioetl.clients.chembl import (
     ChemblActivityClient,
     ChemblAssayClient,
@@ -15,6 +21,10 @@ __all__ = [
     "HTTPError",
     "RequestException",
     "Timeout",
+    "ApiClientMixin",
+    "PaginationStrategy",
+    "NextLinkPagination",
+    "PageParamPagination",
     "ChemblActivityClient",
     "ChemblAssayClient",
     "ChemblDocumentClient",
