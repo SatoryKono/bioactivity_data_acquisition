@@ -2,18 +2,16 @@ from __future__ import annotations
 
 """Общие утилиты и базовые классы для ChEMBL пайплайнов."""
 
-from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import pandas as pd
-import yaml
 
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor, ChemblPipelineBase
-
-
-class ConfigValidationError(ValueError):
-    """Исключение при валидации пользовательской конфигурации."""
+from bioetl.pipelines.chembl.common.descriptor import ConfigValidationError
+from bioetl.pipelines.chembl.config_validator import ChemblConfigValidator
+from bioetl.pipelines.chembl.entity_extractor import ChemblExtractor
+from bioetl.pipelines.chembl.entity_writer import ChemblWriter
 
 
 class ChemblEntityPipeline(ChemblPipelineBase):
@@ -22,56 +20,34 @@ class ChemblEntityPipeline(ChemblPipelineBase):
     entity_name: str = "chembl"
     required_sort_fields: Sequence[str] = ()
 
-    def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
+    def __init__(
+        self,
+        config: Mapping[str, Any],
+        *,
+        run_id: str | None = None,
+        config_validator: ChemblConfigValidator | None = None,
+        extractor: ChemblExtractor | None = None,
+        writer: ChemblWriter | None = None,
+    ) -> None:
         super().__init__(config, run_id=run_id)
-        self._validate_common_config()
+        self.config_validator = config_validator or ChemblConfigValidator(
+            entity_name=self.entity_name, required_sort_fields=self.required_sort_fields
+        )
+        self.extractor = extractor or ChemblExtractor()
+        self.writer = writer or ChemblWriter()
+        self.config_validator.validate(self.config)
 
     # ------------------------------------------------------------------
     # Общая конфигурация
     # ------------------------------------------------------------------
-    def _validate_common_config(self) -> None:
-        batch_size = self._get_config_value("sources.chembl.batch_size")
-        if not isinstance(batch_size, int) or batch_size <= 0 or batch_size > 25:
-            raise ConfigValidationError("sources.chembl.batch_size must be integer within (0,25]")
-
-        max_url_length = self._get_config_value("sources.chembl.max_url_length")
-        if not isinstance(max_url_length, int) or max_url_length <= 0 or max_url_length > 2000:
-            raise ConfigValidationError("sources.chembl.max_url_length must be integer within (0,2000]")
-
-        namespace = self._get_config_value("cache.namespace")
-        if not isinstance(namespace, str) or not namespace.strip():
-            raise ConfigValidationError("cache.namespace must be non-empty string")
-
-        sort_by = self._get_config_value("determinism.sort.by")
-        if not isinstance(sort_by, list) or not all(isinstance(x, str) for x in sort_by):
-            raise ConfigValidationError("determinism.sort.by must be a list of strings")
-        missing = [field for field in self.required_sort_fields if field not in sort_by]
-        if missing:
-            raise ConfigValidationError(
-                f"determinism.sort.by is missing required fields for {self.entity_name}: {missing}"
-            )
-
-    def _get_config_value(self, dotted_path: str) -> Any:
-        current: Any = self.config
-        for part in dotted_path.split("."):
-            if not isinstance(current, Mapping) or part not in current:
-                raise ConfigValidationError(f"Missing configuration key: {dotted_path}")
-            current = current[part]
-        return current
+    def get_config_value(self, dotted_path: str) -> Any:
+        return self.config_validator._get_config_value(self.config, dotted_path)
 
     # ------------------------------------------------------------------
     # Обработка стадий
     # ------------------------------------------------------------------
     def extract(self) -> pd.DataFrame:
-        ids = self.config.get("ids") if isinstance(self.config, Mapping) else None
-        descriptor = self.build_descriptor()
-        frame, _stats = self.run_descriptor_extraction(
-            descriptor,
-            ids if isinstance(ids, Sequence) else None,
-            summary_event=f"{self.entity_name}_summary",
-            batch_size=int(self._get_config_value("sources.chembl.batch_size")),
-        )
-        return frame
+        return self.extractor.extract(self, summary_event=f"{self.entity_name}_summary")
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         # Тонкий слой для переопределения в наследниках.
@@ -82,123 +58,11 @@ class ChemblEntityPipeline(ChemblPipelineBase):
         return df
 
     def write(self, df: pd.DataFrame, output_dir: Path, *, extended: bool = False) -> Path:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        date_suffix = date.today().isoformat()
-        stem = f"{self.entity_name}_chembl"
-        dataset_path = output_dir / f"{stem}_all_{date_suffix}.csv"
-        quality_report_path = output_dir / f"{stem}_quality_report.csv"
-        meta_path = output_dir / f"{stem}_meta.yaml"
-        manifest_path = output_dir / f"{stem}_run_manifest.json"
-
-        df.to_csv(dataset_path, index=False)
-        self._write_quality_report(df, quality_report_path)
-
-        payload = {
-            "run_id": self.run_id,
-            "pipeline": self.pipeline_name,
-            "entity": self.entity_name,
-            "rows": int(df.shape[0]),
-            "columns": list(df.columns),
-            "generated_at": datetime.utcnow().isoformat(),
-        }
-        meta_path.write_text(yaml.safe_dump(payload, allow_unicode=True))
-        manifest_path.write_text(
-            yaml.safe_dump(
-                {
-                    "run_id": self.run_id,
-                    "artifacts": {
-                        "dataset": dataset_path.name,
-                        "quality_report": quality_report_path.name,
-                        "meta": meta_path.name,
-                    },
-                }
-            )
-        )
-
-        log_dir = Path("/data/logs") / stem
-        log_dir.mkdir(parents=True, exist_ok=True)
-        (log_dir / f"{stem}.log").touch()
-
-        if extended:
-            # Делегируем базовой реализации запись meta/run_manifest.
-            self._write_metadata(output_dir, df)
-        return dataset_path
+        return self.writer.write(self, df, output_dir, extended=extended)
 
     # ------------------------------------------------------------------
-    def _write_quality_report(self, df: pd.DataFrame, output_path: Path) -> None:
-        summary = {
-            "rows": int(df.shape[0]),
-            "columns": len(df.columns),
-            "missing_values": int(df.isna().sum().sum()) if not df.empty else 0,
-        }
-        pd.DataFrame([summary]).to_csv(output_path, index=False)
-
-    # ------------------------------------------------------------------
-    def _fallback_rows(self, ids: Iterable[str], exc: Exception) -> list[dict[str, Any]]:
-        timestamp = datetime.utcnow().isoformat()
-        return [
-            {
-                "chembl_id": chembl_id,
-                "error_code": "extract_failed",
-                "http_status": None,
-                "error_message": str(exc),
-                "retry_after_sec": None,
-                "attempt": 1,
-                "extracted_at": timestamp,
-            }
-            for chembl_id in ids
-        ]
-
-    # ------------------------------------------------------------------
-    def _build_generic_descriptor(self) -> ChemblExtractionDescriptor:
-        def build_context(_pipeline: ChemblEntityPipeline) -> Mapping[str, Any]:
-            chembl_ctx = self.config.get("sources", {}).get("chembl", {}) if isinstance(self.config, Mapping) else {}
-            return {
-                "chembl_client": chembl_ctx.get("client"),
-                "entity_fetcher": chembl_ctx.get(f"{self.entity_name}_fetcher"),
-            }
-
-        def fetcher_factory(context: Mapping[str, Any]):
-            fetcher = context.get("entity_fetcher")
-
-            def fetch(batch: Sequence[str] | None):
-                meta = {"api_calls": 0, "cache_hit": False, "fallback": 0}
-                if batch is None:
-                    return [], meta
-                try:
-                    if callable(fetcher):
-                        result = fetcher(batch)
-                    else:
-                        result = [{"chembl_id": chembl_id} for chembl_id in batch]
-                except Exception as exc:  # pragma: no cover - защитный сценарий
-                    fallback_rows = self._fallback_rows(batch, exc)
-                    meta["fallback"] = len(fallback_rows)
-                    return fallback_rows, meta
-
-                if isinstance(result, tuple) and len(result) == 2:
-                    rows, extra = result
-                    meta.update({k: v for k, v in extra.items() if k not in meta})
-                    return rows, meta
-                return result, meta
-
-            return fetch
-
-        def finalizer_factory(context: Mapping[str, Any]):
-            release = context.get("chembl_release")
-
-            def finalize(df: pd.DataFrame) -> pd.DataFrame:
-                if release and "chembl_release" not in df.columns:
-                    df = df.assign(chembl_release=release)
-                sort_columns = list(self.required_sort_fields) if self.required_sort_fields else list(df.columns)
-                return df.sort_values(by=sort_columns, ignore_index=True) if not df.empty else df
-
-            return finalize
-
-        return ChemblExtractionDescriptor(
-            build_context=build_context,
-            fetcher_factory=fetcher_factory,
-            finalizer_factory=finalizer_factory,
-        )
+    def build_generic_descriptor(self) -> ChemblExtractionDescriptor:
+        return self.extractor.build_generic_descriptor(self)
 
     # Наследники обязаны предоставить build_descriptor
     def build_descriptor(self) -> ChemblExtractionDescriptor:

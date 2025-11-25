@@ -25,7 +25,7 @@ class TestItemChemblPipeline(ChemblEntityPipeline):
         self.validator = TestItemSchema
 
     def build_descriptor(self):  # pragma: no cover
-        return self._build_generic_descriptor()
+        return self.build_generic_descriptor()
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         df = super().transform(df)
