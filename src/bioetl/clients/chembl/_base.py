@@ -1,54 +1,27 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
-from typing import Any, Callable
+from collections.abc import Iterator, Mapping, MutableMapping, Sequence
+from typing import Any
 
 import structlog
 
 from bioetl.base_classes import BaseApiClient
-from bioetl.clients import client_exceptions
+from bioetl.clients.common import ApiClientMixin
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
-class BaseChemblClient(BaseApiClient):
+class BaseChemblClient(ApiClientMixin):
     def __init__(self, api_client: BaseApiClient, entity: str) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
-
-    def _wrap_callable(self, func: Callable[[], Any]) -> Any:
-        try:
-            return func()
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
-            raise client_exceptions.RequestException(str(exc)) from exc
-
-    def _wrap_iterator(self, func: Callable[[], Iterator[dict[str, Any]]]) -> Iterator[dict[str, Any]]:
-        try:
-            for item in func():
-                yield item
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
-            raise client_exceptions.RequestException(str(exc)) from exc
-
-    def _iter_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
-        if isinstance(payload, Mapping):
-            yield dict(payload)
-        elif isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
-            for item in payload:
-                if isinstance(item, Mapping):
-                    yield dict(item)
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
             for entity_id in ids:
                 payload = self.api_client.get_json(f"/{self.entity}/{entity_id}")
                 self._logger.info("api_call", entity=self.entity, entity_id=str(entity_id))
-                yield from self._iter_payload(payload)
+                yield from self._iter_normalized(payload)
 
         return self._wrap_iterator(iterator)
 
@@ -61,18 +34,19 @@ class BaseChemblClient(BaseApiClient):
                 self._logger.info("api_call", entity=self.entity, path=next_path)
                 next_path = None
                 params = {}
-                if isinstance(payload, Mapping):
-                    items = payload.get("results") if isinstance(payload.get("results"), list) else None
+                normalized = self._normalize_payload(payload)
+                if isinstance(normalized, Mapping):
+                    items = normalized.get("results") if isinstance(normalized.get("results"), list) else None
                     if items:
                         for item in items:
                             if isinstance(item, Mapping):
                                 yield dict(item)
-                    elif payload:
-                        yield dict(payload)
-                    next_candidate = payload.get("next")
+                    elif normalized:
+                        yield dict(normalized)
+                    next_candidate = normalized.get("next")
                     next_path = next_candidate if isinstance(next_candidate, str) else None
                 else:
-                    yield from self._iter_payload(payload)
+                    yield from self._iter_normalized(normalized)
 
         return self._wrap_iterator(iterator)
 
