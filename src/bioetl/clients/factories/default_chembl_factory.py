@@ -3,8 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from bioetl.base_classes import BaseApiClient, EntityClientProtocol
-from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.clients.chembl import (
     ChemblActivityClient,
     ChemblAssayClient,
@@ -12,6 +10,9 @@ from bioetl.clients.chembl import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
+from bioetl.clients.chembl._base import BaseChemblClient
+from bioetl.clients.common import ApiTransportProtocol, EntityClientProtocol
+from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
 from bioetl.core.http.api_client import APIConfig
@@ -45,38 +46,45 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
 
 
 def default_chembl_factory(
-    config: PipelineConfig, api_client: BaseApiClient | None = None
-) -> dict[str, Callable[[], BaseApiClient]]:
+    config: PipelineConfig, transport_factory: Callable[[], ApiTransportProtocol] | None = None
+) -> dict[str, Callable[[], EntityClientProtocol]]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
 
-    if api_client is not None:
-        shared_client = api_client
-    else:
+    def _build_transport() -> ApiTransportProtocol:
+        if transport_factory is not None:
+            return transport_factory()
+
         components = ResilientRequestExecutorFactory(api_config).create(
             pagination_strategy=DefaultPaginationStrategy(),
         )
-        shared_client = UnifiedAPIClient(
-            api_config,
-            request_executor=components.executor,
-            request_builder=components.request_builder,
-            pagination_strategy=components.pagination_strategy,
+        return BaseChemblClient(
+            UnifiedAPIClient(
+                api_config,
+                request_executor=components.executor,
+                request_builder=components.request_builder,
+                pagination_strategy=components.pagination_strategy,
+            )
         )
 
+    entity_factory = ChemblEntityClientFactory(_build_transport)
+
     return {
-        "activity": lambda: ChemblActivityClient(shared_client),
-        "assay": lambda: ChemblAssayClient(shared_client),
-        "document": lambda: ChemblDocumentClient(shared_client),
-        "target": lambda: ChemblTargetClient(shared_client),
-        "testitem": lambda: ChemblTestItemClient(shared_client),
+        "activity": entity_factory.activity,
+        "assay": entity_factory.assay,
+        "document": entity_factory.document,
+        "target": entity_factory.target,
+        "testitem": entity_factory.testitem,
     }
 
 
-def default_activity_client_factory(config: PipelineConfig, api_client: BaseApiClient | None = None) -> ChemblActivityClient:
+def default_activity_client_factory(
+    config: PipelineConfig, transport_factory: Callable[[], ApiTransportProtocol] | None = None
+) -> ChemblActivityClient:
     """Построить клиент ChEMBL Activity с настройками по умолчанию."""
 
-    factory = default_chembl_factory(config, api_client=api_client)
+    factory = default_chembl_factory(config, transport_factory=transport_factory)
     builder = factory.get("activity")
     if builder is None:  # pragma: no cover - защитная проверка
         raise RuntimeError("Activity client builder is not configured")

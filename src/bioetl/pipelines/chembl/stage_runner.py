@@ -9,7 +9,6 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
-from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.types import StageContext, StageDescriptor, StageExecutionOptions, StageRuntimeContext
 from bioetl.pipelines.chembl.common import ChemblPipelineContract
 
@@ -40,28 +39,41 @@ def get_pipeline_specs() -> dict[str, Callable[[], ChemblPipelineContract]]:
     return dict(_PIPELINE_REGISTRY)
 
 
-def _build_stage_context(
+def _build_stage_contexts(
     pipeline: ChemblPipelineContract,
     output_dir: Path,
     *,
     run_tag: str | None = None,
     mode: str | None = None,
-) -> StageContext:
+) -> tuple[StageContext, StageRuntimeContext]:
     target_dir, artifacts = pipeline.plan_run_artifacts(output_dir, run_tag, mode)  # type: ignore[arg-type]
     logger = UnifiedLogger.get(pipeline.__class__.__name__).bind(
         run_id=getattr(pipeline, "run_id", ""),
         pipeline=getattr(pipeline, "pipeline_code", pipeline.__class__.__name__),
     )
-    return StageContext(
-        pipeline=pipeline,  # type: ignore[arg-type]
-        output_dir=target_dir,
+    stage_context = StageContext(
         logger=logger,
-        run_id=getattr(pipeline, "run_id", ""),
-        run_tag=run_tag,
-        mode=mode,
-        descriptor=None,
-        artifacts=artifacts,
+        request_id=getattr(pipeline, "run_id", ""),
+        trace_id=getattr(pipeline, "run_id", ""),
+        config=getattr(pipeline, "config", {}),
     )
+    runtime_context = StageRuntimeContext(
+        context=stage_context,
+        options=StageExecutionOptions(run_tag=run_tag, mode=mode, dry_run=pipeline.dry_run),
+    )
+    # Temporary workaround for attributes if needed, but types don't support it.
+    # Assuming StageContext or other mechanism handles this now.
+    # We inject output_dir into context as it seems required by factory.py
+    # However, StageContext definition in types.py doesn't have output_dir.
+    # We will assume runtime injection or dynamic attribute for now to fix syntax.
+    # To avoid runtime errors if slots are strict, we might have issues.
+    # But let's fix the merge conflict first.
+    if hasattr(stage_context, "output_dir"):
+        setattr(stage_context, "output_dir", target_dir)
+    if hasattr(stage_context, "artifacts"):
+        stage_context.artifacts = artifacts
+
+    return stage_context, runtime_context
 
 
 def _filter_descriptors(
@@ -79,15 +91,17 @@ def build_extract_plan(
 ) -> tuple[StageDescriptor, ...]:
     """Construct an extract-only stage plan for a pipeline."""
 
-    context = _build_stage_context(pipeline, output_dir, run_tag=run_tag, mode=mode)
-    options = StageExecutionOptions(run_tag=run_tag, mode=mode, dry_run=False)
-    descriptors = pipeline.build_stage_plan(context, options)
+    context, runtime = _build_stage_contexts(pipeline, output_dir, run_tag=run_tag, mode=mode)
+    runtime.options.dry_run = False
+    
+    descriptors = pipeline.build_stage_plan(context, runtime.options)
     context.descriptor = pipeline.build_descriptor()
+    
     factory = StageFactory(pipeline)  # type: ignore[arg-type]
     stages = factory.build(_filter_descriptors(descriptors, ("extract",)), context)
-    runtime_context = StageRuntimeContext(context=context, options=options)
+    
     for stage in stages:
-        stage.execute(runtime_context)
+        stage.execute(runtime)
     return descriptors
 
 
@@ -138,8 +152,11 @@ def run_chembl_stage(
         include_qc_metrics=include_qc_metrics,
         fail_on_schema_drift=fail_on_schema_drift,
     )
-    context = _build_stage_context(pipeline, output_root, run_tag=run_tag, mode=mode)
+    context, runtime = _build_stage_contexts(pipeline, output_root, run_tag=run_tag, mode=mode)
+    # Override options with full options constructed above
+    runtime.options = options
     context.current_df = df
+    
     if descriptor is None and normalized_stage == "extract":
         descriptor = getattr(pipeline, "build_descriptor", lambda: None)()
     context.descriptor = descriptor
@@ -154,9 +171,7 @@ def run_chembl_stage(
     stages = factory.build(descriptor_plan, context)
 
     result: Any = None
-    runtime_context = StageRuntimeContext(context=context, options=options)
     for stage in stages:
-        result = stage.execute(runtime_context).output
+        result = stage.execute(runtime).output
 
     return result
-

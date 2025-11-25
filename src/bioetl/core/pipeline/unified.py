@@ -21,6 +21,7 @@ from bioetl.core.pipeline.types import (
     StageContext,
     StageDescriptor,
     StageExecutionOptions,
+    StageRuntimeContext,
     WriteArtifacts,
     WriteResult,
 )

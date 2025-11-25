@@ -2,12 +2,56 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from typing import Any, Protocol, TypeVar
+from functools import lru_cache
+from typing import Any, Protocol, Sequence as TypingSequence, TypeVar, runtime_checkable
 
 import structlog
 
-from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients import client_exceptions
+
+
+@runtime_checkable
+class ApiTransportProtocol(Protocol):
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, Any] | None = None,
+        json: Any | None = None,
+    ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
+        """Perform a low-level HTTP request and return parsed JSON."""
+
+    def close(self) -> None:
+        """Release any underlying transport resources (sessions, pools, etc.)."""
+
+
+class EntityClientProtocol(Protocol):
+    entity: str
+
+    def get(self, entity_id: str, *, params: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        ...
+
+    def list(
+        self,
+        *,
+        page_size: int = 1000,
+        params: Mapping[str, Any] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+    ) -> Iterator[Mapping[str, Any]]:
+        ...
+
+    def fetch_by_ids(self, ids: TypingSequence[str]) -> Iterator[Mapping[str, Any]]:
+        ...
+
+    def search(self, params: Mapping[str, Any]) -> Iterator[Mapping[str, Any]]:
+        ...
+
+    def close(self) -> None:
+        ...
 
 
 _T = TypeVar("_T")
@@ -15,35 +59,11 @@ Normalizer = Callable[[Any], Iterator[dict[str, Any]]]
 
 
 class ApiClientMixin:
-    def _normalize_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
-        if isinstance(payload, Mapping):
-            results = payload.get("results")
-            if isinstance(results, Iterable) and not isinstance(results, (str, bytes, bytearray)):
-                for item in results:
-                    if isinstance(item, Mapping):
-                        yield dict(item)
-                return
-
-            yield dict(payload)
-            return
-
-        if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
-            for item in payload:
-                if isinstance(item, Mapping):
-                    yield dict(item)
-            return
-
-        if payload is not None:
-            yield {"result": payload}
-
-
-class ClosableMixin:
-    api_client: BaseApiClient
-
-    def close(self) -> None:
-        close = getattr(self.api_client, "close", None)
-        if callable(close):
-            close()
+    def _transport(self) -> ApiTransportProtocol:
+        transport = getattr(self, "transport", None) or getattr(self, "api_client", None)
+        if transport is None:
+            raise AttributeError("ApiClientMixin requires 'transport' or 'api_client' attribute")
+        return transport
 
     def _wrap_callable(
         self, func: Callable[[], _T], *, log_context: Mapping[str, Any] | None = None
@@ -69,13 +89,44 @@ class ClosableMixin:
             self._logger.error("api_call_failed", error=str(exc), **context)
             raise client_exceptions.RequestException(str(exc)) from exc
 
+    def _normalize_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
+        if isinstance(payload, Mapping):
+            results = payload.get("results")
+            if isinstance(results, Iterable) and not isinstance(results, (str, bytes, bytearray)):
+                for item in results:
+                    if isinstance(item, Mapping):
+                        yield dict(item)
+                return
+
+            yield dict(payload)
+            return
+
+        if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
+            for item in payload:
+                if isinstance(item, Mapping):
+                    yield dict(item)
+            return
+
+        if payload is not None:
+            yield {"result": payload}
+
+
+class ClosableMixin:
+    transport: ApiTransportProtocol
+
+    def close(self) -> None:
+        close = getattr(self._transport(), "close", None)
+        if callable(close):
+            close()
+
     def iter_ids(self, ids: Sequence[str], path_template: str = "/{entity}/{id}") -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
             for raw_id in ids:
                 entity_id = str(raw_id)
                 path = path_template.format(entity=self.entity, id=entity_id)
                 payload = self._wrap_callable(
-                    lambda: self.api_client.get_json(path), log_context={"path": path}
+                    lambda: self._transport().request("GET", path),
+                    log_context={"path": path},
                 )
                 self._logger.info("api_call", entity=self.entity, entity_id=entity_id)
                 yield from self._normalize_payload(payload)
@@ -90,7 +141,7 @@ DEFAULT_PAGE_PARAM = "page"
 class PaginatedFetcher(Protocol):
     def paginate(
         self,
-        api_client: BaseApiClient,
+        transport: ApiTransportProtocol,
         endpoint: str,
         *,
         params: Mapping[str, Any] | None = None,
@@ -144,7 +195,7 @@ class NextLinkPagination:
 
     def paginate(
         self,
-        api_client: BaseApiClient,
+        transport: ApiTransportProtocol,
         endpoint: str,
         *,
         params: Mapping[str, Any] | None = None,
@@ -162,7 +213,7 @@ class NextLinkPagination:
         query_params: Mapping[str, Any] | None = dict(params) if params else None
 
         while next_path:
-            payload = api_client.get_json(next_path, params=query_params)
+            payload = transport.request("GET", next_path, params=query_params)
             if logger:
                 logger.info("api_call", path=next_path)
 
@@ -193,7 +244,7 @@ class PageParamPagination:
 
     def paginate(
         self,
-        api_client: BaseApiClient,
+        transport: ApiTransportProtocol,
         endpoint: str,
         *,
         params: Mapping[str, Any] | None = None,
@@ -209,27 +260,46 @@ class PageParamPagination:
         next_key = next_key or self.next_key
         page_param = page_param if page_param is not None else self.page_param
 
-        for payload in api_client.paginate_json(
-            endpoint,
-            params=params,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-        ):
-            yield from _iter_payload_items(payload, page_key=page_key, normalize=normalize)
+        page_num = 1
+        next_path = endpoint
+        query_params = dict(params) if params else {}
+
+        while next_path:
+            effective_params = dict(query_params)
+            if page_param is not None:
+                effective_params[page_param] = page_num
+
+            payload = transport.request("GET", next_path, params=effective_params)
+            if logger:
+                logger.info("api_call", path=next_path)
+
+            page_items = list(_iter_payload_items(payload, page_key=page_key, normalize=normalize))
+            yield from page_items
+
+            next_candidate = payload.get(next_key) if isinstance(payload, Mapping) else None
+            if isinstance(next_candidate, str) and next_candidate:
+                next_path = next_candidate
+                query_params = {}
+                page_num += 1
+                continue
+
+            if page_items:
+                page_num += 1
+                continue
+            break
 
 
-class UnifiedEntityClientBase(ApiClientMixin, BaseApiClient, EntityClientProtocol, ABC):
+class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtocol, ABC):
     """Общая база для клиентов ChEMBL-подобных сущностей."""
 
     def __init__(
         self,
-        api_client: BaseApiClient,
+        transport: ApiTransportProtocol,
         entity: str,
         *,
         pagination_strategy: PaginationStrategy | None = None,
     ) -> None:
-        self.api_client = api_client
+        self.transport = transport
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
         self.pagination_strategy = pagination_strategy or self.default_pagination_strategy()
@@ -238,10 +308,22 @@ class UnifiedEntityClientBase(ApiClientMixin, BaseApiClient, EntityClientProtoco
     def default_pagination_strategy(self) -> PaginationStrategy:
         """Выбор стратегии пагинации по умолчанию для конкретного клиента."""
 
+    def _entity_path(self, suffix: str | None = None) -> str:
+        if not suffix:
+            return f"/{self.entity}"
+        suffix = str(suffix).lstrip("/")
+        return f"/{self.entity}/{suffix}"
+
+    def get(self, entity_id: str, *, params: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+        return self._wrap_callable(
+            lambda: self._transport().request("GET", self._entity_path(entity_id), params=params),
+            log_context={"path": self._entity_path(entity_id)},
+        )
+
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         return self.iter_ids(ids, "/{entity}/{id}")
 
-    def fetch_all(
+    def list(
         self,
         *,
         page_size: int = 1000,
@@ -256,50 +338,92 @@ class UnifiedEntityClientBase(ApiClientMixin, BaseApiClient, EntityClientProtoco
                 query_params.update(params)
 
             for payload in self.pagination_strategy.paginate(
-                self.api_client,
-                f"/{self.entity}",
+                self._transport(),
+                self._entity_path(),
                 params=query_params,
                 logger=self._logger,
                 page_key=page_key,
                 next_key=next_key,
                 page_param=page_param,
+                normalize=self._normalize_payload,
             ):
-                yield from self._normalize_payload(payload)
+                yield payload
 
         return self._wrap_iterator(iterator)
 
-    def get_json(
+    def fetch_all(
         self,
-        endpoint: str,
         *,
+        page_size: int = 1000,
         params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
-        return self.api_client.get_json(endpoint, params=params, headers=headers)
-
-    def paginate_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
         page_key: str = DEFAULT_PAGE_KEY,
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[Mapping[str, Any]]:
-        return self.api_client.paginate_json(
-            endpoint,
+    ) -> Iterator[dict[str, Any]]:
+        return self.list(
+            page_size=page_size,
             params=params,
-            headers=headers,
             page_key=page_key,
             next_key=next_key,
             page_param=page_param,
         )
 
-    def close(self) -> None:
-        close = getattr(self.api_client, "close", None)
-        if callable(close):
-            close()
+    def search(self, params: Mapping[str, Any]) -> Iterator[dict[str, Any]]:
+        return self.list(params=params)
+
+
+def cache_entity_client(
+    client: EntityClientProtocol, *, maxsize: int = 256
+) -> EntityClientProtocol:
+    """Оборачивает клиент сущности кэширующим декоратором."""
+
+    def _freeze(params: Mapping[str, Any] | None) -> tuple[tuple[str, Any], ...]:
+        return tuple(sorted((params or {}).items()))
+
+    @lru_cache(maxsize=maxsize)
+    def _cached_get(entity_id: str, frozen_params: tuple[tuple[str, Any], ...]) -> Mapping[str, Any]:
+        return client.get(entity_id, params=dict(frozen_params))
+
+    class _CachedEntityClient(ApiClientMixin, ClosableMixin, EntityClientProtocol):
+        def __init__(self, wrapped: EntityClientProtocol):
+            self._wrapped = wrapped
+            self.transport = getattr(wrapped, "transport", None) or getattr(wrapped, "api_client", None)
+            self.entity = getattr(wrapped, "entity", "entity")
+            self._logger = structlog.get_logger(__name__).bind(entity=self.entity, cache_enabled=True)
+
+        def get(self, entity_id: str, *, params: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+            return _cached_get(entity_id, _freeze(params))
+
+        def list(
+            self,
+            *,
+            page_size: int = 1000,
+            params: Mapping[str, Any] | None = None,
+            page_key: str = DEFAULT_PAGE_KEY,
+            next_key: str = DEFAULT_NEXT_KEY,
+            page_param: str | None = DEFAULT_PAGE_PARAM,
+        ) -> Iterator[Mapping[str, Any]]:
+            yield from self._wrapped.list(
+                page_size=page_size,
+                params=params,
+                page_key=page_key,
+                next_key=next_key,
+                page_param=page_param,
+            )
+
+        def fetch_by_ids(self, ids: TypingSequence[str]) -> Iterator[Mapping[str, Any]]:
+            for entity_id in ids:
+                yield self.get(str(entity_id))
+
+        def search(self, params: Mapping[str, Any]) -> Iterator[Mapping[str, Any]]:
+            yield from self._wrapped.search(params)
+
+        def close(self) -> None:
+            close = getattr(self._wrapped, "close", None)
+            if callable(close):
+                close()
+
+    return _CachedEntityClient(client)
 
 
 __all__ = [
@@ -312,4 +436,7 @@ __all__ = [
     "NextLinkPagination",
     "PageParamPagination",
     "UnifiedEntityClientBase",
+    "ApiTransportProtocol",
+    "EntityClientProtocol",
+    "cache_entity_client",
 ]

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Type
+from typing import Callable, Type
 
-from bioetl.clients.entities._base import _BaseEntityClient
-from bioetl.base_classes import BaseApiClient
+from bioetl.clients.chembl._base import ChemblEntityClient
+from bioetl.clients.common import ApiTransportProtocol, EntityClientProtocol
 
 
 class ChemblEntity(str, Enum):
@@ -15,16 +15,10 @@ class ChemblEntity(str, Enum):
     DOCUMENT = "document"
 
 
-class ChemblEntityClient(_BaseEntityClient):
-    def __init__(self, api_client: BaseApiClient, entity: ChemblEntity | str) -> None:
-        entity_name = ChemblEntity(entity).value if not isinstance(entity, ChemblEntity) else entity.value
-        super().__init__(api_client, entity_name)
-
-
 def _build_entity_client(name: str, entity: ChemblEntity) -> Type[ChemblEntityClient]:
     class EntityClient(ChemblEntityClient):
-        def __init__(self, api_client: BaseApiClient):
-            super().__init__(api_client, entity)
+        def __init__(self, transport: ApiTransportProtocol):
+            super().__init__(transport, entity)
 
     EntityClient.__name__ = name
     EntityClient.__qualname__ = name
@@ -32,31 +26,29 @@ def _build_entity_client(name: str, entity: ChemblEntity) -> Type[ChemblEntityCl
 
 
 class ChemblEntityClientFactory:
-    """Factory helpers for building typed ChEMBL entity clients."""
+    """Конфигурационный слой для сборки клиентов сущностей ChEMBL."""
 
-    @staticmethod
-    def create(entity: ChemblEntity | str, api_client: BaseApiClient) -> ChemblEntityClient:
-        return ChemblEntityClient(api_client, entity)
+    def __init__(self, transport_factory: Callable[[], ApiTransportProtocol]):
+        self._transport_factory = transport_factory
 
-    @staticmethod
-    def activity(api_client: BaseApiClient) -> ChemblEntityClient:
-        return ChemblEntityClientFactory.create(ChemblEntity.ACTIVITY, api_client)
+    def create(self, entity: ChemblEntity | str) -> EntityClientProtocol:
+        entity_name = ChemblEntity(entity).value if not isinstance(entity, ChemblEntity) else entity.value
+        return ChemblEntityClient(self._transport_factory(), entity_name)
 
-    @staticmethod
-    def assay(api_client: BaseApiClient) -> ChemblEntityClient:
-        return ChemblEntityClientFactory.create(ChemblEntity.ASSAY, api_client)
+    def activity(self) -> EntityClientProtocol:
+        return self.create(ChemblEntity.ACTIVITY)
 
-    @staticmethod
-    def target(api_client: BaseApiClient) -> ChemblEntityClient:
-        return ChemblEntityClientFactory.create(ChemblEntity.TARGET, api_client)
+    def assay(self) -> EntityClientProtocol:
+        return self.create(ChemblEntity.ASSAY)
 
-    @staticmethod
-    def testitem(api_client: BaseApiClient) -> ChemblEntityClient:
-        return ChemblEntityClientFactory.create(ChemblEntity.TESTITEM, api_client)
+    def target(self) -> EntityClientProtocol:
+        return self.create(ChemblEntity.TARGET)
 
-    @staticmethod
-    def document(api_client: BaseApiClient) -> ChemblEntityClient:
-        return ChemblEntityClientFactory.create(ChemblEntity.DOCUMENT, api_client)
+    def testitem(self) -> EntityClientProtocol:
+        return self.create(ChemblEntity.TESTITEM)
+
+    def document(self) -> EntityClientProtocol:
+        return self.create(ChemblEntity.DOCUMENT)
 
 
 ChemblActivityClient = _build_entity_client("ChemblActivityClient", ChemblEntity.ACTIVITY)
