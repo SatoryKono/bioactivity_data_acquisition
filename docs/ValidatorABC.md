@@ -1,5 +1,14 @@
-# ValidatorABC[RecordT, SchemaT]
+# ValidatorABC
 
-## Описание
+**Назначение:** Выполняет проверку записи по схеме и возвращает ValidationResult.
 
-ValidatorABC инкапсулирует применение схем к отдельным записям. Он принимает запись RecordT и схему SchemaT, возвращает ValidationResult[RecordT], объединяющий потенциально скорректированную запись и список ошибок валидации. Контракт разделяет ответственность: получение и версионирование схем остаётся задачей SchemaProviderABC, а логика проверки и нормализации ввода — область ValidatorABC. Реализация может выполнять как простые структурные проверки, так и сложные типовые преобразования, но должна явно фиксировать, какие изменения допустимы и при каких ошибках запись считается неприемлемой. ValidatorABC не принимает решений о дальнейшей судьбе ошибочных записей в пайплайне; это решается на уровне стадий и политик качества данных. Наличие явного результата в виде ValidationResult облегчает интеграцию с DQRuleABC и ProgressReporterABC и позволяет анализировать качество без жёсткого прерывания обработки при первых ошибках.
+```python
+from typing import Generic, TypeVar
+
+RecordT = TypeVar("RecordT")
+SchemaT = TypeVar("SchemaT")
+
+class ValidatorABC(Generic[RecordT, SchemaT]):
+    def validate(self, record: RecordT, schema: SchemaT) -> "ValidationResult[RecordT]":
+        raise NotImplementedError
+```

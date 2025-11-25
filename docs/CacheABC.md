@@ -1,4 +1,4 @@
-# CacheABC
+# CacheABC[CacheKeyT, CacheValueT]
 
 ```python
 from abc import ABC, abstractmethod

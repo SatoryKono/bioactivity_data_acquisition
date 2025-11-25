@@ -1,5 +1,14 @@
-# DeduplicatorABC[RecordT, BusinessKeyT]
+# DeduplicatorABC
 
-## Описание
+**Назначение:** Удаляет дубликаты из потока записей по бизнес-ключу.
 
-DeduplicatorABC реализует правила устранения дублей в наборе записей по бизнес-ключу. Он принимает поток RecordT и функцию key_fn, вычисляющую BusinessKeyT, и возвращает поток записей, в котором каждый бизнес-ключ представлен в допустимом количестве экземпляров. Конкретная стратегия выбора «победителя» может быть простой (первый/последний) или учитывать дополнительные признаки (временные метки, версии, источники). DeduplicatorABC не отвечает за вычисление ключа и не должен вшивать его логику внутрь; для этого существует BusinessKeyDeriverABC. Контракт подразумевает предсказуемость результата при фиксированном входе и функции ключа и не требует сохранения порядка, если это явно не объявлено в реализации. Выделение дедупликации в отдельный интерфейс позволяет строить повторно используемые стратегии и подключать их в разные пайплайны и стадии без копирования логики.
+```python
+from typing import Generic, TypeVar, Iterable, Callable
+
+RecordT = TypeVar("RecordT")
+BusinessKeyT = TypeVar("BusinessKeyT")
+
+class DeduplicatorABC(Generic[RecordT, BusinessKeyT]):
+    def deduplicate(self, records: Iterable[RecordT], key_fn: Callable[[RecordT], BusinessKeyT]) -> Iterable[RecordT]:
+        raise NotImplementedError
+```

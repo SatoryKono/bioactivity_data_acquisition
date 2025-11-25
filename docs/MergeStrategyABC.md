@@ -1,5 +1,14 @@
-# MergeStrategyABC[RecordT, BusinessKeyT]
+# MergeStrategyABC
 
-## Описание
+**Назначение:** Объединяет дубликаты с одним бизнес-ключом в итоговую запись.
 
-MergeStrategyABC определяет способ объединения нескольких записей с одним бизнес-ключом в одну консистентную запись. Он принимает набор RecordT и конкретный BusinessKeyT и возвращает итоговый RecordT, который будет использоваться как «истина» для дальнейших стадий. Реализация может учитывать приоритеты источников, временные метки, качество данных, версии или другие доменные критерии. Контракт не накладывает ограничений на внутренние алгоритмы, но требует детерминированности: при одинаковом наборе записей и ключе результат должен быть стабильным. MergeStrategyABC обычно используется в связке с DeduplicatorABC и BusinessKeyDeriverABC, формируя полный цикл идентификации и консолидации данных. Выделение стратегии слияния в отдельный интерфейс позволяет менять правила консолидации без переписывания остальной части пайплайна и без вмешательства в логику загрузки или записи.
+```python
+from typing import Generic, TypeVar, Iterable
+
+RecordT = TypeVar("RecordT")
+BusinessKeyT = TypeVar("BusinessKeyT")
+
+class MergeStrategyABC(Generic[RecordT, BusinessKeyT]):
+    def merge(self, records: Iterable[RecordT], business_key: BusinessKeyT) -> RecordT:
+        raise NotImplementedError
+```

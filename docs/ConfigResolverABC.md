@@ -1,4 +1,4 @@
-# ConfigResolverABC
+# ConfigResolverABC[ConfigT]
 
 ```python
 from abc import ABC, abstractmethod

@@ -1,4 +1,4 @@
-# HasherABC
+# HasherABC[RecordT, HashT]
 
 ```python
 from abc import ABC, abstractmethod
