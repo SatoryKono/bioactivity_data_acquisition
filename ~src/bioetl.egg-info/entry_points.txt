@@ -1,2 +1,0 @@
-[console_scripts]
-bioetl = bioetl.cli.cli_app:app
