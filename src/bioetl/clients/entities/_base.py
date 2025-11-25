@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
-from typing import Any
+from bioetl.base_classes import BaseApiClient
+from bioetl.clients.common import PageParamPagination, PaginationStrategy, UnifiedEntityClientBase
 
-import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients.common import (
@@ -57,37 +56,5 @@ class _BaseEntityClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
                 normalize=self._normalize_payload,
             )
 
-        return self._wrap_iterator(iterator)
-
-    def close(self) -> None:
-        close = getattr(self.api_client, "close", None)
-        if callable(close):
-            close()
-
-    def get_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
-        return self.api_client.get_json(endpoint, params=params, headers=headers)
-
-    def paginate_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-        page_key: str = DEFAULT_PAGE_KEY,
-        next_key: str = DEFAULT_NEXT_KEY,
-        page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[Mapping[str, Any]]:
-        return self.api_client.paginate_json(
-            endpoint,
-            params=params,
-            headers=headers,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-        )
+    def default_pagination_strategy(self) -> PaginationStrategy:
+        return PageParamPagination()

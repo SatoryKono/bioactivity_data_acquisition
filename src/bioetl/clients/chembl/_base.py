@@ -17,7 +17,7 @@ from bioetl.clients.common import (
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
-class BaseChemblClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
+class BaseChemblClient(UnifiedEntityClientBase):
     def __init__(
         self,
         api_client: BaseApiClient,
@@ -88,10 +88,8 @@ class BaseChemblClient(ApiClientMixin, BaseApiClient, EntityClientProtocol):
             page_param=page_param,
         )
 
-    def close(self) -> None:
-        close = getattr(self.api_client, "close", None)
-        if callable(close):
-            close()
+    def default_pagination_strategy(self) -> PaginationStrategy:
+        return NextLinkPagination()
 
     def iterate_records(self, descriptor: ChemblExtractionDescriptor) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
