@@ -1,105 +1,74 @@
 from __future__ import annotations
 
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Mapping, Sequence
 
-import pandas as pd
-
-from bioetl.core.io.artifacts import WriteArtifacts
-from bioetl.core.pipeline.types import (
-    PipelineBaseProtocol,
-    PipelineStageCommand,
-    StageContext,
-    StageExecutionOptions,
-)
+from bioetl.core.pipeline.types import StageDescriptor
 
 
-def _pipeline_name(pipeline: PipelineBaseProtocol) -> str:
-    return getattr(pipeline, "pipeline_name", None) or getattr(
-        pipeline, "pipeline_code", pipeline.__class__.__name__
-    )
+@dataclass(frozen=True, slots=True)
+class StagePlanMetadata:
+    """Minimal metadata required to tailor the default stage graph."""
 
-
-def _empty_frame_from_schema(pipeline: PipelineBaseProtocol) -> pd.DataFrame:
-    validator = getattr(pipeline, "validator", None)
-    if validator is None:
-        return pd.DataFrame()
-    columns = {name: pd.Series(dtype=str(schema.dtype)) for name, schema in validator.columns.items()}
-    return pd.DataFrame(columns)
-
-
-def _validate_with_schema(pipeline: PipelineBaseProtocol, df: pd.DataFrame) -> pd.DataFrame:
-    validator = getattr(pipeline, "validator", None)
-    if validator is None:
-        return df
-    return validator.validate(df)
-
-
-def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    columns = sorted(df.columns)
-    if not columns:
-        return df.reset_index(drop=True)
-    return df.loc[:, columns].sort_values(by=columns).reset_index(drop=True)
+    dry_run: bool = False
+    has_validator: bool = True
 
 
 def build_default_stage_plan(
-    pipeline: PipelineBaseProtocol, context: StageContext, options: StageExecutionOptions
-) -> tuple[PipelineStageCommand, ...]:
-    """Assemble a deterministic stage plan shared across pipeline bases."""
+    descriptor: Any | None, pipeline_metadata: Mapping[str, Any] | StagePlanMetadata | None = None
+) -> list[StageDescriptor]:
+    """Deterministic stage descriptors for the default ETL workflow.
 
-    def _run_extract(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-        if exec_options.dry_run:
-            frame = _empty_frame_from_schema(pipeline)
-        else:
-            frame = pipeline.extract(stage_context.descriptor, exec_options)
-        if exec_options.limit is not None and frame is not None:
-            frame = frame.head(exec_options.limit)
-        if exec_options.sample is not None and frame is not None and not frame.empty:
-            frame = frame.sample(min(exec_options.sample, len(frame)), random_state=0)
-        stage_context.current_df = frame
-        return frame
+    The plan encodes a linear graph of stages. Runtime concerns such as
+    dependency injection are handled elsewhere by :class:`StageFactory`.
+    """
 
-    def _run_transform(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-        if stage_context.current_df is None:
-            raise RuntimeError("transform stage requires extracted data")
-        stage_context.current_df = pipeline.transform(stage_context.current_df, exec_options)
-        return stage_context.current_df
+    metadata = _normalize_metadata(pipeline_metadata)
+    base_plan: list[StageDescriptor] = _linear_plan()
 
-    def _run_validate(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-        if stage_context.current_df is None:
-            raise RuntimeError("validate stage requires transformed data")
-        frame = _validate_with_schema(pipeline, stage_context.current_df)
-        frame = pipeline.validate(frame, exec_options)
-        stage_context.current_df = _sort_dataframe(frame)
-        return stage_context.current_df
+    if metadata.dry_run:
+        base_plan = [stage for stage in base_plan if stage.id != "save_results"]
+        if not metadata.has_validator:
+            base_plan = [stage for stage in base_plan if stage.id == "extract"]
+        base_plan = _relink_plan(base_plan)
 
-    def _run_save_results(
-        stage_context: StageContext, exec_options: StageExecutionOptions
-    ) -> Any:
-        if stage_context.current_df is None:
-            raise RuntimeError("save_results stage requires validated data")
-        artifacts = stage_context.artifacts or WriteArtifacts(
-            data_path=stage_context.output_dir / f"{_pipeline_name(pipeline)}.csv"
-        )
-        stage_context.artifacts = artifacts
-        result = pipeline.save_results(stage_context.current_df, artifacts, exec_options)
-        if hasattr(result, "artifacts") and result.artifacts:
-            stage_context.artifacts = result.artifacts
-        stage_context.metadata.setdefault("write_result", result)
-        return result
+    return base_plan
 
-    stage_plan: tuple[PipelineStageCommand, ...] = (
-        PipelineStageCommand("extract", _run_extract),
-        PipelineStageCommand("transform", _run_transform),
-        PipelineStageCommand("validate", _run_validate),
-        PipelineStageCommand("save_results", _run_save_results),
+
+def _normalize_metadata(
+    payload: Mapping[str, Any] | StagePlanMetadata | None,
+) -> StagePlanMetadata:
+    if isinstance(payload, StagePlanMetadata):
+        return payload
+    if payload is None:
+        return StagePlanMetadata()
+    return StagePlanMetadata(
+        dry_run=bool(payload.get("dry_run", False)),
+        has_validator=bool(payload.get("has_validator", True)),
     )
 
-    if options.dry_run:
-        stage_plan = tuple(command for command in stage_plan if command.name != "save_results")
-        if getattr(pipeline, "validator", None) is None:
-            stage_plan = tuple(command for command in stage_plan if command.name == "extract")
 
-    return stage_plan
+def _linear_plan() -> list[StageDescriptor]:
+    extract = StageDescriptor(id="extract", kind="extract", params={}, next=["transform"])
+    transform = StageDescriptor(id="transform", kind="transform", params={}, next=["validate"])
+    validate = StageDescriptor(id="validate", kind="validate", params={}, next=["save_results"])
+    save_results = StageDescriptor(id="save_results", kind="save_results", params={}, next=[])
+    return [extract, transform, validate, save_results]
 
 
-__all__ = ["build_default_stage_plan"]
+def _relink_plan(plan: Sequence[StageDescriptor]) -> list[StageDescriptor]:
+    relinked: list[StageDescriptor] = []
+    for idx, stage in enumerate(plan):
+        next_stage = plan[idx + 1].id if idx + 1 < len(plan) else None
+        relinked.append(
+            StageDescriptor(
+                id=stage.id,
+                kind=stage.kind,
+                params=dict(stage.params),
+                next=[next_stage] if next_stage else [],
+            )
+        )
+    return relinked
+
+
+__all__ = ["StagePlanMetadata", "build_default_stage_plan"]

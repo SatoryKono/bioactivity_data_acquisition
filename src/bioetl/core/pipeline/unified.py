@@ -12,11 +12,11 @@ import pandera as pa
 
 from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
-from bioetl.core.pipeline.stage_plan import build_default_stage_plan
+from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
 from bioetl.core.pipeline.types import (
-    PipelineStageCommand,
     RunResult,
     StageContext,
+    StageDescriptor,
     StageExecutionOptions,
     WriteArtifacts,
     WriteResult,
@@ -92,8 +92,9 @@ class UnifiedPipelineBase(PipelineBase):
 
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
-    ) -> tuple[PipelineStageCommand, ...]:
-        return build_default_stage_plan(self, context, options)
+    ) -> tuple[StageDescriptor, ...]:
+        metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=self.validator is not None)
+        return tuple(build_default_stage_plan(context.descriptor, metadata))
 
     # Stage helpers ------------------------------------------------------
     def _validate_with_schema(self, df: pd.DataFrame) -> pd.DataFrame:

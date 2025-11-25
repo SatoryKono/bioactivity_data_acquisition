@@ -14,13 +14,16 @@ import pandas as pd
 import yaml
 
 from bioetl.core.logging import UnifiedLogger
+from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
-    PipelineStageCommand,
     RunArtifacts,
     RunResult,
+    Stage,
     StageContext,
+    StageDescriptor,
     StageExecutionOptions,
+    StageRuntimeContext,
     WriteArtifacts,
 )
 from bioetl.qc.executor import QCMetricsExecutor
@@ -84,7 +87,7 @@ class StagePlanExecutor:
 
     def execute(
         self,
-        stage_plan: Iterable[PipelineStageCommand],
+        stages: Iterable[Stage],
         context: StageContext,
         options: StageExecutionOptions,
         *,
@@ -96,28 +99,30 @@ class StagePlanExecutor:
         artifacts = context.artifacts or WriteArtifacts()
         qc_metrics_path: Path | None = None
 
-        for command in stage_plan:
+        runtime_context = StageRuntimeContext(context=context, options=options)
+
+        for stage in stages:
             started = time.perf_counter()
             if logger:
-                logger.info("STAGE_RUN_START", stage=command.name)
+                logger.info("STAGE_RUN_START", stage=stage.name)
             try:
-                result = command.handler(context, options)
-                if command.name == "extract" and isinstance(result, pd.DataFrame):
-                    context.metadata["extract_rows"] = int(result.shape[0])
-                if command.name == "save_results" and hasattr(result, "artifacts"):
-                    artifacts = result.artifacts  # type: ignore[attr-defined]
+                result = stage.execute(runtime_context)
+                if stage.name == "extract" and isinstance(result.output, pd.DataFrame):
+                    context.metadata["extract_rows"] = int(result.output.shape[0])
+                if stage.name == "save_results" and hasattr(result.output, "artifacts"):
+                    artifacts = result.output.artifacts  # type: ignore[attr-defined]
                     if isinstance(artifacts, WriteArtifacts):
                         context.artifacts = artifacts
             except Exception as exc:  # pragma: no cover - surfaced via RunResult
                 error = str(exc)
                 if logger:
-                    logger.error("STAGE_RUN_ERROR", stage=command.name, error=error)
+                    logger.error("STAGE_RUN_ERROR", stage=stage.name, error=error)
                 break
             finally:
                 duration_ms = int((time.perf_counter() - started) * 1000)
-                durations[command.name] = duration_ms
+                durations[stage.name] = duration_ms
                 if logger:
-                    logger.info("STAGE_RUN_END", stage=command.name, duration_ms=duration_ms)
+                    logger.info("STAGE_RUN_END", stage=stage.name, duration_ms=duration_ms)
 
         if error is None and include_qc_metrics:
             try:
@@ -149,13 +154,13 @@ class RunMetadataBuilder:
     def build(
         self,
         context: StageContext,
-        stage_plan: Iterable[PipelineStageCommand],
+        stages: Iterable[Stage],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
     ) -> dict[str, Any]:
         metadata: dict[str, Any] = {
-            "stage_plan": [cmd.name for cmd in stage_plan],
+            "stage_plan": [stage.name for stage in stages],
             "extract_metadata": context.metadata,
             "git_commit": self._git_commit,
             "config_hash": self._config_hash,
@@ -269,10 +274,12 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             artifacts=artifacts,
         )
 
-        stage_plan = self.build_stage_plan(context, options)
-        self.stage_plan = stage_plan
+        stage_descriptors = self.build_stage_plan(context, options)
+        stage_factory = self.create_stage_factory()
+        stages = stage_factory.build(stage_descriptors, context)
+        self.stage_plan = stages
         durations, error, qc_path = self.stage_plan_executor.execute(
-            stage_plan,
+            stages,
             context,
             options,
             include_qc_metrics=include_qc_metrics,
@@ -285,7 +292,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 
         rows = 0 if context.current_df is None else int(context.current_df.shape[0])
         success = error is None
-        metadata = self.build_run_metadata(context, stage_plan, durations, run_tag, mode)
+        metadata = self.build_run_metadata(context, stages, durations, run_tag, mode)
         metadata["rows"] = rows
         if qc_path is not None:
             metadata["qc_metrics_path"] = str(qc_path)
@@ -315,11 +322,14 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         """Вызывается после завершения write."""
 
     # Planning ------------------------------------------------------------
+    def create_stage_factory(self) -> StageFactory:
+        return StageFactory(self)
+
     @abstractmethod
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
-    ) -> tuple[PipelineStageCommand, ...]:
-        """Construct a deterministic stage plan for the pipeline."""
+    ) -> tuple[StageDescriptor, ...]:
+        """Construct a deterministic stage descriptor plan for the pipeline."""
 
     def plan_run_artifacts(
         self, output_dir: Path, run_tag: str | None, mode: str | None
@@ -331,7 +341,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     def build_run_metadata(
         self,
         context: StageContext,
-        stage_plan: Iterable[PipelineStageCommand],
+        stage_plan: Iterable[Stage],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
