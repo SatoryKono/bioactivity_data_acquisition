@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
+from collections.abc import Iterator, Mapping, MutableMapping, Sequence
 from typing import Any, Callable
 
 import structlog
@@ -8,9 +8,10 @@ import structlog
 from bioetl.base_classes import BaseApiClient
 from bioetl.clients import client_exceptions
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
+from bioetl.clients.mixins import ApiClientMixin
 
 
-class BaseChemblClient(BaseApiClient):
+class BaseChemblClient(ApiClientMixin, BaseApiClient):
     def __init__(self, api_client: BaseApiClient, entity: str) -> None:
         self.api_client = api_client
         self.entity = entity.strip("/")
@@ -35,22 +36,8 @@ class BaseChemblClient(BaseApiClient):
             self._logger.error("api_call_failed", entity=self.entity, error=str(exc))
             raise client_exceptions.RequestException(str(exc)) from exc
 
-    def _iter_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
-        if isinstance(payload, Mapping):
-            yield dict(payload)
-        elif isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
-            for item in payload:
-                if isinstance(item, Mapping):
-                    yield dict(item)
-
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
-        def iterator() -> Iterator[dict[str, Any]]:
-            for entity_id in ids:
-                payload = self.api_client.get_json(f"/{self.entity}/{entity_id}")
-                self._logger.info("api_call", entity=self.entity, entity_id=str(entity_id))
-                yield from self._iter_payload(payload)
-
-        return self._wrap_iterator(iterator)
+        return self.iter_ids(ids, "/{entity}/{id}")
 
     def fetch_all(self, page_size: int = 1000) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
@@ -72,7 +59,7 @@ class BaseChemblClient(BaseApiClient):
                     next_candidate = payload.get("next")
                     next_path = next_candidate if isinstance(next_candidate, str) else None
                 else:
-                    yield from self._iter_payload(payload)
+                    yield from self._normalize_payload(payload)
 
         return self._wrap_iterator(iterator)
 
