@@ -1,14 +1,17 @@
 """Orchestration primitives for unified pipeline lifecycle."""
 from __future__ import annotations
 
+import hashlib
 import json
+import subprocess
 import time
 from abc import ABC
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 import pandas as pd
+import yaml
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
@@ -52,6 +55,8 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         self.output_root = Path(config.materialization.root)
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
         self.stage_plan: tuple[PipelineStageCommand, ...] = ()
+        self._git_commit = self._resolve_git_commit()
+        self._config_hash = self._compute_config_hash(config)
 
     # Hook methods -----------------------------------------------------
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -126,6 +131,8 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
                 "stage_plan": [cmd.name for cmd in self.stage_plan],
                 "extract_metadata": context.metadata,
                 "started_at": datetime.now(timezone.utc).isoformat(),
+                "git_commit": self._git_commit,
+                "config_hash": self._config_hash,
             }
         )
 
@@ -163,6 +170,23 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         target_dir.mkdir(parents=True, exist_ok=True)
         artifacts = WriteArtifacts(data_path=target_dir / f"{self.pipeline_code}.csv")
         return target_dir, artifacts
+
+    # Metadata helpers --------------------------------------------------
+    def _resolve_git_commit(self) -> str | None:
+        try:
+            completed = subprocess.run(
+                ["git", "rev-parse", "HEAD"], capture_output=True, check=True, text=True
+            )
+        except Exception:  # pragma: no cover - defensive resolution
+            return None
+        return completed.stdout.strip() or None
+
+    def _compute_config_hash(self, config: PipelineConfig) -> str | None:
+        try:
+            serialized = yaml.safe_dump(config.__dict__, sort_keys=True).encode("utf-8")
+            return hashlib.sha256(serialized).hexdigest()
+        except Exception:  # pragma: no cover - defensive hashing
+            return None
 
 
 def _execute_stage_plan(

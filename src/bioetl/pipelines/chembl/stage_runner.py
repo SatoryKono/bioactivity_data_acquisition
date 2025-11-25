@@ -8,7 +8,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.types import PipelineStageCommand, StageContext, StageExecutionOptions
+from bioetl.core.pipeline.types import (
+    PipelineStageCommand,
+    PipelineStagesProtocol,
+    StageContext,
+    StageExecutionOptions,
+)
 from bioetl.pipelines.chembl.common import ChemblPipelineContract
 
 _PIPELINE_REGISTRY: dict[str, Callable[[], ChemblPipelineContract]] = {}
@@ -25,7 +30,7 @@ class StageAlias:
 class StageRunner:
     """Backward-compatible runner for executing individual pipeline stages."""
 
-    def __init__(self, pipeline: Any) -> None:
+    def __init__(self, pipeline: PipelineStagesProtocol) -> None:
         self.pipeline = pipeline
         self._aliases: dict[str, StageAlias] = {}
 
