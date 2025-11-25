@@ -55,7 +55,7 @@ class ActivityExtractor:
                 continue
             try:
                 payload = client.fetch_by_ids(batch)
-                batch_frames = [self.parser.parse(raw) for raw in payload.values()]
+                batch_frames = [self.parser.parse(raw) for raw in payload]
                 frame = pd.concat(batch_frames, ignore_index=True) if batch_frames else pd.DataFrame()
                 frames.append(frame)
             except Exception as exc:  # pragma: no cover - defensive
