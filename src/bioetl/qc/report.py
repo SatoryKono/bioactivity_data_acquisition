@@ -5,8 +5,6 @@ from typing import Any, Mapping
 
 import pandas as pd
 
-from bioetl.core.output import UnifiedOutputWriter
-
 
 def build_quality_report(
     df: pd.DataFrame,
@@ -53,19 +51,6 @@ def build_correlation_report(
     return correlations.reset_index().rename(columns={"index": "column", 0: "correlation"})
 
 
-def emit_qc_artifact(writer: UnifiedOutputWriter, reports: Mapping[str, Any]) -> dict[str, Path]:
-    """Persist QC artifacts via :class:`UnifiedOutputWriter`."""
-
-    paths: dict[str, Path] = {}
-    for name, report in reports.items():
-        filename = f"{name}.csv"
-        if isinstance(report, pd.DataFrame):
-            paths[name] = writer.write_dataframe(report, filename=filename)
-        elif isinstance(report, Path):
-            paths[name] = writer.write_dataframe(pd.read_csv(report), filename=filename)
-    return paths
-
-
 def golden_test_compare(current: pd.DataFrame, golden: pd.DataFrame | Path | str) -> pd.DataFrame:
     """Compare current QC output against a golden baseline."""
 
@@ -84,6 +69,5 @@ def golden_test_compare(current: pd.DataFrame, golden: pd.DataFrame | Path | str
 __all__ = [
     "build_quality_report",
     "build_correlation_report",
-    "emit_qc_artifact",
     "golden_test_compare",
 ]

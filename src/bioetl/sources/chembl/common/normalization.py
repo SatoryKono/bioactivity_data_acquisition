@@ -6,7 +6,7 @@ from typing import Any, Callable, Iterable, Sequence
 import pandas as pd
 import pandera as pa
 
-from bioetl.core.output import hash_business_key, hash_row
+from bioetl.core.io import hash_business_key, hash_row
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +62,7 @@ class BaseChemblNormalizer:
             df[spec.name] = series
 
         df["business_key"] = df[self.business_key_column].astype(str)
-        df["business_key_hash"] = df["business_key"].apply(hash_business_key)
+        df["business_key_hash"] = df["business_key"].apply(lambda value: hash_business_key([value]))
         df["row_hash"] = df.apply(
             lambda row: hash_row([row[col] for col in self.columns if col != "row_hash"]),
             axis=1,

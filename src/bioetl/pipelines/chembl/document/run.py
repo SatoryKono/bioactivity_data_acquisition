@@ -2,11 +2,13 @@ from __future__ import annotations
 
 """Запуск ChEMBL Document pipeline."""
 
+from pathlib import Path
 from typing import Any, Mapping, TYPE_CHECKING
 
 import pandas as pd
 
 from bioetl.core.io.artifacts import RunArtifacts
+from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.pipelines.chembl.common import ChemblEntityPipeline, ConfigValidationError
 from bioetl.schemas import DocumentSchema
 
@@ -33,35 +35,42 @@ class ChemblDocumentPipeline(ChemblEntityPipeline):
     # ------------------------------------------------------------------
     # Stage hooks
     # ------------------------------------------------------------------
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = super().transform(df)
+    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+        df = super().transform(df, options)
         if df.empty:
             return df
         df = self._apply_enrichment_chain(df)
         return df
 
-    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = super().validate(df)
+    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+        df = super().validate(df, options)
         if "document_chembl_id" in df.columns and df["document_chembl_id"].isna().any():
             raise ConfigValidationError("document_chembl_id не должен быть пустым")
         return df
 
-    def write(self, df: pd.DataFrame, output_dir, *, extended: bool = False):
+    def save_results(
+        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+    ) -> WriteResult:
+        output_dir = artifacts.data_path.parent if artifacts.data_path else Path.cwd()
         writer = self._resolve_unified_writer(output_dir)
         if writer:
-            artifacts = RunArtifacts(output_dir=output_dir, logs_directory=output_dir / "logs")
+            run_artifacts = RunArtifacts(
+                output_dir=output_dir,
+                logs_directory=output_dir / "logs",
+                write_artifacts=artifacts,
+            )
             try:
-                result = writer.write_dataset_atomic(df, artifacts, format="csv")
+                result = writer.write_dataset_atomic(df, run_artifacts, format="csv")
             except Exception:  # pragma: no cover - опциональный путь
-                return super().write(df, output_dir, extended=extended)
+                return super().save_results(df, artifacts, options)
             try:  # pragma: no cover - QC необязателен
                 from bioetl.core.io.output import emit_qc_artifact
 
-                emit_qc_artifact(df, artifacts)
+                emit_qc_artifact(df, run_artifacts)
             except Exception:
                 pass
-            return result.data_path
-        return super().write(df, output_dir, extended=extended)
+            return result
+        return super().save_results(df, artifacts, options)
 
     # ------------------------------------------------------------------
     # Helpers

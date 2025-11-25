@@ -15,6 +15,12 @@ import structlog
 
 from bioetl.core.http._cache import TTLCache, TTLCacheConfig
 from bioetl.core.http._rate_limiter import TokenBucketConfig, TokenBucketRateLimiter
+from bioetl.core.http.interfaces import (
+    CacheStrategy,
+    CircuitBreakerStrategy,
+    RateLimiter,
+    RetryStrategy,
+)
 
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
@@ -131,6 +137,10 @@ class UnifiedAPIClient:
         config: APIConfig,
         *,
         session: requests.Session | None = None,
+        rate_limiter: RateLimiter | None = None,
+        cache: CacheStrategy | None = None,
+        retry_strategy: RetryStrategy | None = None,
+        circuit_breaker: CircuitBreakerStrategy | None = None,
         verify_ssl: bool = True,
     ) -> None:
         self.config = config
@@ -139,19 +149,21 @@ class UnifiedAPIClient:
         default_headers = {"User-Agent": config.user_agent, **config.default_headers}
         self._session.headers.update(default_headers)
         self._session.verify = verify_ssl
-        self._retry_policy = RetryPolicy(
+        self._retry_strategy = retry_strategy or RetryPolicy(
             max_retries=config.max_retries,
             backoff_factor=config.backoff_factor,
             max_backoff_sec=config.max_backoff_sec,
         )
-        self._rate_limiter = TokenBucketRateLimiter(
+        self._rate_limiter = rate_limiter or TokenBucketRateLimiter(
             TokenBucketConfig(
                 max_tokens=config.rate_limit_calls,
                 refill_period_sec=float(config.rate_limit_period_sec),
             )
         )
-        self._cache = TTLCache(TTLCacheConfig(ttl_seconds=config.cache_ttl_sec)) if config.cache_enabled else None
-        self._breaker = CircuitBreaker(
+        self._cache = cache if cache is not None else (
+            TTLCache(TTLCacheConfig(ttl_seconds=config.cache_ttl_sec)) if config.cache_enabled else None
+        )
+        self._breaker = circuit_breaker or CircuitBreaker(
             CircuitBreakerConfig(
                 failure_threshold=config.circuit_breaker_fail_max,
                 reset_timeout_sec=config.circuit_breaker_reset_sec,
@@ -166,9 +178,9 @@ class UnifiedAPIClient:
         headers: Mapping[str, str] | None = None,
         *,
         paginate: bool = False,
-    ) -> Dict[str, Any] | Iterator[Dict[str, Any]]:
+    ) -> Dict[str, Any] | list[Dict[str, Any]]:
         if paginate:
-            return self.iterate_paginated(path, params=params or {})
+            return list(self.iterate_paginated(path, params=params or {}))
         return self.request("GET", path, headers=headers, params=params)
 
     def post_json(
@@ -184,28 +196,50 @@ class UnifiedAPIClient:
         path: str,
         params: Mapping[str, Any] | None = None,
         *,
-        page_key: str = "items",
-        page_param: str = "page",
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
-        yield from self.iterate_paginated(path, params=params or {}, page_key=page_key, page_param=page_param)
+        yield from self.iterate_paginated(
+            path, params=params or {}, page_key=page_key, next_key=next_key, page_param=page_param
+        )
 
     def iterate_paginated(
         self,
         path: str,
         params: Mapping[str, Any],
         *,
-        page_key: str = "items",
-        page_param: str = "page",
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
+        next_path: str | None = path
         page_params: MutableMapping[str, Any] = dict(params)
-        page_params.setdefault(page_param, 1)
-        while True:
-            payload = self.request("GET", path, params=page_params)
+        if page_param:
+            page_params.setdefault(page_param, 1)
+
+        while next_path:
+            payload = self.request("GET", next_path, params=page_params)
             yield payload
-            items = payload.get(page_key) if isinstance(payload, Mapping) else None
-            if not items:
+
+            if not isinstance(payload, Mapping):
                 break
-            page_params[page_param] = page_params.get(page_param, 1) + 1
+
+            next_candidate = payload.get(next_key)
+            if isinstance(next_candidate, str):
+                next_path = next_candidate
+                page_params = {}
+                continue
+
+            items = payload.get(page_key)
+            if items and page_param:
+                page_params[page_param] = page_params.get(page_param, 1) + 1
+                next_path = path
+            else:
+                break
+
+    def close(self) -> None:
+        self._session.close()
 
     # --------------------------- internals -----------------------------
     def request(
@@ -228,7 +262,7 @@ class UnifiedAPIClient:
 
         attempt = 0
         last_error: Exception | None = None
-        while attempt <= self._retry_policy.max_retries:
+        while attempt <= self._retry_strategy.max_retries:
             attempt += 1
             try:
                 if not self._rate_limiter.acquire():
@@ -247,9 +281,9 @@ class UnifiedAPIClient:
                 latency_ms = (time.perf_counter() - start) * 1000
                 if response.status_code in _RETRYABLE_STATUS_CODES:
                     retry_after = self._parse_retry_after(response)
-                    if attempt > self._retry_policy.max_retries:
+                    if attempt > self._retry_strategy.max_retries:
                         response.raise_for_status()
-                    wait_for = self._retry_policy.compute_backoff(attempt, retry_after=retry_after)
+                    wait_for = self._retry_strategy.compute_backoff(attempt, retry_after=retry_after)
                     self._logger.warning(
                         "api_retry",
                         attempt=attempt,
@@ -279,9 +313,9 @@ class UnifiedAPIClient:
             except (RequestException, ValueError) as exc:
                 last_error = exc
                 self._breaker.record_failure()
-                if attempt > self._retry_policy.max_retries:
+                if attempt > self._retry_strategy.max_retries:
                     raise HTTPClientError(str(exc)) from exc
-                wait_for = self._retry_policy.compute_backoff(attempt)
+                wait_for = self._retry_strategy.compute_backoff(attempt)
                 self._logger.warning("api_retry", attempt=attempt, url=url, error=str(exc), wait_sec=wait_for)
                 time.sleep(wait_for)
 
