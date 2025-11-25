@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Protocol, runtime_checkable
 
-__all__ = ["BaseApiClient", "IParser", "INormalizer"]
+__all__ = ["BaseApiClient"]
 
 
 @runtime_checkable
@@ -43,19 +43,3 @@ class BaseApiClient(Protocol):
 
     def close(self) -> None:
         """Release any resources (e.g. sessions) associated with the client."""
-
-
-@runtime_checkable
-class IParser(Protocol):
-    """Protocol describing the minimal parser interface for source payloads."""
-
-    def parse(self, raw: Any) -> Iterable[Mapping[str, Any]]:
-        """Convert a raw payload into an iterable of dictionary records."""
-
-
-@runtime_checkable
-class INormalizer(Protocol):
-    """Protocol describing the normalizer surface area for parsed records."""
-
-    def normalize(self, record: Mapping[str, Any] | None) -> Mapping[str, Any]:
-        """Normalize a parsed record into the canonical schema representation."""
