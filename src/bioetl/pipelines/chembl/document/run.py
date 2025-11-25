@@ -28,7 +28,7 @@ class ChemblDocumentPipeline(ChemblEntityPipeline):
         self.enrichment_chain = self._build_enrichment_chain()
 
     def build_descriptor(self):  # pragma: no cover
-        return self._build_generic_descriptor()
+        return self.build_generic_descriptor()
 
     # ------------------------------------------------------------------
     # Stage hooks

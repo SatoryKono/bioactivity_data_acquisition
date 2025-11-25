@@ -26,7 +26,7 @@ class ChemblAssayPipeline(ChemblEntityPipeline):
         self.validator = AssaySchema
 
     def build_descriptor(self):  # pragma: no cover - тонкий слой
-        return self._build_generic_descriptor()
+        return self.build_generic_descriptor()
 
     # ------------------------------------------------------------------
     # Stage hooks

@@ -25,7 +25,7 @@ class ChemblTargetPipeline(ChemblEntityPipeline):
         self.validator = TargetSchema
 
     def build_descriptor(self):  # pragma: no cover
-        return self._build_generic_descriptor()
+        return self.build_generic_descriptor()
 
     # ------------------------------------------------------------------
     # Stage hooks
