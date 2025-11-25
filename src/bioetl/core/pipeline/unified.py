@@ -14,14 +14,8 @@ import pandas as pd
 import pandera as pa
 import yaml
 
-
-@dataclass(slots=True)
-class RunResult:
-    """Краткий результат выполнения пайплайна."""
-
-    success: bool
-    error: str | None
-    metrics: dict[str, Any]
+from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
+from bioetl.core.pipeline.types import RunResult
 
 
 @dataclass(slots=True)
@@ -73,7 +67,15 @@ class PipelineBase(ABC):
         ...
 
     @abstractmethod
-    def run(self, output_dir: Path, **kwargs: Any) -> RunResult:
+    def run(
+        self,
+        output_dir: Path,
+        *,
+        extended: bool = False,
+        dry_run: bool | None = None,
+        limit: int | None = None,
+        sample: int | None = None,
+    ) -> RunResult:
         ...
 
     # Hooks ---------------------------------------------------------------
@@ -120,6 +122,7 @@ class UnifiedPipelineBase(PipelineBase):
             "config_hash": self._config_hash,
             "pipeline": self.pipeline_name,
         }
+        durations: dict[str, int] = {}
 
         try:
             if self.dry_run:
@@ -148,11 +151,28 @@ class UnifiedPipelineBase(PipelineBase):
             success = False
         finally:
             duration = time.perf_counter() - started
+            durations["pipeline"] = int(duration * 1000)
+            rows = 0 if df is None else int(df.shape[0])
             metrics["duration_seconds"] = duration
-            metrics["rows"] = 0 if df is None else int(df.shape[0])
-            self.finalize_run(RunResult(success=success, error=error, metrics=metrics))
+            metrics["rows"] = rows
 
-        return RunResult(success=success, error=error, metrics=metrics)
+            run_result = RunResult(
+                success=success,
+                rows=rows,
+                artifacts=RunArtifacts(
+                    output_dir=output_dir,
+                    logs_directory=output_dir / "logs",
+                    write_artifacts=WriteArtifacts(
+                        data_path=Path(metrics["output_path"]) if "output_path" in metrics else None
+                    ),
+                ),
+                duration_ms=durations,
+                error=error,
+                metadata={"legacy_metrics": metrics},
+            )
+            self.finalize_run(run_result)
+
+        return run_result
 
     # Stage helpers ------------------------------------------------------
     def _validate_with_schema(self, df: pd.DataFrame) -> pd.DataFrame:

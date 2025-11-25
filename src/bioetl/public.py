@@ -11,7 +11,7 @@ from typing import Any, Protocol, runtime_checkable
 from bioetl.config import PipelineConfig, load_config
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.core.logging import UnifiedLogger
-from bioetl.core.types import RunResult
+from bioetl.core.pipeline.types import RunResult
 from bioetl.pipelines.base import PipelineBase
 
 

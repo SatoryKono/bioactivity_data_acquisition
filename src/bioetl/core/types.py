@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from bioetl.core.pipeline.types import RunResult as PipelineRunResult
 
+# NOTE: Deprecated. Use ``bioetl.core.pipeline.types.RunResult`` instead.
+RunResult = PipelineRunResult
 
-@dataclass
-class RunResult:
-    success: bool
-    error: str | None
-    metrics: dict[str, Any]
+__all__ = ["RunResult"]
