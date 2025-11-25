@@ -15,6 +15,7 @@ import yaml
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import (
+    PipelineBaseProtocol,
     PipelineStageCommand,
     RunArtifacts,
     RunResult,
@@ -78,7 +79,7 @@ def _execute_stage_plan(
     return durations, error, qc_metrics_path
 
 
-class PipelineRuntimeBase(ABC):
+class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     """Common runtime for pipelines that orchestrate ETL stage plans."""
 
     deterministic_folder_prefix: str = "_"
@@ -150,9 +151,15 @@ class PipelineRuntimeBase(ABC):
             stage_plan, context, options, include_qc_metrics=include_qc_metrics
         )
 
+        if options.extended and self.dry_run:
+            metadata_writer = getattr(self, "_write_metadata", None)
+            if callable(metadata_writer):  # pragma: no cover - defensive
+                metadata_writer(target_dir, context.current_df)
+
         rows = 0 if context.current_df is None else int(context.current_df.shape[0])
         success = error is None
         metadata = self.build_run_metadata(context, stage_plan, durations, run_tag, mode)
+        metadata["rows"] = rows
         if qc_path is not None:
             metadata["qc_metrics_path"] = str(qc_path)
 

@@ -1,68 +1,108 @@
 from __future__ import annotations
 
-"""Batch execution helper for ChEMBL fetchers."""
+"""Утилиты для батчевой выборки данных ChEMBL."""
 
-from typing import Any, Callable, Mapping, Sequence
 import time
+from dataclasses import dataclass
+from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.core.pipeline.unified import BatchExtractionStats, CircuitBreakerOpenError
-
-Fetcher = Callable[[Sequence[str] | None], Any]
-
-
-def _build_batches(ids: Sequence[str] | None, batch_size: int) -> list[Sequence[str] | None]:
-    if not ids:
-        return [None]
-    safe_batch = max(1, min(batch_size, 25))
-    return [ids[i : i + safe_batch] for i in range(0, len(ids), safe_batch)]
+from bioetl.core.pipeline.unified import (
+    BatchExtractionStats,
+    CircuitBreakerOpenError,
+)
 
 
-def execute_batch_extraction(
-    fetcher: Fetcher, *, ids: Sequence[str] | None, batch_size: int = 25
-) -> tuple[pd.DataFrame, BatchExtractionStats]:
-    """Run fetcher in batches aggregating stats and handling circuit breaker."""
+@dataclass(slots=True)
+class ChemblBatchExecutor:
+    """Оркеструет вызовы fetcher по батчам и собирает статистику."""
 
-    batches = _build_batches(ids, batch_size)
+    batch_size: int = 25
 
-    start = time.perf_counter()
-    frames: list[pd.DataFrame] = []
-    api_calls = cache_hits = success = fallback = errors = 0
+    def run(
+        self,
+        fetcher: Callable[[Sequence[str] | None], Any],
+        ids: Sequence[str] | None,
+    ) -> tuple[
+        pd.DataFrame,
+        BatchExtractionStats,
+    ]:
+        batches = self._build_batches(ids)
+        start = time.perf_counter()
 
-    for batch in batches:
-        try:
-            result = fetcher(batch)
+        frames: list[pd.DataFrame] = []
+        api_calls = cache_hits = success = fallback = errors = 0
+
+        for batch in batches:
+            try:
+                result = fetcher(batch)
+            except CircuitBreakerOpenError:
+                errors += 1
+                break
+            except Exception:
+                errors += 1
+                continue
+
             meta: Mapping[str, Any] | None = None
             batch_df: pd.DataFrame
-            if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], Mapping):
-                batch_df = pd.DataFrame(result[0]) if not isinstance(result[0], pd.DataFrame) else result[0]
+            if (
+                isinstance(result, tuple)
+                and len(result) == 2
+                and isinstance(result[1], Mapping)
+            ):
+                batch_df = (
+                    result[0]
+                    if isinstance(result[0], pd.DataFrame)
+                    else pd.DataFrame(result[0])
+                )
                 meta = result[1]
             else:
-                batch_df = pd.DataFrame(result)
+                batch_df = (
+                    result
+                    if isinstance(result, pd.DataFrame)
+                    else pd.DataFrame(result)
+                )
 
             frames.append(batch_df)
             meta = meta or {}
-            api_calls += int(meta.get("api_calls", 0 if meta.get("cache_hit") else 1))
-            cache_hits += int(meta.get("cache_hit", False)) * max(len(batch_df), 1)
+            api_calls += int(
+                meta.get("api_calls", 0 if meta.get("cache_hit") else 1)
+            )
+            cache_hits += int(meta.get("cache_hit", False)) * max(
+                batch_df.shape[0],
+                1,
+            )
             fallback += int(meta.get("fallback", 0))
             success += int(batch_df.shape[0])
-        except CircuitBreakerOpenError:
-            errors += 1
-            break
-        except Exception:
-            errors += 1
-            continue
 
-    dataframe = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-    duration = time.perf_counter() - start
-    stats = BatchExtractionStats(
-        rows=int(dataframe.shape[0]),
-        api_calls=api_calls,
-        cache_hits=cache_hits,
-        success_count=success,
-        fallback_count=fallback,
-        error_count=errors,
-        duration_seconds=duration,
-    )
-    return dataframe, stats
+        dataframe = (
+            pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        )
+        duration = time.perf_counter() - start
+        stats = BatchExtractionStats(
+            rows=int(dataframe.shape[0]),
+            api_calls=api_calls,
+            cache_hits=cache_hits,
+            success_count=success,
+            fallback_count=fallback,
+            error_count=errors,
+            duration_seconds=duration,
+        )
+        return dataframe, stats
+
+    def _build_batches(self, ids: Sequence[str] | None) -> list[Sequence[str] | None]:
+        effective_size = int(self.batch_size) if self.batch_size else 25
+        effective_size = max(1, min(effective_size, 25))
+        sanitized_ids = list(ids) if ids else []
+
+        batches = [
+            sanitized_ids[i : i + effective_size]
+            for i in range(0, len(sanitized_ids), effective_size)
+        ]
+        if not batches:
+            batches = [None]
+        return batches
+
+
+__all__ = ["ChemblBatchExecutor"]

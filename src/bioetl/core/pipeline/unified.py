@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,6 +12,7 @@ import pandera as pa
 import yaml
 
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
+from bioetl.core.pipeline.stage_plan import build_default_stage_plan
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
     RunResult,
@@ -82,60 +84,7 @@ class UnifiedPipelineBase(PipelineBase):
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
     ) -> tuple[PipelineStageCommand, ...]:
-        def _run_extract(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-            if exec_options.dry_run:
-                frame = self._empty_frame_from_schema()
-            else:
-                frame = self.extract(stage_context.descriptor, exec_options)
-            if exec_options.limit is not None and frame is not None:
-                frame = frame.head(exec_options.limit)
-            if exec_options.sample is not None and frame is not None and not frame.empty:
-                frame = frame.sample(min(exec_options.sample, len(frame)), random_state=0)
-            stage_context.current_df = frame
-            return frame
-
-        def _run_transform(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-            if stage_context.current_df is None:
-                raise RuntimeError("transform stage requires extracted data")
-            stage_context.current_df = self.transform(stage_context.current_df, exec_options)
-            return stage_context.current_df
-
-        def _run_validate(stage_context: StageContext, exec_options: StageExecutionOptions) -> pd.DataFrame:
-            if stage_context.current_df is None:
-                raise RuntimeError("validate stage requires transformed data")
-            frame = self._validate_with_schema(stage_context.current_df)
-            frame = self.validate(frame, exec_options)
-            stage_context.current_df = self._sort_dataframe(frame)
-            return stage_context.current_df
-
-        def _run_save_results(
-            stage_context: StageContext, exec_options: StageExecutionOptions
-        ) -> WriteResult:
-            if stage_context.current_df is None:
-                raise RuntimeError("save_results stage requires validated data")
-            artifacts = stage_context.artifacts or WriteArtifacts(
-                data_path=stage_context.output_dir / f"{self.pipeline_name}.csv"
-            )
-            stage_context.artifacts = artifacts
-            result = self.save_results(stage_context.current_df, artifacts, exec_options)
-            if result.artifacts:
-                stage_context.artifacts = result.artifacts
-            stage_context.metadata.setdefault("write_result", result)
-            return result
-
-        stage_plan = (
-            PipelineStageCommand("extract", _run_extract),
-            PipelineStageCommand("transform", _run_transform),
-            PipelineStageCommand("validate", _run_validate),
-            PipelineStageCommand("save_results", _run_save_results),
-        )
-
-        if options.dry_run:
-            stage_plan = tuple(
-                cmd for cmd in stage_plan if cmd.name != "save_results"
-            )
-
-        return stage_plan
+        return build_default_stage_plan(self, context, options)
 
     # Stage helpers ------------------------------------------------------
     def _validate_with_schema(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -264,11 +213,16 @@ class ChemblPipelineBase(UnifiedPipelineBase):
 
         fetcher = descriptor.fetcher_factory(context)
         finalizer = descriptor.finalizer_factory(context)
-        batch_size = min(int(batch_kwargs.get("batch_size", 25)), 25)
-        from bioetl.pipelines.chembl.batch_executor import execute_batch_extraction
+        from bioetl.pipelines.chembl.batch_executor import ChemblBatchExecutor
 
-        dataframe, stats = execute_batch_extraction(fetcher, ids=ids, batch_size=batch_size)
+        raw_batch_size = batch_kwargs.get("batch_size", 25)
+        batch_size = 25 if raw_batch_size is None else int(raw_batch_size)
+        executor = ChemblBatchExecutor(batch_size=batch_size)
+        dataframe, stats = executor.run(fetcher, ids)
+
+        finalize_start = time.perf_counter()
         dataframe = finalizer(dataframe)
         stats.rows = int(dataframe.shape[0])
+        stats.duration_seconds += time.perf_counter() - finalize_start
         return dataframe, stats
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Iterable, Mapping, Protocol, runtime_checkable
 
 import pandas as pd
 
@@ -54,6 +54,12 @@ class RunResult:
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
+    @property
+    def metrics(self) -> dict[str, Any]:
+        """Backward-compatible alias for metadata payload."""
+
+        return self.metadata
+
 
 @dataclass(slots=True)
 class PipelineStageCommand:
@@ -64,11 +70,82 @@ class PipelineStageCommand:
     description: str | None = None
 
 
+@runtime_checkable
+class PipelineStagesProtocol(Protocol):
+    """Protocol describing the default ETL stages."""
+
+    def prepare_run(self, options: StageExecutionOptions) -> None:
+        ...
+
+    def extract(self, descriptor: Any, options: StageExecutionOptions) -> pd.DataFrame:
+        ...
+
+    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+        ...
+
+    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+        ...
+
+    def save_results(
+        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+    ) -> WriteResult:
+        ...
+
+    def finalize_run(self, run_result: RunResult) -> None:
+        ...
+
+
+@runtime_checkable
+class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
+    """Базовый контракт для конвейеров с полным жизненным циклом."""
+
+    pipeline_code: str
+    validator: Any | None
+
+    def run(
+        self,
+        output_dir: Path,
+        *,
+        run_tag: str | None = None,
+        mode: str | None = None,
+        extended: bool = False,
+        dry_run: bool | None = None,
+        sample: int | None = None,
+        limit: int | None = None,
+        include_qc_metrics: bool = False,
+        fail_on_schema_drift: bool = True,
+    ) -> RunResult:
+        ...
+
+    def build_stage_plan(
+        self, context: "StageContext", options: StageExecutionOptions
+    ) -> tuple[PipelineStageCommand, ...]:
+        ...
+
+    def plan_run_artifacts(
+        self, output_dir: Path, run_tag: str | None, mode: str | None
+    ) -> tuple[Path, WriteArtifacts]:
+        ...
+
+    def build_run_metadata(
+        self,
+        context: "StageContext",
+        stage_plan: Iterable[PipelineStageCommand],
+        durations: Mapping[str, int],
+        run_tag: str | None,
+        mode: str | None,
+    ) -> dict[str, Any]:
+        ...
+
+    def resolve_logs_directory(self, output_dir: Path) -> Path:
+        ...
+
+
 @dataclass(slots=True)
 class StageContext:
     """Shared context passed to :class:`PipelineStageCommand` handlers."""
 
-    pipeline: "PipelineStagesProtocol"
+    pipeline: PipelineBaseProtocol
     output_dir: Path
     logger: UnifiedLogger
     run_id: str
@@ -102,36 +179,12 @@ class PipelineConfig:
     materialization: MaterializationConfig
 
 
-@runtime_checkable
-class PipelineStagesProtocol(Protocol):
-    """Protocol describing the default ETL stages."""
-
-    def prepare_run(self, options: StageExecutionOptions) -> None:
-        ...
-
-    def extract(self, descriptor: Any, options: StageExecutionOptions) -> pd.DataFrame:
-        ...
-
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        ...
-
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        ...
-
-    def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
-    ) -> WriteResult:
-        ...
-
-    def finalize_run(self, run_result: RunResult) -> None:
-        ...
-
-
 __all__ = [
     "MaterializationConfig",
     "PipelineConfig",
     "PipelineExtractionMode",
     "PipelineInfo",
+    "PipelineBaseProtocol",
     "PipelineStageCommand",
     "PipelineStagesProtocol",
     "RunArtifacts",
