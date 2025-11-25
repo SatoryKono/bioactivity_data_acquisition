@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
+import pytest
+
 from bioetl.clients.entities import (
     ChemblActivityClient,
     ChemblAssayClient,
@@ -9,22 +13,31 @@ from bioetl.clients.entities import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
+from bioetl.clients.common import ApiTransportProtocol
 
 
-class _DummyAPIClient:
-    def get(self, *_args, **_kwargs):  # pragma: no cover - not exercised in this test
-        raise NotImplementedError
+class _DummyTransport(ApiTransportProtocol):
+    def __init__(self) -> None:
+        self.request_called = False
+
+    def request(self, method: str, path: str, *, headers=None, params=None, json=None):  # type: ignore[override]
+        self.request_called = True
+        raise AssertionError("Transport should not be used during client construction")
+
+    def close(self) -> None:  # pragma: no cover - noop
+        return None
 
 
-def test_entity_client_factory_creates_specialized_clients():
-    api_client = _DummyAPIClient()
+def test_entity_client_factory_creates_specialized_clients_without_io():
+    transport = _DummyTransport()
+    factory = ChemblEntityClientFactory(lambda: transport)
 
     clients = {
-        "activity": ChemblEntityClientFactory.activity(api_client),
-        "assay": ChemblEntityClientFactory.assay(api_client),
-        "target": ChemblEntityClientFactory.target(api_client),
-        "testitem": ChemblEntityClientFactory.testitem(api_client),
-        "document": ChemblEntityClientFactory.document(api_client),
+        "activity": factory.activity(),
+        "assay": factory.assay(),
+        "target": factory.target(),
+        "testitem": factory.testitem(),
+        "document": factory.document(),
     }
 
     assert {name: client.entity for name, client in clients.items()} == {
@@ -34,13 +47,33 @@ def test_entity_client_factory_creates_specialized_clients():
         "testitem": "testitem",
         "document": "document",
     }
+    assert transport.request_called is False
 
 
-def test_entity_specific_aliases_preserve_entity_names():
-    api_client = _DummyAPIClient()
+@pytest.mark.parametrize(
+    ("builder", "expected_entity"),
+    [
+        (ChemblActivityClient, ChemblEntity.ACTIVITY),
+        (ChemblAssayClient, ChemblEntity.ASSAY),
+        (ChemblTargetClient, ChemblEntity.TARGET),
+        (ChemblTestItemClient, ChemblEntity.TESTITEM),
+        (ChemblDocumentClient, ChemblEntity.DOCUMENT),
+    ],
+)
+def test_entity_specific_aliases_preserve_entity_names(builder, expected_entity):
+    transport = MagicMock(spec=ApiTransportProtocol)
 
-    assert ChemblActivityClient(api_client).entity == ChemblEntity.ACTIVITY.value
-    assert ChemblAssayClient(api_client).entity == ChemblEntity.ASSAY.value
-    assert ChemblTargetClient(api_client).entity == ChemblEntity.TARGET.value
-    assert ChemblTestItemClient(api_client).entity == ChemblEntity.TESTITEM.value
-    assert ChemblDocumentClient(api_client).entity == ChemblEntity.DOCUMENT.value
+    assert builder(transport).entity == expected_entity.value
+
+
+def test_factory_uses_transport_factory_each_time():
+    transport_factory = MagicMock()
+    first = MagicMock(spec=ApiTransportProtocol)
+    second = MagicMock(spec=ApiTransportProtocol)
+    transport_factory.side_effect = [first, second]
+
+    factory = ChemblEntityClientFactory(transport_factory)
+
+    assert factory.activity().transport is first
+    assert factory.assay().transport is second
+    assert transport_factory.call_count == 2

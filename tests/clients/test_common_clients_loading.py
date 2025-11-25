@@ -13,35 +13,26 @@ from bioetl.clients import (
     PaginationStrategy,
     RequestException,
 )
-from bioetl.clients.common import UnifiedEntityClientBase
+from bioetl.clients.common import ApiTransportProtocol, UnifiedEntityClientBase
 
 
-class _DummyApiClient:
+class _DummyApiClient(ApiTransportProtocol):
     def __init__(self, payloads: list[Mapping[str, Any]]) -> None:
         self.payloads = payloads
+        self.calls: list[tuple[str, Mapping[str, Any] | None]] = []
 
-    def get_json(
+    def request(
         self,
-        endpoint: str,
+        method: str,
+        path: str,
         *,
-        params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        params: Mapping[str, Any] | None = None,
+        json: Any | None = None,
     ) -> Mapping[str, Any]:
-        del headers
-        return {"results": [{"endpoint": endpoint, "params": dict(params or {})}]}
-
-    def paginate_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-        page_key: str = "results",
-        next_key: str = "next",
-        page_param: str | None = "page",
-    ) -> Iterator[Mapping[str, Any]]:
-        del headers, page_key, next_key, page_param, endpoint, params
-        yield from self.payloads
+        del headers, json
+        self.calls.append((path, params))
+        return {"results": [{"endpoint": path, "params": dict(params or {})}]}
 
     def close(self) -> None:  # pragma: no cover - noop for protocol compatibility
         return None
@@ -53,7 +44,7 @@ class _DummyPagination(PaginationStrategy):
 
     def paginate(
         self,
-        api_client: Any,
+        transport: Any,
         endpoint: str,
         *,
         params: Mapping[str, Any] | None = None,
@@ -61,10 +52,15 @@ class _DummyPagination(PaginationStrategy):
         page_key: str | None = None,
         next_key: str | None = None,
         page_param: str | None = None,
+        normalize: Any | None = None,
     ) -> Iterator[Any]:
-        del api_client, page_key, next_key, page_param
+        del transport, page_key, next_key, page_param
         if logger:
             logger.info("paginate_called", path=endpoint, params=dict(params or {}))
+        if normalize:
+            for payload in self.payloads:
+                yield from normalize(payload)
+            return
         yield from self.payloads
 
 
