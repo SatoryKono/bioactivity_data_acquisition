@@ -19,4 +19,4 @@ def test_cli_app_list_command_runs() -> None:
 
 def test_pipeline_registry_is_dict() -> None:
     assert isinstance(PIPELINE_REGISTRY, dict)
-    assert PIPELINE_REGISTRY == {}
+    assert "activity_chembl" in PIPELINE_REGISTRY
