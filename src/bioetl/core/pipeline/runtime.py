@@ -8,7 +8,7 @@ import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 import pandas as pd
 import yaml
@@ -23,17 +23,8 @@ from bioetl.core.pipeline.types import (
     StageExecutionOptions,
     WriteArtifacts,
 )
-
-
-class QCMetricsExecutor:
-    """Placeholder QC executor to keep orchestration hook observable."""
-
-    def execute(self, df: pd.DataFrame, output_dir: Path) -> Path:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        qc_path = output_dir / "qc_metrics.json"
-        qc_payload = {"rows": int(df.shape[0])}
-        qc_path.write_text(json.dumps(qc_payload, indent=2))
-        return qc_path
+from bioetl.qc.executor import QCMetricsExecutor
+from bioetl.qc.plan import QCPlan
 
 
 def _execute_stage_plan(
@@ -42,6 +33,8 @@ def _execute_stage_plan(
     options: StageExecutionOptions,
     *,
     include_qc_metrics: bool,
+    qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None,
+    qc_plan: QCPlan | None = None,
 ) -> tuple[dict[str, int], str | None, Path | None]:
     logger = context.logger
     durations: dict[str, int] = {}
@@ -73,8 +66,34 @@ def _execute_stage_plan(
                 logger.info("STAGE_RUN_END", stage=command.name, duration_ms=duration_ms)
 
     if error is None and include_qc_metrics and context.current_df is not None:
-        qc_metrics_path = QCMetricsExecutor().execute(context.current_df, context.output_dir)
-        context.artifacts = artifacts
+        executor_factory = qc_executor_factory or QCMetricsExecutor
+        plan = qc_plan or getattr(context.pipeline, "qc_plan", None) or QCPlan.with_default_metrics()
+        if options.dry_run:
+            plan = plan.model_copy(update={"dry_run": True})
+        dataset_name = (
+            artifacts.data_path.stem if artifacts and artifacts.data_path else "dataset"
+        )
+        try:
+            executor = executor_factory()
+            quality_report, metrics_payload = executor.execute(
+                context.current_df, plan, dataset_name=dataset_name
+            )
+            if not quality_report.empty or metrics_payload:
+                qc_dir = context.output_dir / "qc"
+                qc_dir.mkdir(parents=True, exist_ok=True)
+                quality_path = qc_dir / f"{dataset_name}_quality_report.csv"
+                metrics_path = qc_dir / f"{dataset_name}_qc_metrics.json"
+                quality_report.to_csv(quality_path, index=False)
+                metrics_path.write_text(json.dumps(metrics_payload, indent=2))
+                if artifacts:
+                    artifacts.quality_report_path = quality_path
+                    artifacts.qc_summary_path = metrics_path
+                    context.artifacts = artifacts
+                qc_metrics_path = metrics_path
+        except Exception as exc:  # pragma: no cover - surfaced via RunResult
+            error = str(exc)
+            if logger:
+                logger.error("QC_METRICS_ERROR", error=error)
 
     return durations, error, qc_metrics_path
 
@@ -90,10 +109,14 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         *,
         run_id: str | None = None,
         validator: Any | None = None,
+        qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None,
+        qc_plan: QCPlan | None = None,
     ) -> None:
         self.config = config
         self.run_id = run_id or uuid.uuid4().hex
         self.validator = validator
+        self.qc_executor_factory = qc_executor_factory
+        self.qc_plan = qc_plan
         self.dry_run = False
         self.pipeline_code = self._resolve_pipeline_code(config)
         self._git_commit = self._resolve_git_commit()
@@ -148,7 +171,12 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         stage_plan = self.build_stage_plan(context, options)
         self.stage_plan = stage_plan
         durations, error, qc_path = _execute_stage_plan(
-            stage_plan, context, options, include_qc_metrics=include_qc_metrics
+            stage_plan,
+            context,
+            options,
+            include_qc_metrics=include_qc_metrics,
+            qc_executor_factory=self.qc_executor_factory,
+            qc_plan=self.qc_plan,
         )
 
         if options.extended and self.dry_run:
@@ -257,4 +285,4 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         return self.__class__.__name__
 
 
-__all__ = ["PipelineRuntimeBase", "QCMetricsExecutor", "_execute_stage_plan"]
+__all__ = ["PipelineRuntimeBase", "_execute_stage_plan"]
