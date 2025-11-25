@@ -11,6 +11,7 @@ import yaml
 
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor, ChemblPipelineBase
+from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
 
 
 class ConfigValidationError(ValueError):
@@ -23,8 +24,14 @@ class ChemblEntityPipeline(ChemblPipelineBase):
     entity_name: str = "chembl"
     required_sort_fields: Sequence[str] = ()
 
-    def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
-        super().__init__(config, run_id=run_id)
+    def __init__(
+        self,
+        config: Mapping[str, Any],
+        *,
+        run_id: str | None = None,
+        extraction_service: ChemblExtractionService | None = None,
+    ) -> None:
+        super().__init__(config, run_id=run_id, extraction_service=extraction_service)
         self._validate_common_config()
 
     # ------------------------------------------------------------------
