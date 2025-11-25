@@ -3,39 +3,57 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
-from bioetl.qc.plan import (
-    QCPlan,
+from bioetl.qc.metrics import (
+    QCFailureException,
     QCMetricsExecutor,
-    QCMetricResult,
-    register_qc_metric,
+    metric_null_percentage,
 )
+from bioetl.qc.plan import MetricSpec, QCPlan
+from bioetl.qc.report import build_correlation_report, golden_test_compare
 
 
 def sample_df() -> pd.DataFrame:
     return pd.DataFrame({"a": [1, 2, 2, 100], "b": [1.0, None, 3.5, 4.5]})
 
 
-def test_qc_executor_writes_reports(tmp_path: Path):
+def test_null_percentage_metric():
     df = sample_df()
+    spec = MetricSpec(name="nulls", type="null_percentage")
+    result = metric_null_percentage(df, spec)
+
+    assert result.value == pytest.approx(0.25)
+    assert not result.details.empty
+    assert set(result.details.columns) == {"column", "null_ratio"}
+
+
+def test_executor_threshold_violation():
+    plan = QCPlan(
+        metrics=[MetricSpec(name="rows", type="row_count")],
+        thresholds={"rows": 2},
+        fail_on_threshold_violation=True,
+    )
     executor = QCMetricsExecutor()
-    bundle = executor.execute(df, dataset_name="demo", output_dir=tmp_path)
 
-    assert bundle.report_paths is not None
-    assert (tmp_path / "demo_quality_report.csv").exists()
-    assert (tmp_path / "demo_qc.json").exists()
-    assert (tmp_path / "demo_correlation_report.csv").exists()
+    with pytest.raises(QCFailureException):
+        executor.execute(sample_df(), plan)
 
 
-def test_custom_metric_registry(tmp_path: Path):
-    def simple_metric(df: pd.DataFrame, ctx: object) -> QCMetricResult:  # type: ignore[arg-type]
-        return QCMetricResult(name="row_count", payload=len(df))
-
-    register_qc_metric("row_count", simple_metric, override=True)
-
+def test_quality_and_correlation_reports(tmp_path: Path):
+    df = sample_df()
+    plan = QCPlan(metrics=[MetricSpec(name="rows", type="row_count")])
     executor = QCMetricsExecutor()
-    plan = QCPlan(custom_metrics=("row_count",))
-    bundle = executor.execute(sample_df(), plan=plan, output_dir=tmp_path)
 
-    assert "row_count" in bundle.custom
-    assert bundle.custom["row_count"].payload == 4
+    quality_report, payload = executor.execute(df, plan, dataset_name="demo")
+
+    assert not quality_report.empty
+    assert set(quality_report.columns) >= {"metric", "status", "dataset"}
+    assert "rows" in payload
+
+    correlation = build_correlation_report(df, df.copy())
+    assert not correlation.empty
+    assert set(correlation.columns) == {"column", "correlation"}
+
+    diff = golden_test_compare(quality_report, quality_report.copy())
+    assert diff.empty
