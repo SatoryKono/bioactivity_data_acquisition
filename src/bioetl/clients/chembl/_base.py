@@ -7,6 +7,7 @@ import structlog
 
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
 from bioetl.clients.common import (
+    ApiClientMixin,
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
