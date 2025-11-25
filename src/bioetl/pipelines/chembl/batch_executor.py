@@ -16,7 +16,10 @@ from bioetl.core.pipeline.unified import BatchExtractionStats
 class ChemblBatchExecutor:
     """Оркеструет вызовы fetcher по батчам и собирает статистику."""
 
-    batch_size: int = 25
+    batch_size: int | None = 25
+
+    def __post_init__(self) -> None:
+        self.batch_size = self._sanitize_batch_size(self.batch_size)
 
     def run(
         self, fetcher: Callable[[Sequence[str] | None], Any], ids: Sequence[str] | None
@@ -68,8 +71,7 @@ class ChemblBatchExecutor:
         return dataframe, stats
 
     def _build_batches(self, ids: Sequence[str] | None) -> list[Sequence[str] | None]:
-        effective_size = int(self.batch_size) if self.batch_size else 25
-        effective_size = max(1, min(effective_size, 25))
+        effective_size = self._sanitize_batch_size(self.batch_size)
         sanitized_ids = list(ids) if ids else []
 
         batches = [sanitized_ids[i : i + effective_size] for i in range(0, len(sanitized_ids), effective_size)]
@@ -77,5 +79,23 @@ class ChemblBatchExecutor:
             batches = [None]
         return batches
 
+    @staticmethod
+    def _sanitize_batch_size(batch_size: int | None) -> int:
+        if batch_size is None:
+            return 25
+        return max(1, min(int(batch_size), 25))
 
-__all__ = ["ChemblBatchExecutor"]
+
+def execute_chembl_batches(
+    fetcher: Callable[[Sequence[str] | None], Any],
+    ids: Sequence[str] | None,
+    *,
+    batch_size: int | None = None,
+) -> tuple[pd.DataFrame, BatchExtractionStats]:
+    """Оркеструет выборку ChEMBL с санитизацией размера батча."""
+
+    executor = ChemblBatchExecutor(batch_size=batch_size)
+    return executor.run(fetcher, ids)
+
+
+__all__ = ["ChemblBatchExecutor", "execute_chembl_batches"]
