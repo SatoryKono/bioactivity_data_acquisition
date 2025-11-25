@@ -4,7 +4,7 @@ from .extract import run_extract
 from .transform import run_transform
 from .validate import run_validate
 from .write import run_write
-from .stage_runner import StageRunner
+from .stage_runner import run_chembl_stage
 try:  # pragma: no cover - optional heavy dependencies
     from .activity import ChemblActivityPipeline
     from .assay import ChemblAssayPipeline
@@ -23,7 +23,7 @@ __all__ = [
     "run_transform",
     "run_validate",
     "run_write",
-    "StageRunner",
+    "run_chembl_stage",
     "ChemblActivityPipeline",
     "ChemblAssayPipeline",
     "ChemblDocumentPipeline",
