@@ -10,7 +10,14 @@ import pandas as pd
 import pandera as pa
 
 from bioetl.core.io import ArtifactWriter
-from bioetl.core.pipeline.types import PipelineBaseProtocol, StageContext, StageExecutionOptions, WriteArtifacts, WriteResult
+from bioetl.core.pipeline.types import (
+    PipelineBaseProtocol,
+    StageContextProtocol,
+    StageExecutionOptions,
+    StageRuntimeContext,
+    WriteArtifacts,
+    WriteResult,
+)
 
 
 class ValidationService(Protocol):
@@ -38,7 +45,8 @@ class WriteService(Protocol):
         artifacts: WriteArtifacts,
         options: StageExecutionOptions,
         *,
-        context: StageContext,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
     ) -> WriteResult:
         ...
 
@@ -93,9 +101,10 @@ class DefaultWriteService:
         artifacts: WriteArtifacts,
         options: StageExecutionOptions,
         *,
-        context: StageContext,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
     ) -> WriteResult:
-        output_dir = artifacts.data_path.parent if artifacts.data_path else context.output_dir
+        output_dir = artifacts.data_path.parent if artifacts.data_path else runtime.attributes.get("output_dir")
         return self.artifact_writer.write(
             df,
             artifacts,

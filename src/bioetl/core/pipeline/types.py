@@ -66,7 +66,7 @@ class PipelineStageCommand:
     """Lightweight callable used to execute a pipeline stage."""
 
     name: str
-    handler: Callable[["StageContext", StageExecutionOptions], Any]
+    handler: Callable[["StageContextProtocol", "StageRuntimeContext"], Any]
     description: str | None = None
 
 
@@ -118,7 +118,7 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
         ...
 
     def build_stage_plan(
-        self, context: "StageContext", options: StageExecutionOptions
+        self, context: "StageContextProtocol", runtime: "StageRuntimeContext"
     ) -> tuple[PipelineStageCommand, ...]:
         ...
 
@@ -129,7 +129,8 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
 
     def build_run_metadata(
         self,
-        context: "StageContext",
+        context: "StageContextProtocol",
+        runtime: "StageRuntimeContext",
         stage_plan: Iterable[PipelineStageCommand],
         durations: Mapping[str, int],
         run_tag: str | None,
@@ -141,20 +142,59 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
         ...
 
 
-@dataclass(slots=True)
-class StageContext:
-    """Shared context passed to :class:`PipelineStageCommand` handlers."""
+@runtime_checkable
+class StageContextProtocol(Protocol):
+    """Stable contract for pipeline stage dependencies."""
 
-    pipeline: PipelineBaseProtocol
-    output_dir: Path
     logger: UnifiedLogger
-    run_id: str
-    run_tag: str | None
-    mode: str | None
-    descriptor: Any | None = None
-    artifacts: WriteArtifacts | None = None
-    current_df: pd.DataFrame | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    request_id: str | None
+    trace_id: str | None
+
+    def get_client(self, name: str) -> Any:
+        ...
+
+    def get_config(self, key: str) -> Any:
+        ...
+
+    def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
+        ...
+
+
+@dataclass(slots=True)
+class StageContext(StageContextProtocol):
+    """Default implementation of :class:`StageContextProtocol`."""
+
+    logger: UnifiedLogger
+    request_id: str | None
+    trace_id: str | None = None
+    clients: Mapping[str, Any] = field(default_factory=dict)
+    config: Mapping[str, Any] = field(default_factory=dict)
+    metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None
+
+    def __post_init__(self) -> None:  # pragma: no cover - trivial
+        if self.trace_id is None:
+            self.trace_id = self.request_id
+
+    def get_client(self, name: str) -> Any:
+        return self.clients[name]
+
+    def get_config(self, key: str) -> Any:
+        return self.config[key]
+
+    def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
+        if self.metric_emitter:
+            self.metric_emitter(name, value, tags)
+
+
+@dataclass(slots=True)
+class StageRuntimeContext:
+    """Mutable runtime context shared between stage handlers."""
+
+    options: StageExecutionOptions
+    input_data: Any | None = None
+    attributes: dict[str, Any] = field(default_factory=dict)
+    cancellation_token: Callable[[], bool] | None = None
+    timeout: float | None = None
 
 
 @dataclass(slots=True)
@@ -190,7 +230,9 @@ __all__ = [
     "RunArtifacts",
     "RunResult",
     "StageContext",
+    "StageContextProtocol",
     "StageExecutionOptions",
+    "StageRuntimeContext",
     "WriteArtifacts",
     "WriteResult",
 ]

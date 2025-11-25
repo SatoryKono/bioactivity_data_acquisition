@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -8,7 +7,13 @@ import pandas as pd
 import pytest
 
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase, StagePlanExecutor
-from bioetl.core.pipeline.types import PipelineStageCommand, StageContext, StageExecutionOptions, WriteArtifacts
+from bioetl.core.pipeline.types import (
+    PipelineStageCommand,
+    StageContext,
+    StageExecutionOptions,
+    StageRuntimeContext,
+    WriteArtifacts,
+)
 
 
 class RetryableError(Exception):
@@ -25,42 +30,40 @@ class RecordingExecutor(StagePlanExecutor):
         self,
         stage_plan: tuple[PipelineStageCommand, ...],
         context: StageContext,
-        options: StageExecutionOptions,
+        runtime: StageRuntimeContext,
         *,
         include_qc_metrics: bool,
     ) -> tuple[dict[str, int], str | None, Path | None]:
         durations: dict[str, int] = {}
         error: str | None = None
+        if isinstance(runtime.input_data, pd.DataFrame):
+            runtime.attributes["last_dataframe"] = runtime.input_data
         for command in stage_plan:
             attempts = 0
             while True:
                 attempts += 1
                 self.calls.append((command.name, attempts))
                 try:
-                    result = command.handler(context, options)
-                    if isinstance(result, pd.DataFrame):
-                        context.current_df = result
+                    runtime.input_data = command.handler(context, runtime)
+                    if isinstance(runtime.input_data, pd.DataFrame):
+                        runtime.attributes["last_dataframe"] = runtime.input_data
                     break
                 except RetryableError as exc:
                     if attempts > self.max_retries:
                         error = str(exc)
-                        context.current_df = None
+                        runtime.input_data = None
+                        runtime.attributes["last_dataframe"] = None
                         break
                     continue
                 except Exception as exc:  # pragma: no cover - defensive
                     error = str(exc)
-                    context.current_df = None
+                    runtime.input_data = None
+                    runtime.attributes["last_dataframe"] = None
                     break
             durations[command.name] = durations.get(command.name, 0) + 5
             if error:
                 break
         return durations, error, None
-
-
-@dataclass
-class _ContextPayload:
-    metadata: dict[str, Any]
-    artifacts: WriteArtifacts
 
 
 class DummyRuntime(PipelineRuntimeBase):
@@ -71,28 +74,30 @@ class DummyRuntime(PipelineRuntimeBase):
         self.transform_attempts = 0
 
     def build_stage_plan(
-        self, context: StageContext, options: StageExecutionOptions
+        self, context: StageContext, runtime: StageRuntimeContext
     ) -> tuple[PipelineStageCommand, ...]:
         self.calls.append("build_stage_plan")
 
-        def _extract(ctx: StageContext, _options: StageExecutionOptions) -> pd.DataFrame:
+        def _extract(ctx: StageContext, exec_runtime: StageRuntimeContext) -> pd.DataFrame:
             self.calls.append("extract")
-            ctx.metadata["extract"] = True
+            exec_runtime.attributes.setdefault("metadata", {})["extract"] = True
             return pd.DataFrame({"value": [1, 2]})
 
-        def _transform(ctx: StageContext, _options: StageExecutionOptions) -> pd.DataFrame:
+        def _transform(ctx: StageContext, exec_runtime: StageRuntimeContext) -> pd.DataFrame:
             self.calls.append("transform")
             # fail first attempt and succeed on retry
             self.transform_attempts += 1
             if self.transform_attempts == 1:
                 raise RetryableError("transient")
-            return ctx.current_df.assign(value=lambda s: s["value"] * 2)
+            assert exec_runtime.input_data is not None
+            return exec_runtime.input_data.assign(value=lambda s: s["value"] * 2)
 
-        def _save(ctx: StageContext, _options: StageExecutionOptions) -> WriteArtifacts:
+        def _save(ctx: StageContext, exec_runtime: StageRuntimeContext) -> WriteArtifacts:
             self.calls.append("save_results")
-            ctx.artifacts = ctx.artifacts or WriteArtifacts()
-            ctx.artifacts.data_path = ctx.output_dir / "dataset.csv"
-            return ctx.artifacts
+            artifacts = exec_runtime.attributes.get("artifacts") or WriteArtifacts()
+            artifacts.data_path = exec_runtime.attributes.get("output_dir", Path.cwd()) / "dataset.csv"
+            exec_runtime.attributes["artifacts"] = artifacts
+            return artifacts
 
         return (
             PipelineStageCommand("extract", _extract),

@@ -8,8 +8,8 @@ from bioetl.core.pipeline.stage_plan import build_default_stage_plan
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     PipelineStageCommand,
-    StageContext,
-    StageExecutionOptions,
+    StageContextProtocol,
+    StageRuntimeContext,
 )
 
 
@@ -21,8 +21,8 @@ class StageFactory:
 
     def build(
         self,
-        context: StageContext,
-        options: StageExecutionOptions,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
         stages: Sequence[str] | None = None,
     ) -> tuple[PipelineStageCommand, ...]:
         """Build a stage plan.
@@ -33,7 +33,7 @@ class StageFactory:
                 pipeline plan is used.
         """
 
-        stage_plan = build_default_stage_plan(self.pipeline, context, options)
+        stage_plan = build_default_stage_plan(self.pipeline, context, runtime)
 
         if stages is None:
             return stage_plan
@@ -42,7 +42,7 @@ class StageFactory:
         filtered: list[PipelineStageCommand] = []
         for stage in stages:
             if stage not in command_map:
-                if options.dry_run and stage == "save_results":
+                if runtime.options.dry_run and stage == "save_results":
                     continue
                 raise ValueError(f"Unknown stage '{stage}'")
             filtered.append(command_map[stage])

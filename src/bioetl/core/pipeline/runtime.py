@@ -20,7 +20,9 @@ from bioetl.core.pipeline.types import (
     RunArtifacts,
     RunResult,
     StageContext,
+    StageContextProtocol,
     StageExecutionOptions,
+    StageRuntimeContext,
     WriteArtifacts,
 )
 from bioetl.core.pipeline.services import ValidationService, WriteService
@@ -42,29 +44,30 @@ class QCExecutorAdapter:
 
     def execute(
         self,
-        context: StageContext,
-        options: StageExecutionOptions,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
         artifacts: WriteArtifacts,
     ) -> Path | None:
         """Выполнить QC-метрики и вернуть путь до json-отчета."""
 
-        if context.current_df is None or not options.include_qc_metrics:
+        dataframe = runtime.attributes.get("last_dataframe", runtime.input_data)
+        if dataframe is None or not runtime.options.include_qc_metrics:
             return None
 
-        plan = self.qc_plan or getattr(context.pipeline, "qc_plan", None) or QCPlan.with_default_metrics()
-        if options.dry_run:
+        plan = self.qc_plan or getattr(getattr(runtime, "pipeline", None), "qc_plan", None)
+        plan = plan or QCPlan.with_default_metrics()
+        if runtime.options.dry_run:
             plan = plan.model_copy(update={"dry_run": True})
 
         dataset_name = artifacts.data_path.stem if artifacts and artifacts.data_path else "dataset"
         executor_factory = self.executor_factory or QCMetricsExecutor
         executor = executor_factory()
-        quality_report, metrics_payload = executor.execute(
-            context.current_df, plan, dataset_name=dataset_name
-        )
+        quality_report, metrics_payload = executor.execute(dataframe, plan, dataset_name=dataset_name)
         if quality_report.empty and not metrics_payload:
             return None
 
-        qc_dir = context.output_dir / "qc"
+        output_dir = runtime.attributes.get("output_dir", Path.cwd())
+        qc_dir = output_dir / "qc"
         qc_dir.mkdir(parents=True, exist_ok=True)
         quality_path = qc_dir / f"{dataset_name}_quality_report.csv"
         metrics_path = qc_dir / f"{dataset_name}_qc_metrics.json"
@@ -73,7 +76,7 @@ class QCExecutorAdapter:
         if artifacts:
             artifacts.quality_report_path = quality_path
             artifacts.qc_summary_path = metrics_path
-            context.artifacts = artifacts
+            runtime.attributes["artifacts"] = artifacts
         return metrics_path
 
 
@@ -86,33 +89,41 @@ class StagePlanExecutor:
     def execute(
         self,
         stage_plan: Iterable[PipelineStageCommand],
-        context: StageContext,
-        options: StageExecutionOptions,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
         *,
         include_qc_metrics: bool,
     ) -> tuple[dict[str, int], str | None, Path | None]:
         logger = context.logger
         durations: dict[str, int] = {}
         error: str | None = None
-        artifacts = context.artifacts or WriteArtifacts()
+        artifacts = runtime.attributes.get("artifacts", WriteArtifacts())
+        runtime.attributes.setdefault("artifacts", artifacts)
         qc_metrics_path: Path | None = None
+        if isinstance(runtime.input_data, pd.DataFrame):
+            runtime.attributes["last_dataframe"] = runtime.input_data
 
         for command in stage_plan:
             started = time.perf_counter()
             if logger:
                 logger.info("STAGE_RUN_START", stage=command.name)
             try:
-                result = command.handler(context, options)
-                if command.name == "extract" and isinstance(result, pd.DataFrame):
-                    context.metadata["extract_rows"] = int(result.shape[0])
-                if command.name == "save_results" and hasattr(result, "artifacts"):
-                    artifacts = result.artifacts  # type: ignore[attr-defined]
+                runtime.input_data = command.handler(context, runtime)
+                if isinstance(runtime.input_data, pd.DataFrame):
+                    runtime.attributes["last_dataframe"] = runtime.input_data
+                if command.name == "extract" and isinstance(runtime.input_data, pd.DataFrame):
+                    runtime.attributes.setdefault("metadata", {})["extract_rows"] = int(
+                        runtime.input_data.shape[0]
+                    )
+                if command.name == "save_results" and hasattr(runtime.input_data, "artifacts"):
+                    artifacts = runtime.input_data.artifacts  # type: ignore[attr-defined]
                     if isinstance(artifacts, WriteArtifacts):
-                        context.artifacts = artifacts
+                        runtime.attributes["artifacts"] = artifacts
             except Exception as exc:  # pragma: no cover - surfaced via RunResult
                 error = str(exc)
                 if logger:
                     logger.error("STAGE_RUN_ERROR", stage=command.name, error=error)
+                runtime.attributes["last_dataframe"] = None
                 break
             finally:
                 duration_ms = int((time.perf_counter() - started) * 1000)
@@ -122,7 +133,7 @@ class StagePlanExecutor:
 
         if error is None and include_qc_metrics:
             try:
-                qc_metrics_path = self.qc_adapter.execute(context, options, artifacts)
+                qc_metrics_path = self.qc_adapter.execute(context, runtime, artifacts)
             except Exception as exc:  # pragma: no cover - surfaced via RunResult
                 error = str(exc)
                 if logger:
@@ -149,7 +160,8 @@ class RunMetadataBuilder:
 
     def build(
         self,
-        context: StageContext,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
         stage_plan: Iterable[PipelineStageCommand],
         durations: Mapping[str, int],
         run_tag: str | None,
@@ -157,7 +169,7 @@ class RunMetadataBuilder:
     ) -> dict[str, Any]:
         metadata: dict[str, Any] = {
             "stage_plan": [cmd.name for cmd in stage_plan],
-            "extract_metadata": context.metadata,
+            "extract_metadata": runtime.attributes.get("metadata", {}),
             "git_commit": self._git_commit,
             "config_hash": self._config_hash,
             "pipeline": self.pipeline_code,
@@ -165,8 +177,9 @@ class RunMetadataBuilder:
             "mode": mode,
             "duration_seconds": sum(durations.values()) / 1000,
         }
-        if context.artifacts and context.artifacts.data_path:
-            metadata["output_path"] = str(context.artifacts.data_path)
+        artifacts = runtime.attributes.get("artifacts")
+        if artifacts and artifacts.data_path:
+            metadata["output_path"] = str(artifacts.data_path)
         return metadata
 
     def _resolve_git_commit(self) -> str | None:
@@ -274,23 +287,19 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         self.prepare_run(options)
 
         target_dir, artifacts = self.plan_run_artifacts(output_dir, run_tag, mode)
-        context = StageContext(
-            pipeline=self,  # type: ignore[arg-type]
-            output_dir=target_dir,
-            logger=logger,
-            run_id=self.run_id,
-            run_tag=run_tag,
-            mode=mode,
-            descriptor=None,
-            artifacts=artifacts,
+        runtime_context = StageRuntimeContext(
+            options=options,
+            input_data=None,
+            attributes={"output_dir": target_dir, "artifacts": artifacts, "pipeline": self},
         )
+        stage_context = StageContext(logger=logger, request_id=self.run_id, config=self.config)
 
-        stage_plan = self.build_stage_plan(context, options)
+        stage_plan = self.build_stage_plan(stage_context, runtime_context)
         self.stage_plan = stage_plan
         durations, error, qc_path = self.stage_plan_executor.execute(
             stage_plan,
-            context,
-            options,
+            stage_context,
+            runtime_context,
             include_qc_metrics=include_qc_metrics,
         )
 
@@ -299,15 +308,16 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             if self.write_service is not None:
                 metadata_writer = getattr(self.write_service, "write_metadata", None)
                 if callable(metadata_writer):
-                    metadata_writer(target_dir, artifacts, context.current_df, dry_run=True)
+                    metadata_writer(target_dir, artifacts, runtime_context.input_data, dry_run=True)
             if metadata_writer is None:
                 legacy_writer = getattr(self, "_write_metadata", None)
                 if callable(legacy_writer):  # pragma: no cover - defensive
-                    legacy_writer(target_dir, context.current_df)
+                    legacy_writer(target_dir, runtime_context.input_data)
 
-        rows = 0 if context.current_df is None else int(context.current_df.shape[0])
+        result_frame = runtime_context.attributes.get("last_dataframe", runtime_context.input_data)
+        rows = 0 if not isinstance(result_frame, pd.DataFrame) else int(result_frame.shape[0])
         success = error is None
-        metadata = self.build_run_metadata(context, stage_plan, durations, run_tag, mode)
+        metadata = self.build_run_metadata(stage_context, runtime_context, stage_plan, durations, run_tag, mode)
         metadata["rows"] = rows
         if qc_path is not None:
             metadata["qc_metrics_path"] = str(qc_path)
@@ -318,7 +328,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             artifacts=RunArtifacts(
                 output_dir=target_dir,
                 logs_directory=self.resolve_logs_directory(target_dir),
-                write_artifacts=context.artifacts or WriteArtifacts(),
+                write_artifacts=runtime_context.attributes.get("artifacts", WriteArtifacts()),
                 qc_metrics_path=qc_path,
             ),
             duration_ms=durations,
@@ -339,7 +349,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     # Planning ------------------------------------------------------------
     @abstractmethod
     def build_stage_plan(
-        self, context: StageContext, options: StageExecutionOptions
+        self, context: StageContextProtocol, runtime: StageRuntimeContext
     ) -> tuple[PipelineStageCommand, ...]:
         """Construct a deterministic stage plan for the pipeline."""
 
@@ -360,13 +370,16 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 
     def build_run_metadata(
         self,
-        context: StageContext,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
         stage_plan: Iterable[PipelineStageCommand],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
     ) -> dict[str, Any]:
-        return self.run_metadata_builder.build(context, stage_plan, durations, run_tag, mode)
+        return self.run_metadata_builder.build(
+            context, runtime, stage_plan, durations, run_tag, mode
+        )
 
     def resolve_logs_directory(self, output_dir: Path) -> Path:
         return output_dir / "logs"

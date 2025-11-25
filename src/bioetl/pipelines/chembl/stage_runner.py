@@ -14,6 +14,7 @@ from bioetl.core.pipeline.types import (
     PipelineStageCommand,
     StageContext,
     StageExecutionOptions,
+    StageRuntimeContext,
 )
 from bioetl.pipelines.chembl.common import ChemblPipelineContract
 
@@ -44,28 +45,29 @@ def get_pipeline_specs() -> dict[str, Callable[[], ChemblPipelineContract]]:
     return dict(_PIPELINE_REGISTRY)
 
 
-def _build_stage_context(
+def _build_stage_contexts(
     pipeline: ChemblPipelineContract,
     output_dir: Path,
     *,
     run_tag: str | None = None,
     mode: str | None = None,
-) -> StageContext:
+) -> tuple[StageContext, StageRuntimeContext]:
     target_dir, artifacts = pipeline.plan_run_artifacts(output_dir, run_tag, mode)  # type: ignore[arg-type]
     logger = UnifiedLogger.get(pipeline.__class__.__name__).bind(
         run_id=getattr(pipeline, "run_id", ""),
         pipeline=getattr(pipeline, "pipeline_code", pipeline.__class__.__name__),
     )
-    return StageContext(
-        pipeline=pipeline,  # type: ignore[arg-type]
-        output_dir=target_dir,
+    stage_context = StageContext(
         logger=logger,
-        run_id=getattr(pipeline, "run_id", ""),
-        run_tag=run_tag,
-        mode=mode,
-        descriptor=None,
-        artifacts=artifacts,
+        request_id=getattr(pipeline, "run_id", ""),
+        trace_id=getattr(pipeline, "run_id", ""),
+        config=getattr(pipeline, "config", {}),
     )
+    runtime_context = StageRuntimeContext(
+        options=StageExecutionOptions(run_tag=run_tag, mode=mode, dry_run=pipeline.dry_run),
+        attributes={"output_dir": target_dir, "artifacts": artifacts, "pipeline": pipeline},
+    )
+    return stage_context, runtime_context
 
 
 def build_extract_plan(
@@ -77,15 +79,15 @@ def build_extract_plan(
 ) -> tuple[PipelineStageCommand, ...]:
     """Construct an extract-only stage plan for a pipeline."""
 
-    context = _build_stage_context(pipeline, output_dir, run_tag=run_tag, mode=mode)
-    options = StageExecutionOptions(run_tag=run_tag, mode=mode, dry_run=False)
+    context, runtime = _build_stage_contexts(pipeline, output_dir, run_tag=run_tag, mode=mode)
+    runtime.options.dry_run = False
     factory = StageFactory(pipeline)  # type: ignore[arg-type]
-    plan = factory.build(context, options, stages=("extract",))
+    plan = factory.build(context, runtime, stages=("extract",))
     # Seed descriptor so the pipeline can reuse it during execution.
-    context.descriptor = pipeline.build_descriptor()
+    runtime.attributes["descriptor"] = pipeline.build_descriptor()
     for command in plan:
         if command.name == "extract":
-            command.handler(context, options)
+            runtime.input_data = command.handler(context, runtime)
     return plan
 
 
@@ -136,21 +138,23 @@ def run_chembl_stage(
         include_qc_metrics=include_qc_metrics,
         fail_on_schema_drift=fail_on_schema_drift,
     )
-    context = _build_stage_context(pipeline, output_root, run_tag=run_tag, mode=mode)
-    context.current_df = df
+    context, runtime = _build_stage_contexts(pipeline, output_root, run_tag=run_tag, mode=mode)
+    runtime.options = options
+    runtime.input_data = df
     if descriptor is None and normalized_stage == "extract":
         descriptor = getattr(pipeline, "build_descriptor", lambda: None)()
-    context.descriptor = descriptor
+    runtime.attributes["descriptor"] = descriptor
 
     factory = StageFactory(pipeline)  # type: ignore[arg-type]
-    stage_plan = factory.build(context, options, stages=(normalized_stage,))
+    stage_plan = factory.build(context, runtime, stages=(normalized_stage,))
 
     if not stage_plan:
         raise ValueError(f"No stage plan available for stage '{normalized_stage}'")
 
     result: Any = None
     for command in stage_plan:
-        result = command.handler(context, options)
+        result = command.handler(context, runtime)
+        runtime.input_data = result
 
     return result
 
