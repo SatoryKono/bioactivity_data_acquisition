@@ -3,8 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.base_classes import BaseApiClient, EntityClientProtocol
+from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.clients.chembl import (
     ChemblActivityClient,
     ChemblAssayClient,
@@ -13,12 +13,9 @@ from bioetl.clients.chembl import (
     ChemblTestItemClient,
 )
 from bioetl.config.models import PipelineConfig
-from bioetl.core.http.api_client import APIConfig, UnifiedAPIClient
-from bioetl.core.http.cache import TTLCache, TTLCacheConfig
-from bioetl.core.http.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
+from bioetl.core.http.api_client import APIConfig
 from bioetl.core.http.pagination import DefaultPaginationStrategy
-from bioetl.core.http.rate_limiter import TokenBucketConfig, TokenBucketRateLimiter
-from bioetl.core.http.retry import RetryPolicy
 
 
 def _resolve_api_config(config: PipelineConfig) -> APIConfig:
@@ -48,33 +45,24 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
 
 
 def default_chembl_factory(
-    config: PipelineConfig, api_client: UnifiedAPIClient | None = None
-) -> dict[str, Callable[[], EntityClientProtocol]]:
+    config: PipelineConfig, api_client: BaseApiClient | None = None
+) -> dict[str, Callable[[], BaseApiClient]]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
-    shared_client = api_client or UnifiedAPIClient(
-        api_config,
-        retry_strategy=RetryPolicy(
-            max_retries=api_config.max_retries,
-            backoff_factor=api_config.backoff_factor,
-            max_backoff_sec=api_config.max_backoff_sec,
-        ),
-        rate_limiter=TokenBucketRateLimiter(
-            TokenBucketConfig(
-                max_tokens=api_config.rate_limit_calls,
-                refill_period_sec=float(api_config.rate_limit_period_sec),
-            )
-        ),
-        cache=TTLCache(TTLCacheConfig(ttl_seconds=api_config.cache_ttl_sec)) if api_config.cache_enabled else None,
-        circuit_breaker=CircuitBreaker(
-            CircuitBreakerConfig(
-                failure_threshold=api_config.circuit_breaker_fail_max,
-                reset_timeout_sec=api_config.circuit_breaker_reset_sec,
-            )
-        ),
-        pagination_strategy=DefaultPaginationStrategy(),
-    )
+
+    if api_client is not None:
+        shared_client = api_client
+    else:
+        components = ResilientRequestExecutorFactory(api_config).create(
+            pagination_strategy=DefaultPaginationStrategy(),
+        )
+        shared_client = UnifiedAPIClient(
+            api_config,
+            request_executor=components.executor,
+            session=components.session,
+            pagination_strategy=components.pagination_strategy,
+        )
 
     return {
         "activity": lambda: ChemblActivityClient(shared_client),
@@ -85,7 +73,7 @@ def default_chembl_factory(
     }
 
 
-def default_activity_client_factory(config: PipelineConfig, api_client: UnifiedAPIClient | None = None) -> ChemblActivityClient:
+def default_activity_client_factory(config: PipelineConfig, api_client: BaseApiClient | None = None) -> ChemblActivityClient:
     """Построить клиент ChEMBL Activity с настройками по умолчанию."""
 
     factory = default_chembl_factory(config, api_client=api_client)
