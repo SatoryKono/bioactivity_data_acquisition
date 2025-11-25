@@ -159,10 +159,6 @@ class ChemblExtractionDescriptor(Generic[ChemblPipelineT]):
         self.finalizer_factory = finalizer_factory
 
 
-class CircuitBreakerOpenError(RuntimeError):
-    """Исключение, сигнализирующее о срабатывании circuit breaker."""
-
-
 class ChemblPipelineBase(UnifiedPipelineBase):
     """Базовый пайплайн для ChEMBL с общей логикой выгрузки дескрипторов."""
 
