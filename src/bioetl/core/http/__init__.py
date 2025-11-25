@@ -1,17 +1,10 @@
-from .api_client import (
-    APIConfig,
-    CircuitBreaker,
-    CircuitBreakerConfig,
-    CircuitBreakerOpenError,
-    HTTPClientError,
-    RetryPolicy,
-    UnifiedAPIClient,
-)
+from .api_client import APIConfig, HTTPClientError, ResilientRequestExecutorFactory, UnifiedAPIClient
 from .cache import CacheStrategy, TTLCache, TTLCacheConfig
-from .circuit_breaker import CircuitBreakerStrategy
+from .circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerOpenError, CircuitBreakerStrategy
+from .interfaces import BaseApiClient
 from .pagination import DefaultPaginationStrategy, PaginationStrategy
 from .rate_limiter import RateLimiter, TokenBucketConfig, TokenBucketRateLimiter
-from .retry import RetryStrategy
+from .retry import RetryPolicy, RetryStrategy
 
 __all__ = [
     "APIConfig",
@@ -21,6 +14,8 @@ __all__ = [
     "HTTPClientError",
     "RetryPolicy",
     "UnifiedAPIClient",
+    "ResilientRequestExecutorFactory",
+    "BaseApiClient",
     "TokenBucketConfig",
     "TokenBucketRateLimiter",
     "TTLCache",

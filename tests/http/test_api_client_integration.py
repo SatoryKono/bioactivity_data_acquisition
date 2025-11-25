@@ -6,7 +6,15 @@ from typing import Any, Callable, Mapping
 
 import requests
 
-from bioetl.core.http import APIConfig, CircuitBreaker, RetryPolicy, TTLCache, TokenBucketRateLimiter, UnifiedAPIClient
+from bioetl.core.http import (
+    APIConfig,
+    CircuitBreaker,
+    RetryPolicy,
+    ResilientRequestExecutorFactory,
+    TTLCache,
+    TokenBucketRateLimiter,
+    UnifiedAPIClient,
+)
 from bioetl.core.http.interfaces import CacheStrategy, CircuitBreakerStrategy, RateLimiter, RetryStrategy
 
 
@@ -103,6 +111,7 @@ def make_response(payload: Mapping[str, Any]) -> requests.Response:
 
 
 def test_unified_client_composes_injected_strategies():
+    config = build_api_config()
     response = make_response({"ok": True})
     session = MockSession(response)
     cache = DummyCache(store={})
@@ -110,13 +119,19 @@ def test_unified_client_composes_injected_strategies():
     retry = DummyRetry()
     breaker = DummyCircuitBreaker()
 
-    client = UnifiedAPIClient(
-        build_api_config(),
+    factory = ResilientRequestExecutorFactory(config)
+    components = factory.create(
         session=session,
         cache=cache,
         rate_limiter=limiter,
         retry_strategy=retry,
         circuit_breaker=breaker,
+    )
+    client = UnifiedAPIClient(
+        config,
+        request_executor=components.executor,
+        session=components.session,
+        pagination_strategy=components.pagination_strategy,
     )
 
     payload_first = client.get_json("/resource")
@@ -135,11 +150,18 @@ def test_default_component_factories_used_when_missing():
     response = make_response({"ok": True})
     session = MockSession(response)
 
-    client = UnifiedAPIClient(build_api_config(), session=session)
+    config = build_api_config()
+    components = ResilientRequestExecutorFactory(config).create(session=session)
+    client = UnifiedAPIClient(
+        config,
+        request_executor=components.executor,
+        session=components.session,
+        pagination_strategy=components.pagination_strategy,
+    )
 
     payload = client.get_json("/resource")
 
     assert payload == {"ok": True}
-    assert isinstance(client._rate_limiter, TokenBucketRateLimiter)  # noqa: SLF001
-    assert isinstance(client._retry_strategy, RetryPolicy)  # noqa: SLF001
-    assert isinstance(client._breaker, CircuitBreaker)  # noqa: SLF001
+    assert isinstance(components.rate_limiter, TokenBucketRateLimiter)
+    assert isinstance(components.retry_strategy, RetryPolicy)
+    assert isinstance(components.circuit_breaker, CircuitBreaker)

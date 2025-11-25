@@ -53,7 +53,13 @@ class DefaultPaginationStrategy(PaginationStrategy):
                 continue
 
             items = payload.get(page_key)
-            if items and page_param:
+            if items is None:
+                for value in payload.values():
+                    if isinstance(value, (list, tuple)):
+                        items = value
+                        break
+            has_items = bool(items)
+            if has_items and page_param:
                 page_params[page_param] = page_params.get(page_param, 1) + 1
                 next_path = path
             else:

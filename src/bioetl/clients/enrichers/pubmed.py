@@ -4,11 +4,11 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 from bioetl.clients.enrichers._base import _BaseEnricherClient
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.base_classes import BaseApiClient
 
 
 class PubmedClient(_BaseEnricherClient):
-    def __init__(self, api_client: UnifiedAPIClient) -> None:
+    def __init__(self, api_client: BaseApiClient) -> None:
         super().__init__(api_client, "pubmed")
 
     def search_by_title(self, title: str) -> Iterator[dict[str, Any]]:
