@@ -15,22 +15,15 @@ import pandera as pa
 import yaml
 
 from bioetl.core.logging import UnifiedLogger
+from bioetl.core.io.artifacts import RunArtifacts
 from bioetl.core.pipeline.orchestration import _execute_stage_plan
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
+    RunResult,
     StageContext,
     StageExecutionOptions,
     WriteArtifacts,
 )
-
-
-@dataclass(slots=True)
-class RunResult:
-    """Краткий результат выполнения пайплайна."""
-
-    success: bool
-    error: str | None
-    metrics: dict[str, Any]
 
 
 @dataclass(slots=True)
@@ -199,18 +192,30 @@ class UnifiedPipelineBase(PipelineBase):
         )
 
         success = error is None
-        metrics: dict[str, Any] = {
+        rows = 0 if context.current_df is None else int(context.current_df.shape[0])
+        metadata: dict[str, Any] = {
             "git_commit": self._git_commit,
             "config_hash": self._config_hash,
             "pipeline": self.pipeline_name,
             "duration_seconds": sum(durations.values()) / 1000,
-            "rows": 0 if context.current_df is None else int(context.current_df.shape[0]),
         }
         if context.artifacts and context.artifacts.data_path:
-            metrics["output_path"] = str(context.artifacts.data_path)
+            metadata["output_path"] = str(context.artifacts.data_path)
         if qc_path is not None:
-            metrics["qc_metrics_path"] = str(qc_path)
-        run_result = RunResult(success=success, error=error, metrics=metrics)
+            metadata["qc_metrics_path"] = str(qc_path)
+        run_result = RunResult(
+            success=success,
+            rows=rows,
+            artifacts=RunArtifacts(
+                output_dir=output_dir,
+                logs_directory=output_dir / "logs",
+                write_artifacts=context.artifacts or WriteArtifacts(),
+                qc_metrics_path=qc_path,
+            ),
+            duration_ms=durations,
+            error=error,
+            metadata=metadata,
+        )
         self.finalize_run(run_result)
         logger.info("STAGE_RUN_END", stage="pipeline", success=success)
         return run_result
