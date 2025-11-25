@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bioetl.clients.entities.client_activity import ChemblActivityClient
+from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.core.http.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.pipeline.types import PipelineConfig
 
@@ -27,11 +27,11 @@ def _build_default_api_client(config: PipelineConfig | None = None) -> UnifiedAP
     return UnifiedAPIClient(api_config)
 
 
-def default_activity_client_factory(config: PipelineConfig | None) -> ChemblActivityClient:
+def default_activity_client_factory(config: PipelineConfig | None) -> Any:
     """Build a :class:`ChemblActivityClient` using default API settings."""
 
     api_client = _build_default_api_client(config)
-    return ChemblActivityClient(api_client)
+    return ChemblEntityClientFactory.activity(api_client)
 
 
 __all__ = ["default_activity_client_factory"]
