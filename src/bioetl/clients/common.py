@@ -11,6 +11,7 @@ from bioetl.clients import client_exceptions
 
 
 _T = TypeVar("_T")
+Normalizer = Callable[[Any], Iterator[dict[str, Any]]]
 
 
 class ApiClientMixin:
@@ -78,9 +79,47 @@ DEFAULT_NEXT_KEY = "next"
 DEFAULT_PAGE_PARAM = "page"
 
 
-class PaginationStrategy(Protocol):
-    def paginate(self, api_client: BaseApiClient, endpoint: str, **kwargs: Any) -> Iterator[Any]:
+class PaginatedFetcher(Protocol):
+    def paginate(
+        self,
+        api_client: BaseApiClient,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        logger: Any | None = None,
+        page_key: str | None = None,
+        next_key: str | None = None,
+        page_param: str | None = None,
+        normalize: Normalizer | None = None,
+    ) -> Iterator[dict[str, Any]]:
         """Iterate over paginated API responses for ``endpoint``."""
+
+
+def _iter_payload_items(
+    payload: Any, *, page_key: str, normalize: Normalizer | None
+) -> Iterator[dict[str, Any]]:
+    if normalize is not None:
+        yield from normalize(payload)
+        return
+
+    if isinstance(payload, Mapping):
+        items = payload.get(page_key)
+        if isinstance(items, list) and items:
+            yield from items
+        elif payload:
+            yield payload
+        return
+
+    if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
+        yield from payload
+        return
+
+    if payload:
+        yield payload
+
+
+# Backwards-compatibility alias until pagination implementations migrate fully.
+PaginationStrategy = PaginatedFetcher
 
 
 class NextLinkPagination:
@@ -105,7 +144,8 @@ class NextLinkPagination:
         page_key: str | None = None,
         next_key: str | None = None,
         page_param: str | None = None,
-    ) -> Iterator[Any]:
+        normalize: Normalizer | None = None,
+    ) -> Iterator[dict[str, Any]]:
         del page_param
 
         page_key = page_key or self.page_key
@@ -120,20 +160,13 @@ class NextLinkPagination:
 
             query_params = None
             if isinstance(payload, Mapping):
-                items = payload.get(page_key)
-                if isinstance(items, list) and items:
-                    yield from items
-                elif payload:
-                    yield payload
+                yield from _iter_payload_items(payload, page_key=page_key, normalize=normalize)
 
                 next_candidate = payload.get(next_key)
                 next_path = next_candidate if isinstance(next_candidate, str) else None
                 continue
 
-            if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
-                yield from payload
-            elif payload:
-                yield payload
+            yield from _iter_payload_items(payload, page_key=page_key, normalize=normalize)
 
 
 class PageParamPagination:
@@ -160,7 +193,8 @@ class PageParamPagination:
         page_key: str | None = None,
         next_key: str | None = None,
         page_param: str | None = None,
-    ) -> Iterator[Any]:
+        normalize: Normalizer | None = None,
+    ) -> Iterator[dict[str, Any]]:
         del logger
 
         page_key = page_key or self.page_key
@@ -174,18 +208,7 @@ class PageParamPagination:
             next_key=next_key,
             page_param=page_param,
         ):
-            if isinstance(payload, Mapping):
-                items = payload.get(page_key)
-                if isinstance(items, list) and items:
-                    yield from items
-                elif payload:
-                    yield payload
-                continue
-
-            if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
-                yield from payload
-            elif payload:
-                yield payload
+            yield from _iter_payload_items(payload, page_key=page_key, normalize=normalize)
 
 
 class UnifiedEntityClientBase(ApiClientMixin, BaseApiClient, EntityClientProtocol, ABC):
@@ -276,6 +299,7 @@ __all__ = [
     "DEFAULT_PAGE_KEY",
     "DEFAULT_PAGE_PARAM",
     "ApiClientMixin",
+    "PaginatedFetcher",
     "PaginationStrategy",
     "NextLinkPagination",
     "PageParamPagination",
