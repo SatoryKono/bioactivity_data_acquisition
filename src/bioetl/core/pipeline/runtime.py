@@ -228,6 +228,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         limit: int | None = None,
         include_qc_metrics: bool = False,
         fail_on_schema_drift: bool = True,
+        enable_validation: bool = True,
     ) -> RunResult:
         if dry_run is not None:
             self.dry_run = dry_run
@@ -245,6 +246,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             limit=limit,
             include_qc_metrics=include_qc_metrics,
             fail_on_schema_drift=fail_on_schema_drift,
+            enable_validation=enable_validation,
         )
 
         run_state = RunState()

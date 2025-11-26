@@ -108,6 +108,12 @@ class PipelineBase(PipelineRuntimeBase):
         df: pd.DataFrame,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
+        if not options.enable_validation:
+            return df
+
+        if self.validator is not None and self.validation_service is not None:
+            return self.validation_service.validate(df, pipeline=self, options=options)
+
         return df
 
     def save_results(

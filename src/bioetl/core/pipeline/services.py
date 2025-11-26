@@ -187,9 +187,6 @@ class DefaultValidationService:
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         frame = df if self.validator is None else self.validator.validate(df)
-        validate_hook = getattr(pipeline, "validate", None)
-        if callable(validate_hook):
-            frame = validate_hook(frame, options)
         return _sort_dataframe(frame)
 
 
