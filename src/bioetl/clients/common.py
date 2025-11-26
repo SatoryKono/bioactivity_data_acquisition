@@ -364,15 +364,7 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
         )
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
-        return iterate_by_ids(
-            ids=ids,
-            entity=self.entity,
-            api_client=self.api_client,
-            normalize=self._normalize_payload,
-            wrap_callable=self._wrap_callable,
-            wrap_iterator=self._wrap_iterator,
-            logger=self._logger,
-        )
+        return self.iter_ids(ids)
 
     def list(
         self,

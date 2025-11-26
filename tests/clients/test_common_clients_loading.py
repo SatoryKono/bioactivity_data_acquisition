@@ -13,6 +13,7 @@ from bioetl.clients import (
     PaginationStrategy,
     RequestException,
 )
+from bioetl.base_classes import BaseApiClient
 from bioetl.clients.common import ApiTransportProtocol, UnifiedEntityClientBase
 
 
@@ -70,6 +71,23 @@ class _DummyEntityClient(UnifiedEntityClientBase):
         return _DummyPagination(self._payloads)
 
 
+class _DummyBaseApiClient(BaseApiClient):
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def get_json(self, endpoint: str, *, params=None, headers=None):  # noqa: ANN001 - тестовая заглушка
+        del params, headers
+        self.calls.append(endpoint)
+        return {"results": [{"endpoint": endpoint}]}
+
+    def paginate_json(self, endpoint: str, *, params=None, headers=None, page_key="results", next_key="next", page_param="page"):
+        del params, headers, page_key, next_key, page_param
+        yield from [{"endpoint": endpoint}, {"endpoint": f"{endpoint}-page2"}]
+
+    def close(self) -> None:  # pragma: no cover - noop for protocol compatibility
+        return None
+
+
 def test_clients_are_exported() -> None:
     # импорт не должен приводить к ImportError
     assert ApiClientMixin
@@ -101,3 +119,25 @@ def test_wrap_callable_converts_exceptions_and_logs_error() -> None:
         client._wrap_callable(lambda: (_ for _ in ()).throw(ValueError("boom")))
 
     assert any(entry.get("event") == "api_call_failed" for entry in logs)
+
+
+def test_fetch_by_ids_reuses_transport_iteration() -> None:
+    payloads: list[Mapping[str, Any]] = []
+    api_client = _DummyApiClient(payloads)
+    client = _DummyEntityClient(api_client, payloads)
+
+    records = list(client.fetch_by_ids(["123", "456"]))
+
+    assert records == [
+        {"endpoint": "/dummy/123", "params": {}},
+        {"endpoint": "/dummy/456", "params": {}},
+    ]
+    assert api_client.calls == [
+        ("/dummy/123", None),
+        ("/dummy/456", None),
+    ]
+
+
+def test_protocol_compatibility_for_clients() -> None:
+    assert isinstance(_DummyApiClient([]), ApiTransportProtocol)
+    assert isinstance(_DummyBaseApiClient(), BaseApiClient)
