@@ -40,7 +40,7 @@ def test_unified_client_respects_retry_after(monkeypatch):
 
     client = UnifiedAPIClient.from_config(api_config())
     retry_at = (
-        datetime.now(timezone.utc) + timedelta(seconds=1)
+        datetime.now(timezone.utc) + timedelta(seconds=2)
     ).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     with responses.RequestsMock() as rsps:
