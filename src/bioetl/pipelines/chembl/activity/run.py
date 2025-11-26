@@ -63,7 +63,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         *,
         client_factory: Callable[[Any], ChemblActivityClient] | None = None,
     ) -> None:
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self.client_factory = client_factory or default_activity_client_factory
         self._descriptor: ChemblExtractionDescriptor | None = None
         self._schema_registry = self._build_schema_registry()

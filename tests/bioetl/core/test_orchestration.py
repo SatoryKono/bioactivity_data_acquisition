@@ -29,7 +29,9 @@ class DummyPipeline(PipelineBaseCommon):
     def prepare_run(self, options: StageExecutionOptions) -> None:
         self.calls.append("prepare_run")
 
-    def extract(self, descriptor: object, options: StageExecutionOptions) -> pd.DataFrame:
+    def extract(
+        self, descriptor: object, 
+        options: StageExecutionOptions) -> pd.DataFrame:
         self.calls.append("extract")
         return pd.DataFrame({"value": [1, 2, 3]})
 
