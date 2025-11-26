@@ -13,7 +13,6 @@ from bioetl.core.pipeline.stage_plan import (
     build_default_stage_plan,
 )
 from bioetl.core.pipeline.types import (
-    ArtifactStore,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -110,7 +109,6 @@ def _contexts(
         pipeline=pipeline,
         config_provider=lambda _k: {},
         output_dir=Path("/tmp/out"),
-        artifacts=WriteArtifacts(),
     )
     runtime = StageRuntimeContext(context=context, options=OPTIONS)
     return context, runtime
