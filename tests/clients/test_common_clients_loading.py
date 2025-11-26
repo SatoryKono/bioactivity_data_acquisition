@@ -62,7 +62,8 @@ class _DummyEntityClient(UnifiedEntityClientBase):
         self._payloads = payloads
         super().__init__(api_client, "dummy", pagination_strategy=_DummyPagination(payloads))
 
-    def default_pagination_strategy(self) -> PaginationStrategy:
+    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
+        del strategy_name
         return _DummyPagination(self._payloads)
 
 

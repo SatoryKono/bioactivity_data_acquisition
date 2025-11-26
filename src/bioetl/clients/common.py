@@ -271,8 +271,8 @@ class PageParamPagination:
                 logger.info("api_call", path=next_path)
 
 
-class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtocol, ABC):
-    """Общая база для клиентов ChEMBL-подобных сущностей."""
+class ChemblClientBase(ApiClientMixin, ClosableMixin, EntityClientProtocol, ABC):
+    """Базовый клиент ChEMBL с общей логикой пагинации и обхода записей."""
 
     def __init__(
         self,
@@ -291,9 +291,10 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
             strategy_name=pagination_strategy_name
         )
 
-    @abstractmethod
     def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
-        """Выбор стратегии пагинации по умолчанию для конкретного клиента."""
+        """Выбор стратегии пагинации через реестр (по умолчанию ``next_link``)."""
+
+        return self.pagination_registry.create(strategy_name or "next_link")
 
     def _entity_path(self, suffix: str | None = None) -> str:
         if not suffix:
@@ -418,6 +419,15 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
         return self.list(params=params)
 
 
+class UnifiedEntityClientBase(ChemblClientBase, ABC):
+    """Совместимый псевдоним базового клиента сущностей ChEMBL."""
+
+    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:  # noqa: D401
+        """Выбор стратегии пагинации через реестр (по умолчанию ``next_link``)."""
+
+        return super().default_pagination_strategy(strategy_name=strategy_name)
+
+
 def cache_entity_client(
     client: EntityClientProtocol, *, maxsize: int = 256
 ) -> EntityClientProtocol:
@@ -509,6 +519,7 @@ __all__ = [
     "NextLinkPagination",
     "PageParamPagination",
     "PaginationStrategy",
+    "ChemblClientBase",
     "UnifiedEntityClientBase",
     "ApiTransportProtocol",
     "cache_entity_client",
