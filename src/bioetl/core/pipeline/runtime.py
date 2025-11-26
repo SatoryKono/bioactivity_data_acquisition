@@ -1,7 +1,6 @@
 """Shared runtime primitives for orchestrating ETL pipelines."""
 from __future__ import annotations
 
-import time
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -15,87 +14,30 @@ from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.services import (
     ArtifactPlanner,
     MetadataService,
+    OrchestrationService,
     QCService,
     RunMetadataBuilder,
+    StagePlanExecutor,
     ValidationService,
     WriteService,
     default_artifact_planner_factory,
     default_metadata_service_factory,
+    default_orchestration_service_factory,
     default_qc_service_factory,
 )
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     RunArtifacts,
     RunResult,
+    RunState,
     StageCommand,
     StageContext,
     StageDescriptor,
     StageExecutionOptions,
-    StageRuntimeContext,
     WriteArtifacts,
-)
-from bioetl.core.pipeline.services import (
-    ArtifactPlanner,
-    DefaultArtifactPlanner,
-    MetadataService,
-    QCExecutorAdapter,
-    QCService,
-    ValidationService,
-    WriteService,
 )
 from bioetl.qc.executor import QCMetricsExecutor
 from bioetl.qc.plan import QCPlan
-
-
-class StagePlanExecutor:
-    """Ответственный за исполнение плана стадий и подсчет длительностей."""
-
-    def __init__(self, qc_service: QCService) -> None:
-        self.qc_service = qc_service
-
-    def execute(
-        self,
-        stages: Iterable[StageCommand],
-        context: StageContext,
-        options: StageExecutionOptions,
-        runtime_context: StageRuntimeContext | None = None,
-    ) -> tuple[dict[str, int], str | None]:
-        logger = context.logger
-        durations: dict[str, int] = {}
-        error: str | None = None
-        artifacts = context.artifacts or WriteArtifacts()
-        if not context.artifacts:
-            context.artifacts = artifacts
-        runtime_context = runtime_context or StageRuntimeContext(context=context, options=options)
-        runtime_context.context = context
-        runtime_context.options = options
-
-        for stage in stages:
-            started = time.perf_counter()
-            if logger:
-                logger.info("STAGE_RUN_START", stage=stage.name)
-            try:
-                result = stage.execute(runtime_context)
-                if isinstance(result.output, pd.DataFrame):
-                    context.current_df = result.output
-                if stage.name == "extract" and isinstance(result.output, pd.DataFrame):
-                    context.metadata["extract_rows"] = int(result.output.shape[0])
-                if stage.name == "save_results" and hasattr(result.output, "artifacts"):
-                    artifacts = result.output.artifacts  # type: ignore[attr-defined]
-                    if isinstance(artifacts, WriteArtifacts):
-                        context.artifacts = artifacts
-            except Exception as exc:  # pragma: no cover - surfaced via RunResult
-                error = str(exc)
-                if logger:
-                    logger.error("STAGE_RUN_ERROR", stage=stage.name, error=error)
-                break
-            finally:
-                duration_ms = int((time.perf_counter() - started) * 1000)
-                durations[stage.name] = duration_ms
-                if logger:
-                    logger.info("STAGE_RUN_END", stage=stage.name, duration_ms=duration_ms)
-
-        return durations, error
 
 
 class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
@@ -123,6 +65,10 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         qc_service: QCService | None = None,
         metadata_service: MetadataService | None = None,
         run_metadata_builder: RunMetadataBuilder | None = None,
+        orchestration_service_factory: Callable[["PipelineRuntimeBase"], OrchestrationService]
+        | None = None,
+        qc_service_factory: Callable[["PipelineRuntimeBase"], QCService] | None = None,
+        metadata_service_factory: Callable[["PipelineRuntimeBase"], MetadataService] | None = None,
     ) -> None:
         self.config = config
         self.pipeline_definition = pipeline_definition or self._build_default_definition(config)
@@ -133,43 +79,38 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         root = getattr(materialization, "root", None)
         self.output_root = Path(root) if root else Path.cwd()
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
-        adapter = qc_executor_adapter or QCExecutorAdapter(executor_factory=qc_executor_factory)
-        self.qc_executor_adapter = adapter
-        self.qc_service = qc_service or QCService(
-            adapter,
-            enabled=qc_enabled,
-            plan=qc_plan,
-            dry_run=qc_dry_run,
-            thresholds=qc_thresholds,
-        )
-        self.stage_plan_executor = stage_plan_executor or StagePlanExecutor()
-        self.artifact_planner = artifact_planner or DefaultArtifactPlanner()
-        self.metadata_service = metadata_service
-        self.run_metadata_builder = run_metadata_builder or RunMetadataBuilder(config, self.pipeline_code)
-        self.qc_plan = qc_plan
         self.dry_run = False
-        self.artifact_planner = artifact_planner or default_artifact_planner_factory()
-        self.qc_service = qc_service or default_qc_service_factory(
-            qc_plan=qc_plan, executor_factory=qc_executor_factory
+
+        orchestration_factory = orchestration_service_factory or default_orchestration_service_factory(
+            stage_plan_executor=stage_plan_executor, artifact_planner=artifact_planner
         )
-        self.stage_plan_executor = stage_plan_executor or StagePlanExecutor(self.qc_service)
-        self.metadata_service = metadata_service or default_metadata_service_factory(
+        self.orchestration_service = orchestration_factory(self)
+        self.stage_plan_executor = self.orchestration_service.stage_plan_executor
+        self.artifact_planner = self.orchestration_service.artifact_planner
+
+        qc_factory = qc_service_factory or default_qc_service_factory(
+            qc_plan=qc_plan,
+            executor_factory=qc_executor_factory,
+            qc_thresholds=qc_thresholds,
+            qc_dry_run=qc_dry_run,
+            qc_enabled=qc_enabled,
+        )
+        self.qc_service = qc_service or qc_factory(self)
+
+        metadata_factory = metadata_service_factory or default_metadata_service_factory(
             config, self.pipeline_code
         )
-        self.run_metadata_builder = run_metadata_builder or getattr(
-            self.metadata_service, "builder", None
-        )
+        self.metadata_service = metadata_service or metadata_factory(self)
+        self.run_metadata_builder = run_metadata_builder or getattr(self.metadata_service, "builder", None)
         self._git_commit = getattr(self.metadata_service, "git_commit", None)
         self._config_hash = getattr(self.metadata_service, "config_hash", None)
+
         self.validation_service = (
             validation_service_factory(self)
             if validation_service_factory is not None
             else None
         )
-        self.write_service = (
-            write_service_factory(self) if write_service_factory is not None else None
-        )
-        self.artifact_planner: ArtifactPlanner = artifact_planner or DefaultArtifactPlanner()
+        self.write_service = write_service_factory(self) if write_service_factory is not None else None
 
     # Lifecycle -----------------------------------------------------------
     def run(
@@ -202,10 +143,13 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             fail_on_schema_drift=fail_on_schema_drift,
         )
 
+        run_state = RunState()
+
         logger.info("STAGE_RUN_START", stage="prepare_run")
         self.prepare_run(options)
 
         target_dir, artifacts = self.plan_run_artifacts(output_dir, run_tag, mode)
+        run_state.artifacts = artifacts
         stage_context = StageContext(
             logger=logger,
             request_id=self.run_id,
@@ -219,16 +163,19 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         stage_factory = self.create_stage_factory()
         stages = stage_factory.build(stage_descriptors, stage_context, options)
         self.stage_plan = stages
-        durations, error = self.stage_plan_executor.execute(stages, stage_context, options)
+        durations, error = self.orchestration_service.execute(stages, stage_context, options)
+        run_state.durations = durations
+        run_state.error = error
+        run_state.artifacts = stage_context.artifacts or run_state.artifacts
 
         qc_path: Path | None = None
-        if error is None and self.qc_service is not None:
+        if run_state.error is None and self.qc_service is not None:
             try:
                 qc_path = self.qc_service.execute(stage_context, options)
             except Exception as exc:  # pragma: no cover - surfaced via RunResult
-                error = str(exc)
+                run_state.error = str(exc)
                 if logger:
-                    logger.error("QC_METRICS_ERROR", error=error)
+                    logger.error("QC_METRICS_ERROR", error=run_state.error)
 
         if options.extended and self.dry_run:
             metadata_writer = None
@@ -243,8 +190,8 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 
         result_frame = stage_context.current_df
         rows = 0 if not isinstance(result_frame, pd.DataFrame) else int(result_frame.shape[0])
-        success = error is None
-        metadata = self.build_run_metadata(stage_context, stages, durations, run_tag, mode)
+        success = run_state.error is None
+        metadata = self.build_run_metadata(stage_context, stages, run_state.durations, run_tag, mode)
         metadata["rows"] = rows
         if qc_path is not None:
             metadata["qc_metrics_path"] = str(qc_path)
@@ -255,11 +202,11 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             artifacts=RunArtifacts(
                 output_dir=target_dir,
                 logs_directory=self.resolve_logs_directory(target_dir),
-                write_artifacts=stage_context.artifacts or WriteArtifacts(),
+                write_artifacts=run_state.artifacts or WriteArtifacts(),
                 qc_metrics_path=qc_path,
             ),
-            duration_ms=durations,
-            error=error,
+            duration_ms=run_state.durations,
+            error=run_state.error,
             metadata=metadata,
         )
         self.finalize_run(run_result)
@@ -283,12 +230,12 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     ) -> tuple[StageDescriptor, ...]:
         """Construct a deterministic stage descriptor plan for the pipeline."""
 
-        return self.stage_factory.build(context, options)
-
     def plan_run_artifacts(
         self, output_dir: Path, run_tag: str | None, mode: str | None
     ) -> tuple[Path, WriteArtifacts]:
-        return self.artifact_planner.plan(output_dir, self.pipeline_code, run_tag, mode)
+        return self.orchestration_service.plan_run_artifacts(
+            output_dir, self.pipeline_code, run_tag, mode
+        )
 
     def build_run_stem(self, run_tag: str | None, mode: str | None) -> str:
         suffix = [self.pipeline_code]
@@ -307,13 +254,9 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         mode: str | None,
     ) -> dict[str, Any]:
         if self.metadata_service is not None:
-            return self.metadata_service.build(
-                context, stage_plan, durations, run_tag, mode
-            )
+            return self.metadata_service.build(context, stage_plan, durations, run_tag, mode)
         if self.run_metadata_builder is not None:
-            return self.run_metadata_builder.build(
-                context, stage_plan, durations, run_tag, mode
-            )
+            return self.run_metadata_builder.build(context, stage_plan, durations, run_tag, mode)
         return {}
 
     def resolve_logs_directory(self, output_dir: Path) -> Path:
