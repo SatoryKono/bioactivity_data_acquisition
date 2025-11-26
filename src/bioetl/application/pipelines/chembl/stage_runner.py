@@ -12,6 +12,10 @@ from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.types import (
     ArtifactStore,
+    DefaultArtifactContext,
+    DefaultDomainContext,
+    DefaultExecutionContext,
+    DefaultInfrastructureContext,
     StageCommand,
     StageContext,
     StageDescriptor,
@@ -120,13 +124,17 @@ class RuntimeContextBuilder:
             mode=mode,
             dry_run=self.pipeline.dry_run,
         )
-        stage_context = StageContext(
+        execution_context = DefaultExecutionContext(
             logger=logger,
             request_id=getattr(self.pipeline, "run_id", ""),
             trace_id=getattr(self.pipeline, "run_id", ""),
+        )
+        stage_context = StageContext(
+            execution=execution_context,
+            domain=DefaultDomainContext(pipeline=self.pipeline),
+            infrastructure=DefaultInfrastructureContext(output_dir=target_dir),
+            artifacts=DefaultArtifactContext(artifact_store=artifact_store),
             config_provider=getattr(self.pipeline, "_build_config_provider")(),
-            output_dir=target_dir,
-            artifact_store=artifact_store,
         )
         runtime_context = StageRuntimeContext(context=stage_context, options=resolved_options)
         return stage_context, runtime_context
