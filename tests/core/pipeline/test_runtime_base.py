@@ -4,11 +4,17 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pandas as pd
 import pytest
 
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase, StagePlanExecutor
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
+    RunArtifacts,
+    RunResult,
     StageContext,
     StageExecutionOptions,
     StageRuntimeContext,
@@ -138,51 +144,129 @@ class DummyRuntime(PipelineRuntimeBase):
         return _Factory()
 
 
-class InitOrderRuntime(PipelineRuntimeBase):
-    def __init__(self) -> None:
-        self.calls: list[str] = []
-        super().__init__({}, qc_enabled=True)
-
-    def _create_artifact_planner(  # type: ignore[override]
-        self,
-        artifact_planner,
-    ):
-        self.calls.append("artifact_planner")
-        return super()._create_artifact_planner(artifact_planner)
-
-    def _create_qc_service(  # type: ignore[override]
-        self,
-        *args,
-        **kwargs,
-    ):
-        self.calls.append("qc_service")
-        return super()._create_qc_service(*args, **kwargs)
-
-    def _create_metadata_service(  # type: ignore[override]
-        self,
-        *args,
-        **kwargs,
-    ):
-        self.calls.append("metadata_service")
-        return super()._create_metadata_service(*args, **kwargs)
-
-    def _create_stage_executor(
-        self,
-        stage_plan_executor,
-        qc_orchestrator,
-    ):  # type: ignore[override]
-        self.calls.append(f"stage_executor:{qc_orchestrator is not None}")
-        return super()._create_stage_executor(
-            stage_plan_executor,
-            qc_orchestrator,
-        )
+class ServiceRuntime(PipelineRuntimeBase):
+    def __init__(self, **kwargs) -> None:
+        super().__init__({}, **kwargs)
 
     def build_stage_plan(
+        self, context: StageContext, options: StageExecutionOptions
+    ) -> tuple[PipelineStageCommand, ...]:
+        def _extract(
+            ctx: StageContext,
+            exec_runtime: StageRuntimeContext,
+        ) -> pd.DataFrame:
+            return pd.DataFrame({"value": [1, 2, 3]})
+
+        return (PipelineStageCommand("extract", _extract),)
+
+    def create_stage_factory(self):  # type: ignore[override]
+        class _Factory:
+            def build(self, descriptors, context, options):
+                return descriptors
+
+        return _Factory()
+
+
+class StubArtifactRuntimeService:
+    def __init__(self, target_dir: Path) -> None:
+        self.target_dir = target_dir
+        self.calls = 0
+        self.artifact_planner = MagicMock()
+        self.artifact_service = self
+
+    def plan_run_artifacts(
+        self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
+    ) -> tuple[Path, WriteArtifacts]:
+        self.calls += 1
+        artifacts = WriteArtifacts(data_path=self.target_dir / f"{pipeline_code}.csv")
+        return self.target_dir, artifacts
+
+
+class StubQCRuntimeService:
+    def __init__(self, qc_path: Path) -> None:
+        self.qc_path = qc_path
+        self.calls = 0
+        self.qc_service = object()
+        self.qc_orchestrator = object()
+
+    def run(self, context: StageContext, options: StageExecutionOptions) -> tuple[Path | None, str | None]:
+        self.calls += 1
+        return self.qc_path, None
+
+
+class StubMetadataRuntimeService:
+    def __init__(self, logs_dir: Path) -> None:
+        self.logs_dir = logs_dir
+        self.calls: list[dict[str, object]] = []
+        self.metadata_service = MagicMock()
+        self.git_commit = "stub_commit"
+        self.config_hash = "stub_hash"
+        self.logs_directory_resolver = lambda _: self.logs_dir
+
+    def build_run_metadata(
         self,
         context: StageContext,
-        runtime: StageExecutionOptions,
-    ):  # type: ignore[override]
-        return ()
+        stage_plan: tuple[PipelineStageCommand, ...],
+        durations: dict[str, int],
+        run_tag: str | None,
+        mode: str | None,
+        *,
+        rows: int,
+        qc_metrics_path: Path | None,
+    ) -> dict[str, object]:
+        return {
+            "rows": rows,
+            "qc_metrics_path": str(qc_metrics_path) if qc_metrics_path else None,
+            "durations": durations,
+            "run_tag": run_tag,
+            "mode": mode,
+        }
+
+    def build_run_result(
+        self,
+        *,
+        context: StageContext,
+        stage_plan: tuple[PipelineStageCommand, ...],
+        run_state,
+        run_tag: str | None,
+        mode: str | None,
+        rows: int,
+        qc_metrics_path: Path | None,
+        success: bool,
+        output_dir: Path,
+        logs_directory: Path,
+    ) -> RunResult:
+        metadata = self.build_run_metadata(
+            context,
+            stage_plan,
+            run_state.durations,
+            run_tag,
+            mode,
+            rows=rows,
+            qc_metrics_path=qc_metrics_path,
+        )
+        self.calls.append(
+            {
+                "success": success,
+                "output_dir": output_dir,
+                "logs_directory": logs_directory,
+                "qc_metrics_path": qc_metrics_path,
+            }
+        )
+        artifacts = context.artifact_store.get()
+        return RunResult(
+            success=success,
+            rows=rows,
+            artifacts=RunArtifacts(
+                output_dir=output_dir,
+                logs_directory=logs_directory,
+                write_artifacts=artifacts,
+                qc_metrics_path=qc_metrics_path,
+            ),
+            duration_ms=run_state.durations,
+            error=run_state.error,
+            metadata=metadata,
+        )
 
 
 def test_run_handles_retries_and_metadata(tmp_path: Path) -> None:
@@ -223,20 +307,28 @@ def test_run_stops_after_retry_exhaustion(tmp_path: Path) -> None:
     assert result.rows == 2
 
 
-def test_services_initialized_once_and_in_order() -> None:
-    runtime = InitOrderRuntime()
+def test_runtime_uses_injected_services(tmp_path: Path) -> None:
+    target_dir = tmp_path / "planned"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    artifact_runtime_service = StubArtifactRuntimeService(target_dir)
+    qc_runtime_service = StubQCRuntimeService(tmp_path / "qc" / "metrics.json")
+    metadata_runtime_service = StubMetadataRuntimeService(tmp_path / "logs")
 
-    assert runtime.calls == [
-        "artifact_planner",
-        "qc_service",
-        "metadata_service",
-        "stage_executor:True",
-    ]
-    assert runtime.qc_orchestrator is not None
-    assert (
-        runtime.stage_plan_executor.qc_orchestrator is runtime.qc_orchestrator
+    runtime = ServiceRuntime(
+        artifact_runtime_service=artifact_runtime_service,
+        qc_runtime_service=qc_runtime_service,
+        metadata_runtime_service=metadata_runtime_service,
     )
-    assert runtime.qc_orchestrator.qc_service is runtime.qc_service
+
+    result = runtime.run(tmp_path, include_qc_metrics=True)
+
+    assert artifact_runtime_service.calls == 1
+    assert result.artifacts.write_artifacts.data_path == target_dir / "ServiceRuntime.csv"
+    assert qc_runtime_service.calls == 1
+    assert result.artifacts.qc_metrics_path == qc_runtime_service.qc_path
+    assert metadata_runtime_service.calls[-1]["output_dir"] == target_dir
+    assert metadata_runtime_service.calls[-1]["logs_directory"] == target_dir / "logs"
+    assert result.metadata["rows"] == 3
 
 
 def test_executor_receives_qc_service() -> None:
