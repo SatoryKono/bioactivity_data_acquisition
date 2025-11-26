@@ -47,7 +47,7 @@ class RecordingExecutor(StagePlanExecutor):
                     runtime.input_data = command.handler(context, runtime)
                     if isinstance(runtime.input_data, pd.DataFrame):
                         runtime.attributes["last_dataframe"] = runtime.input_data
-                        context.current_df = runtime.input_data
+                        context.data_bucket.set(runtime.input_data)
                     break
                 except RetryableError as exc:
                     if attempts > self.max_retries:
@@ -114,6 +114,31 @@ class DummyRuntime(PipelineRuntimeBase):
         return _Factory()
 
 
+class InitOrderRuntime(PipelineRuntimeBase):
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        super().__init__({}, qc_enabled=True)
+
+    def _create_artifact_planner(self, artifact_planner):  # type: ignore[override]
+        self.calls.append("artifact_planner")
+        return super()._create_artifact_planner(artifact_planner)
+
+    def _create_qc_service(self, *args, **kwargs):  # type: ignore[override]
+        self.calls.append("qc_service")
+        return super()._create_qc_service(*args, **kwargs)
+
+    def _create_metadata_service(self, *args, **kwargs):  # type: ignore[override]
+        self.calls.append("metadata_service")
+        return super()._create_metadata_service(*args, **kwargs)
+
+    def _create_stage_executor(self, stage_plan_executor, qc_orchestrator):  # type: ignore[override]
+        self.calls.append(f"stage_executor:{qc_orchestrator is not None}")
+        return super()._create_stage_executor(stage_plan_executor, qc_orchestrator)
+
+    def build_stage_plan(self, context: StageContext, runtime: StageExecutionOptions):  # type: ignore[override]
+        return ()
+
+
 def test_run_handles_retries_and_metadata(tmp_path: Path) -> None:
     executor = RecordingExecutor(max_retries=1)
     runtime = DummyRuntime(executor=executor)
@@ -144,3 +169,26 @@ def test_run_stops_after_retry_exhaustion(tmp_path: Path) -> None:
     # transform fails on first attempt and pipeline stops
     assert executor.calls == [("extract", 1), ("transform", 1)]
     assert result.rows == 2
+
+
+def test_services_initialized_once_and_in_order() -> None:
+    runtime = InitOrderRuntime()
+
+    assert runtime.calls == [
+        "artifact_planner",
+        "qc_service",
+        "metadata_service",
+        "stage_executor:True",
+    ]
+    assert runtime.qc_orchestrator is not None
+    assert runtime.stage_plan_executor.qc_orchestrator is runtime.qc_orchestrator
+    assert runtime.qc_orchestrator.qc_service is runtime.qc_service
+
+
+def test_executor_receives_qc_service() -> None:
+    executor = RecordingExecutor(max_retries=0)
+    runtime = DummyRuntime(executor=executor)
+
+    assert executor.qc_orchestrator is runtime.qc_orchestrator
+    assert runtime.qc_orchestrator is not None
+    assert runtime.qc_orchestrator.qc_service is runtime.qc_service

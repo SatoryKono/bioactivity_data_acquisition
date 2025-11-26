@@ -103,8 +103,19 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         durations: dict[str, int],
         run_tag: str | None,
         mode: str | None,
+        *,
+        rows: int = 0,
+        qc_metrics_path: Path | None = None,
     ) -> dict[str, Any]:
-        metadata = super().build_run_metadata(context, stage_plan, durations, run_tag, mode)
+        metadata = super().build_run_metadata(
+            context,
+            stage_plan,
+            durations,
+            run_tag,
+            mode,
+            rows=rows,
+            qc_metrics_path=qc_metrics_path,
+        )
         metadata.update({"started_at": datetime.now(timezone.utc).isoformat()})
         return self.augment_metadata(metadata)
 

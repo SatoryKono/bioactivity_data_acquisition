@@ -68,8 +68,8 @@ class WriteService(Protocol):
 class StagePlanExecutor:
     """Ответственный за исполнение плана стадий и подсчет длительностей."""
 
-    def __init__(self) -> None:
-        self.qc_service = None
+    def __init__(self, qc_orchestrator: "QCOrchestrator | None" = None) -> None:
+        self.qc_orchestrator = qc_orchestrator
 
     def execute(
         self,
@@ -81,9 +81,6 @@ class StagePlanExecutor:
         logger = context.logger
         durations: dict[str, int] = {}
         error: str | None = None
-        artifacts = context.artifacts or WriteArtifacts()
-        if not context.artifacts:
-            context.artifacts = artifacts
         runtime_context = runtime_context or StageRuntimeContext(context=context, options=options)
         runtime_context.context = context
         runtime_context.options = options
@@ -95,7 +92,7 @@ class StagePlanExecutor:
             try:
                 result = stage.execute(runtime_context)
                 if isinstance(result.output, pd.DataFrame):
-                    context.current_df = result.output
+                    context.data_bucket.set(result.output)
                 if stage.name == "extract" and isinstance(result.output, pd.DataFrame):
                     context.metadata["extract_rows"] = int(result.output.shape[0])
                 if (
@@ -109,7 +106,7 @@ class StagePlanExecutor:
                 if stage.name == "save_results" and hasattr(result.output, "artifacts"):
                     artifacts = result.output.artifacts  # type: ignore[attr-defined]
                     if isinstance(artifacts, WriteArtifacts):
-                        context.artifacts = artifacts
+                        context.artifact_store.set(artifacts)
             except Exception as exc:  # pragma: no cover - surfaced via RunResult
                 error = str(exc)
                 if logger:
@@ -125,11 +122,23 @@ class StagePlanExecutor:
 
 
 @dataclass(slots=True)
+class ArtifactService:
+    """Service responsible for deterministic artifact planning."""
+
+    artifact_planner: ArtifactPlanner
+
+    def plan_run_artifacts(
+        self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
+    ) -> tuple[Path, WriteArtifacts]:
+        return self.artifact_planner.plan(output_dir, pipeline_code, run_tag, mode)
+
+
+@dataclass(slots=True)
 class OrchestrationService:
     """Оркестрация стадий и планирование артефактов."""
 
     stage_plan_executor: StagePlanExecutor
-    artifact_planner: ArtifactPlanner
+    artifact_service: ArtifactService
 
     def execute(
         self,
@@ -143,7 +152,7 @@ class OrchestrationService:
     def plan_run_artifacts(
         self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
     ) -> tuple[Path, WriteArtifacts]:
-        return self.artifact_planner.plan(output_dir, pipeline_code, run_tag, mode)
+        return self.artifact_service.plan_run_artifacts(output_dir, pipeline_code, run_tag, mode)
 
 
 def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -255,18 +264,17 @@ class QCExecutorAdapter:
         plan: QCPlan,
         artifacts: WriteArtifacts | None = None,
     ) -> Path | None:
-        if context.current_df is None:
+        current_df = context.data_bucket.get()
+        if current_df is None:
             return None
 
-        dataset_artifacts = artifacts or context.artifacts or WriteArtifacts()
+        dataset_artifacts = artifacts or context.artifact_store.get()
         dataset_name = (
             dataset_artifacts.data_path.stem if dataset_artifacts and dataset_artifacts.data_path else "dataset"
         )
         executor_factory = self.executor_factory or QCMetricsExecutor
         executor = executor_factory()
-        quality_report, metrics_payload = executor.execute(
-            context.current_df, plan, dataset_name=dataset_name
-        )
+        quality_report, metrics_payload = executor.execute(current_df, plan, dataset_name=dataset_name)
         if quality_report.empty and not metrics_payload:
             return None
 
@@ -278,7 +286,7 @@ class QCExecutorAdapter:
         metrics_path.write_text(json.dumps(metrics_payload, indent=2))
         dataset_artifacts.quality_report_path = quality_path
         dataset_artifacts.qc_summary_path = metrics_path
-        context.artifacts = dataset_artifacts
+        context.artifact_store.set(dataset_artifacts)
         return metrics_path
 
 
@@ -306,7 +314,7 @@ class QCService:
         resolved_plan = self._resolve_plan(context, options)
         if not resolved_plan.enabled:
             return None
-        artifacts = context.artifacts or WriteArtifacts()
+        artifacts = context.artifact_store.get()
         return self.adapter.execute(context, resolved_plan, artifacts)
 
     def _resolve_plan(self, context: StageContext, options: StageExecutionOptions) -> QCPlan:
@@ -315,6 +323,19 @@ class QCService:
         resolved_dry_run = self.dry_run if self.dry_run is not None else options.dry_run
         plan_updates: dict[str, Mapping[str, float] | bool] = {"dry_run": resolved_dry_run, "thresholds": thresholds}
         return base_plan.model_copy(update=plan_updates)
+
+
+@dataclass(slots=True)
+class QCOrchestrator:
+    """Orchestrates QC execution and error handling."""
+
+    qc_service: QCService
+
+    def run(self, context: StageContext, options: StageExecutionOptions) -> tuple[Path | None, str | None]:
+        try:
+            return self.qc_service.execute(context, options), None
+        except Exception as exc:  # pragma: no cover - surfaced via RunResult
+            return None, str(exc)
 
 
 @dataclass(slots=True)
@@ -338,6 +359,23 @@ class MetadataService:
         mode: str | None,
     ) -> dict[str, Any]:
         return self.builder.build(context, stage_plan, durations, run_tag, mode)
+
+    def build_for_run(
+        self,
+        context: StageContext,
+        stage_plan: Iterable[StageProtocol],
+        durations: Mapping[str, int],
+        run_tag: str | None,
+        mode: str | None,
+        *,
+        rows: int,
+        qc_metrics_path: Path | None,
+    ) -> dict[str, Any]:
+        metadata = self.build(context, stage_plan, durations, run_tag, mode)
+        metadata["rows"] = rows
+        if qc_metrics_path is not None:
+            metadata["qc_metrics_path"] = str(qc_metrics_path)
+        return metadata
 
     @property
     def git_commit(self) -> str | None:
@@ -382,8 +420,9 @@ class RunMetadataBuilder:
             "mode": mode,
             "duration_seconds": sum(durations.values()) / 1000,
         }
-        if context.artifacts and context.artifacts.data_path:
-            metadata["output_path"] = str(context.artifacts.data_path)
+        artifacts = context.artifact_store.get()
+        if artifacts.data_path:
+            metadata["output_path"] = str(artifacts.data_path)
         return metadata
 
     def _resolve_git_commit(self) -> str | None:
@@ -414,14 +453,18 @@ def default_artifact_planner_factory() -> ArtifactPlanner:
     return DefaultArtifactPlanner()
 
 
+def default_artifact_service_factory(artifact_planner: ArtifactPlanner | None = None) -> ArtifactService:
+    return ArtifactService(artifact_planner or DefaultArtifactPlanner())
+
+
 def default_orchestration_service_factory(
     stage_plan_executor: StagePlanExecutor | None = None,
-    artifact_planner: ArtifactPlanner | None = None,
+    artifact_service: ArtifactService | None = None,
 ) -> Callable[[PipelineBaseProtocol], OrchestrationService]:
     def _factory(_: PipelineBaseProtocol) -> OrchestrationService:
         return OrchestrationService(
             stage_plan_executor=stage_plan_executor or StagePlanExecutor(),
-            artifact_planner=artifact_planner or DefaultArtifactPlanner(),
+            artifact_service=artifact_service or default_artifact_service_factory(),
         )
 
     return _factory
@@ -459,17 +502,20 @@ def default_metadata_service_factory(
 
 
 __all__ = [
+    "ArtifactService",
     "ArtifactPlanner",
     "DefaultArtifactPlanner",
     "DefaultValidationService",
     "DefaultWriteService",
     "OrchestrationService",
     "MetadataService",
+    "QCOrchestrator",
     "RunMetadataBuilder",
     "QCExecutorAdapter",
     "QCService",
     "ValidationService",
     "WriteService",
+    "default_artifact_service_factory",
     "default_artifact_planner_factory",
     "default_metadata_service_factory",
     "default_orchestration_service_factory",
