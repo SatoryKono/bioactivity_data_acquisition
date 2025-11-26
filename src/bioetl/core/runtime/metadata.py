@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, TYPE_CHECKING
 
-from bioetl.core.pipeline.services import MetadataRuntimeService
+if TYPE_CHECKING:
+    from bioetl.core.pipeline.services import MetadataRuntimeService
+
 from bioetl.core.pipeline.types import StageContextProtocol, StageProtocol
 
 
@@ -75,7 +77,9 @@ class MetadataCoordinator:
     def from_factory(
         cls,
         *,
-        metadata_runtime_service_factory: Callable[["MetadataCoordinator"], MetadataRuntimeService],
+        metadata_runtime_service_factory: Callable[
+            ["MetadataCoordinator"], "MetadataRuntimeService"
+        ],
         logs_directory_resolver: Callable[[Path], Path],
     ) -> "MetadataCoordinator":
         placeholder = cls.__new__(cls)

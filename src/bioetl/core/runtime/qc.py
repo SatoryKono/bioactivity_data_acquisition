@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, TYPE_CHECKING
 
-from bioetl.core.pipeline.services import QCRuntimeService, StagePlanExecutor
+from bioetl.core.pipeline.services import StagePlanExecutor
+
+if TYPE_CHECKING:
+    from bioetl.core.pipeline.services import QCRuntimeService
+
 from bioetl.core.pipeline.types import StageContextProtocol, StageExecutionOptions
 from bioetl.qc.executor import QCMetricsExecutor
 from bioetl.qc.plan import QCPlan
@@ -100,7 +104,7 @@ def default_qc_runtime_service_factory(
     qc_dry_run: bool | None = None,
     qc_enabled: bool | None = None,
 ) -> Callable[["QCCoordinator"], QCRuntimeService]:
-    from bioetl.core.pipeline.services import QCOrchestrator, QCService
+    from bioetl.core.pipeline.services import QCOrchestrator, QCService, QCRuntimeService
 
     def _factory(coordinator: QCCoordinator) -> QCRuntimeService:
         if qc_service is not None:

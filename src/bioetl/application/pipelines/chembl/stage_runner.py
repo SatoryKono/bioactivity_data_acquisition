@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Protocol, TYPE_CHECKING
+from typing import Any, Protocol, TYPE_CHECKING, cast
 
 import pandas as pd
 
@@ -16,19 +16,23 @@ from bioetl.core.pipeline.types import (
     DefaultDomainContext,
     DefaultExecutionContext,
     DefaultInfrastructureContext,
+    PipelineBaseProtocol,
     StageCommand,
     StageContext,
+    StageContextProtocol,
     StageDescriptor,
     StageExecutionOptions,
+    StageFactoryContext,
     StageRuntimeContext,
 )
 
 if TYPE_CHECKING:
-    from bioetl.pipelines.chembl.common import ChemblPipelineContract as DomainChemblContract
+    from bioetl.pipelines.chembl.common import (
+        ChemblPipelineContract as DomainChemblContract,
+    )
 else:
     class DomainChemblContract(Protocol):
         """Fallback definition if imports fail during runtime check."""
-        pass
 
 
 class ChemblApplicationContract(DomainChemblContract, Protocol):
@@ -65,6 +69,7 @@ class ChemblApplicationContract(DomainChemblContract, Protocol):
         limit: int | None = None,
         include_qc_metrics: bool = False,
         fail_on_schema_drift: bool = True,
+        **options: Any,
     ) -> Any:
         ...
 
@@ -148,13 +153,16 @@ class RuntimeContextBuilder:
         )
         stage_context = StageContext(
             execution=execution_context,
-            domain=DefaultDomainContext(pipeline=self.pipeline),
+            domain=DefaultDomainContext(
+                pipeline=cast(PipelineBaseProtocol, self.pipeline)
+            ),
             infrastructure=DefaultInfrastructureContext(output_dir=target_dir),
             artifacts=DefaultArtifactContext(artifact_store=artifact_store),
             config_provider=getattr(self.pipeline, "_build_config_provider")(),
         )
         runtime_context = StageRuntimeContext(
-            context=stage_context, options=resolved_options
+            context=cast(StageContextProtocol, stage_context),
+            options=resolved_options,
         )
         return stage_context, runtime_context
 
@@ -173,7 +181,9 @@ class StageExecutor:
             getattr(definition, "stage_factory", None) if definition else None
         )
         factory_cls = stage_factory_cls or StageFactory
-        self.factory = factory or factory_cls(pipeline)
+        self.factory = factory or factory_cls(
+            cast(PipelineBaseProtocol, pipeline)
+        )
 
     def build(
         self,
@@ -182,7 +192,9 @@ class StageExecutor:
         options: StageExecutionOptions,
         stages: tuple[str, ...] | None = None,
     ) -> tuple[StageCommand, ...]:
-        return self.factory.build(descriptors, context, options, stages)
+        return self.factory.build(
+            descriptors, cast(StageFactoryContext, context), options, stages
+        )
 
     def run(
         self,
@@ -192,7 +204,13 @@ class StageExecutor:
         *,
         stages: tuple[str, ...] | None = None,
     ) -> Any:
-        stage_plan = self.build(descriptors, context, runtime.options, stages)
+        if runtime.options is None:
+            msg = "Stage execution options are required"
+            raise ValueError(msg)
+
+        stage_plan = self.build(
+            descriptors, context, runtime.options, stages
+        )
         result: Any = None
         for stage in stage_plan:
             result = stage.execute(runtime).output
@@ -239,6 +257,10 @@ def build_extract_plan(
     context, runtime = context_builder.build(
         output_dir, options=options, run_tag=run_tag, mode=mode
     )
+
+    if runtime.options is None:
+        msg = "Stage execution options are required"
+        raise ValueError(msg)
 
     descriptors = pipeline.build_stage_plan(context, runtime.options)
     context.descriptor = pipeline.build_descriptor()
@@ -299,7 +321,8 @@ def run_chembl_stage(
     context, runtime = context_builder.build(
         output_root, options=options, run_tag=run_tag, mode=mode
     )
-    context.data_bucket.set(df)
+    if df is not None:
+        context.data_bucket.set(df)
 
     if descriptor is None and normalized_stage == "extract":
         descriptor = getattr(pipeline, "build_descriptor", lambda: None)()
