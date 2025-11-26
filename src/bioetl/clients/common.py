@@ -16,6 +16,7 @@ warnings.warn(
 )
 
 from bioetl.clients import client_exceptions
+from bioetl.clients.chembl.common import ChemblPaginationMixin
 from bioetl.core.http import ApiClientMixin as _ApiClientMixin
 from bioetl.core.http import BaseApiEntityClient
 from bioetl.core.http import ClosableMixin as _ClosableMixin
@@ -229,7 +230,7 @@ class PageParamPagination:
                 logger.info("api_call", path=next_path)
 
 
-class ChemblClientBase(BaseApiEntityClient, EntityClientProtocol, ABC):
+class ChemblClientBase(ChemblPaginationMixin, BaseApiEntityClient, EntityClientProtocol, ABC):
     """Базовый клиент ChEMBL с общей логикой пагинации и обхода записей."""
 
     def __init__(
@@ -241,9 +242,11 @@ class ChemblClientBase(BaseApiEntityClient, EntityClientProtocol, ABC):
         pagination_strategy_name: str | None = None,
         pagination_registry: PaginationRegistry | None = None,
     ) -> None:
-        self.pagination_registry = pagination_registry or get_default_pagination_registry()
-        pagination = pagination_strategy or self.default_pagination_strategy(
-            strategy_name=pagination_strategy_name
+        pagination = self._init_transport_and_pagination(
+            transport,
+            pagination_strategy=pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=pagination_registry,
         )
         super().__init__(transport, pagination, entity=entity)
 

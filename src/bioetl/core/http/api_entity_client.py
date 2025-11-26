@@ -6,7 +6,7 @@ import warnings
 
 import structlog
 
-from bioetl.core.http import ApiClientMixin, ClosableMixin
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
 
