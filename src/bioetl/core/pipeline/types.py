@@ -10,6 +10,7 @@ from typing import (
     Iterable,
     Mapping,
     Protocol,
+    TYPE_CHECKING,
     runtime_checkable,
 )
 
@@ -17,6 +18,9 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
+
+if TYPE_CHECKING:  # pragma: no cover
+    from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
 class PipelineExtractionMode(str, Enum):
@@ -198,7 +202,7 @@ class PipelineStagesProtocol(Protocol):
         ...
 
     def extract(
-        self, descriptor: Any, options: StageExecutionOptions
+        self, descriptor: "ChemblExtractionDescriptor | None", options: StageExecutionOptions
     ) -> pd.DataFrame:
         """Extract data from source."""
         ...

@@ -90,7 +90,7 @@ class PipelineBase(PipelineRuntimeBase):
     @abstractmethod
     def extract(
         self,
-        descriptor: Any | None,
+        descriptor: "ChemblExtractionDescriptor | None",
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         ...
