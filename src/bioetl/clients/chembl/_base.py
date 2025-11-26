@@ -9,12 +9,11 @@ from bioetl.clients.common import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    ApiClientMixin,
     ApiTransportProtocol,
-    ClosableMixin,
     PaginationStrategy,
 )
 from bioetl.clients.entities._base import _BaseEntityClient
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 from bioetl.infra import PaginationRegistry
 
