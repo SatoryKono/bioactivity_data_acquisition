@@ -60,7 +60,7 @@ def default_chembl_factory(
     *,
     pagination_registry: PaginationRegistry | None = None,
     pagination_strategy_name: str | None = None,
-) -> dict[str, Callable[[], EntityClientProtocol]]:
+) -> dict[str, Callable[[], EntityClientProtocol] | ChemblEntityClientFactory]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
@@ -93,6 +93,7 @@ def default_chembl_factory(
     )
 
     return {
+        "chembl": entity_factory,
         "activity": entity_factory.activity,
         "assay": entity_factory.assay,
         "document": entity_factory.document,

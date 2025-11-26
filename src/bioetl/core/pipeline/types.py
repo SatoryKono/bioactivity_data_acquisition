@@ -335,12 +335,40 @@ class StageFactoryContext(DataContext, Protocol):
 
 
 @runtime_checkable
+class DomainContext(Protocol):
+    """Domain-level metadata and pipeline context."""
+
+    pipeline: "PipelineBaseProtocol" | None
+    metadata: dict[str, Any]
+    descriptor: Any | None
+
+
+@runtime_checkable
+class InfrastructureContext(Protocol):
+    """Infrastructure dependencies shared between stages."""
+
+    output_dir: Path
+    metadata_service: Any | None
+    qc_orchestrator: Any | None
+
+
+@runtime_checkable
+class ArtifactContext(DataContext, Protocol):
+    """Access to artifacts and intermediate data."""
+
+    artifact_store: ArtifactStore
+
+
+@runtime_checkable
 class StageContextProtocol(
     ExecutionContext,
     ConfigContext,
     ClientContext,
     MetricsContext,
     StageFactoryContext,
+    DomainContext,
+    InfrastructureContext,
+    ArtifactContext,
     Protocol,
 ):
     """Stable contract for pipeline stage dependencies."""
@@ -393,7 +421,20 @@ class DefaultClientContext(ClientContext):
     clients: Mapping[str, Any] = field(default_factory=dict)
 
     def get_client(self, name: str) -> Any:
-        return self.clients[name]
+        if name in self.clients:
+            return self.clients[name]
+
+        for separator in (":", "."):
+            if separator in name:
+                namespace, entity = name.split(separator, 1)
+                if namespace in self.clients:
+                    factory = self.clients[namespace]
+                    if hasattr(factory, "create"):
+                        return factory.create(entity)
+                    if callable(factory):
+                        return factory(entity)
+        msg = f"Client '{name}' is not registered"
+        raise KeyError(msg)
 
 
 @dataclass(slots=True)
@@ -421,20 +462,41 @@ class DefaultMetricsContext(MetricsContext):
 
 
 @dataclass(slots=True)
+class DefaultDomainContext(DomainContext):
+    """Default in-memory domain context."""
+
+    pipeline: "PipelineBaseProtocol" | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    descriptor: Any | None = None
+
+
+@dataclass(slots=True)
+class DefaultInfrastructureContext(InfrastructureContext):
+    """Default infrastructure context for stage execution."""
+
+    output_dir: Path = field(default_factory=Path.cwd)
+    metadata_service: Any | None = None
+    qc_orchestrator: Any | None = None
+
+
+@dataclass(slots=True)
+class DefaultArtifactContext(DefaultDataContext, ArtifactContext):
+    """Default artifact context with data and artifact storage."""
+
+    artifact_store: ArtifactStore = field(default_factory=ArtifactStore)
+
+
+@dataclass(slots=True)
 class StageContextAdapter:
     """Composable adapter that delegates to specialized contexts."""
 
     execution: ExecutionContext
-    data: DataContext
+    domain: DomainContext
+    infrastructure: InfrastructureContext
+    artifacts: ArtifactContext
     config: ConfigContext | None = None
     clients: ClientContext | None = None
     metrics: MetricsContext | None = None
-    pipeline: "PipelineBaseProtocol" | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-    descriptor: Any | None = None
-    output_dir: Path = field(default_factory=Path.cwd)
-    metadata_service: Any | None = None
-    qc_orchestrator: Any | None = None
 
     @property
     def logger(self) -> UnifiedLogger:
@@ -449,12 +511,44 @@ class StageContextAdapter:
         return self.execution.trace_id
 
     @property
+    def pipeline(self) -> "PipelineBaseProtocol | None":
+        return self.domain.pipeline
+
+    @property
+    def metadata(self) -> dict[str, Any]:
+        return self.domain.metadata
+
+    @metadata.setter
+    def metadata(self, value: dict[str, Any]) -> None:
+        self.domain.metadata = value
+
+    @property
+    def descriptor(self) -> Any | None:
+        return self.domain.descriptor
+
+    @descriptor.setter
+    def descriptor(self, value: Any | None) -> None:
+        self.domain.descriptor = value
+
+    @property
+    def output_dir(self) -> Path:
+        return self.infrastructure.output_dir
+
+    @property
+    def metadata_service(self) -> Any | None:
+        return self.infrastructure.metadata_service
+
+    @property
+    def qc_orchestrator(self) -> Any | None:
+        return self.infrastructure.qc_orchestrator
+
+    @property
     def data_bucket(self) -> DataBucket:
-        return self.data.data_bucket
+        return self.artifacts.data_bucket
 
     @property
     def artifact_store(self) -> ArtifactStore:
-        return self.data.artifact_store
+        return self.artifacts.artifact_store
 
     @property
     def current_df(self) -> pd.DataFrame | None:
@@ -474,7 +568,8 @@ class StageContextAdapter:
         if self.clients is None:
             msg = "Client registry is not configured"
             raise KeyError(msg)
-        return self.clients.get_client(name)
+        client = self.clients.get_client(name)
+        return client() if callable(client) else client
 
     def emit_metric(
         self, name: str, value: Any, tags: Mapping[str, str] | None = None
@@ -490,47 +585,32 @@ class StageContext(StageContextAdapter):
     def __init__(
         self,
         *,
-        logger: UnifiedLogger,
-        request_id: str | None,
-        trace_id: str | None = None,
-        pipeline: "PipelineBaseProtocol" | None = None,
-        clients: Mapping[str, Any] | None = None,
+        execution: ExecutionContext,
+        domain: DomainContext,
+        infrastructure: InfrastructureContext,
+        artifacts: ArtifactContext,
+        config: ConfigContext | None = None,
+        clients: ClientContext | None = None,
+        metrics: MetricsContext | None = None,
         config_provider: Callable[[str], Any] | None = None,
+        client_registry: Mapping[str, Any] | None = None,
         metric_emitter: (
             Callable[[str, Any, Mapping[str, str] | None], None] | None
         ) = None,
-        metadata: dict[str, Any] | None = None,
-        descriptor: Any | None = None,
-        output_dir: Path | None = None,
-        data_bucket: DataBucket | None = None,
-        artifact_store: ArtifactStore | None = None,
-        metadata_service: Any | None = None,
-        qc_orchestrator: Any | None = None,
     ) -> None:
-        execution = DefaultExecutionContext(
-            logger=logger, request_id=request_id, trace_id=trace_id
-        )
-        data_context = DefaultDataContext(
-            data_bucket=data_bucket or DataBucket(),
-            artifact_store=artifact_store or ArtifactStore(),
-        )
-        config_context = DefaultConfigContext(config_provider)
-        client_context = DefaultClientContext(clients or {})
-        metrics_context = DefaultMetricsContext(metric_emitter)
+        config_context = config or DefaultConfigContext(config_provider)
+        client_context = clients or DefaultClientContext(client_registry or {})
+        metrics_context = metrics or DefaultMetricsContext(metric_emitter)
 
         StageContextAdapter.__init__(
             self,
             execution=execution,
-            data=data_context,
+            domain=domain,
+            infrastructure=infrastructure,
+            artifacts=artifacts,
             config=config_context,
             clients=client_context,
             metrics=metrics_context,
-            pipeline=pipeline,
-            metadata=metadata or {},
-            descriptor=descriptor,
-            output_dir=output_dir or Path.cwd(),
-            metadata_service=metadata_service,
-            qc_orchestrator=qc_orchestrator,
         )
 
 
@@ -565,11 +645,17 @@ __all__ = [
     "DataContext",
     "MetricsContext",
     "StageFactoryContext",
+    "DomainContext",
+    "InfrastructureContext",
+    "ArtifactContext",
     "DefaultExecutionContext",
     "DefaultConfigContext",
     "DefaultClientContext",
     "DefaultDataContext",
     "DefaultMetricsContext",
+    "DefaultDomainContext",
+    "DefaultInfrastructureContext",
+    "DefaultArtifactContext",
     "MaterializationConfig",
     "PipelineConfig",
     "PipelineExtractionMode",
