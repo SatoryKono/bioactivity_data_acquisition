@@ -13,7 +13,7 @@ from bioetl.core.http.pagination import (
     DefaultPaginationStrategy,
     PaginationStrategy,
 )
-from bioetl.core.http.pagination_helpers import iter_pages
+from bioetl.core.http.pagination_helpers import iter_pages, normalize_payload
 from bioetl.core.http.rate_limiter import RateLimiter
 from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.request_executor import (
@@ -122,7 +122,7 @@ class UnifiedAPIClient:
         headers: Mapping[str, str] | None = None,
         *,
         paginate: bool = False,
-    ) -> Dict[str, Any] | list[Dict[str, Any]]:
+    ) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Perform a GET request and return the JSON response.
 
@@ -166,7 +166,7 @@ class UnifiedAPIClient:
         page_key: str = "items",
         next_key: str = "next",
         page_param: str | None = "page",
-    ) -> Iterator[Dict[str, Any]]:
+    ) -> Iterator[dict[str, Any]]:
         """
         Iterate over paginated JSON responses.
 
@@ -196,14 +196,14 @@ class UnifiedAPIClient:
         page_key: str = "results",
         next_key: str = "next",
         page_param: str | None = "page",
-    ) -> Iterator[Mapping[str, Any]]:
+    ) -> Iterator[dict[str, Any]]:
         """
         Low-level iterator for paginated requests.
 
         Uses the configured PaginationStrategy to traverse pages.
         """
         first_payload = self.request("GET", path, params=params)
-        yield from iter_pages(
+        pages = iter_pages(
             self._pagination,
             first_payload,
             self,
@@ -215,6 +215,8 @@ class UnifiedAPIClient:
             page_param=page_param,
             normalize=None,
         )
+        for page in pages:
+            yield from normalize_payload(page, page_key=page_key)
 
     def close(self) -> None:
         """Close the underlying request builder and session."""

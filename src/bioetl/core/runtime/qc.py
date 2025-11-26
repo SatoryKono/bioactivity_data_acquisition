@@ -5,12 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable, Protocol, TYPE_CHECKING
 
-from bioetl.core.pipeline.services import StagePlanExecutor
-
 if TYPE_CHECKING:
-    from bioetl.core.pipeline.services import QCRuntimeService
+    from bioetl.core.pipeline.services import (
+        QCRuntimeService,
+        StagePlanExecutor,
+    )
 
-from bioetl.core.pipeline.types import StageContextProtocol, StageExecutionOptions
+from bioetl.core.pipeline.types import (
+    StageContextProtocol,
+    StageExecutionOptions,
+)
 from bioetl.qc.executor import QCMetricsExecutor
 from bioetl.qc.plan import QCPlan
 
@@ -47,9 +51,14 @@ class QCCoordinator:
         qc_runtime_service: QCRuntimeProtocol,
         stage_plan_executor: StagePlanExecutor | None = None,
     ) -> None:
+        if stage_plan_executor is None:
+            from bioetl.core.pipeline.services import StagePlanExecutor
+
+            stage_plan_executor = StagePlanExecutor()
+
         self.qc_runtime_service = qc_runtime_service
         self.stage_plan_executor = self._attach_qc_orchestrator(
-            stage_plan_executor or StagePlanExecutor()
+            stage_plan_executor
         )
 
     @classmethod

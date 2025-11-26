@@ -9,7 +9,7 @@ import pandas as pd
 
 from bioetl.config.models import ChemblPipelineMetadata
 from bioetl.clients.entities.common import ChemblActivityClient
-from bioetl.clients.factories.default_chembl_factory import (
+from bioetl.clients.factories import (
     default_activity_client_factory,
 )
 from bioetl.core.io.artifacts import (

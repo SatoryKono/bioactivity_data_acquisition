@@ -10,7 +10,7 @@ from typing import Any, Callable, Mapping, Sequence
 import pandas as pd
 
 from bioetl.clients.entities.common import ChemblActivityClient
-from bioetl.clients.factories.default_chembl_factory import (
+from bioetl.clients.factories import (
     default_activity_client_factory,
 )
 from bioetl.core.io.artifacts import (
@@ -21,10 +21,10 @@ from bioetl.core.io.artifacts import (
 from bioetl.core.io.output import UnifiedOutputWriter, emit_qc_artifact
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import PipelineConfig, WriteResult
-from bioetl.pipelines.chembl.activity.normalizers.activity_normalizer import (
+from bioetl.pipelines.chembl.activity.normalizers import (
     ActivityNormalizer,
 )
-from bioetl.pipelines.chembl.activity.parsers.activity_parser import (
+from bioetl.pipelines.chembl.activity.parsers import (
     ActivityParser,
 )
 from bioetl.pipelines.chembl.batch_executor import execute_chembl_batches

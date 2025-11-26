@@ -71,7 +71,7 @@ def test_unified_client_cache_and_pagination():
         rsps.add(
             responses.GET,
             "http://example.com/items",
-            json={"items": [1, 2]},
+            json={"items": [{"id": 1}, {"id": 2}]},
         )
         rsps.add(
             responses.GET,
@@ -88,6 +88,6 @@ def test_unified_client_cache_and_pagination():
         # cache hit: повторный вызов не дергает сеть
         payload_cached = client.get_json("/items", params={"page": 1})
 
-    assert first["items"] == [1, 2]
-    assert second["items"] == []
-    assert payload_cached == {"items": [1, 2]}
+    assert first == {"id": 1}
+    assert second == {"id": 2}
+    assert payload_cached == {"items": [{"id": 1}, {"id": 2}]}
