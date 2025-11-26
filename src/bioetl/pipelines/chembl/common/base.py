@@ -13,10 +13,7 @@ from bioetl.core.pipeline.services import default_write_service_factory
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor, ChemblPipelineBase
 from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
-
-
-class ConfigValidationError(ValueError):
-    """Исключение при валидации пользовательской конфигурации."""
+from bioetl.pipelines.chembl.common.descriptor import ConfigValidationError
 
 
 class ChemblWriteService:

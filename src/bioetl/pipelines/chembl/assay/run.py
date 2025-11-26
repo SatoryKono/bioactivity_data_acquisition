@@ -48,7 +48,11 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
         if id_column in df.columns:
             missing = df[id_column].isna().sum()
             if missing:
-                raise pa.errors.SchemaError(f"Найдены пустые идентификаторы ассая: {missing}")
+                raise pa.errors.SchemaError(
+                    schema=self.validator,
+                    data=df,
+                    message=f"Найдены пустые идентификаторы ассая: {missing}",
+                )
         return df
 
     def save_results(
