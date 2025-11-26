@@ -155,7 +155,7 @@ def run_chembl_stage(
     context, runtime = _build_stage_contexts(pipeline, output_root, run_tag=run_tag, mode=mode)
     # Override options with full options constructed above
     runtime.options = options
-    context.data_bucket.set(df)
+    context.set_current_df(df)
 
     if descriptor is None and normalized_stage == "extract":
         descriptor = getattr(pipeline, "build_descriptor", lambda: None)()

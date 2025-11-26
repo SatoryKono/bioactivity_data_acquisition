@@ -66,27 +66,27 @@ class StageFactory:
         kind = descriptor.kind
         if kind == "extract":
             df = self.pipeline.extract(descriptor, runtime.options)
-            context.data_bucket.set(df)
+            context.set_current_df(df)
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "transform":
-            frame = context.data_bucket.require(stage=kind)
+            frame = context.require_current_df(stage=kind)
             df = self.pipeline.transform(frame, runtime.options)
-            context.data_bucket.set(df)
+            context.set_current_df(df)
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "validate":
-            frame = context.data_bucket.require(stage=kind)
+            frame = context.require_current_df(stage=kind)
             df = self.pipeline.validate(frame, runtime.options)
-            context.data_bucket.set(df)
+            context.set_current_df(df)
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "save_results":
-            frame = context.data_bucket.require(stage=kind)
-            artifacts = context.artifact_store.get()
+            frame = context.require_current_df(stage=kind)
+            artifacts = context.get_artifacts()
             result = self.pipeline.save_results(frame, artifacts, runtime.options)
             if isinstance(result, WriteResult):
-                context.artifact_store.set(result.artifacts)
+                context.set_artifacts(result.artifacts)
             return StageResult(name=descriptor.id, output=result)
 
         msg = f"Unknown stage kind '{kind}'"

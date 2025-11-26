@@ -232,7 +232,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         durations, error = self.orchestration_service.execute(stages, stage_context, options)
         run_state.durations = durations
         run_state.error = error
-        run_state.artifacts = stage_context.artifact_store.get() or run_state.artifacts
+        run_state.artifacts = stage_context.get_artifacts() or run_state.artifacts
 
         qc_path: Path | None = None
         if run_state.error is None and self.qc_orchestrator is not None:
@@ -247,13 +247,13 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             if self.write_service is not None:
                 metadata_writer = getattr(self.write_service, "write_metadata", None)
                 if callable(metadata_writer):
-                    metadata_writer(target_dir, artifacts, stage_context.data_bucket.get(), dry_run=True)
+                    metadata_writer(target_dir, artifacts, stage_context.get_current_df(), dry_run=True)
             if metadata_writer is None:
                 legacy_writer = getattr(self, "_write_metadata", None)
                 if callable(legacy_writer):  # pragma: no cover - defensive
-                    legacy_writer(target_dir, stage_context.data_bucket.get())
+                    legacy_writer(target_dir, stage_context.get_current_df())
 
-        result_frame = stage_context.data_bucket.get()
+        result_frame = stage_context.get_current_df()
         rows = 0 if not isinstance(result_frame, pd.DataFrame) else int(result_frame.shape[0])
         success = run_state.error is None
         metadata = self.build_run_metadata(

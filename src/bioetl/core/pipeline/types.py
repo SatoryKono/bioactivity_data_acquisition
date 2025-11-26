@@ -282,10 +282,22 @@ class MetricsContext(Protocol):
 
 
 @runtime_checkable
-class StageFactoryContext(DataContext, Protocol):
+class StageFactoryContext(Protocol):
     """Minimal contract required to execute built stage descriptors."""
 
     descriptor: Any | None
+
+    def set_current_df(self, frame: pd.DataFrame) -> None:
+        ...
+
+    def require_current_df(self, *, stage: str | None = None) -> pd.DataFrame:
+        ...
+
+    def set_artifacts(self, artifacts: WriteArtifacts) -> None:
+        ...
+
+    def get_artifacts(self) -> WriteArtifacts:
+        ...
 
 
 @runtime_checkable
@@ -300,10 +312,30 @@ class StageContextProtocol(
     """Stable contract for pipeline stage dependencies."""
 
     pipeline: "PipelineBaseProtocol" | None
-    metadata: dict[str, Any]
     output_dir: Path
     metadata_service: Any | None
     qc_orchestrator: Any | None
+
+    def set_current_df(self, frame: pd.DataFrame) -> None:
+        ...
+
+    def get_current_df(self) -> pd.DataFrame | None:
+        ...
+
+    def require_current_df(self, *, stage: str | None = None) -> pd.DataFrame:
+        ...
+
+    def clear_current_df(self) -> None:
+        ...
+
+    def set_artifacts(self, artifacts: WriteArtifacts) -> None:
+        ...
+
+    def get_artifacts(self) -> WriteArtifacts:
+        ...
+
+    def get_metadata(self) -> dict[str, Any]:
+        ...
 
 
 @dataclass(slots=True)
@@ -365,53 +397,109 @@ class DefaultMetricsContext(MetricsContext):
 class StageContextAdapter:
     """Composable adapter that delegates to specialized contexts."""
 
-    execution: ExecutionContext
-    data: DataContext
-    config: ConfigContext | None = None
-    clients: ClientContext | None = None
-    metrics: MetricsContext | None = None
-    pipeline: "PipelineBaseProtocol" | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-    descriptor: Any | None = None
-    output_dir: Path = field(default_factory=lambda: Path.cwd())
-    metadata_service: Any | None = None
-    qc_orchestrator: Any | None = None
+    _execution: ExecutionContext
+    _data: DataContext
+    _config: ConfigContext | None = None
+    _clients: ClientContext | None = None
+    _metrics: MetricsContext | None = None
+    _pipeline: "PipelineBaseProtocol" | None = None
+    _metadata: dict[str, Any] = field(default_factory=dict)
+    _descriptor: Any | None = None
+    _output_dir: Path = field(default_factory=lambda: Path.cwd())
+    _metadata_service: Any | None = None
+    _qc_orchestrator: Any | None = None
 
     @property
     def logger(self) -> UnifiedLogger:
-        return self.execution.logger
+        return self._execution.logger
 
     @property
     def request_id(self) -> str | None:
-        return self.execution.request_id
+        return self._execution.request_id
 
     @property
     def trace_id(self) -> str | None:
-        return self.execution.trace_id
+        return self._execution.trace_id
 
     @property
     def data_bucket(self) -> DataBucket:
-        return self.data.data_bucket
+        return self._data.data_bucket
 
     @property
     def artifact_store(self) -> ArtifactStore:
-        return self.data.artifact_store
+        return self._data.artifact_store
 
     def get_config(self, key: str) -> Any:
-        if self.config is None:
+        if self._config is None:
             msg = "Config provider is not configured"
             raise KeyError(msg)
-        return self.config.get_config(key)
+        return self._config.get_config(key)
 
     def get_client(self, name: str) -> Any:
-        if self.clients is None:
+        if self._clients is None:
             msg = "Client registry is not configured"
             raise KeyError(msg)
-        return self.clients.get_client(name)
+        return self._clients.get_client(name)
 
     def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
-        if self.metrics:
-            self.metrics.emit_metric(name, value, tags)
+        if self._metrics:
+            self._metrics.emit_metric(name, value, tags)
+
+    @property
+    def pipeline(self) -> "PipelineBaseProtocol" | None:
+        return self._pipeline
+
+    @property
+    def output_dir(self) -> Path:
+        return self._output_dir
+
+    @property
+    def metadata_service(self) -> Any | None:
+        return self._metadata_service
+
+    @property
+    def qc_orchestrator(self) -> Any | None:
+        return self._qc_orchestrator
+
+    @property
+    def descriptor(self) -> Any | None:
+        return self._descriptor
+
+    @descriptor.setter
+    def descriptor(self, value: Any | None) -> None:
+        self._descriptor = value
+
+    def set_current_df(self, frame: pd.DataFrame) -> None:
+        self._data.data_bucket.set(frame)
+
+    def get_current_df(self) -> pd.DataFrame | None:
+        return self._data.data_bucket.get()
+
+    def require_current_df(self, *, stage: str | None = None) -> pd.DataFrame:
+        return self._data.data_bucket.require(stage=stage)
+
+    def clear_current_df(self) -> None:
+        self._data.data_bucket.clear()
+
+    def set_artifacts(self, artifacts: WriteArtifacts) -> None:
+        self._data.artifact_store.set(artifacts)
+
+    def get_artifacts(self) -> WriteArtifacts:
+        return self._data.artifact_store.get()
+
+    def get_metadata(self) -> dict[str, Any]:
+        return self._metadata
+
+    @property
+    def current_df(self) -> pd.DataFrame | None:
+        return self.get_current_df()
+
+    @current_df.setter
+    def current_df(self, frame: pd.DataFrame | None) -> None:
+        if frame is None:
+            self.clear_current_df()
+            return
+        self.set_current_df(frame)
 
 
 @dataclass(slots=True)
@@ -447,17 +535,17 @@ class StageContext(StageContextAdapter):
 
         StageContextAdapter.__init__(
             self,
-            execution=execution,
-            data=data_context,
-            config=config_context,
-            clients=client_context,
-            metrics=metrics_context,
-            pipeline=pipeline,
-            metadata=metadata or {},
-            descriptor=descriptor,
-            output_dir=output_dir or Path.cwd(),
-            metadata_service=metadata_service,
-            qc_orchestrator=qc_orchestrator,
+            _execution=execution,
+            _data=data_context,
+            _config=config_context,
+            _clients=client_context,
+            _metrics=metrics_context,
+            _pipeline=pipeline,
+            _metadata=metadata or {},
+            _descriptor=descriptor,
+            _output_dir=output_dir or Path.cwd(),
+            _metadata_service=metadata_service,
+            _qc_orchestrator=qc_orchestrator,
         )
 
 
