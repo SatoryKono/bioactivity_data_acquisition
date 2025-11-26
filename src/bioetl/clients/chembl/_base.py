@@ -70,38 +70,26 @@ class ChemblEntityClient(_BaseEntityClient):
 
     def iterate_records(self, descriptor: ChemblExtractionDescriptor) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
-            context: Mapping[str, Any] | None = None
             try:
                 context = descriptor.build_context(self)
             except Exception:
                 context = None
 
-            ids: Sequence[str] | None = None
-            page_size = 1000
-            if isinstance(context, Mapping):
-                ids_value = context.get("ids")
-                if isinstance(ids_value, Sequence) and not isinstance(ids_value, (str, bytes, bytearray)):
-                    ids = [str(item) for item in ids_value]
-                page_size_value = context.get("page_size")
-                if isinstance(page_size_value, int):
-                    page_size = page_size_value
+            context_mapping: Mapping[str, Any] = context if isinstance(context, Mapping) else {}
+            ids = self._extract_ids(context_mapping)
+            page_size = self._resolve_page_size(context_mapping)
 
             fetcher_factory = getattr(descriptor, "fetcher_factory", None)
-            if callable(fetcher_factory):
-                fetcher = fetcher_factory(context or {})
-                if callable(fetcher):
-                    result = fetcher(ids)
-                    if isinstance(result, Iterator):
-                        yield from result
-                        return
-                    if isinstance(result, Sequence) and not isinstance(result, (str, bytes, bytearray)):
-                        for item in result:
-                            if isinstance(item, Mapping):
-                                yield dict(item)
-                        return
-                    if isinstance(result, Mapping):
-                        yield dict(result)
-                        return
+            fetcher = fetcher_factory(context_mapping) if callable(fetcher_factory) else None
+
+            if callable(fetcher):
+                result = fetcher(ids)
+                if isinstance(result, Iterator):
+                    yield from result
+                    return
+                if result is not None:
+                    yield from self._normalize_payload(result)
+                    return
 
             if ids:
                 yield from self.fetch_by_ids(ids)
@@ -110,6 +98,20 @@ class ChemblEntityClient(_BaseEntityClient):
             yield from self.list(page_size=page_size)
 
         return self._wrap_iterator(iterator)
+
+    @staticmethod
+    def _extract_ids(context: Mapping[str, Any]) -> list[str] | None:
+        ids = context.get("ids")
+        if isinstance(ids, Sequence) and not isinstance(ids, (str, bytes, bytearray)):
+            return [str(item) for item in ids]
+        return None
+
+    @staticmethod
+    def _resolve_page_size(context: Mapping[str, Any], default: int = 1000) -> int:
+        page_size = context.get("page_size")
+        if isinstance(page_size, int):
+            return page_size
+        return default
 
 
 __all__ = ["BaseChemblClient", "ChemblEntityClient"]
