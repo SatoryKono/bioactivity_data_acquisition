@@ -5,7 +5,7 @@ from typing import Any, Mapping, Sequence
 
 import requests
 
-from bioetl.clients.common import ApiTransportProtocol
+from bioetl.core.http.interfaces import ApiTransportProtocol
 
 
 class RequestsTransport(ApiTransportProtocol):

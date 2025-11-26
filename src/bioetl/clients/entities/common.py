@@ -4,7 +4,8 @@ from enum import Enum
 from typing import Callable, Type
 
 from bioetl.clients.chembl._base import ChemblEntityClient
-from bioetl.clients.common import ApiTransportProtocol, EntityClientProtocol
+from bioetl.clients.common import EntityClientProtocol
+from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
 

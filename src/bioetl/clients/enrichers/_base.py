@@ -5,7 +5,8 @@ from typing import Any
 
 import structlog
 
-from bioetl.clients.common import BaseApiClient, JSONRecordStream
+from bioetl.clients.common import JSONRecordStream
+from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http import ApiClientMixin, ClosableMixin
 
 

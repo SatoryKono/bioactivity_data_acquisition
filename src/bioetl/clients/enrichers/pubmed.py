@@ -4,7 +4,7 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 from bioetl.clients.enrichers._base import _BaseEnricherClient
-from bioetl.clients.common import BaseApiClient
+from bioetl.core.http.interfaces import BaseApiClient
 
 
 class PubmedClient(_BaseEnricherClient):
