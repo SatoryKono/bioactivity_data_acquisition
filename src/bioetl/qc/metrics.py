@@ -41,7 +41,13 @@ class MetricRegistry:
     def __init__(self) -> None:
         self._entries: dict[str, QCMetricCallable] = {}
 
-    def register(self, name: str, func: QCMetricCallable, *, override: bool = False) -> None:
+    def register(
+        self,
+        name: str,
+        func: QCMetricCallable,
+        *,
+        override: bool = False,
+    ) -> None:
         if not name:
             raise ValueError("metric name must be provided")
         if name in self._entries and not override:
@@ -61,11 +67,21 @@ class MetricRegistry:
 DEFAULT_REGISTRY = MetricRegistry()
 
 
-def metric_row_count(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult:
-    return QCMetricResult(name=spec.name, metric_type=spec.type, value=int(len(df)))
+def metric_row_count(
+    df: pd.DataFrame,
+    spec: MetricSpec,
+) -> QCMetricResult:
+    return QCMetricResult(
+        name=spec.name,
+        metric_type=spec.type,
+        value=int(len(df)),
+    )
 
 
-def metric_null_percentage(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult:
+def metric_null_percentage(
+    df: pd.DataFrame,
+    spec: MetricSpec,
+) -> QCMetricResult:
     if df.empty:
         return QCMetricResult(
             name=spec.name,
@@ -74,7 +90,9 @@ def metric_null_percentage(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult
             details=pd.DataFrame(columns=["column", "null_ratio"]),
         )
     ratios = df.isna().mean()
-    details = pd.DataFrame({"column": ratios.index, "null_ratio": ratios.values})
+    details = pd.DataFrame(
+        {"column": ratios.index, "null_ratio": ratios.values},
+    )
     value = float(ratios.max()) if not ratios.empty else 0.0
     return QCMetricResult(
         name=spec.name,
@@ -108,9 +126,16 @@ def metric_unique_count(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult:
     )
 
 
-def metric_distribution_summary(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult:
+def metric_distribution_summary(
+    df: pd.DataFrame,
+    spec: MetricSpec,
+) -> QCMetricResult:
     numeric_df = df.select_dtypes(include=[np.number])
-    summary = numeric_df.describe().transpose() if not numeric_df.empty else pd.DataFrame()
+    summary = (
+        numeric_df.describe().transpose()
+        if not numeric_df.empty
+        else pd.DataFrame()
+    )
     return QCMetricResult(
         name=spec.name,
         metric_type=spec.type,
@@ -131,7 +156,11 @@ def metric_pka_range(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult:
             message=f"column {column!r} not present",
         )
     series = df[column].dropna()
-    violations = ((series < minimum) | (series > maximum)).mean() if len(series) else 0.0
+    violations = (
+        ((series < minimum) | (series > maximum)).mean()
+        if len(series)
+        else 0.0
+    )
     return QCMetricResult(
         name=spec.name,
         metric_type=spec.type,
@@ -140,7 +169,10 @@ def metric_pka_range(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult:
     )
 
 
-def metric_pchembl_consistency(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult:
+def metric_pchembl_consistency(
+    df: pd.DataFrame,
+    spec: MetricSpec,
+) -> QCMetricResult:
     primary = spec.params.get("primary", "pchembl_value")
     secondary = spec.params.get("secondary", "standard_value")
     tolerance = float(spec.params.get("tolerance", 0.0))
@@ -166,7 +198,7 @@ def metric_pchembl_consistency(df: pd.DataFrame, spec: MetricSpec) -> QCMetricRe
     )
 
 
-for name, func in {
+for metric_name, metric_func in {
     "row_count": metric_row_count,
     "null_percentage": metric_null_percentage,
     "unique_count": metric_unique_count,
@@ -174,7 +206,7 @@ for name, func in {
     "pka_range": metric_pka_range,
     "pchembl_consistency": metric_pchembl_consistency,
 }.items():
-    DEFAULT_REGISTRY.register(name, func, override=True)
+    DEFAULT_REGISTRY.register(metric_name, metric_func, override=True)
 
 
 __all__ = [
