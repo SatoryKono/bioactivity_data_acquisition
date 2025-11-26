@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Утилиты для батчевой выборки данных ChEMBL."""
+
+from __future__ import annotations
 
 import time
 from dataclasses import dataclass
