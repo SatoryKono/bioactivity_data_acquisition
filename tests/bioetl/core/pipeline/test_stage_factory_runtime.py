@@ -7,7 +7,7 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.orchestration import PipelineBaseCommon
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
 from bioetl.core.pipeline.types import (
     ArtifactStore,
@@ -24,7 +24,7 @@ from bioetl.core.pipeline.types import (
 )
 
 
-class CommandSpyPipeline(PipelineBaseCommon):
+class CommandSpyPipeline(UnifiedPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.validator = None
         super().__init__(config, run_id)
@@ -65,7 +65,7 @@ CONFIG = PipelineConfig(
 OPTIONS = StageExecutionOptions(run_tag=None, mode=None)
 
 
-def _stage_context(pipeline: PipelineBaseCommon) -> StageContext:
+def _stage_context(pipeline: UnifiedPipelineBase) -> StageContext:
     logger = UnifiedLogger.get("StageFactoryTest")
     return StageContext(
         pipeline=pipeline,
@@ -100,7 +100,7 @@ def test_stage_plan_respects_dry_run_without_validator() -> None:
 
 
 class FakeStageFactory(StageFactory):
-    def __init__(self, pipeline: PipelineBaseCommon) -> None:
+    def __init__(self, pipeline: UnifiedPipelineBase) -> None:
         super().__init__(pipeline)
         self.created_from: list[str] = []
 

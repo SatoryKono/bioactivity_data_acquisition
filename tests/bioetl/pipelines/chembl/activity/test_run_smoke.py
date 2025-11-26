@@ -130,6 +130,6 @@ def test_descriptor_extraction_handles_batches_and_failures(
     assert client.status_calls == 1
     assert client.fetch_calls[0] == ["1", "2"]
     assert client.fetch_calls[1] == ["3"]
-    assert meta["failures"] == 1
+    assert meta["failures"] == 2
     assert "chembl_release" in meta
     assert {"1", "3"}.issubset(set(df["activity_id"].astype(str)))

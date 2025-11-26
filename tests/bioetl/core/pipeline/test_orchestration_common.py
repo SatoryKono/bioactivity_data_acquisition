@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioetl.core.pipeline.orchestration import PipelineBaseCommon
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.services import QCService
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
@@ -16,7 +16,7 @@ from bioetl.core.pipeline.types import (
 )
 
 
-class QCPipeline(PipelineBaseCommon):
+class QCPipeline(UnifiedPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.validator = None
         super().__init__(config, run_id)

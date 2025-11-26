@@ -19,8 +19,8 @@ python -m bioetl.cli.cli_app list
 ## Разработка
 
 - Публичные типы хранятся в `bioetl.core.pipeline.types`.
-- Базовый протокол пайплайна описан в `bioetl.pipelines.base`, шаблонная
-  реализация с run() — в `bioetl.pipelines.unified_base`.
+- Базовый протокол пайплайна описан в `bioetl.core.pipeline.unified`, там же 
+  находится базовая реализация `UnifiedPipelineBase`.
 - Логирование — через `bioetl.core.logging.UnifiedLogger` (JSON-лог в stdout).
 - Загрузчик конфигурации задокументирован в `bioetl.config.loader` и может быть
   расширен под YAML/TOML.

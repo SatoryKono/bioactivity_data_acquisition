@@ -5,80 +5,114 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
 from bioetl.clients.entities.client_activity import ChemblActivityClient
-from bioetl.clients.factories.default_chembl_factory import default_activity_client_factory
-from bioetl.core.io.artifacts import RunArtifacts, SchemaRegistry, WriteArtifacts
+from bioetl.clients.factories.default_chembl_factory import (
+    default_activity_client_factory,
+)
+from bioetl.core.io.artifacts import (
+    RunArtifacts,
+    SchemaRegistry,
+    WriteArtifacts,
+)
 from bioetl.core.io.output import UnifiedOutputWriter, emit_qc_artifact
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import PipelineConfig, WriteResult
-from bioetl.pipelines.chembl.activity.normalizers.activity_normalizer import ActivityNormalizer
-from bioetl.pipelines.chembl.activity.parsers.activity_parser import ActivityParser
-from bioetl.pipelines.chembl.common import ChemblExtractionDescriptor, ConfigValidationError
+from bioetl.pipelines.chembl.activity.normalizers.activity_normalizer import (
+    ActivityNormalizer,
+)
+from bioetl.pipelines.chembl.activity.parsers.activity_parser import (
+    ActivityParser,
+)
+from bioetl.pipelines.chembl.batch_executor import execute_chembl_batches
+from bioetl.pipelines.chembl.common import (
+    ChemblExtractionDescriptor,
+    ConfigValidationError,
+)
 
 
 @dataclass(slots=True)
 class ActivityExtractor:
     """Извлечение активностей через клиент ChEMBL."""
 
-    client_factory: Callable[[Any], ChemblActivityClient] = default_activity_client_factory
+    client_factory: Callable[
+        [Any], ChemblActivityClient
+    ] = default_activity_client_factory
     parser: ActivityParser = field(default_factory=ActivityParser)
     release: str | None = None
 
     def extract(
-        self, config: PipelineConfig, descriptor: ChemblExtractionDescriptor, *, batch_size: int | None = None
+        self,
+        config: PipelineConfig,
+        descriptor: ChemblExtractionDescriptor,
+        *,
+        batch_size: int | None = None,
     ) -> tuple[pd.DataFrame, dict[str, Any]]:
-        effective_batch_size = batch_size or (descriptor.batch_plan.batch_size if descriptor.batch_plan else 20)
+        effective_batch_size = batch_size or (
+            descriptor.batch_plan.batch_size
+            if descriptor.batch_plan
+            else 20
+        )
         if effective_batch_size is None:
             effective_batch_size = 20
         if effective_batch_size > 25:
-            raise ConfigValidationError("batch_size must not exceed 25 for ChEMBL API")
+            raise ConfigValidationError(
+                "batch_size must not exceed 25 for ChEMBL API"
+            )
 
         client = self.client_factory(config)
         status = client.status()
         if isinstance(status, Mapping):
-            self.release = str(status.get("chembl_release")) if status.get("chembl_release") else None
-        meta: dict[str, Any] = {"chembl_release": self.release, "status": status}
+            self.release = (
+                str(status.get("chembl_release"))
+                if status.get("chembl_release")
+                else None
+            )
+        meta: dict[str, Any] = {
+            "chembl_release": self.release,
+            "status": status,
+        }
 
         ids = descriptor.ids or []
-        batches = [
-            ids[i : i + effective_batch_size]
-            for i in range(0, len(ids), effective_batch_size)
-        ]
-        if not batches:
-            batches = [None]
 
-        frames: list[pd.DataFrame] = []
-        failures = 0
-        for batch in batches:
-            if batch is None:
-                continue
+        def fetch_batch(
+            batch: Sequence[str] | None,
+        ) -> tuple[pd.DataFrame, dict[str, Any]]:
+            if not batch:
+                return pd.DataFrame(), {"api_calls": 0}
             try:
                 payload = client.fetch_by_ids(batch)
-                batch_frames = [
-                    self.parser.parse(raw) for raw in payload.values()
-                ]
-                frame = (
-                    pd.concat(batch_frames, ignore_index=True)
-                    if batch_frames
+                # Handle both dict (legacy assumption?) and iterator
+                iterator: Any = payload
+                if isinstance(iterator, Mapping):
+                    iterator = iterator.values()
+                frames = [self.parser.parse(raw) for raw in iterator]
+                df = (
+                    pd.concat(frames, ignore_index=True)
+                    if frames
                     else pd.DataFrame()
                 )
-                frames.append(frame)
+                return df, {"api_calls": 1}
             except Exception as exc:  # pragma: no cover - defensive
-                failures += 1
-                frames.append(self._fallback_rows(batch, exc))
+                fallback = self._fallback_rows(list(batch), exc)
+                return fallback, {"fallback": len(fallback), "api_calls": 1}
 
-        df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        df, stats = execute_chembl_batches(
+            fetch_batch, ids, batch_size=effective_batch_size
+        )
+
         if self.release:
             df = df.assign(chembl_release=self.release)
-        meta["failures"] = failures
-        meta["api_calls"] = len(batches)
+        meta["failures"] = stats.fallback_count
+        meta["api_calls"] = stats.api_calls
         return df, meta
 
-    def _fallback_rows(self, ids: list[str], exc: Exception) -> pd.DataFrame:
+    def _fallback_rows(
+        self, ids: list[str], exc: Exception
+    ) -> pd.DataFrame:
         timestamp = datetime.now(timezone.utc).isoformat()
         records = [
             {
@@ -126,8 +160,17 @@ class ActivityWriter:
     output_root: Path
     logs_directory: Path
 
-    def write(self, df: pd.DataFrame, artifacts: WriteArtifacts, *, run_stem: str, output_dir: Path) -> WriteResult:
-        logger = UnifiedLogger.get(self.__class__.__name__).bind(run_id=self.run_id)
+    def write(
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        *,
+        run_stem: str,
+        output_dir: Path,
+    ) -> WriteResult:
+        logger = UnifiedLogger.get(self.__class__.__name__).bind(
+            run_id=self.run_id
+        )
         writer = UnifiedOutputWriter(
             output_dir=output_dir,
             pipeline_code=self.pipeline_code,
@@ -136,7 +179,11 @@ class ActivityWriter:
             config=self.config,
             logger=logger,
         )
-        run_artifacts = RunArtifacts(output_dir=output_dir, logs_directory=self.logs_directory, write_artifacts=artifacts)
+        run_artifacts = RunArtifacts(
+            output_dir=output_dir,
+            logs_directory=self.logs_directory,
+            write_artifacts=artifacts,
+        )
         write_result = writer.write_dataset_atomic(df, run_artifacts)
         qc_paths = emit_qc_artifact(df, run_artifacts)
         if qc_paths:

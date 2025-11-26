@@ -7,7 +7,7 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.orchestration import PipelineBaseCommon
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.stage_plan import (
     StagePlanMetadata,
     build_default_stage_plan,
@@ -24,7 +24,7 @@ from bioetl.core.pipeline.types import (
 )
 
 
-class CommandSpyPipeline(PipelineBaseCommon):
+class CommandSpyPipeline(UnifiedPipelineBase):
     """Test pipeline that records method calls."""
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
@@ -100,7 +100,7 @@ OPTIONS = StageExecutionOptions(run_tag=None, mode=None)
 
 
 def _contexts(
-    pipeline: PipelineBaseCommon,
+    pipeline: UnifiedPipelineBase,
 ) -> tuple[StageContext, StageRuntimeContext]:
     logger = UnifiedLogger.get("StageFactoryTest")
     context = StageContext(

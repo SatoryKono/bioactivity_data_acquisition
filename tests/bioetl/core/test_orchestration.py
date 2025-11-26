@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from bioetl.core.pipeline.orchestration import PipelineBaseCommon
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -19,7 +19,7 @@ from bioetl.core.pipeline.types import (
 )
 
 
-class DummyPipeline(PipelineBaseCommon):
+class DummyPipeline(UnifiedPipelineBase):
     """Simple pipeline used to validate the lifecycle contract."""
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
