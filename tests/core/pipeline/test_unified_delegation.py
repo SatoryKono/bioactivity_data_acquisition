@@ -11,13 +11,25 @@ from bioetl.core.pipeline.unified import UnifiedPipelineBase
 
 
 class DelegatingPipeline(UnifiedPipelineBase):
-    def extract(self, descriptor, options: StageExecutionOptions):  # pragma: no cover - unused
+    def extract(
+        self,
+        descriptor,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:  # pragma: no cover - unused
         return pd.DataFrame()
 
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions):  # pragma: no cover - unused
+    def transform(
+        self,
+        df: pd.DataFrame,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:  # pragma: no cover - unused
         return df
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions):  # pragma: no cover - unused
+    def validate(
+        self,
+        df: pd.DataFrame,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:  # pragma: no cover - unused
         return df
 
 
@@ -41,7 +53,9 @@ def test_build_stage_plan_delegates_to_default_plan():
 
 def test_run_uses_runtime_factory_spy(tmp_path: Path):
     pipeline = DelegatingPipeline(config={}, run_id="delegate")
-    with mock.patch.object(pipeline, "build_stage_plan", wraps=pipeline.build_stage_plan) as spy:
+    with mock.patch.object(
+        pipeline, "build_stage_plan", wraps=pipeline.build_stage_plan
+    ) as spy:
         pipeline.run(tmp_path, dry_run=True)
 
     spy.assert_called()

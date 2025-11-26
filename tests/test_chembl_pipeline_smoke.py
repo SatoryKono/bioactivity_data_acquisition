@@ -13,9 +13,19 @@ from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
 from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
 
 
-def _build_base_config(sort_field: str, *, batch_size: int = 10, extra: dict | None = None) -> dict:
+def _build_base_config(
+    sort_field: str,
+    *,
+    batch_size: int = 10,
+    extra: dict | None = None,
+) -> dict:
     base = {
-        "sources": {"chembl": {"batch_size": batch_size, "max_url_length": 1500}},
+        "sources": {
+            "chembl": {
+                "batch_size": batch_size,
+                "max_url_length": 1500,
+            },
+        },
         "cache": {"namespace": "chembl-smoke"},
         "determinism": {"sort": {"by": [sort_field]}},
     }
@@ -27,7 +37,11 @@ def _build_base_config(sort_field: str, *, batch_size: int = 10, extra: dict | N
 @pytest.mark.parametrize(
     "pipeline_cls,sort_field,extra",
     [
-        (ChemblAssayPipeline, "assay_chembl_id", {"postprocess": {"nested_serialization": "flatten"}}),
+        (
+            ChemblAssayPipeline,
+            "assay_chembl_id",
+            {"postprocess": {"nested_serialization": "flatten"}},
+        ),
         (
             ChemblDocumentPipeline,
             "document_chembl_id",

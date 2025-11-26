@@ -28,7 +28,13 @@ def test_activity_parser_extracts_columns():
 
     df = parse_activity_payload(payload)
 
-    assert list(df.columns) == ["activity_id", "assay_id", "target_id", "value", "unit"]
+    assert list(df.columns) == [
+        "activity_id",
+        "assay_id",
+        "target_id",
+        "value",
+        "unit",
+    ]
     assert df.iloc[0].to_dict() == {
         "activity_id": "ACT1",
         "assay_id": "ASSAY1",
@@ -79,7 +85,13 @@ def test_build_records_from_payload_respects_mappings():
 
 
 def test_base_normalizer_applies_defaults_and_types():
-    df_raw = pd.DataFrame({"activity_id": ["10"], "assay_id": ["20"], "value": ["2.5"]})
+    df_raw = pd.DataFrame(
+        {
+            "activity_id": ["10"],
+            "assay_id": ["20"],
+            "value": ["2.5"],
+        }
+    )
     normalizer = BaseChemblNormalizer(
         business_key_column="activity_id",
         schema=ActivitySchema,
@@ -87,13 +99,30 @@ def test_base_normalizer_applies_defaults_and_types():
         column_specs=[
             ColumnNormalizationSpec("activity_id", dtype="string"),
             ColumnNormalizationSpec("assay_id", dtype="string"),
-            ColumnNormalizationSpec("target_id", dtype="string", default=pd.NA),
-            ColumnNormalizationSpec("value", dtype="float", transformer=lambda s: pd.to_numeric(s, errors="coerce")),
+            ColumnNormalizationSpec(
+                "target_id",
+                dtype="string",
+                default=pd.NA,
+            ),
+            ColumnNormalizationSpec(
+                "value",
+                dtype="float",
+                transformer=lambda s: pd.to_numeric(
+                    s,
+                    errors="coerce",
+                ),
+            ),
             ColumnNormalizationSpec("unit", dtype="string", default=pd.NA),
         ],
     )
 
     normalized = normalizer.normalize(df_raw)
 
-    assert normalized.loc[0, "target_id"] is pd.NA or pd.isna(normalized.loc[0, "target_id"])
-    assert normalized.loc[0, "unit"] is pd.NA or pd.isna(normalized.loc[0, "unit"])
+    assert (
+        normalized.loc[0, "target_id"] is pd.NA
+        or pd.isna(normalized.loc[0, "target_id"])
+    )
+    assert (
+        normalized.loc[0, "unit"] is pd.NA
+        or pd.isna(normalized.loc[0, "unit"])
+    )

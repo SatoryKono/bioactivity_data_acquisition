@@ -12,11 +12,14 @@ class StagePlanMetadata:
 
     dry_run: bool = False
     has_validator: bool = True
+    extended: bool = False
 
 
 def build_default_stage_plan(
     descriptor: Any | None,
-    pipeline_metadata: Mapping[str, Any] | StagePlanMetadata | Any | None = None,
+    pipeline_metadata: (
+        Mapping[str, Any] | StagePlanMetadata | Any | None
+    ) = None,
     options: StageExecutionOptions | None = None,
 ) -> list[StageDescriptor]:
     """Deterministic stage descriptors for the default ETL workflow.
@@ -25,16 +28,27 @@ def build_default_stage_plan(
     dependency injection are handled elsewhere by :class:`StageFactory`.
     """
 
-    metadata = _normalize_stage_metadata(descriptor, pipeline_metadata, options)
+    metadata = _normalize_stage_metadata(
+        descriptor,
+        pipeline_metadata,
+        options,
+    )
     base_plan: list[StageDescriptor] = _linear_plan()
 
     if metadata.dry_run:
-        base_plan = [stage for stage in base_plan if stage.id != "save_results"]
+        if metadata.extended:
+            return []
+        base_plan = [
+            stage for stage in base_plan if stage.id != "save_results"
+        ]
         if not metadata.has_validator:
-            base_plan = [stage for stage in base_plan if stage.id == "extract"]
+            base_plan = [
+                stage for stage in base_plan if stage.id == "extract"
+            ]
         base_plan = _relink_plan(base_plan)
 
     return base_plan
+
 
 def _normalize_metadata(
     payload: Mapping[str, Any] | StagePlanMetadata | None,
@@ -46,6 +60,7 @@ def _normalize_metadata(
     return StagePlanMetadata(
         dry_run=bool(payload.get("dry_run", False)),
         has_validator=bool(payload.get("has_validator", True)),
+        extended=bool(payload.get("extended", False)),
     )
 
 
@@ -60,16 +75,40 @@ def _normalize_stage_metadata(
 
     if options is not None:
         has_validator = bool(getattr(descriptor, "validator", None))
-        return StagePlanMetadata(dry_run=options.dry_run, has_validator=has_validator)
+        return StagePlanMetadata(
+            dry_run=options.dry_run,
+            has_validator=has_validator,
+            extended=options.extended,
+        )
 
     return _normalize_metadata(payload)
 
 
 def _linear_plan() -> list[StageDescriptor]:
-    extract = StageDescriptor(id="extract", kind="extract", params={}, next=["transform"])
-    transform = StageDescriptor(id="transform", kind="transform", params={}, next=["validate"])
-    validate = StageDescriptor(id="validate", kind="validate", params={}, next=["save_results"])
-    save_results = StageDescriptor(id="save_results", kind="save_results", params={}, next=[])
+    extract = StageDescriptor(
+        id="extract",
+        kind="extract",
+        params={},
+        next=["transform"],
+    )
+    transform = StageDescriptor(
+        id="transform",
+        kind="transform",
+        params={},
+        next=["validate"],
+    )
+    validate = StageDescriptor(
+        id="validate",
+        kind="validate",
+        params={},
+        next=["save_results"],
+    )
+    save_results = StageDescriptor(
+        id="save_results",
+        kind="save_results",
+        params={},
+        next=[],
+    )
     return [extract, transform, validate, save_results]
 
 

@@ -25,17 +25,26 @@ class QCPipeline(PipelineBaseCommon):
     def prepare_run(self, options: StageExecutionOptions) -> None:  # pragma: no cover - not used
         return None
 
-    def extract(self, descriptor: object, options: StageExecutionOptions) -> pd.DataFrame:
+    def extract(
+        self, descriptor: object, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         return pd.DataFrame({"id": [1, 2], "value": [1, 2]})
 
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def transform(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         return df
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def validate(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         return df
 
     def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
     ) -> WriteResult:
         artifacts.data_path = artifacts.data_path or self.output_root / "data.csv"
         artifacts.data_path.parent.mkdir(parents=True, exist_ok=True)

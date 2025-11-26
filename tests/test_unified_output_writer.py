@@ -57,7 +57,10 @@ def test_write_dataset_atomic_preserves_column_order_and_sort(tmp_path: Path):
         logger=UnifiedLogger.get("test"),
     )
     df = pd.DataFrame({"b": [2, 1], "a": [10, 20]})
-    artifacts = RunArtifacts(output_dir=tmp_path, logs_directory=tmp_path / "logs")
+    artifacts = RunArtifacts(
+        output_dir=tmp_path,
+        logs_directory=tmp_path / "logs",
+    )
 
     result = writer.write_dataset_atomic(df, artifacts, format="csv")
 
@@ -73,9 +76,19 @@ def test_validate_with_schema_fail_and_allow_modes(tmp_path: Path):
     logger = UnifiedLogger.get("test")
 
     with pytest.raises(pa.errors.SchemaError):
-        validate_with_schema(df, entry, fail_on_schema_drift=True, logger=logger)
+        validate_with_schema(
+            df,
+            entry,
+            fail_on_schema_drift=True,
+            logger=logger,
+        )
 
-    result = validate_with_schema(df, entry, fail_on_schema_drift=False, logger=logger)
+    result = validate_with_schema(
+        df,
+        entry,
+        fail_on_schema_drift=False,
+        logger=logger,
+    )
     pd.testing.assert_frame_equal(result, df)
 
 
@@ -98,7 +111,10 @@ def test_write_dataset_atomic_generates_meta_and_manifest(tmp_path: Path):
         logger=UnifiedLogger.get("test"),
     )
     df = pd.DataFrame({"b": [1, 2], "a": [10, 20]})
-    artifacts = RunArtifacts(output_dir=tmp_path, logs_directory=tmp_path / "logs")
+    artifacts = RunArtifacts(
+        output_dir=tmp_path,
+        logs_directory=tmp_path / "logs",
+    )
 
     result = writer.write_dataset_atomic(df, artifacts, format="csv")
 

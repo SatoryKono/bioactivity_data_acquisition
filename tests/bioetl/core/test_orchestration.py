@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from pathlib import Path
 
 import pandas as pd
@@ -30,25 +31,19 @@ class DummyPipeline(PipelineBaseCommon):
         self.calls.append("prepare_run")
 
     def extract(
-        self,
-        descriptor: object,
-        options: StageExecutionOptions,
+        self, descriptor: Any, options: StageExecutionOptions
     ) -> pd.DataFrame:
         self.calls.append("extract")
         return pd.DataFrame({"value": [1, 2, 3]})
 
     def transform(
-        self,
-        df: pd.DataFrame,
-        options: StageExecutionOptions,
+        self, df: pd.DataFrame, options: StageExecutionOptions
     ) -> pd.DataFrame:
         self.calls.append("transform")
         return df.assign(value=df["value"] * 2)
 
     def validate(
-        self,
-        df: pd.DataFrame,
-        options: StageExecutionOptions,
+        self, df: pd.DataFrame, options: StageExecutionOptions
     ) -> pd.DataFrame:
         self.calls.append("validate")
         return df

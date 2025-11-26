@@ -16,7 +16,12 @@ def enforce_determinism(seed: int = 0) -> None:
     np.random.seed(seed)
 
 
-def compare_artifacts(new_dir: Path, golden_dir: Path, *, filenames: Iterable[str]) -> dict[str, bool]:
+def compare_artifacts(
+    new_dir: Path,
+    golden_dir: Path,
+    *,
+    filenames: Iterable[str],
+) -> dict[str, bool]:
     """Compare specific files between new and golden directories."""
 
     results: dict[str, bool] = {}

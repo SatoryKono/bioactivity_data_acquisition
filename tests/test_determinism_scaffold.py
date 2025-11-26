@@ -20,5 +20,9 @@ def test_compare_artifacts(tmp_path: Path):
     (new_dir / "meta.yaml").write_text("data", encoding="utf-8")
     (golden_dir / "meta.yaml").write_text("data", encoding="utf-8")
 
-    comparison = compare_artifacts(new_dir, golden_dir, filenames=["meta.yaml"])
+    comparison = compare_artifacts(
+        new_dir,
+        golden_dir,
+        filenames=["meta.yaml"],
+    )
     assert comparison["meta.yaml"] is True

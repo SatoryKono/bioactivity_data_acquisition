@@ -20,9 +20,19 @@ class _DummyTransport(ApiTransportProtocol):
     def __init__(self) -> None:
         self.request_called = False
 
-    def request(self, method: str, path: str, *, headers=None, params=None, json=None):  # type: ignore[override]
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers=None,
+        params=None,
+        json=None,
+    ):  # type: ignore[override]
         self.request_called = True
-        raise AssertionError("Transport should not be used during client construction")
+        raise AssertionError(
+            "Transport should not be used during client construction",
+        )
 
     def close(self) -> None:  # pragma: no cover - noop
         return None
@@ -60,7 +70,10 @@ def test_entity_client_factory_creates_specialized_clients_without_io():
         (ChemblDocumentClient, ChemblEntity.DOCUMENT),
     ],
 )
-def test_entity_specific_aliases_preserve_entity_names(builder, expected_entity):
+def test_entity_specific_aliases_preserve_entity_names(
+    builder,
+    expected_entity,
+) -> None:
     transport = MagicMock(spec=ApiTransportProtocol)
 
     assert builder(transport).entity == expected_entity.value

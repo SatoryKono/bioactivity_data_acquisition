@@ -4,7 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from bioetl.config.environment import EnvironmentSettings, load_environment_settings
+from bioetl.config.environment import (
+    EnvironmentSettings,
+    load_environment_settings,
+)
 
 
 def test_environment_settings_aliases(tmp_path: Path):

@@ -39,7 +39,9 @@ def test_unified_client_respects_retry_after(monkeypatch):
     monkeypatch.setattr(time, "sleep", lambda s: sleep_calls.append(s))
 
     client = UnifiedAPIClient.from_config(api_config())
-    retry_at = (datetime.now(timezone.utc) + timedelta(seconds=1)).strftime("%a, %d %b %Y %H:%M:%S GMT")
+    retry_at = (
+        datetime.now(timezone.utc) + timedelta(seconds=1)
+    ).strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     with responses.RequestsMock() as rsps:
         rsps.add(
@@ -66,8 +68,16 @@ def test_unified_client_respects_retry_after(monkeypatch):
 def test_unified_client_cache_and_pagination():
     client = UnifiedAPIClient.from_config(api_config())
     with responses.RequestsMock() as rsps:
-        rsps.add(responses.GET, "http://example.com/items", json={"items": [1, 2]})
-        rsps.add(responses.GET, "http://example.com/items?page=2", json={"items": []})
+        rsps.add(
+            responses.GET,
+            "http://example.com/items",
+            json={"items": [1, 2]},
+        )
+        rsps.add(
+            responses.GET,
+            "http://example.com/items?page=2",
+            json={"items": []},
+        )
 
         pages: Iterator[dict] = client.paginate_json("/items")
         first = next(pages)
@@ -81,4 +91,3 @@ def test_unified_client_cache_and_pagination():
     assert first["items"] == [1, 2]
     assert second["items"] == []
     assert payload_cached == {"items": [1, 2]}
-

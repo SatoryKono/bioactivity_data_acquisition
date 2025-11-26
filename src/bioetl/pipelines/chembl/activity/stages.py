@@ -44,7 +44,10 @@ class ActivityExtractor:
         meta: dict[str, Any] = {"chembl_release": self.release, "status": status}
 
         ids = descriptor.ids or []
-        batches = [ids[i : i + effective_batch_size] for i in range(0, len(ids), effective_batch_size)]
+        batches = [
+            ids[i : i + effective_batch_size]
+            for i in range(0, len(ids), effective_batch_size)
+        ]
         if not batches:
             batches = [None]
 
@@ -55,8 +58,14 @@ class ActivityExtractor:
                 continue
             try:
                 payload = client.fetch_by_ids(batch)
-                batch_frames = [self.parser.parse(raw) for raw in payload]
-                frame = pd.concat(batch_frames, ignore_index=True) if batch_frames else pd.DataFrame()
+                batch_frames = [
+                    self.parser.parse(raw) for raw in payload.values()
+                ]
+                frame = (
+                    pd.concat(batch_frames, ignore_index=True)
+                    if batch_frames
+                    else pd.DataFrame()
+                )
                 frames.append(frame)
             except Exception as exc:  # pragma: no cover - defensive
                 failures += 1

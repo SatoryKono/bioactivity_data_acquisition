@@ -5,7 +5,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bioetl.core.pipeline.types import StageContext, StageExecutionOptions, StageRuntimeContext
+from bioetl.core.pipeline.types import (
+    StageContext,
+    StageExecutionOptions,
+    StageRuntimeContext,
+)
 
 
 @pytest.fixture
@@ -15,6 +19,7 @@ def stage_context_factory() -> Callable[..., StageContext]:
         logger: MagicMock | None = None,
         clients: Mapping[str, object] | None = None,
         config: Mapping[str, object] | None = None,
+        metric_emitter: Callable[..., None] | None = None,
     ) -> StageContext:
         cfg = config or {}
         return StageContext(
@@ -23,6 +28,7 @@ def stage_context_factory() -> Callable[..., StageContext]:
             trace_id="trace-1",
             clients=clients or {},
             config_provider=lambda key, cfg=cfg: cfg[key],
+            metric_emitter=metric_emitter,
         )
 
     return _build

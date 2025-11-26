@@ -86,8 +86,20 @@ def metric_null_percentage(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult
 
 def metric_unique_count(df: pd.DataFrame, spec: MetricSpec) -> QCMetricResult:
     column = spec.params.get("column") if spec.params else None
-    if not column or column not in df.columns:
-        raise ValueError("unique_count metric requires a valid 'column' parameter")
+    if not column:
+        return QCMetricResult(
+            name=spec.name,
+            metric_type=spec.type,
+            value=0,
+            message="column parameter is not configured",
+        )
+    if column not in df.columns:
+        return QCMetricResult(
+            name=spec.name,
+            metric_type=spec.type,
+            value=0,
+            message=f"column {column!r} not present",
+        )
     unique_count = int(df[column].nunique(dropna=True))
     return QCMetricResult(
         name=spec.name,

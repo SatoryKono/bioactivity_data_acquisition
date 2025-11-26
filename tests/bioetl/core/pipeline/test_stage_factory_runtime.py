@@ -46,7 +46,10 @@ class CommandSpyPipeline(PipelineBaseCommon):
         return df
 
     def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
     ) -> WriteResult:
         self.calls.append("save_results")
         return WriteResult(rows=len(df), artifacts=artifacts)
@@ -124,13 +127,26 @@ class _StubStage:
         if self.name == "extract":
             runtime_context.context.data_bucket.set(pd.DataFrame({"value": [1]}))
         if self.name == "save_results":
-            artifacts = runtime_context.context.artifact_store.get() or WriteArtifacts()
-            return StageResult(name=self.name, output=WriteResult(rows=1, artifacts=artifacts))
-        return StageResult(name=self.name, output=runtime_context.context.data_bucket.get())
+            artifacts = (
+                runtime_context.context.artifact_store.get() or WriteArtifacts()
+            )
+            return StageResult(
+                name=self.name,
+                output=WriteResult(rows=1, artifacts=artifacts),
+            )
+        return StageResult(
+            name=self.name,
+            output=runtime_context.context.data_bucket.get(),
+        )
 
 
 class FactorySpyPipeline(CommandSpyPipeline):
-    def __init__(self, config: PipelineConfig, run_id: str, factory: FakeStageFactory) -> None:
+    def __init__(
+        self,
+        config: PipelineConfig,
+        run_id: str,
+        factory: FakeStageFactory,
+    ) -> None:
         super().__init__(config, run_id)
         self._factory = factory
 

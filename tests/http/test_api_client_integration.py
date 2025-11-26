@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import (
+    Any,
+    Callable,
+    Mapping
+)
 
 import requests
 
@@ -15,7 +19,12 @@ from bioetl.core.http import (
     TokenBucketRateLimiter,
     UnifiedAPIClient,
 )
-from bioetl.core.http.interfaces import CacheStrategy, CircuitBreakerStrategy, RateLimiter, RetryStrategy
+from bioetl.core.http.interfaces import (
+    CacheStrategy,
+    CircuitBreakerStrategy,
+    RateLimiter,
+    RetryStrategy,
+)
 
 
 @dataclass
@@ -23,7 +32,12 @@ class DummyCache(CacheStrategy):
     store: dict[str, bytes]
 
     @staticmethod
-    def make_key(method: str, url: str, params: Mapping[str, Any] | None, headers: Mapping[str, str] | None) -> str:
+    def make_key(
+        method: str,
+        url: str,
+        params: Mapping[str, Any] | None,
+        headers: Mapping[str, str] | None,
+    ) -> str:
         return TTLCache.make_key(method, url, params, headers)
 
     def get(self, key: str) -> bytes | None:
@@ -41,7 +55,11 @@ class DummyRateLimiter(RateLimiter):
         self.acquire_calls += 1
         return True
 
-    def acquire(self, *, timeout: float | None = None) -> bool:  # noqa: ARG002 - signature dictated by protocol
+    def acquire(
+        self,
+        *,
+        timeout: float | None = None,
+    ) -> bool:  # noqa: ARG002 - signature dictated by protocol
         self.acquire_calls += 1
         return True
 
@@ -50,7 +68,11 @@ class DummyRateLimiter(RateLimiter):
 class DummyRetry(RetryStrategy):
     max_retries: int = 1
 
-    def compute_backoff(self, attempt: int, retry_after: float | None = None) -> float:  # noqa: ARG002 - protocol compatibility
+    def compute_backoff(
+        self,
+        attempt: int,
+        retry_after: float | None = None,
+    ) -> float:  # noqa: ARG002 - protocol compatibility
         return 0
 
 
@@ -69,7 +91,10 @@ class DummyCircuitBreaker(CircuitBreakerStrategy):
     def record_failure(self) -> None:
         self.recorded_failures += 1
 
-    def call(self, func: Callable[[], requests.Response]) -> requests.Response:  # type: ignore[override]
+    def call(
+        self,
+        func: Callable[[], requests.Response],
+    ) -> requests.Response:  # type: ignore[override]
         self.call_count += 1
         return func()
 
@@ -151,7 +176,9 @@ def test_default_component_factories_used_when_missing():
     session = MockSession(response)
 
     config = build_api_config()
-    components = ResilientRequestExecutorFactory(config).create(session=session)
+    components = ResilientRequestExecutorFactory(config).create(
+        session=session,
+    )
     client = UnifiedAPIClient(
         config,
         request_executor=components.executor,

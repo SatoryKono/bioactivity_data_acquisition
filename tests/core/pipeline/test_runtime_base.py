@@ -35,9 +35,14 @@ class RecordingExecutor(StagePlanExecutor):
     ) -> tuple[dict[str, int], str | None]:
         durations: dict[str, int] = {}
         error: str | None = None
-        runtime = runtime_context or StageRuntimeContext(options=options, attributes={})
+        runtime = runtime_context or StageRuntimeContext(
+            options=options,
+            attributes={},
+        )
         if isinstance(runtime.input_data, pd.DataFrame):
-            runtime.attributes["last_dataframe"] = runtime.input_data
+            runtime.attributes["last_dataframe"] = (
+                runtime.input_data
+            )
         for command in stage_plan:
             attempts = 0
             while True:
@@ -46,7 +51,9 @@ class RecordingExecutor(StagePlanExecutor):
                 try:
                     runtime.input_data = command.handler(context, runtime)
                     if isinstance(runtime.input_data, pd.DataFrame):
-                        runtime.attributes["last_dataframe"] = runtime.input_data
+                        runtime.attributes["last_dataframe"] = (
+                            runtime.input_data
+                        )
                         context.data_bucket.set(runtime.input_data)
                     break
                 except RetryableError as exc:
@@ -79,24 +86,41 @@ class DummyRuntime(PipelineRuntimeBase):
     ) -> tuple[PipelineStageCommand, ...]:
         self.calls.append("build_stage_plan")
 
-        def _extract(ctx: StageContext, exec_runtime: StageRuntimeContext) -> pd.DataFrame:
+        def _extract(
+            ctx: StageContext,
+            exec_runtime: StageRuntimeContext,
+        ) -> pd.DataFrame:
             self.calls.append("extract")
-            exec_runtime.attributes.setdefault("metadata", {})["extract"] = True
+            meta = exec_runtime.attributes.setdefault("metadata", {})
+            meta["extract"] = True
             return pd.DataFrame({"value": [1, 2]})
 
-        def _transform(ctx: StageContext, exec_runtime: StageRuntimeContext) -> pd.DataFrame:
+        def _transform(
+            ctx: StageContext,
+            exec_runtime: StageRuntimeContext,
+        ) -> pd.DataFrame:
             self.calls.append("transform")
             # fail first attempt and succeed on retry
             self.transform_attempts += 1
             if self.transform_attempts == 1:
                 raise RetryableError("transient")
             assert exec_runtime.input_data is not None
-            return exec_runtime.input_data.assign(value=lambda s: s["value"] * 2)
+            return exec_runtime.input_data.assign(
+                value=lambda s: s["value"] * 2,
+            )
 
-        def _save(ctx: StageContext, exec_runtime: StageRuntimeContext) -> WriteArtifacts:
+        def _save(
+            ctx: StageContext,
+            exec_runtime: StageRuntimeContext,
+        ) -> WriteArtifacts:
             self.calls.append("save_results")
-            artifacts = exec_runtime.attributes.get("artifacts") or WriteArtifacts()
-            artifacts.data_path = exec_runtime.attributes.get("output_dir", Path.cwd()) / "dataset.csv"
+            artifacts = exec_runtime.attributes.get(
+                "artifacts",
+            ) or WriteArtifacts()
+            artifacts.data_path = (
+                exec_runtime.attributes.get("output_dir", Path.cwd())
+                / "dataset.csv"
+            )
             exec_runtime.attributes["artifacts"] = artifacts
             return artifacts
 
@@ -119,23 +143,45 @@ class InitOrderRuntime(PipelineRuntimeBase):
         self.calls: list[str] = []
         super().__init__({}, qc_enabled=True)
 
-    def _create_artifact_planner(self, artifact_planner):  # type: ignore[override]
+    def _create_artifact_planner(  # type: ignore[override]
+        self,
+        artifact_planner,
+    ):
         self.calls.append("artifact_planner")
         return super()._create_artifact_planner(artifact_planner)
 
-    def _create_qc_service(self, *args, **kwargs):  # type: ignore[override]
+    def _create_qc_service(  # type: ignore[override]
+        self,
+        *args,
+        **kwargs,
+    ):
         self.calls.append("qc_service")
         return super()._create_qc_service(*args, **kwargs)
 
-    def _create_metadata_service(self, *args, **kwargs):  # type: ignore[override]
+    def _create_metadata_service(  # type: ignore[override]
+        self,
+        *args,
+        **kwargs,
+    ):
         self.calls.append("metadata_service")
         return super()._create_metadata_service(*args, **kwargs)
 
-    def _create_stage_executor(self, stage_plan_executor, qc_orchestrator):  # type: ignore[override]
+    def _create_stage_executor(
+        self,
+        stage_plan_executor,
+        qc_orchestrator,
+    ):  # type: ignore[override]
         self.calls.append(f"stage_executor:{qc_orchestrator is not None}")
-        return super()._create_stage_executor(stage_plan_executor, qc_orchestrator)
+        return super()._create_stage_executor(
+            stage_plan_executor,
+            qc_orchestrator,
+        )
 
-    def build_stage_plan(self, context: StageContext, runtime: StageExecutionOptions):  # type: ignore[override]
+    def build_stage_plan(
+        self,
+        context: StageContext,
+        runtime: StageExecutionOptions,
+    ):  # type: ignore[override]
         return ()
 
 
@@ -153,9 +199,15 @@ def test_run_handles_retries_and_metadata(tmp_path: Path) -> None:
         ("transform", 2),
         ("save_results", 1),
     ]
-    assert result.duration_ms == {"extract": 5, "transform": 5, "save_results": 5}
+    assert result.duration_ms == {
+        "extract": 5,
+        "transform": 5,
+        "save_results": 5,
+    }
     assert result.metadata["rows"] == 2
-    assert result.artifacts.write_artifacts.data_path == tmp_path / "DummyRuntime.csv"
+    assert result.artifacts.write_artifacts.data_path == (
+        tmp_path / "DummyRuntime.csv"
+    )
 
 
 def test_run_stops_after_retry_exhaustion(tmp_path: Path) -> None:
@@ -181,7 +233,9 @@ def test_services_initialized_once_and_in_order() -> None:
         "stage_executor:True",
     ]
     assert runtime.qc_orchestrator is not None
-    assert runtime.stage_plan_executor.qc_orchestrator is runtime.qc_orchestrator
+    assert (
+        runtime.stage_plan_executor.qc_orchestrator is runtime.qc_orchestrator
+    )
     assert runtime.qc_orchestrator.qc_service is runtime.qc_service
 
 

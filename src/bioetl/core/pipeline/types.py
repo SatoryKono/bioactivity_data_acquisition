@@ -4,7 +4,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Protocol, runtime_checkable
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Mapping,
+    Protocol,
+    runtime_checkable,
+)
 
 import pandas as pd
 
@@ -106,20 +113,27 @@ class DataBucket:
         self._frame: pd.DataFrame | None = None
 
     def get(self) -> pd.DataFrame | None:
+        """Retrieve the current dataframe."""
         return self._frame
 
     def set(self, frame: pd.DataFrame) -> None:
+        """Update the current dataframe."""
         self._frame = frame
 
     def require(self, *, stage: str | None = None) -> pd.DataFrame:
+        """Return the current dataframe or raise if empty."""
         if self._frame is None:
             msg = "Stage requires a DataFrame from a previous step"
             if stage:
-                msg = f"Stage '{stage}' requires a DataFrame from a previous step"
+                msg = (
+                    f"Stage '{stage}' requires a DataFrame "
+                    "from a previous step"
+                )
             raise ValueError(msg)
         return self._frame
 
     def clear(self) -> None:
+        """Clear the current dataframe."""
         self._frame = None
 
 
@@ -130,9 +144,11 @@ class ArtifactStore:
         self._artifacts = artifacts or WriteArtifacts()
 
     def get(self) -> WriteArtifacts:
+        """Retrieve the current artifacts."""
         return self._artifacts
 
     def set(self, artifacts: WriteArtifacts) -> None:
+        """Update the current artifacts."""
         self._artifacts = artifacts
 
 
@@ -143,6 +159,7 @@ class StageProtocol(Protocol):
     name: str
 
     def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
+        """Execute the stage logic."""
         ...
 
 
@@ -155,12 +172,14 @@ class StageCommand(StageProtocol):
     description: str | None = None
 
     def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
+        """Execute the wrapped handler."""
         output = self.handler(runtime_context.context, runtime_context)
         if isinstance(output, StageResult):
             return output
         return StageResult(name=self.name, output=output)
 
     def validate(self) -> None:
+        """Validate the command configuration."""
         if not self.name:
             raise ValueError("Stage name must be provided")
 
@@ -174,23 +193,38 @@ class PipelineStagesProtocol(Protocol):
     """Protocol describing the default ETL stages."""
 
     def prepare_run(self, options: StageExecutionOptions) -> None:
+        """Prepare the run environment."""
         ...
 
-    def extract(self, descriptor: Any, options: StageExecutionOptions) -> pd.DataFrame:
+    def extract(
+        self, descriptor: Any, options: StageExecutionOptions
+    ) -> pd.DataFrame:
+        """Extract data from source."""
         ...
 
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def transform(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
+        """Transform the extracted data."""
         ...
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def validate(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
+        """Validate the transformed data."""
         ...
 
     def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
     ) -> WriteResult:
+        """Persist the results."""
         ...
 
     def finalize_run(self, run_result: RunResult) -> None:
+        """Cleanup and finalize the run."""
         ...
 
 
@@ -214,16 +248,19 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
         include_qc_metrics: bool = False,
         fail_on_schema_drift: bool = True,
     ) -> RunResult:
+        """Execute the full pipeline lifecycle."""
         ...
 
     def build_stage_plan(
         self, context: "StageContext", options: StageExecutionOptions
     ) -> tuple[StageDescriptor, ...]:
+        """Create the plan of stages to execute."""
         ...
 
     def plan_run_artifacts(
         self, output_dir: Path, run_tag: str | None, mode: str | None
     ) -> tuple[Path, WriteArtifacts]:
+        """Determine output paths and artifact locations."""
         ...
 
     def build_run_metadata(
@@ -234,9 +271,11 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
         run_tag: str | None,
         mode: str | None,
     ) -> dict[str, Any]:
+        """Collect metadata about the completed run."""
         ...
 
     def resolve_logs_directory(self, output_dir: Path) -> Path:
+        """Determine the directory for log files."""
         ...
 
 
@@ -277,7 +316,9 @@ class DataContext(Protocol):
 class MetricsContext(Protocol):
     """Metrics emission contract."""
 
-    def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
+    def emit_metric(
+        self, name: str, value: Any, tags: Mapping[str, str] | None = None
+    ) -> None:
         ...
 
 
@@ -304,6 +345,14 @@ class StageContextProtocol(
     output_dir: Path
     metadata_service: Any | None
     qc_orchestrator: Any | None
+
+    @property
+    def current_df(self) -> pd.DataFrame | None:
+        ...
+
+    @current_df.setter
+    def current_df(self, value: pd.DataFrame) -> None:
+        ...
 
 
 @dataclass(slots=True)
@@ -354,9 +403,14 @@ class DefaultDataContext(DataContext):
 class DefaultMetricsContext(MetricsContext):
     """Callable-based metrics context."""
 
-    metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None
+    metric_emitter: (
+        Callable[[str, Any, Mapping[str, str] | None], None] | None
+    ) = None
 
-    def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
+    def emit_metric(
+        self, name: str, value: Any, tags: Mapping[str, str] | None = None
+    ) -> None:
+        """Emit a metric using the configured emitter."""
         if self.metric_emitter:
             self.metric_emitter(name, value, tags)
 
@@ -373,7 +427,7 @@ class StageContextAdapter:
     pipeline: "PipelineBaseProtocol" | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
     descriptor: Any | None = None
-    output_dir: Path = field(default_factory=lambda: Path.cwd())
+    output_dir: Path = field(default_factory=Path.cwd)
     metadata_service: Any | None = None
     qc_orchestrator: Any | None = None
 
@@ -397,6 +451,14 @@ class StageContextAdapter:
     def artifact_store(self) -> ArtifactStore:
         return self.data.artifact_store
 
+    @property
+    def current_df(self) -> pd.DataFrame | None:
+        return self.data_bucket.get()
+
+    @current_df.setter
+    def current_df(self, value: pd.DataFrame) -> None:
+        self.data_bucket.set(value)
+
     def get_config(self, key: str) -> Any:
         if self.config is None:
             msg = "Config provider is not configured"
@@ -409,7 +471,9 @@ class StageContextAdapter:
             raise KeyError(msg)
         return self.clients.get_client(name)
 
-    def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
+    def emit_metric(
+        self, name: str, value: Any, tags: Mapping[str, str] | None = None
+    ) -> None:
         if self.metrics:
             self.metrics.emit_metric(name, value, tags)
 
@@ -427,7 +491,9 @@ class StageContext(StageContextAdapter):
         pipeline: "PipelineBaseProtocol" | None = None,
         clients: Mapping[str, Any] | None = None,
         config_provider: Callable[[str], Any] | None = None,
-        metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None,
+        metric_emitter: (
+            Callable[[str, Any, Mapping[str, str] | None], None] | None
+        ) = None,
         metadata: dict[str, Any] | None = None,
         descriptor: Any | None = None,
         output_dir: Path | None = None,
@@ -436,7 +502,9 @@ class StageContext(StageContextAdapter):
         metadata_service: Any | None = None,
         qc_orchestrator: Any | None = None,
     ) -> None:
-        execution = DefaultExecutionContext(logger=logger, request_id=request_id, trace_id=trace_id)
+        execution = DefaultExecutionContext(
+            logger=logger, request_id=request_id, trace_id=trace_id
+        )
         data_context = DefaultDataContext(
             data_bucket=data_bucket or DataBucket(),
             artifact_store=artifact_store or ArtifactStore(),

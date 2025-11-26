@@ -1,3 +1,4 @@
+"""Unified pipeline implementations."""
 from __future__ import annotations
 
 from abc import abstractmethod
@@ -34,6 +35,7 @@ from bioetl.core.pipeline.types import (
     WriteArtifacts,
     WriteResult,
 )
+
 if TYPE_CHECKING:
     from bioetl.pipelines.chembl.common.chembl_extraction_service import (
         ChemblExtractionService,
@@ -123,6 +125,7 @@ class PipelineBase(PipelineRuntimeBase):
 
     @property
     def pipeline_name(self) -> str:
+        """Return the pipeline name (code)."""
         return self.pipeline_code
 
     # Hooks ---------------------------------------------------------------
@@ -149,6 +152,7 @@ class UnifiedPipelineBase(PipelineBase):
         metadata = StagePlanMetadata(
             dry_run=options.dry_run,
             has_validator=self.validator is not None,
+            extended=options.extended,
         )
         return tuple(build_default_stage_plan(context.descriptor, metadata))
 
@@ -190,19 +194,19 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         super().__init__(config, run_id=run_id)
         if extraction_service is None:
             from bioetl.pipelines.chembl.common import (
-                chembl_extraction_service,
+                chembl_extraction_service as ces,
             )
 
-            extraction_service = (
-                chembl_extraction_service.ChemblExtractionService()
-            )
+            extraction_service = ces.ChemblExtractionService()
         self.extraction_service = extraction_service
 
     @property
     def chembl_release(self) -> str | None:
+        """Return the ChEMBL release version."""
         return self.extraction_service.chembl_release
 
     def resolve_chembl_release(self, chembl_client: Any) -> str:
+        """Resolve the ChEMBL release version using the client."""
         return self.extraction_service.resolve_chembl_release(chembl_client)
 
     def run_descriptor_extraction(

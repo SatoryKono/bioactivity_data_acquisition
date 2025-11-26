@@ -22,13 +22,27 @@ class DummyChemblClient:
 
 
 class DummyChemblPipeline(ChemblPipelineBase):
-    def extract(self, *args, **kwargs) -> pd.DataFrame:  # pragma: no cover - not used
+    def extract(
+        self,
+        *args,
+        **kwargs,
+    ) -> pd.DataFrame:  # pragma: no cover - not used
         return pd.DataFrame()
 
-    def transform(self, df: pd.DataFrame, *_args, **_kwargs) -> pd.DataFrame:  # pragma: no cover - passthrough
+    def transform(
+        self,
+        df: pd.DataFrame,
+        *_args,
+        **_kwargs,
+    ) -> pd.DataFrame:  # pragma: no cover - passthrough
         return df
 
-    def validate(self, df: pd.DataFrame, *_args, **_kwargs) -> pd.DataFrame:  # pragma: no cover - passthrough
+    def validate(
+        self,
+        df: pd.DataFrame,
+        *_args,
+        **_kwargs,
+    ) -> pd.DataFrame:  # pragma: no cover - passthrough
         return df
 
 
@@ -48,14 +62,24 @@ def test_run_descriptor_extraction_stats_and_data():
             for chembl_id in batch:
                 if chembl_id in cache:
                     meta["cache_hit"] = True
-                    rows.append({"chembl_id": chembl_id, "value": chembl_id.lower()})
+                    rows.append(
+                        {
+                            "chembl_id": chembl_id,
+                            "value": chembl_id.lower(),
+                        }
+                    )
                     continue
                 if chembl_id == "C":
                     raise CircuitBreakerOpenError("circuit open")
                 meta["api_calls"] += 1
                 if chembl_id == "A":
                     meta["fallback"] += 1
-                rows.append({"chembl_id": chembl_id, "value": chembl_id.lower()})
+                rows.append(
+                    {
+                        "chembl_id": chembl_id,
+                        "value": chembl_id.lower(),
+                    }
+                )
             return pd.DataFrame(rows), meta
 
         return fetch
@@ -124,7 +148,13 @@ def test_run_descriptor_extraction_handles_circuit_breaker():
 
 
 class MinimalPipeline(UnifiedPipelineBase):
-    def __init__(self, config, *, validator: pa.DataFrameSchema | None = None, run_id: str | None = None):
+    def __init__(
+        self,
+        config,
+        *,
+        validator: pa.DataFrameSchema | None = None,
+        run_id: str | None = None,
+    ):
         super().__init__(config, validator=validator, run_id=run_id)
         self._extracted = False
 
@@ -140,7 +170,12 @@ class MinimalPipeline(UnifiedPipelineBase):
 
 
 def test_unified_pipeline_dry_run_metadata(tmp_path):
-    schema = pa.DataFrameSchema({"id": pa.Column(int), "value": pa.Column(str)})
+    schema = pa.DataFrameSchema(
+        {
+            "id": pa.Column(int),
+            "value": pa.Column(str),
+        }
+    )
     pipeline = MinimalPipeline(config={"stage": "demo"}, validator=schema)
 
     result = pipeline.run(tmp_path / "out", dry_run=True, extended=True)
