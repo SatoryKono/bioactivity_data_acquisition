@@ -10,8 +10,8 @@ from bioetl.core.pipeline.types import Stage, StageContext, StageExecutionOption
 class StageFactory:
     """Factory that builds a sequence of :class:`Stage` objects from a definition."""
 
-    def __init__(self, definition: PipelineDefinition) -> None:
-        self.definition = definition
+    def __init__(self, definition: PipelineDefinition | None = None) -> None:
+        self.definition = definition or PipelineDefinition(name="anonymous", runtime_factory=lambda: None)
 
     def build(
         self,
@@ -28,7 +28,7 @@ class StageFactory:
         """
 
         self.definition.validate()
-        stage_plan: tuple[Stage, ...] = self.definition.stages
+        stage_plan: tuple[Stage, ...] = tuple(self.definition.stages or ())
 
         if stages is None:
             filtered_plan = stage_plan

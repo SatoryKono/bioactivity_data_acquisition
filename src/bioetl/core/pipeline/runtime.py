@@ -6,7 +6,7 @@ import json
 import subprocess
 import time
 import uuid
-from abc import ABC
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
@@ -14,6 +14,7 @@ import pandas as pd
 import yaml
 
 from bioetl.core.logging import UnifiedLogger
+from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
@@ -208,7 +209,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     def __init__(
         self,
         config: Mapping[str, Any] | Any,
-        pipeline_definition: PipelineDefinition,
+        pipeline_definition: PipelineDefinition | None = None,
         *,
         run_id: str | None = None,
         validator: Any | None = None,
@@ -225,10 +226,10 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         run_metadata_builder: RunMetadataBuilder | None = None,
     ) -> None:
         self.config = config
-        self.pipeline_definition = pipeline_definition
+        self.pipeline_definition = pipeline_definition or self._build_default_definition(config)
         self.run_id = run_id or uuid.uuid4().hex
         self.validator = validator
-        self.pipeline_code = self._resolve_pipeline_code(config)
+        self.pipeline_code = self._resolve_pipeline_code(config, self.pipeline_definition)
         materialization = getattr(config, "materialization", None)
         root = getattr(materialization, "root", None)
         self.output_root = Path(root) if root else Path.cwd()
@@ -350,7 +351,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 
     # Planning ------------------------------------------------------------
     def create_stage_factory(self) -> StageFactory:
-        return StageFactory(self)
+        return StageFactory(self.pipeline_definition)
 
     @abstractmethod
     def build_stage_plan(
@@ -389,14 +390,30 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         return output_dir / "logs"
 
     # Metadata ------------------------------------------------------------
-    def _resolve_pipeline_code(self, config: Mapping[str, Any] | Any, definition: PipelineDefinition) -> str:
-        pipeline_name = definition.metadata.get("name") if definition.metadata else None
+    def _resolve_pipeline_code(
+        self, config: Mapping[str, Any] | Any, definition: PipelineDefinition | None
+    ) -> str:
+        pipeline_name = None
+        if definition is not None:
+            pipeline_name = getattr(definition, "metadata", None)
+            if pipeline_name and isinstance(pipeline_name, Mapping):
+                pipeline_name = pipeline_name.get("name")
+            elif hasattr(definition, "name"):
+                pipeline_name = getattr(definition, "name")
+
         if pipeline_name:
             return str(pipeline_name)
+
         pipeline = getattr(config, "pipeline", None)
         if pipeline is not None and getattr(pipeline, "name", None):
             return str(pipeline.name)
         return self.__class__.__name__
+
+    def _build_default_definition(self, config: Mapping[str, Any] | Any) -> PipelineDefinition:
+        pipeline = getattr(config, "pipeline", None)
+        name = getattr(pipeline, "name", None) if pipeline is not None else None
+        resolved_name = str(name) if name else self.__class__.__name__
+        return PipelineDefinition(name=resolved_name, runtime_factory=self.__class__)
 
     # Status --------------------------------------------------------------
     def stop(self) -> None:  # pragma: no cover - lifecycle hook
