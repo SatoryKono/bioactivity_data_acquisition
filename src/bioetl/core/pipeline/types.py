@@ -421,7 +421,20 @@ class DefaultClientContext(ClientContext):
     clients: Mapping[str, Any] = field(default_factory=dict)
 
     def get_client(self, name: str) -> Any:
-        return self.clients[name]
+        if name in self.clients:
+            return self.clients[name]
+
+        for separator in (":", "."):
+            if separator in name:
+                namespace, entity = name.split(separator, 1)
+                if namespace in self.clients:
+                    factory = self.clients[namespace]
+                    if hasattr(factory, "create"):
+                        return factory.create(entity)
+                    if callable(factory):
+                        return factory(entity)
+        msg = f"Client '{name}' is not registered"
+        raise KeyError(msg)
 
 
 @dataclass(slots=True)
@@ -555,7 +568,8 @@ class StageContextAdapter:
         if self.clients is None:
             msg = "Client registry is not configured"
             raise KeyError(msg)
-        return self.clients.get_client(name)
+        client = self.clients.get_client(name)
+        return client() if callable(client) else client
 
     def emit_metric(
         self, name: str, value: Any, tags: Mapping[str, str] | None = None
