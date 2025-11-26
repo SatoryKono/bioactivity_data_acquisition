@@ -103,6 +103,8 @@ DEFAULT_NEXT_KEY = "next"
 DEFAULT_PAGE_PARAM = "page"
 
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
+# NOTE: ApiClientMixin/ClosableMixin остаются реэкспортированными здесь ради совместимости,
+#       но основным источником следует считать ``bioetl.core.http.client_mixins``.
 
 
 def iterate_by_ids(

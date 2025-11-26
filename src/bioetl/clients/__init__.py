@@ -2,7 +2,6 @@
 
 from bioetl.clients.client_exceptions import ConnectionError, HTTPError, RequestException, Timeout
 from bioetl.clients.common import (
-    ApiClientMixin,
     ApiTransportProtocol,
     EntityClientProtocol,
     NextLinkPagination,
@@ -17,6 +16,7 @@ from bioetl.clients.chembl import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
+from bioetl.core.http.client_mixins import ApiClientMixin
 from bioetl.clients.transports import AioHttpTransport, RequestsTransport
 from bioetl.clients.factories import default_chembl_factory
 

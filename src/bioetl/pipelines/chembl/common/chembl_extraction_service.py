@@ -3,7 +3,8 @@ from __future__ import annotations
 """Сервис, инкапсулирующий общие шаги извлечения ChEMBL."""
 
 import time
-from typing import Any, Mapping, Sequence
+from collections.abc import Iterable
+from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
@@ -48,6 +49,52 @@ class ChemblExtractionService:
             context["chembl_release"] = self.resolve_chembl_release(chembl_client)
         return context
 
+    def _normalize_ids(
+        self, ids: Sequence[str] | None, context: Mapping[str, Any]
+    ) -> list[str] | None:
+        if ids:
+            return [str(item) for item in ids]
+        context_ids = context.get("ids")
+        if isinstance(context_ids, Sequence) and not isinstance(
+            context_ids, (str, bytes, bytearray)
+        ):
+            return [str(item) for item in context_ids if str(item)]
+        return None
+
+    @staticmethod
+    def _resolve_page_size(context: Mapping[str, Any], default: int = 1000) -> int:
+        page_size = context.get("page_size")
+        if isinstance(page_size, int) and page_size > 0:
+            return page_size
+        return default
+
+    def _build_client_fetcher(self, chembl_client: Any, *, page_size: int) -> Callable[[Sequence[str] | None], Any]:
+        def fetch(batch: Sequence[str] | None):
+            if batch:
+                return chembl_client.fetch_by_ids(batch)
+            result = chembl_client.list(page_size=page_size)
+            return list(result) if isinstance(result, Iterable) else result
+
+        return fetch
+
+    def _resolve_fetcher(
+        self,
+        descriptor: Any,
+        context: Mapping[str, Any],
+        *,
+        page_size: int,
+    ) -> Callable[[Sequence[str] | None], Any]:
+        factory = getattr(descriptor, "fetcher_factory", None)
+        if callable(factory):
+            fetcher = factory(context)
+            if callable(fetcher):
+                return fetcher
+
+        chembl_client = context.get("chembl_client")
+        if chembl_client is None:
+            raise RuntimeError("chembl_client is required to build a fetcher")
+        return self._build_client_fetcher(chembl_client, page_size=page_size)
+
     def finalize_dataframe(
         self,
         dataframe: pd.DataFrame,
@@ -70,7 +117,7 @@ class ChemblExtractionService:
         metadata_filters: Mapping[str, Any] | None = None,
         fetch_mode: str = "default",
         **batch_kwargs: Any,
-    ) -> tuple[pd.DataFrame, BatchExtractionStats]:
+        ) -> tuple[pd.DataFrame, BatchExtractionStats]:
         context = self.build_context(
             descriptor, pipeline, metadata_filters=metadata_filters, fetch_mode=fetch_mode
         )
@@ -88,12 +135,14 @@ class ChemblExtractionService:
             )
             return empty, stats
 
-        fetcher = descriptor.fetcher_factory(context)
+        ids_to_fetch = self._normalize_ids(ids, context)
+        page_size = self._resolve_page_size(context)
+        fetcher = self._resolve_fetcher(descriptor, context, page_size=page_size)
         finalizer = descriptor.finalizer_factory(context)
 
         dataframe, stats = execute_chembl_batches(
             fetcher,
-            ids,
+            ids_to_fetch,
             batch_size=batch_kwargs.get("batch_size"),
         )
 
