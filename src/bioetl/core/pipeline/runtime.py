@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import subprocess
 import time
 import uuid
@@ -82,12 +83,17 @@ class QCExecutorAdapter:
 class StagePlanExecutor:
     """Ответственный за исполнение плана стадий и подсчет длительностей."""
 
+    def __init__(self, qc_adapter: QCExecutorAdapter) -> None:
+        self.qc_adapter = qc_adapter
+
     def execute(
         self,
         stages: Iterable[Stage],
         context: StageContext,
         options: StageExecutionOptions,
-    ) -> tuple[dict[str, int], str | None]:
+        *,
+        include_qc_metrics: bool,
+    ) -> tuple[dict[str, int], str | None, Path | None]:
         logger = context.logger
         durations: dict[str, int] = {}
         error: str | None = None
@@ -209,6 +215,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         validation_service_factory: Callable[["PipelineRuntimeBase"], ValidationService]
         | None = None,
         write_service_factory: Callable[["PipelineRuntimeBase"], WriteService] | None = None,
+        qc_executor_adapter: QCExecutorAdapter | None = None,
         qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None,
         qc_plan: QCPlan | None = None,
         stage_plan_executor: StagePlanExecutor | None = None,
