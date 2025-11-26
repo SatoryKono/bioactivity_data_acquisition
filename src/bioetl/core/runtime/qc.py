@@ -42,6 +42,13 @@ class QCRuntimeProtocol(Protocol):
         ...
 
 
+class QCRuntimeBuilderProtocol(Protocol):
+    """Протокол билдера для QCRuntimeService."""
+
+    def build(self, coordinator: "QCCoordinator") -> "QCRuntimeService":
+        ...
+
+
 class QCCoordinator:
     """Координатор, отвечающий за QC-оркестрацию и привязку executor."""
 
@@ -72,6 +79,22 @@ class QCCoordinator:
     ) -> "QCCoordinator":
         placeholder = cls.__new__(cls)
         runtime_service = qc_runtime_service_factory(placeholder)
+        cls.__init__(
+            placeholder,
+            qc_runtime_service=runtime_service,
+            stage_plan_executor=stage_plan_executor,
+        )
+        return placeholder
+
+    @classmethod
+    def from_builder(
+        cls,
+        *,
+        builder: QCRuntimeBuilderProtocol,
+        stage_plan_executor: StagePlanExecutor | None,
+    ) -> "QCCoordinator":
+        placeholder = cls.__new__(cls)
+        runtime_service = builder.build(placeholder)
         cls.__init__(
             placeholder,
             qc_runtime_service=runtime_service,
@@ -169,6 +192,7 @@ __all__ = [
     "QCCoordinator",
     "QCOrchestratorProtocol",
     "QCRuntimeProtocol",
+    "QCRuntimeBuilderProtocol",
     "default_qc_runtime_service_factory",
     "default_qc_service_factory",
 ]

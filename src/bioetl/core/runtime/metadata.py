@@ -49,6 +49,13 @@ class MetadataRuntimeProtocol(Protocol):
         ...
 
 
+class MetadataRuntimeBuilderProtocol(Protocol):
+    """Протокол билдера для MetadataRuntimeService."""
+
+    def build(self, coordinator: "MetadataCoordinator") -> "MetadataRuntimeService":
+        ...
+
+
 class MetadataCoordinator:
     """Координатор, отвечающий за построение сервисов метаданных."""
 
@@ -91,8 +98,26 @@ class MetadataCoordinator:
         )
         return placeholder
 
+    @classmethod
+    def from_builder(
+        cls,
+        *,
+        builder: MetadataRuntimeBuilderProtocol,
+        logs_directory_resolver: Callable[[Path], Path],
+    ) -> "MetadataCoordinator":
+        placeholder = cls.__new__(cls)
+        placeholder.logs_directory_resolver = logs_directory_resolver
+        runtime_service = builder.build(placeholder)
+        cls.__init__(
+            placeholder,
+            metadata_runtime_service=runtime_service,
+            logs_directory_resolver=logs_directory_resolver,
+        )
+        return placeholder
+
 
 __all__ = [
     "MetadataCoordinator",
+    "MetadataRuntimeBuilderProtocol",
     "MetadataRuntimeProtocol",
 ]
