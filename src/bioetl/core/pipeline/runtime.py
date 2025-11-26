@@ -8,6 +8,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+import pandas as pd
+
+from bioetl.core.logging import UnifiedLogger
+
 from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.services import (
@@ -28,9 +32,16 @@ from bioetl.core.pipeline.services import (
     default_orchestration_service_factory,
 )
 from bioetl.core.pipeline.types import (
+    ArtifactStore,
+    DataBucket,
+    DefaultArtifactContext,
+    DefaultDomainContext,
+    DefaultExecutionContext,
+    DefaultInfrastructureContext,
     PipelineBaseProtocol,
     RunArtifacts,
     RunResult,
+    RunState,
     StageCommand,
     StageContext,
     StageDescriptor,
@@ -250,6 +261,146 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             fail_on_schema_drift=fail_on_schema_drift,
             enable_validation=enable_validation,
         )
+
+    def _prepare_stage_context(
+        self,
+        output_dir: Path,
+        options: StageExecutionOptions,
+        logger: UnifiedLogger,
+    ) -> tuple[StageContext, RunState, Path]:
+        """Собирает состояние запуска и StageContext перед исполнением плана."""
+
+        run_state = RunState()
+
+        logger.info("STAGE_RUN_START", stage="prepare_run")
+        self.prepare_run(options)
+
+        target_dir, artifacts = self.artifact_runtime_service.plan_run_artifacts(
+            output_dir,
+            self.pipeline_code,
+            options.run_tag,
+            options.mode,
+        )
+        run_state.artifacts = artifacts
+
+        data_bucket = DataBucket()
+        artifact_store = ArtifactStore(artifacts)
+        execution_context = DefaultExecutionContext(
+            logger=logger,
+            request_id=self.run_id,
+            trace_id=self.run_id,
+        )
+        stage_context = self.context_builder.build(
+            execution=execution_context,
+            domain=DefaultDomainContext(pipeline=self),
+            infrastructure=DefaultInfrastructureContext(
+                output_dir=target_dir,
+                metadata_service=self.metadata_coordinator.metadata_service,
+                qc_orchestrator=self.qc_coordinator.qc_orchestrator,
+            ),
+            artifacts=DefaultArtifactContext(
+                data_bucket=data_bucket,
+                artifact_store=artifact_store,
+            ),
+        )
+
+        return stage_context, run_state, target_dir
+
+    def _execute_stage_plan(
+        self, stage_context: StageContext, options: StageExecutionOptions
+    ) -> tuple[Iterable[StageCommand], dict[str, int], str | None]:
+        """Формирует и исполняет план стадий, возвращая длительности и ошибку."""
+
+        stage_descriptors = self.build_stage_plan(stage_context, options)
+        stage_factory = self.create_stage_factory()
+        stages = stage_factory.build(stage_descriptors, stage_context, options)
+        self.stage_plan = stages
+        durations, error = self.orchestration_service.execute(
+            stages,
+            stage_context,
+            options,
+        )
+        return stages, durations, error
+
+    def _run_qc(
+        self,
+        stage_context: StageContext,
+        options: StageExecutionOptions,
+        run_state: RunState,
+        logger: UnifiedLogger,
+    ) -> Path | None:
+        """Запускает QC-этап, обновляя состояние выполнения."""
+
+        if run_state.error is not None:
+            return None
+
+        qc_path, qc_error = self.qc_coordinator.qc_runtime_service.run(
+            stage_context, options
+        )
+        if qc_error is not None:
+            run_state.error = qc_error
+            logger.error("QC_METRICS_ERROR", error=run_state.error)
+        return qc_path
+
+    def _build_run_result(
+        self,
+        stage_context: StageContext,
+        stages: Iterable[StageCommand],
+        run_state: RunState,
+        target_dir: Path,
+        options: StageExecutionOptions,
+        qc_path: Path | None,
+    ) -> RunResult:
+        """Собирает итоговый RunResult и инициирует финализацию."""
+
+        if options.extended and self.dry_run:
+            metadata_writer = None
+            if self.write_service is not None:
+                metadata_writer = getattr(
+                    self.write_service,
+                    "write_metadata",
+                    None,
+                )
+                if callable(metadata_writer):
+                    metadata_writer(
+                        target_dir,
+                        run_state.artifacts,
+                        stage_context.data_bucket.get(),
+                        dry_run=True,
+                    )
+            if metadata_writer is None:
+                legacy_writer = getattr(
+                    self,
+                    "_write_metadata",
+                    None,
+                )
+                if callable(legacy_writer):  # pragma: no cover - defensive
+                    legacy_writer(
+                        target_dir,
+                        stage_context.data_bucket.get(),
+                    )
+
+        result_frame = stage_context.data_bucket.get()
+        rows = 0
+        if isinstance(result_frame, pd.DataFrame) and not self.dry_run:
+            rows = int(result_frame.shape[0])
+        success = run_state.error is None
+        run_result = self.metadata_coordinator.metadata_runtime_service.build_run_result(
+            context=stage_context,
+            stage_plan=stages,
+            run_state=run_state,
+            run_tag=options.run_tag,
+            mode=options.mode,
+            rows=rows,
+            qc_metrics_path=qc_path,
+            success=success,
+            output_dir=target_dir,
+            logs_directory=self.metadata_coordinator.logs_directory_resolver(
+                target_dir
+            ),
+        )
+        self.finalize_run(run_result)
+        return run_result
 
     def finalize_run(  # pragma: no cover
         self,
