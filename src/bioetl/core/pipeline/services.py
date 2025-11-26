@@ -68,8 +68,8 @@ class WriteService(Protocol):
 class StagePlanExecutor:
     """Ответственный за исполнение плана стадий и подсчет длительностей."""
 
-    def __init__(self) -> None:
-        self.qc_service = None
+    def __init__(self, qc_orchestrator: "QCOrchestrator | None" = None) -> None:
+        self.qc_orchestrator = qc_orchestrator
 
     def execute(
         self,
@@ -114,11 +114,23 @@ class StagePlanExecutor:
 
 
 @dataclass(slots=True)
+class ArtifactService:
+    """Service responsible for deterministic artifact planning."""
+
+    artifact_planner: ArtifactPlanner
+
+    def plan_run_artifacts(
+        self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
+    ) -> tuple[Path, WriteArtifacts]:
+        return self.artifact_planner.plan(output_dir, pipeline_code, run_tag, mode)
+
+
+@dataclass(slots=True)
 class OrchestrationService:
     """Оркестрация стадий и планирование артефактов."""
 
     stage_plan_executor: StagePlanExecutor
-    artifact_planner: ArtifactPlanner
+    artifact_service: ArtifactService
 
     def execute(
         self,
@@ -132,7 +144,7 @@ class OrchestrationService:
     def plan_run_artifacts(
         self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
     ) -> tuple[Path, WriteArtifacts]:
-        return self.artifact_planner.plan(output_dir, pipeline_code, run_tag, mode)
+        return self.artifact_service.plan_run_artifacts(output_dir, pipeline_code, run_tag, mode)
 
 
 def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -306,6 +318,19 @@ class QCService:
 
 
 @dataclass(slots=True)
+class QCOrchestrator:
+    """Orchestrates QC execution and error handling."""
+
+    qc_service: QCService
+
+    def run(self, context: StageContext, options: StageExecutionOptions) -> tuple[Path | None, str | None]:
+        try:
+            return self.qc_service.execute(context, options), None
+        except Exception as exc:  # pragma: no cover - surfaced via RunResult
+            return None, str(exc)
+
+
+@dataclass(slots=True)
 class MetadataService:
     """Service delegating metadata building to injected builder."""
 
@@ -326,6 +351,23 @@ class MetadataService:
         mode: str | None,
     ) -> dict[str, Any]:
         return self.builder.build(context, stage_plan, durations, run_tag, mode)
+
+    def build_for_run(
+        self,
+        context: StageContext,
+        stage_plan: Iterable[StageProtocol],
+        durations: Mapping[str, int],
+        run_tag: str | None,
+        mode: str | None,
+        *,
+        rows: int,
+        qc_metrics_path: Path | None,
+    ) -> dict[str, Any]:
+        metadata = self.build(context, stage_plan, durations, run_tag, mode)
+        metadata["rows"] = rows
+        if qc_metrics_path is not None:
+            metadata["qc_metrics_path"] = str(qc_metrics_path)
+        return metadata
 
     @property
     def git_commit(self) -> str | None:
@@ -403,14 +445,18 @@ def default_artifact_planner_factory() -> ArtifactPlanner:
     return DefaultArtifactPlanner()
 
 
+def default_artifact_service_factory(artifact_planner: ArtifactPlanner | None = None) -> ArtifactService:
+    return ArtifactService(artifact_planner or DefaultArtifactPlanner())
+
+
 def default_orchestration_service_factory(
     stage_plan_executor: StagePlanExecutor | None = None,
-    artifact_planner: ArtifactPlanner | None = None,
+    artifact_service: ArtifactService | None = None,
 ) -> Callable[[PipelineBaseProtocol], OrchestrationService]:
     def _factory(_: PipelineBaseProtocol) -> OrchestrationService:
         return OrchestrationService(
             stage_plan_executor=stage_plan_executor or StagePlanExecutor(),
-            artifact_planner=artifact_planner or DefaultArtifactPlanner(),
+            artifact_service=artifact_service or default_artifact_service_factory(),
         )
 
     return _factory
@@ -448,17 +494,20 @@ def default_metadata_service_factory(
 
 
 __all__ = [
+    "ArtifactService",
     "ArtifactPlanner",
     "DefaultArtifactPlanner",
     "DefaultValidationService",
     "DefaultWriteService",
     "OrchestrationService",
     "MetadataService",
+    "QCOrchestrator",
     "RunMetadataBuilder",
     "QCExecutorAdapter",
     "QCService",
     "ValidationService",
     "WriteService",
+    "default_artifact_service_factory",
     "default_artifact_planner_factory",
     "default_metadata_service_factory",
     "default_orchestration_service_factory",
