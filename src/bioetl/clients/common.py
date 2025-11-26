@@ -30,6 +30,7 @@ JSONRecordStream = Iterator[JSONRecord]
 
 
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
+from bioetl.clients.utils import pagination as pagination_utils
 
 
 class EntityClientProtocol(Protocol):
@@ -61,9 +62,9 @@ class EntityClientProtocol(Protocol):
 
 _T = TypeVar("_T")
 Normalizer = Callable[[Any], Iterator[dict[str, Any]]]
-DEFAULT_PAGE_KEY = "results"
-DEFAULT_NEXT_KEY = "next"
-DEFAULT_PAGE_PARAM = "page"
+DEFAULT_PAGE_KEY = pagination_utils.DEFAULT_PAGE_KEY
+DEFAULT_NEXT_KEY = pagination_utils.DEFAULT_NEXT_KEY
+DEFAULT_PAGE_PARAM = pagination_utils.DEFAULT_PAGE_PARAM
 
 ApiClientMixin = _ApiClientMixin
 ClosableMixin = _ClosableMixin
@@ -82,15 +83,16 @@ def iterate_by_ids(
     logger: structlog.stdlib.BoundLogger | structlog.types.BindableLogger,
     path_template: str = "/{entity}/{id}",
 ) -> Iterator[dict[str, Any]]:
-    def iterator() -> Iterator[dict[str, Any]]:
-        for raw_id in ids:
-            entity_id = str(raw_id)
-            path = path_template.format(entity=entity, id=entity_id)
-            payload = wrap_callable(lambda: api_client.get_json(path), log_context={"path": path})
-            logger.info("api_call", entity=entity, entity_id=entity_id)
-            yield from normalize(payload)
-
-    return wrap_iterator(iterator)
+    return pagination_utils.iter_ids(
+        ids=ids,
+        entity=entity,
+        transport=api_client,
+        normalize=lambda payload, page_key=None: normalize(payload),
+        wrap_callable=wrap_callable,
+        wrap_iterator=wrap_iterator,
+        logger=logger,
+        path_template=path_template,
+    )
 
 
 def _iter_payload_items(
@@ -100,18 +102,7 @@ def _iter_payload_items(
         yield from normalize(payload)
         return
 
-    if isinstance(payload, Mapping):
-        items = payload.get(page_key)
-        if isinstance(items, list):
-            yield from items
-        return
-
-    if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
-        yield from payload
-        return
-
-    if payload:
-        yield payload
+    yield from pagination_utils.normalize_payload(payload, page_key=page_key)
 
 
 class NextLinkPagination:
