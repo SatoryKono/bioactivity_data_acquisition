@@ -20,7 +20,7 @@ from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     RunArtifacts,
     RunResult,
-    Stage,
+    StageCommand,
     StageContext,
     StageDescriptor,
     StageExecutionOptions,
@@ -89,7 +89,7 @@ class StagePlanExecutor:
 
     def execute(
         self,
-        stages: Iterable[Stage],
+        stages: Iterable[StageCommand],
         context: StageContext,
         options: StageExecutionOptions,
         *,
@@ -293,11 +293,12 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             config=self.config,
             output_dir=target_dir,
             artifacts=artifacts,
+            pipeline=self,
         )
 
         stage_descriptors = self.build_stage_plan(stage_context, options)
         stage_factory = self.create_stage_factory()
-        stages = stage_factory.build(stage_descriptors, stage_context)
+        stages = stage_factory.build(stage_descriptors, stage_context, options)
         self.stage_plan = stages
         durations, error, qc_path = self.stage_plan_executor.execute(
             stages,
@@ -351,7 +352,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 
     # Planning ------------------------------------------------------------
     def create_stage_factory(self) -> StageFactory:
-        return StageFactory(self.pipeline_definition)
+        return StageFactory(self)
 
     @abstractmethod
     def build_stage_plan(
@@ -377,7 +378,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     def build_run_metadata(
         self,
         context: StageContext,
-        stage_plan: Iterable[Stage],
+        stage_plan: Iterable[StageCommand],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,

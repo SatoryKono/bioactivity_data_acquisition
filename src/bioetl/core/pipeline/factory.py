@@ -1,55 +1,112 @@
 """StageFactory for building pipeline stage plans."""
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 
-from bioetl.core.pipeline.definition import PipelineDefinition
-from bioetl.core.pipeline.types import Stage, StageContext, StageExecutionOptions
+import pandas as pd
+
+from bioetl.core.pipeline.types import (
+    PipelineBaseProtocol,
+    PipelineStagesProtocol,
+    StageCommand,
+    StageContext,
+    StageDescriptor,
+    StageExecutionOptions,
+    StageResult,
+    StageRuntimeContext,
+    WriteArtifacts,
+    WriteResult,
+)
 
 
 class StageFactory:
-    """Factory that builds a sequence of :class:`Stage` objects from a definition."""
+    """Factory that builds a sequence of :class:`StageCommand` objects."""
 
-    def __init__(self, definition: PipelineDefinition | None = None) -> None:
-        self.definition = definition or PipelineDefinition(name="anonymous", runtime_factory=lambda: None)
+    def __init__(self, pipeline: PipelineStagesProtocol | PipelineBaseProtocol) -> None:
+        self.pipeline = pipeline
 
     def build(
         self,
+        descriptors: Iterable[StageDescriptor],
         context: StageContext,
         options: StageExecutionOptions,
         stages: Sequence[str] | None = None,
-    ) -> tuple[Stage, ...]:
-        """Build a stage plan.
+    ) -> tuple[StageCommand, ...]:
+        """Build a stage plan from descriptors."""
 
-        Args:
-            options: Shared execution options.
-            stages: Explicit list of stages to include. If ``None`` the default
-                pipeline plan is used.
-        """
-
-        self.definition.validate()
-        stage_plan: tuple[Stage, ...] = tuple(self.definition.stages or ())
-
+        descriptor_map = {descriptor.id: descriptor for descriptor in descriptors}
+        selected: list[StageDescriptor]
         if stages is None:
-            filtered_plan = stage_plan
+            selected = list(descriptor_map.values())
         else:
-            command_map = {command.name: command for command in stage_plan}
-            filtered: list[Stage] = []
+            selected = []
             for stage in stages:
-                if stage not in command_map:
+                descriptor = descriptor_map.get(stage)
+                if descriptor is None:
                     if options.dry_run and stage == "save_results":
                         continue
                     msg = f"Unknown stage '{stage}'"
                     raise ValueError(msg)
-                filtered.append(command_map[stage])
-            filtered_plan = tuple(filtered)
+                selected.append(descriptor)
 
         if options.dry_run:
-            filtered_plan = tuple(command for command in filtered_plan if command.name != "save_results")
-            if getattr(context.pipeline, "validator", None) is None:
-                filtered_plan = tuple(command for command in filtered_plan if command.name == "extract")
+            selected = [descriptor for descriptor in selected if descriptor.id != "save_results"]
+            if getattr(self.pipeline, "validator", None) is None:
+                selected = [descriptor for descriptor in selected if descriptor.id == "extract"]
 
-        return filtered_plan
+        context.pipeline = self.pipeline
+        return tuple(self._build_stage(descriptor) for descriptor in selected)
+
+    def _build_stage(self, descriptor: StageDescriptor) -> StageCommand:
+        return StageCommand(
+            name=descriptor.id,
+            handler=lambda ctx, runtime, d=descriptor: self._execute_descriptor(ctx, runtime, d),
+            description=descriptor.kind,
+        )
+
+    def _execute_descriptor(
+        self,
+        context: StageContext,
+        runtime: StageRuntimeContext,
+        descriptor: StageDescriptor,
+    ) -> StageResult:
+        runtime.descriptor = descriptor
+        context.descriptor = descriptor
+        kind = descriptor.kind
+        if kind == "extract":
+            df = self.pipeline.extract(descriptor, runtime.options)
+            context.current_df = df
+            return StageResult(name=descriptor.id, output=df)
+
+        if kind == "transform":
+            frame = self._ensure_dataframe(context.current_df, kind)
+            df = self.pipeline.transform(frame, runtime.options)
+            context.current_df = df
+            return StageResult(name=descriptor.id, output=df)
+
+        if kind == "validate":
+            frame = self._ensure_dataframe(context.current_df, kind)
+            df = self.pipeline.validate(frame, runtime.options)
+            context.current_df = df
+            return StageResult(name=descriptor.id, output=df)
+
+        if kind == "save_results":
+            frame = self._ensure_dataframe(context.current_df, kind)
+            artifacts = context.artifacts or WriteArtifacts()
+            result = self.pipeline.save_results(frame, artifacts, runtime.options)
+            if isinstance(result, WriteResult):
+                context.artifacts = result.artifacts
+            return StageResult(name=descriptor.id, output=result)
+
+        msg = f"Unknown stage kind '{kind}'"
+        raise ValueError(msg)
+
+    @staticmethod
+    def _ensure_dataframe(df: pd.DataFrame | None, stage: str) -> pd.DataFrame:
+        if df is None:
+            msg = f"Stage '{stage}' requires a DataFrame from a previous step"
+            raise ValueError(msg)
+        return df
 
 
 __all__ = ["StageFactory"]

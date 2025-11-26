@@ -57,11 +57,15 @@ OPTIONS = StageExecutionOptions(run_tag=None, mode=None)
 
 def _contexts(pipeline: PipelineBaseCommon) -> tuple[StageContext, StageRuntimeContext]:
     logger = UnifiedLogger.get("StageFactoryTest")
-    context = StageContext(logger=logger, request_id="test", config={})
-    runtime = StageRuntimeContext(
-        options=OPTIONS,
-        attributes={"output_dir": Path("/tmp/out"), "artifacts": WriteArtifacts(), "pipeline": pipeline},
+    context = StageContext(
+        logger=logger,
+        request_id="test",
+        pipeline=pipeline,
+        config={},
+        output_dir=Path("/tmp/out"),
+        artifacts=WriteArtifacts(),
     )
+    runtime = StageRuntimeContext(context=context, options=OPTIONS)
     return context, runtime
 
 
@@ -69,7 +73,8 @@ def test_default_stage_plan_contains_all_steps() -> None:
     pipeline = CommandSpyPipeline(CONFIG, run_id="spy-1")
     factory = StageFactory(pipeline)
     context, runtime = _contexts(pipeline)
-    plan = factory.build(context, runtime)
+    descriptors = pipeline.build_stage_plan(context, OPTIONS)
+    plan = factory.build(descriptors, context, OPTIONS)
 
     assert [cmd.name for cmd in plan] == ["extract", "transform", "validate", "save_results"]
 
@@ -78,7 +83,8 @@ def test_partial_plan_respects_requested_stages() -> None:
     pipeline = CommandSpyPipeline(CONFIG, run_id="spy-2")
     factory = StageFactory(pipeline)
     context, runtime = _contexts(pipeline)
-    plan = factory.build(context, runtime, stages=["extract", "validate"])
+    descriptors = pipeline.build_stage_plan(context, OPTIONS)
+    plan = factory.build(descriptors, context, OPTIONS, stages=["extract", "validate"])
 
     assert [cmd.name for cmd in plan] == ["extract", "validate"]
 
@@ -88,6 +94,7 @@ def test_dry_run_skips_save_results_stage() -> None:
     factory = StageFactory(pipeline)
     context, runtime = _contexts(pipeline)
     runtime.options = StageExecutionOptions(run_tag=None, mode=None, dry_run=True)
-    plan = factory.build(context, runtime)
+    descriptors = pipeline.build_stage_plan(context, runtime.options)
+    plan = factory.build(descriptors, context, runtime.options)
 
     assert "save_results" not in [cmd.name for cmd in plan]
