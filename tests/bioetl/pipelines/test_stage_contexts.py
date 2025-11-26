@@ -3,7 +3,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from bioetl.core.pipeline.runtime import StagePlanExecutor
-from bioetl.core.pipeline.types import PipelineStageCommand
+from bioetl.core.pipeline.types import PipelineStageCommand, StageExecutionOptions
 
 
 def test_stage_context_uses_expected_client(stage_context_factory, runtime_context_factory) -> None:
@@ -17,7 +17,8 @@ def test_stage_context_uses_expected_client(stage_context_factory, runtime_conte
     )
 
     executor = StagePlanExecutor()
-    executor.execute((command,), context, runtime, include_qc_metrics=False)
+    options = runtime.options or StageExecutionOptions(run_tag=None, mode=None)
+    executor.execute((command,), context, options, runtime_context=runtime)
 
     client_primary.process.assert_called_once_with(5)
     client_secondary.process.assert_not_called()
@@ -32,6 +33,7 @@ def test_stage_context_emits_metrics(stage_context_factory, runtime_context_fact
     command = PipelineStageCommand("metric", lambda ctx, rt: ctx.emit_metric("items", 1, {"stage": "test"}))
 
     executor = StagePlanExecutor()
-    executor.execute((command,), context, runtime, include_qc_metrics=False)
+    options = runtime.options or StageExecutionOptions(run_tag=None, mode=None)
+    executor.execute((command,), context, options, runtime_context=runtime)
 
     emitter.assert_called_once_with("items", 1, {"stage": "test"})

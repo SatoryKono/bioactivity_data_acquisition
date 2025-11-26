@@ -37,6 +37,9 @@ from bioetl.core.pipeline.types import (
 from bioetl.core.pipeline.services import (
     ArtifactPlanner,
     DefaultArtifactPlanner,
+    MetadataService,
+    QCExecutorAdapter,
+    QCService,
     ValidationService,
     WriteService,
 )
@@ -55,18 +58,17 @@ class StagePlanExecutor:
         stages: Iterable[StageCommand],
         context: StageContext,
         options: StageExecutionOptions,
-        *,
-        include_qc_metrics: bool,
-    ) -> tuple[dict[str, int], str | None, Path | None]:
+        runtime_context: StageRuntimeContext | None = None,
+    ) -> tuple[dict[str, int], str | None]:
         logger = context.logger
         durations: dict[str, int] = {}
         error: str | None = None
         artifacts = context.artifacts or WriteArtifacts()
         if not context.artifacts:
             context.artifacts = artifacts
-        qc_metrics_path: Path | None = None
-
-        runtime_context = StageRuntimeContext(context=context, options=options)
+        runtime_context = runtime_context or StageRuntimeContext(context=context, options=options)
+        runtime_context.context = context
+        runtime_context.options = options
 
         for stage in stages:
             started = time.perf_counter()
@@ -74,6 +76,8 @@ class StagePlanExecutor:
                 logger.info("STAGE_RUN_START", stage=stage.name)
             try:
                 result = stage.execute(runtime_context)
+                if isinstance(result.output, pd.DataFrame):
+                    context.current_df = result.output
                 if stage.name == "extract" and isinstance(result.output, pd.DataFrame):
                     context.metadata["extract_rows"] = int(result.output.shape[0])
                 if stage.name == "save_results" and hasattr(result.output, "artifacts"):
@@ -91,15 +95,7 @@ class StagePlanExecutor:
                 if logger:
                     logger.info("STAGE_RUN_END", stage=stage.name, duration_ms=duration_ms)
 
-        if error is None and include_qc_metrics:
-            try:
-                qc_metrics_path = self.qc_service.execute(context, options)
-            except Exception as exc:  # pragma: no cover - surfaced via RunResult
-                error = str(exc)
-                if logger:
-                    logger.error("QC_METRICS_ERROR", error=error)
-
-        return durations, error, qc_metrics_path
+        return durations, error
 
 
 class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
@@ -119,6 +115,9 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         write_service_factory: Callable[["PipelineRuntimeBase"], WriteService] | None = None,
         qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None,
         qc_plan: QCPlan | None = None,
+        qc_thresholds: Mapping[str, float] | None = None,
+        qc_dry_run: bool | None = None,
+        qc_enabled: bool | None = None,
         stage_plan_executor: StagePlanExecutor | None = None,
         artifact_planner: ArtifactPlanner | None = None,
         qc_service: QCService | None = None,
@@ -134,6 +133,19 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         root = getattr(materialization, "root", None)
         self.output_root = Path(root) if root else Path.cwd()
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
+        adapter = qc_executor_adapter or QCExecutorAdapter(executor_factory=qc_executor_factory)
+        self.qc_executor_adapter = adapter
+        self.qc_service = qc_service or QCService(
+            adapter,
+            enabled=qc_enabled,
+            plan=qc_plan,
+            dry_run=qc_dry_run,
+            thresholds=qc_thresholds,
+        )
+        self.stage_plan_executor = stage_plan_executor or StagePlanExecutor()
+        self.artifact_planner = artifact_planner or DefaultArtifactPlanner()
+        self.metadata_service = metadata_service
+        self.run_metadata_builder = run_metadata_builder or RunMetadataBuilder(config, self.pipeline_code)
         self.qc_plan = qc_plan
         self.dry_run = False
         self.artifact_planner = artifact_planner or default_artifact_planner_factory()
@@ -207,16 +219,16 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         stage_factory = self.create_stage_factory()
         stages = stage_factory.build(stage_descriptors, stage_context, options)
         self.stage_plan = stages
-        durations: dict[str, int] = {}
-        error: str | None = None
+        durations, error = self.stage_plan_executor.execute(stages, stage_context, options)
+
         qc_path: Path | None = None
-        if not options.dry_run:
-            durations, error, qc_path = self.stage_plan_executor.execute(
-                stages,
-                stage_context,
-                options,
-                include_qc_metrics=include_qc_metrics,
-            )
+        if error is None and self.qc_service is not None:
+            try:
+                qc_path = self.qc_service.execute(stage_context, options)
+            except Exception as exc:  # pragma: no cover - surfaced via RunResult
+                error = str(exc)
+                if logger:
+                    logger.error("QC_METRICS_ERROR", error=error)
 
         if options.extended and self.dry_run:
             metadata_writer = None
