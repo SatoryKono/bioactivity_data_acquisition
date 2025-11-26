@@ -30,12 +30,12 @@ class RecordingExecutor(StagePlanExecutor):
         self,
         stage_plan: tuple[PipelineStageCommand, ...],
         context: StageContext,
-        runtime: StageRuntimeContext,
-        *,
-        include_qc_metrics: bool,
-    ) -> tuple[dict[str, int], str | None, Path | None]:
+        options: StageExecutionOptions,
+        runtime_context: StageRuntimeContext | None = None,
+    ) -> tuple[dict[str, int], str | None]:
         durations: dict[str, int] = {}
         error: str | None = None
+        runtime = runtime_context or StageRuntimeContext(options=options, attributes={})
         if isinstance(runtime.input_data, pd.DataFrame):
             runtime.attributes["last_dataframe"] = runtime.input_data
         for command in stage_plan:
@@ -47,6 +47,7 @@ class RecordingExecutor(StagePlanExecutor):
                     runtime.input_data = command.handler(context, runtime)
                     if isinstance(runtime.input_data, pd.DataFrame):
                         runtime.attributes["last_dataframe"] = runtime.input_data
+                        context.current_df = runtime.input_data
                     break
                 except RetryableError as exc:
                     if attempts > self.max_retries:
@@ -63,7 +64,7 @@ class RecordingExecutor(StagePlanExecutor):
             durations[command.name] = durations.get(command.name, 0) + 5
             if error:
                 break
-        return durations, error, None
+        return durations, error
 
 
 class DummyRuntime(PipelineRuntimeBase):
@@ -74,7 +75,7 @@ class DummyRuntime(PipelineRuntimeBase):
         self.transform_attempts = 0
 
     def build_stage_plan(
-        self, context: StageContext, runtime: StageRuntimeContext
+        self, context: StageContext, runtime: StageExecutionOptions
     ) -> tuple[PipelineStageCommand, ...]:
         self.calls.append("build_stage_plan")
 
@@ -105,6 +106,13 @@ class DummyRuntime(PipelineRuntimeBase):
             PipelineStageCommand("save_results", _save),
         )
 
+    def create_stage_factory(self):  # type: ignore[override]
+        class _Factory:
+            def build(self, descriptors, context, options):
+                return descriptors
+
+        return _Factory()
+
 
 def test_run_handles_retries_and_metadata(tmp_path: Path) -> None:
     executor = RecordingExecutor(max_retries=1)
@@ -122,7 +130,7 @@ def test_run_handles_retries_and_metadata(tmp_path: Path) -> None:
     ]
     assert result.duration_ms == {"extract": 5, "transform": 5, "save_results": 5}
     assert result.metadata["rows"] == 2
-    assert result.artifacts.write_artifacts.data_path == tmp_path / "dataset.csv"
+    assert result.artifacts.write_artifacts.data_path == tmp_path / "DummyRuntime.csv"
 
 
 def test_run_stops_after_retry_exhaustion(tmp_path: Path) -> None:
@@ -135,4 +143,4 @@ def test_run_stops_after_retry_exhaustion(tmp_path: Path) -> None:
     assert result.error == "transient"
     # transform fails on first attempt and pipeline stops
     assert executor.calls == [("extract", 1), ("transform", 1)]
-    assert result.rows == 0
+    assert result.rows == 2

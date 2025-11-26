@@ -160,26 +160,22 @@ class DefaultArtifactPlanner(ArtifactPlanner):
 class QCExecutorAdapter:
     """Thin wrapper over :class:`QCMetricsExecutor` with artifact wiring."""
 
-    def __init__(
-        self,
-        *,
-        executor_factory: Callable[[], QCMetricsExecutor] | None = None,
-        qc_plan: QCPlan | None = None,
-    ) -> None:
+    def __init__(self, *, executor_factory: Callable[[], QCMetricsExecutor] | None = None) -> None:
         self.executor_factory = executor_factory
-        self.qc_plan = qc_plan
 
     def execute(
-        self, context: StageContext, options: StageExecutionOptions, artifacts: WriteArtifacts
+        self,
+        context: StageContext,
+        plan: QCPlan,
+        artifacts: WriteArtifacts | None = None,
     ) -> Path | None:
-        if context.current_df is None or not options.include_qc_metrics:
+        if context.current_df is None:
             return None
 
-        plan = self.qc_plan or getattr(context.pipeline, "qc_plan", None) or QCPlan.with_default_metrics()
-        if options.dry_run:
-            plan = plan.model_copy(update={"dry_run": True})
-
-        dataset_name = artifacts.data_path.stem if artifacts and artifacts.data_path else "dataset"
+        dataset_artifacts = artifacts or context.artifacts or WriteArtifacts()
+        dataset_name = (
+            dataset_artifacts.data_path.stem if dataset_artifacts and dataset_artifacts.data_path else "dataset"
+        )
         executor_factory = self.executor_factory or QCMetricsExecutor
         executor = executor_factory()
         quality_report, metrics_payload = executor.execute(
@@ -194,21 +190,45 @@ class QCExecutorAdapter:
         metrics_path = qc_dir / f"{dataset_name}_qc_metrics.json"
         quality_report.to_csv(quality_path, index=False)
         metrics_path.write_text(json.dumps(metrics_payload, indent=2))
-        artifacts.quality_report_path = quality_path
-        artifacts.qc_summary_path = metrics_path
-        context.artifacts = artifacts
+        dataset_artifacts.quality_report_path = quality_path
+        dataset_artifacts.qc_summary_path = metrics_path
+        context.artifacts = dataset_artifacts
         return metrics_path
 
 
 class QCService:
     """Service wrapper around QC execution pipeline."""
 
-    def __init__(self, adapter: QCExecutorAdapter | None = None) -> None:
+    def __init__(
+        self,
+        adapter: QCExecutorAdapter | None = None,
+        *,
+        enabled: bool | None = None,
+        plan: QCPlan | None = None,
+        dry_run: bool | None = None,
+        thresholds: Mapping[str, float] | None = None,
+    ) -> None:
         self.adapter = adapter or QCExecutorAdapter()
+        self.enabled = enabled
+        self.plan = plan
+        self.dry_run = dry_run
+        self.thresholds = thresholds or {}
 
     def execute(self, context: StageContext, options: StageExecutionOptions) -> Path | None:
+        if self.enabled is False or not options.include_qc_metrics:
+            return None
+        resolved_plan = self._resolve_plan(context, options)
+        if not resolved_plan.enabled:
+            return None
         artifacts = context.artifacts or WriteArtifacts()
-        return self.adapter.execute(context, options, artifacts)
+        return self.adapter.execute(context, resolved_plan, artifacts)
+
+    def _resolve_plan(self, context: StageContext, options: StageExecutionOptions) -> QCPlan:
+        base_plan = self.plan or getattr(context.pipeline, "qc_plan", None) or QCPlan.with_default_metrics()
+        thresholds = {**base_plan.thresholds, **self.thresholds}
+        resolved_dry_run = self.dry_run if self.dry_run is not None else options.dry_run
+        plan_updates: dict[str, Mapping[str, float] | bool] = {"dry_run": resolved_dry_run, "thresholds": thresholds}
+        return base_plan.model_copy(update=plan_updates)
 
 
 @dataclass(slots=True)

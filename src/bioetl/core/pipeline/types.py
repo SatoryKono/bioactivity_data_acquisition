@@ -83,9 +83,11 @@ class StageResult:
 class StageRuntimeContext:
     """Runtime payload passed into instantiated stages."""
 
-    context: "StageContext"
-    options: StageExecutionOptions
+    context: "StageContext | None" = None
+    options: StageExecutionOptions | None = None
     descriptor: StageDescriptor | None = None
+    input_data: Any | None = None
+    attributes: dict[str, Any] = field(default_factory=dict)
 
 
 @runtime_checkable

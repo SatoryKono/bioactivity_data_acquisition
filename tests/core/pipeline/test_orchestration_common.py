@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from bioetl.core.pipeline.orchestration import PipelineBaseCommon
+from bioetl.core.pipeline.services import QCService
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -17,6 +18,7 @@ from bioetl.core.pipeline.types import (
 
 class QCPipeline(PipelineBaseCommon):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
+        self.validator = None
         super().__init__(config, run_id)
         self._finalized = False
 
@@ -56,5 +58,34 @@ def test_pipeline_runs_qc_when_requested(tmp_path: Path) -> None:
     assert result.success is True
     assert result.artifacts.qc_metrics_path is not None
     assert result.artifacts.qc_metrics_path.exists()
+    assert pipeline._finalized is True
+
+
+def test_pipeline_skips_qc_when_not_requested(tmp_path: Path) -> None:
+    config = PipelineConfig(
+        pipeline=PipelineInfo(name="qc"),
+        materialization=MaterializationConfig(root=tmp_path / "out"),
+    )
+    pipeline = QCPipeline(config, run_id="qc-test")
+
+    result = pipeline.run(tmp_path / "output", include_qc_metrics=False)
+
+    assert result.success is True
+    assert result.artifacts.qc_metrics_path is None
+    assert pipeline._finalized is True
+
+
+def test_pipeline_skips_qc_when_service_disabled(tmp_path: Path) -> None:
+    config = PipelineConfig(
+        pipeline=PipelineInfo(name="qc"),
+        materialization=MaterializationConfig(root=tmp_path / "out"),
+    )
+    pipeline = QCPipeline(config, run_id="qc-test")
+    pipeline.qc_service = QCService(enabled=False)
+
+    result = pipeline.run(tmp_path / "output", include_qc_metrics=True)
+
+    assert result.success is True
+    assert result.artifacts.qc_metrics_path is None
     assert pipeline._finalized is True
 
