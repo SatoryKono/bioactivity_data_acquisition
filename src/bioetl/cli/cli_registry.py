@@ -31,6 +31,13 @@ def _register_default_pipelines() -> None:
         from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
         from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
         from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
+        from bioetl.pipelines.chembl.thin import (
+            ChemblActivityThinPipeline,
+            ChemblAssayThinPipeline,
+            ChemblDocumentThinPipeline,
+            ChemblTargetThinPipeline,
+            ChemblTestItemThinPipeline,
+        )
     except Exception:  # pragma: no cover - optional dependency loading
         return
 
@@ -38,6 +45,11 @@ def _register_default_pipelines() -> None:
     register_pipeline("assay_chembl", _wrap_pipeline_factory(ChemblAssayPipeline))
     register_pipeline("document_chembl", _wrap_pipeline_factory(ChemblDocumentPipeline))
     register_pipeline("target_chembl", _wrap_pipeline_factory(ChemblTargetPipeline))
+    register_pipeline("activity_chembl_thin", _wrap_pipeline_factory(ChemblActivityThinPipeline))
+    register_pipeline("assay_chembl_thin", _wrap_pipeline_factory(ChemblAssayThinPipeline))
+    register_pipeline("document_chembl_thin", _wrap_pipeline_factory(ChemblDocumentThinPipeline))
+    register_pipeline("target_chembl_thin", _wrap_pipeline_factory(ChemblTargetThinPipeline))
+    register_pipeline("testitem_chembl_thin", _wrap_pipeline_factory(ChemblTestItemThinPipeline))
 
 
 _register_default_pipelines()
