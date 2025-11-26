@@ -8,7 +8,10 @@ import pandas as pd
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.unified import UnifiedPipelineBase
-from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
+from bioetl.core.pipeline.stage_plan import (
+    StagePlanMetadata,
+    build_default_stage_plan,
+)
 from bioetl.core.pipeline.types import (
     ArtifactStore,
     MaterializationConfig,
@@ -27,7 +30,7 @@ from bioetl.core.pipeline.types import (
 class CommandSpyPipeline(UnifiedPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.validator = None
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self.calls: list[str] = []
 
     def prepare_run(self, options: StageExecutionOptions) -> None:
@@ -109,6 +112,7 @@ class FakeStageFactory(StageFactory):
         descriptors: Iterable[StageDescriptor],
         context: StageContext,
         options: StageExecutionOptions,
+        stages: list[str] | None = None,
     ):
         stages = []
         for descriptor in descriptors:
@@ -147,7 +151,7 @@ class FactorySpyPipeline(CommandSpyPipeline):
         run_id: str,
         factory: FakeStageFactory,
     ) -> None:
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self._factory = factory
 
     def create_stage_factory(self) -> StageFactory:
@@ -166,7 +170,10 @@ def test_pipeline_runtime_uses_stage_factory() -> None:
         def build_stage_plan(
             self, context: StageContext, options: StageExecutionOptions
         ) -> tuple[StageDescriptor, ...]:
-            metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=True)
+            metadata = StagePlanMetadata(
+                dry_run=options.dry_run,
+                has_validator=True,
+            )
             return tuple(build_default_stage_plan(context.descriptor, metadata))
 
     pipeline = _Pipeline(CONFIG, "spy-3")
@@ -174,4 +181,9 @@ def test_pipeline_runtime_uses_stage_factory() -> None:
 
     assert result.success is True
     assert factory is not None
-    assert factory.created_from == ["extract", "transform", "validate", "save_results"]
+    assert factory.created_from == [
+        "extract",
+        "transform",
+        "validate",
+        "save_results",
+    ]

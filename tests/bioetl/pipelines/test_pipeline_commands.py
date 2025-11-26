@@ -30,7 +30,7 @@ class CommandSpyPipeline(UnifiedPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         if not hasattr(self, "validator"):
             self.validator = None
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self.calls: list[str] = []
 
     def prepare_run(self, options: StageExecutionOptions) -> None:
@@ -78,7 +78,7 @@ class ValidatingCommandSpyPipeline(CommandSpyPipeline):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.validator = object()
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self.validator = object()
 
     def build_stage_plan(

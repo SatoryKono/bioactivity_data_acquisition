@@ -23,7 +23,7 @@ class DummyPipeline(UnifiedPipelineBase):
     """Simple pipeline used to validate the lifecycle contract."""
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self.calls: list[str] = []
         self.finalized: RunResult | None = None
 
