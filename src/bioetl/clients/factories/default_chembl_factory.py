@@ -57,6 +57,10 @@ def default_chembl_factory(
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
+    registry = pagination_registry or get_default_pagination_registry()
+    pagination_strategy: PaginationStrategy | None = None
+    if pagination_strategy_name:
+        pagination_strategy = registry.create(pagination_strategy_name)
 
     def _build_transport() -> ApiTransportProtocol:
         if transport_factory is not None:
@@ -74,11 +78,10 @@ def default_chembl_factory(
             )
         )
 
-    registry = pagination_registry or get_default_pagination_registry()
-
     entity_factory = ChemblEntityClientFactory(
         _build_transport,
         pagination_registry=registry,
+        pagination_strategy=pagination_strategy,
         pagination_strategy_name=pagination_strategy_name,
     )
 

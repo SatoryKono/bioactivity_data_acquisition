@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Callable, Type
 
 from bioetl.clients.chembl._base import ChemblEntityClient
-from bioetl.clients.common import EntityClientProtocol
+from bioetl.clients.common import  EntityClientProtocol, PaginationStrategy
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
@@ -36,16 +36,19 @@ class ChemblEntityClientFactory:
         *,
         pagination_registry: PaginationRegistry | None = None,
         pagination_strategy_name: str | None = None,
+        pagination_strategy: PaginationStrategy | None = None,
     ):
         self._transport_factory = transport_factory
         self._pagination_registry = pagination_registry or get_default_pagination_registry()
         self._pagination_strategy_name = pagination_strategy_name
+        self._pagination_strategy = pagination_strategy
 
     def create(self, entity: ChemblEntity | str) -> EntityClientProtocol:
         entity_name = ChemblEntity(entity).value if not isinstance(entity, ChemblEntity) else entity.value
         return ChemblEntityClient(
             self._transport_factory(),
             entity_name,
+            pagination_strategy=self._pagination_strategy,
             pagination_registry=self._pagination_registry,
             pagination_strategy_name=self._pagination_strategy_name,
         )
