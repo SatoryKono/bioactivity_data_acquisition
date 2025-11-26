@@ -13,7 +13,7 @@ from bioetl.clients.common import (
     ChemblClientBase,
     PaginationStrategy,
 )
-from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
+from bioetl.core.http import ApiClientMixin, ClosableMixin
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
@@ -63,12 +63,14 @@ class ChemblEntityClient(ChemblClientBase):
         transport: ApiTransportProtocol,
         entity: str,
         *,
+        pagination_strategy: PaginationStrategy | None = None,
         pagination_strategy_name: str | None = None,
         pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         super().__init__(
             transport,
             entity,
+            pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
             pagination_registry=pagination_registry or get_default_pagination_registry(),
         )

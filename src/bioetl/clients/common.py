@@ -10,12 +10,14 @@ import structlog
 
 warnings.warn(
     "bioetl.clients.common устаревает как источник ApiClientMixin/ClosableMixin; "
-    "используйте bioetl.core.http.client_mixins вместо прямого импорта из clients.common.",
+    "используйте bioetl.core.http вместо прямого импорта из clients.common.",
     DeprecationWarning,
     stacklevel=2,
 )
 
 from bioetl.clients import client_exceptions
+from bioetl.core.http import ApiClientMixin as _ApiClientMixin
+from bioetl.core.http import ClosableMixin as _ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol, BaseApiClient
 from bioetl.core.http.pagination import PaginationStrategy
 
@@ -72,7 +74,6 @@ class ApiTransportProtocol(Protocol):
         """Release any underlying transport resources (sessions, pools, etc.)."""
 
 
-from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
 
@@ -109,9 +110,10 @@ DEFAULT_PAGE_KEY = "results"
 DEFAULT_NEXT_KEY = "next"
 DEFAULT_PAGE_PARAM = "page"
 
-from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
+ApiClientMixin = _ApiClientMixin
+ClosableMixin = _ClosableMixin
 # NOTE: ApiClientMixin/ClosableMixin остаются реэкспортированными здесь ради совместимости,
-#       но основным источником следует считать ``bioetl.core.http.client_mixins``.
+#       но основным источником следует считать ``bioetl.core.http``.
 
 
 def iterate_by_ids(
