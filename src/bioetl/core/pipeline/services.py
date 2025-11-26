@@ -137,7 +137,6 @@ class StagePlanExecutor:
         return durations, error
 
 
-from bioetl.core.runtime.qc import default_qc_runtime_service_factory, default_qc_service_factory
 
 
 @dataclass(slots=True)
@@ -697,6 +696,9 @@ def default_context_builder_factory(
         return ContextBuilder(pipeline=pipeline, config_provider=provider)
 
     return _factory
+
+
+from bioetl.core.runtime.qc import default_qc_runtime_service_factory, default_qc_service_factory
 
 
 __all__ = [
