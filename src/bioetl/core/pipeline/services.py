@@ -98,6 +98,14 @@ class StagePlanExecutor:
                     context.current_df = result.output
                 if stage.name == "extract" and isinstance(result.output, pd.DataFrame):
                     context.metadata["extract_rows"] = int(result.output.shape[0])
+                if (
+                    not options.dry_run
+                    and options.sample is not None
+                    and options.sample > 0
+                    and isinstance(context.current_df, pd.DataFrame)
+                    and stage.name in ("extract", "transform", "validate")
+                ):
+                    context.current_df = context.current_df.head(options.sample)
                 if stage.name == "save_results" and hasattr(result.output, "artifacts"):
                     artifacts = result.output.artifacts  # type: ignore[attr-defined]
                     if isinstance(artifacts, WriteArtifacts):

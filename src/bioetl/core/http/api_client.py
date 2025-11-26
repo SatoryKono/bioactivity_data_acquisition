@@ -110,12 +110,16 @@ class UnifiedAPIClient:
         path: str,
         params: Mapping[str, Any] | None = None,
         *,
-        page_key: str = "results",
+        page_key: str = "items",
         next_key: str = "next",
         page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
         yield from self.iterate_paginated(
-            path, params=params or {}, page_key=page_key, next_key=next_key, page_param=page_param
+            path,
+            params=params or {},
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
         )
 
     def iterate_paginated(

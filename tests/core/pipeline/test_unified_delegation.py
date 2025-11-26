@@ -5,8 +5,9 @@ from unittest import mock
 
 import pandas as pd
 
-from bioetl.core.pipeline.unified import UnifiedPipelineBase
+from bioetl.core.pipeline.stage_plan import StagePlanMetadata
 from bioetl.core.pipeline.types import StageExecutionOptions
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 
 
 class DelegatingPipeline(UnifiedPipelineBase):
@@ -25,10 +26,17 @@ def test_build_stage_plan_delegates_to_default_plan():
     context = mock.Mock()
     options = StageExecutionOptions(run_tag=None, mode=None)
 
-    with mock.patch("bioetl.core.pipeline.unified.build_default_stage_plan") as build_plan:
+    with mock.patch(
+        "bioetl.core.pipeline.unified.build_default_stage_plan",
+    ) as build_plan:
         pipeline.build_stage_plan(context, options)
 
-    build_plan.assert_called_once_with(pipeline, context, options)
+    build_plan.assert_called_once()
+    descriptor_arg, metadata_arg = build_plan.call_args[0]
+    assert descriptor_arg is context.descriptor
+    assert isinstance(metadata_arg, StagePlanMetadata)
+    assert metadata_arg.dry_run is False
+    assert metadata_arg.has_validator is False
 
 
 def test_run_uses_runtime_factory_spy(tmp_path: Path):

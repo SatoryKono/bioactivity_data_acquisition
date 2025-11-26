@@ -145,10 +145,8 @@ def _iter_payload_items(
 
     if isinstance(payload, Mapping):
         items = payload.get(page_key)
-        if isinstance(items, list) and items:
+        if isinstance(items, list):
             yield from items
-        elif payload:
-            yield payload
         return
 
     if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
@@ -257,6 +255,9 @@ class PageParamPagination:
                 if logger:
                     logger.info("api_call", path=next_path)
                 continue
+
+            if isinstance(response, Mapping) and next_key in response:
+                break
 
             page_items = list(_iter_payload_items(response, page_key=page_key, normalize=normalize))
             if not page_items:

@@ -35,7 +35,8 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
             stacklevel=2,
         )
         self.pipeline_code = config.pipeline.name
-        metadata = StagePlanMetadata(has_validator=self.validator is not None)
+        validator = getattr(self, "validator", None)
+        metadata = StagePlanMetadata(has_validator=validator is not None)
         self.pipeline_definition = PipelineDefinition(
             name=self.pipeline_code,
             runtime_factory=self.__class__,
@@ -67,7 +68,11 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
     ) -> tuple[StageDescriptor, ...]:
-        metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=self.validator is not None)
+        validator = getattr(self, "validator", None)
+        metadata = StagePlanMetadata(
+            dry_run=options.dry_run,
+            has_validator=validator is not None,
+        )
         plan = tuple(build_default_stage_plan(context.descriptor, metadata))
         self.stage_plan = plan
         return plan
