@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 
+from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
@@ -35,7 +36,11 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         )
         self.pipeline_code = config.pipeline.name
         metadata = StagePlanMetadata(has_validator=self.validator is not None)
-        self.pipeline_definition = tuple(build_default_stage_plan(None, metadata))
+        self.pipeline_definition = PipelineDefinition(
+            name=self.pipeline_code,
+            runtime_factory=self.__class__,
+            stages=tuple(build_default_stage_plan(None, metadata)),
+        )
         super().__init__(config, self.pipeline_definition, run_id=run_id)
         self.output_root = Path(config.materialization.root)
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code

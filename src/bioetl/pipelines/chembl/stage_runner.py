@@ -98,7 +98,8 @@ def build_extract_plan(
     descriptors = pipeline.build_stage_plan(context, runtime.options)
     context.descriptor = pipeline.build_descriptor()
 
-    factory = StageFactory(pipeline)  # type: ignore[arg-type]
+    definition = getattr(pipeline, "pipeline_definition", None)
+    factory = StageFactory(definition)
     stages = factory.build(_filter_descriptors(descriptors, ("extract",)), context)
 
     for stage in stages:
@@ -169,7 +170,8 @@ def run_chembl_stage(
     if not descriptor_plan:
         raise ValueError(f"No stage plan available for stage '{normalized_stage}'")
 
-    factory = StageFactory(pipeline)  # type: ignore[arg-type]
+    definition = getattr(pipeline, "pipeline_definition", None)
+    factory = StageFactory(definition)
     stages = factory.build(descriptor_plan, context)
 
     result: Any = None

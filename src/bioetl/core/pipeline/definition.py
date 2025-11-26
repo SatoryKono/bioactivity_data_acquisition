@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
 
-from bioetl.core.pipeline.factory import StageFactory
+if TYPE_CHECKING:
+    from bioetl.core.pipeline.factory import StageFactory
 
 
 @dataclass(slots=True)
@@ -37,9 +38,12 @@ class PipelineDefinition:
             if len(set(self.stages)) != len(tuple(self.stages)):
                 msg = "stages must be unique"
                 raise ValueError(msg)
-        if self.stage_factory is not None and not issubclass(self.stage_factory, StageFactory):
-            msg = "stage_factory must be a StageFactory subclass"
-            raise ValueError(msg)
+        if self.stage_factory is not None:
+            from bioetl.core.pipeline.factory import StageFactory as _StageFactory
+
+            if not issubclass(self.stage_factory, _StageFactory):
+                msg = "stage_factory must be a StageFactory subclass"
+                raise ValueError(msg)
 
 
 __all__ = ["PipelineDefinition"]

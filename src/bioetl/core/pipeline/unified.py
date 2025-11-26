@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generic, Mapping, Sequence, Typ
 
 import pandas as pd
 import pandera as pa
+from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.services import (
     ValidationService,
@@ -53,9 +54,11 @@ class PipelineBase(PipelineRuntimeBase):
         validator: pa.DataFrameSchema | None = None,
         validation_service_factory: Callable[[PipelineRuntimeBase], ValidationService] | None = None,
         write_service_factory: Callable[[PipelineRuntimeBase], WriteService] | None = None,
+        pipeline_definition: PipelineDefinition | None = None,
     ) -> None:
         super().__init__(
             config,
+            pipeline_definition,
             run_id=run_id,
             validator=validator,
             validation_service_factory=validation_service_factory or default_validation_service_factory,
