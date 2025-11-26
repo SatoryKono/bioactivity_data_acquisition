@@ -47,7 +47,7 @@ class RecordingExecutor(StagePlanExecutor):
                     runtime.input_data = command.handler(context, runtime)
                     if isinstance(runtime.input_data, pd.DataFrame):
                         runtime.attributes["last_dataframe"] = runtime.input_data
-                        context.current_df = runtime.input_data
+                        context.data_bucket.set(runtime.input_data)
                     break
                 except RetryableError as exc:
                     if attempts > self.max_retries:

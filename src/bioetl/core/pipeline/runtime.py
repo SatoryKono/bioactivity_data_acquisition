@@ -26,6 +26,8 @@ from bioetl.core.pipeline.services import (
     default_qc_service_factory,
 )
 from bioetl.core.pipeline.types import (
+    ArtifactStore,
+    DataBucket,
     PipelineBaseProtocol,
     RunArtifacts,
     RunResult,
@@ -150,12 +152,15 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 
         target_dir, artifacts = self.plan_run_artifacts(output_dir, run_tag, mode)
         run_state.artifacts = artifacts
+        data_bucket = DataBucket()
+        artifact_store = ArtifactStore(artifacts)
         stage_context = StageContext(
             logger=logger,
             request_id=self.run_id,
-            config=self.config,
+            config_provider=self._build_config_provider(),
             output_dir=target_dir,
-            artifacts=artifacts,
+            data_bucket=data_bucket,
+            artifact_store=artifact_store,
             pipeline=self,
         )
 
@@ -166,7 +171,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         durations, error = self.orchestration_service.execute(stages, stage_context, options)
         run_state.durations = durations
         run_state.error = error
-        run_state.artifacts = stage_context.artifacts or run_state.artifacts
+        run_state.artifacts = stage_context.artifact_store.get() or run_state.artifacts
 
         qc_path: Path | None = None
         if run_state.error is None and self.qc_service is not None:
@@ -182,13 +187,13 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             if self.write_service is not None:
                 metadata_writer = getattr(self.write_service, "write_metadata", None)
                 if callable(metadata_writer):
-                    metadata_writer(target_dir, artifacts, stage_context.current_df, dry_run=True)
+                    metadata_writer(target_dir, artifacts, stage_context.data_bucket.get(), dry_run=True)
             if metadata_writer is None:
                 legacy_writer = getattr(self, "_write_metadata", None)
                 if callable(legacy_writer):  # pragma: no cover - defensive
-                    legacy_writer(target_dir, stage_context.current_df)
+                    legacy_writer(target_dir, stage_context.data_bucket.get())
 
-        result_frame = stage_context.current_df
+        result_frame = stage_context.data_bucket.get()
         rows = 0 if not isinstance(result_frame, pd.DataFrame) else int(result_frame.shape[0])
         success = run_state.error is None
         metadata = self.build_run_metadata(stage_context, stages, run_state.durations, run_tag, mode)
@@ -212,6 +217,17 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         self.finalize_run(run_result)
         logger.info("STAGE_RUN_END", stage="pipeline", success=success)
         return run_result
+
+    def _build_config_provider(self) -> Callable[[str], Any]:
+        def _resolver(key: str) -> Any:
+            if hasattr(self.config, key):
+                return getattr(self.config, key)
+            if isinstance(self.config, Mapping) and key in self.config:
+                return self.config[key]
+            msg = f"Config key '{key}' not found"
+            raise KeyError(msg)
+
+        return _resolver
 
     # Hooks ---------------------------------------------------------------
     def prepare_run(self, options: StageExecutionOptions) -> None:  # pragma: no cover - optional hook

@@ -99,6 +99,43 @@ class StageRuntimeContext:
     attributes: dict[str, Any] = field(default_factory=dict)
 
 
+class DataBucket:
+    """Mutable storage for the current in-flight dataframe."""
+
+    def __init__(self) -> None:
+        self._frame: pd.DataFrame | None = None
+
+    def get(self) -> pd.DataFrame | None:
+        return self._frame
+
+    def set(self, frame: pd.DataFrame) -> None:
+        self._frame = frame
+
+    def require(self, *, stage: str | None = None) -> pd.DataFrame:
+        if self._frame is None:
+            msg = "Stage requires a DataFrame from a previous step"
+            if stage:
+                msg = f"Stage '{stage}' requires a DataFrame from a previous step"
+            raise ValueError(msg)
+        return self._frame
+
+    def clear(self) -> None:
+        self._frame = None
+
+
+class ArtifactStore:
+    """Container for WriteArtifacts shared across stages."""
+
+    def __init__(self, artifacts: WriteArtifacts | None = None) -> None:
+        self._artifacts = artifacts or WriteArtifacts()
+
+    def get(self) -> WriteArtifacts:
+        return self._artifacts
+
+    def set(self, artifacts: WriteArtifacts) -> None:
+        self._artifacts = artifacts
+
+
 @runtime_checkable
 class StageProtocol(Protocol):
     """Executable stage with deterministic contract."""
@@ -211,6 +248,8 @@ class StageContextProtocol(Protocol):
     request_id: str | None
     trace_id: str | None
     pipeline: "PipelineBaseProtocol" | None
+    data_bucket: DataBucket
+    artifact_store: ArtifactStore
 
     def get_client(self, name: str) -> Any:
         ...
@@ -231,13 +270,13 @@ class StageContext(StageContextProtocol):
     trace_id: str | None = None
     pipeline: "PipelineBaseProtocol" | None = None
     clients: Mapping[str, Any] = field(default_factory=dict)
-    config: Mapping[str, Any] = field(default_factory=dict)
+    config_provider: Callable[[str], Any] | None = None
     metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    artifacts: WriteArtifacts | None = None
-    current_df: pd.DataFrame | None = None
     descriptor: Any | None = None
     output_dir: Path = field(default_factory=lambda: Path.cwd())
+    data_bucket: DataBucket = field(default_factory=DataBucket)
+    artifact_store: ArtifactStore = field(default_factory=ArtifactStore)
 
     def __post_init__(self) -> None:  # pragma: no cover - trivial
         if self.trace_id is None:
@@ -247,7 +286,10 @@ class StageContext(StageContextProtocol):
         return self.clients[name]
 
     def get_config(self, key: str) -> Any:
-        return self.config[key]
+        if self.config_provider is None:
+            msg = "Config provider is not configured"
+            raise KeyError(msg)
+        return self.config_provider(key)
 
     def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
         if self.metric_emitter:
@@ -277,6 +319,8 @@ class PipelineConfig:
 
 
 __all__ = [
+    "ArtifactStore",
+    "DataBucket",
     "MaterializationConfig",
     "PipelineConfig",
     "PipelineExtractionMode",

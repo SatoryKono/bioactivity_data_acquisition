@@ -10,6 +10,7 @@ from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.orchestration import PipelineBaseCommon
 from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
 from bioetl.core.pipeline.types import (
+    ArtifactStore,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -68,7 +69,7 @@ def _stage_context(pipeline: PipelineBaseCommon) -> StageContext:
         logger=logger,
         request_id="test",
         output_dir=Path("/tmp/out"),
-        artifacts=WriteArtifacts(),
+        artifact_store=ArtifactStore(WriteArtifacts()),
     )
 
 
@@ -121,11 +122,11 @@ class _StubStage:
     def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
         self.executed = True
         if self.name == "extract":
-            runtime_context.context.current_df = pd.DataFrame({"value": [1]})
+            runtime_context.context.data_bucket.set(pd.DataFrame({"value": [1]}))
         if self.name == "save_results":
-            artifacts = runtime_context.context.artifacts or WriteArtifacts()
+            artifacts = runtime_context.context.artifact_store.get() or WriteArtifacts()
             return StageResult(name=self.name, output=WriteResult(rows=1, artifacts=artifacts))
-        return StageResult(name=self.name, output=runtime_context.context.current_df)
+        return StageResult(name=self.name, output=runtime_context.context.data_bucket.get())
 
 
 class FactorySpyPipeline(CommandSpyPipeline):
