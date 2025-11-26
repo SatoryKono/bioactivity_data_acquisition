@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
+from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.types import StageContext, StageDescriptor, StageExecutionOptions, StageRuntimeContext
 from bioetl.pipelines.chembl.common import ChemblPipelineContract
 
@@ -93,15 +94,16 @@ def build_extract_plan(
 
     context, runtime = _build_stage_contexts(pipeline, output_dir, run_tag=run_tag, mode=mode)
     runtime.options.dry_run = False
-    
+
     descriptors = pipeline.build_stage_plan(context, runtime.options)
     context.descriptor = pipeline.build_descriptor()
-    
+
     factory = StageFactory(pipeline)  # type: ignore[arg-type]
     stages = factory.build(_filter_descriptors(descriptors, ("extract",)), context)
-    
+
     for stage in stages:
         stage.execute(runtime)
+
     return descriptors
 
 

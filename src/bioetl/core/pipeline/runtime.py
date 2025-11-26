@@ -2,11 +2,10 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import subprocess
 import time
 import uuid
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
@@ -83,17 +82,12 @@ class QCExecutorAdapter:
 class StagePlanExecutor:
     """Ответственный за исполнение плана стадий и подсчет длительностей."""
 
-    def __init__(self, qc_adapter: QCExecutorAdapter | None = None) -> None:
-        self.qc_adapter = qc_adapter or QCExecutorAdapter()
-
     def execute(
         self,
         stages: Iterable[Stage],
         context: StageContext,
         options: StageExecutionOptions,
-        *,
-        include_qc_metrics: bool,
-    ) -> tuple[dict[str, int], str | None, Path | None]:
+    ) -> tuple[dict[str, int], str | None]:
         logger = context.logger
         durations: dict[str, int] = {}
         error: str | None = None
@@ -208,6 +202,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     def __init__(
         self,
         config: Mapping[str, Any] | Any,
+        pipeline_definition: PipelineDefinition,
         *,
         run_id: str | None = None,
         validator: Any | None = None,
@@ -217,10 +212,13 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None,
         qc_plan: QCPlan | None = None,
         stage_plan_executor: StagePlanExecutor | None = None,
+        artifact_planner: ArtifactPlanner | None = None,
+        qc_service: QCService | None = None,
+        metadata_service: MetadataService | None = None,
         run_metadata_builder: RunMetadataBuilder | None = None,
-        qc_executor_adapter: QCExecutorAdapter | None = None,
     ) -> None:
         self.config = config
+        self.pipeline_definition = pipeline_definition
         self.run_id = run_id or uuid.uuid4().hex
         self.validator = validator
         self.pipeline_code = self._resolve_pipeline_code(config)
@@ -353,12 +351,12 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
     ) -> tuple[StageDescriptor, ...]:
         """Construct a deterministic stage descriptor plan for the pipeline."""
 
+        return self.stage_factory.build(context, options)
+
     def plan_run_artifacts(
         self, output_dir: Path, run_tag: str | None, mode: str | None
     ) -> tuple[Path, WriteArtifacts]:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        artifacts = WriteArtifacts(data_path=output_dir / f"{self.pipeline_code}.csv")
-        return output_dir, artifacts
+        return self.artifact_planner.plan(output_dir, self.pipeline_code, run_tag, mode)
 
     def build_run_stem(self, run_tag: str | None, mode: str | None) -> str:
         suffix = [self.pipeline_code]
@@ -384,16 +382,26 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         return output_dir / "logs"
 
     # Metadata ------------------------------------------------------------
-    def _resolve_pipeline_code(self, config: Mapping[str, Any] | Any) -> str:
+    def _resolve_pipeline_code(self, config: Mapping[str, Any] | Any, definition: PipelineDefinition) -> str:
+        pipeline_name = definition.metadata.get("name") if definition.metadata else None
+        if pipeline_name:
+            return str(pipeline_name)
         pipeline = getattr(config, "pipeline", None)
         if pipeline is not None and getattr(pipeline, "name", None):
             return str(pipeline.name)
         return self.__class__.__name__
+
+    # Status --------------------------------------------------------------
+    def stop(self) -> None:  # pragma: no cover - lifecycle hook
+        """Gracefully stop pipeline execution if supported."""
+
+    def status(self) -> Mapping[str, Any]:  # pragma: no cover - lifecycle hook
+        """Return runtime status details."""
+        return {}
 
 
 __all__ = [
     "PipelineRuntimeBase",
     "StagePlanExecutor",
     "RunMetadataBuilder",
-    "QCExecutorAdapter",
 ]

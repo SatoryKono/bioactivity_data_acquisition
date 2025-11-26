@@ -61,13 +61,24 @@ class RunResult:
         return self.metadata
 
 
-@dataclass(slots=True)
-class PipelineStageCommand:
+@dataclass(slots=True, frozen=True)
+class Stage:
     """Lightweight callable used to execute a pipeline stage."""
 
     name: str
     handler: Callable[["StageContextProtocol", "StageRuntimeContext"], Any]
     description: str | None = None
+
+    def run(self, context: "StageContext", options: StageExecutionOptions) -> Any:
+        return self.handler(context, options)
+
+    def validate(self) -> None:
+        if not self.name:
+            raise ValueError("Stage name must be provided")
+
+
+# Backwards-compatible alias
+PipelineStageCommand = Stage
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,6 +273,7 @@ __all__ = [
     "StageRuntimeContext",
     "RunArtifacts",
     "RunResult",
+    "Stage",
     "StageContext",
     "StageContextProtocol",
     "StageExecutionOptions",

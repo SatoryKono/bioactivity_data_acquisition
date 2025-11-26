@@ -34,7 +34,6 @@ def build_default_stage_plan(
 
     return base_plan
 
-
 def _normalize_metadata(
     payload: Mapping[str, Any] | StagePlanMetadata | None,
 ) -> StagePlanMetadata:

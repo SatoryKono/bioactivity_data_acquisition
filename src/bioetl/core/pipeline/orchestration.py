@@ -14,6 +14,7 @@ from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_sta
 from bioetl.core.pipeline.types import (
     PipelineConfig,
     PipelineStagesProtocol,
+    Stage,
     StageContext,
     StageDescriptor,
     StageExecutionOptions,
@@ -32,10 +33,13 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
             DeprecationWarning,
             stacklevel=2,
         )
-        super().__init__(config, run_id=run_id)
+        self.pipeline_code = config.pipeline.name
+        metadata = StagePlanMetadata(has_validator=self.validator is not None)
+        self.pipeline_definition = tuple(build_default_stage_plan(None, metadata))
+        super().__init__(config, self.pipeline_definition, run_id=run_id)
         self.output_root = Path(config.materialization.root)
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
-        self.stage_plan: tuple[object, ...] = ()
+        self.stage_plan: tuple[StageDescriptor, ...] = ()
 
     # Hook methods -----------------------------------------------------
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -52,7 +56,7 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
 
     # Factory helpers --------------------------------------------------
     def create_stage_factory(self) -> StageFactory:
-        return StageFactory(self)
+        return StageFactory(self.pipeline_definition)
 
     # Orchestration ----------------------------------------------------
     def build_stage_plan(
@@ -85,7 +89,7 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
     def build_run_metadata(
         self,
         context: StageContext,
-        stage_plan: tuple[PipelineStageCommand, ...],
+        stage_plan: tuple[Stage, ...],
         durations: dict[str, int],
         run_tag: str | None,
         mode: str | None,
