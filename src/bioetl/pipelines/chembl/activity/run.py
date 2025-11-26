@@ -330,13 +330,14 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
             runtime=runtime_context,
         )
 
-    def finalize_run(self, run_result: RunResult) -> None:
-        run_result.metadata.update(
-            {
-                "chembl_release": self._release,
-                "extract_metadata": dict(self.extract_metadata),
-            }
-        )
+    def build_pipeline_metadata(
+        self, context: StageContextProtocol | None = None
+    ) -> Mapping[str, Any]:
+        del context
+        metadata: dict[str, Any] = {}
+        metadata["extract_metadata"] = dict(self.extract_metadata)
+        metadata["chembl_release"] = self._release
+        return metadata
 
     # Extraction helpers ---------------------------------------------------
     def run_descriptor_extraction(
