@@ -4,12 +4,19 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 import pytest
+from typing import Any, Iterator, Mapping
+
 from structlog.testing import capture_logs
 
-from bioetl.clients import NextLinkPagination, PageParamPagination, PaginationStrategy, RequestException
-from bioetl.base_classes import BaseApiClient
-from bioetl.clients.common import ApiTransportProtocol, UnifiedEntityClientBase
-from bioetl.core.http import ApiClientMixin
+from bioetl.clients import RequestException
+from bioetl.core.http import (
+    ApiClientMixin,
+    NextLinkPagination,
+    PageParamPagination,
+    PaginationStrategy,
+)
+from bioetl.core.http.api_entity_client import BaseApiEntityClient
+from bioetl.core.http.interfaces import ApiTransportProtocol, BaseApiClient
 
 
 class _DummyApiClient(ApiTransportProtocol):
@@ -57,14 +64,10 @@ class _DummyPagination(PaginationStrategy):
         yield from self.payloads
 
 
-class _DummyEntityClient(UnifiedEntityClientBase):
+class _DummyEntityClient(BaseApiEntityClient):
     def __init__(self, api_client: _DummyApiClient, payloads: list[Mapping[str, Any]]) -> None:
         self._payloads = payloads
-        super().__init__(api_client, "dummy", pagination_strategy=_DummyPagination(payloads))
-
-    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
-        del strategy_name
-        return _DummyPagination(self._payloads)
+        super().__init__(api_client, _DummyPagination(payloads), entity="dummy")
 
 
 class _DummyBaseApiClient(BaseApiClient):

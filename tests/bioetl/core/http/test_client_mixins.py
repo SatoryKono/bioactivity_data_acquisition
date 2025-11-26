@@ -6,7 +6,7 @@ from structlog.testing import capture_logs
 
 from bioetl.clients import client_exceptions
 from bioetl.clients.chembl._base import BaseChemblClient, ChemblEntityClient
-from bioetl.clients.common import ApiTransportProtocol
+from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.clients.enrichers._base import _BaseEnricherClient
 from bioetl.clients.entities._base import _BaseEntityClient
 from bioetl.core.http import ApiClientMixin, ClosableMixin

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Callable
 
-from bioetl.core.http.pagination import PaginationStrategy
+from bioetl.core.http.pagination import (
+    NextLinkPagination,
+    PageParamPagination,
+    PaginationStrategy,
+)
 
 
 class PaginationRegistry:
@@ -38,14 +42,10 @@ _default_registry: PaginationRegistry | None = None
 
 
 def _build_next_link(**kwargs: Any) -> PaginationStrategy:
-    from bioetl.clients.common import NextLinkPagination
-
     return NextLinkPagination(**kwargs)
 
 
 def _build_page_param(**kwargs: Any) -> PaginationStrategy:
-    from bioetl.clients.common import PageParamPagination
-
     return PageParamPagination(**kwargs)
 
 

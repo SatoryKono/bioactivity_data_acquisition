@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """ChEMBL activity pipeline scaffold with descriptor-driven extraction."""
+
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Callable, Mapping, MutableMapping
@@ -17,22 +17,24 @@ from bioetl.core.io.artifacts import (
     WriteArtifacts,
 )
 from bioetl.core.pipeline.services import WriteService
-from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
     RunResult,
+    StageContextProtocol,
     StageExecutionOptions,
+    StageRuntimeContext,
     WriteResult,
 )
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.pipelines.chembl.common import (
     BatchPlan,
     ChemblExtractionDescriptor,
     ChemblPipelineContract,
     descriptor_from_options,
 )
-from bioetl.pipelines.chembl.stage_runner import register_pipeline
+from bioetl.application.pipelines.chembl.stage_runner import register_pipeline
 from bioetl.pipelines.chembl.activity.stages import (
     ActivityExtractor,
     ActivityTransformer,
@@ -51,7 +53,8 @@ class ActivityWriteService(WriteService):
         artifacts: WriteArtifacts,
         options: StageExecutionOptions,
         *,
-        context,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
     ) -> WriteResult:
         output_dir = (
             artifacts.data_path.parent
@@ -134,7 +137,10 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         self._descriptor = descriptor
         return descriptor
 
-    def resolve_chembl_release(self, config) -> tuple[str | None, dict]:  # type: ignore[override]
+    def resolve_chembl_release(
+        self,
+        config,
+    ) -> tuple[str | None, dict]:  # type: ignore[override]
         metadata = getattr(config, "metadata", {}) or {}
         if isinstance(metadata, Mapping) and metadata.get("chembl_release"):
             return metadata.get("chembl_release"), {"source": "config"}
@@ -271,6 +277,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         dataset_name = f"activity_{run_stem}.csv"
         artifacts = WriteArtifacts(data_path=target_dir / dataset_name)
         return target_dir, artifacts
+
 
 def _registered_pipeline_factory() -> ChemblActivityPipeline:
     materialization = MaterializationConfig(

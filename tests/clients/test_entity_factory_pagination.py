@@ -4,7 +4,7 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 from bioetl.clients import NextLinkPagination, PageParamPagination, PaginationStrategy
-from bioetl.clients.common import ApiTransportProtocol
+from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.clients.factories import default_chembl_factory
 from bioetl.config import PipelineConfig
