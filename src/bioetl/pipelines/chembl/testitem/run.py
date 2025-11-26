@@ -3,7 +3,7 @@ from __future__ import annotations
 """Запуск ChEMBL TestItem pipeline."""
 
 from pathlib import Path
-from typing import Mapping, TYPE_CHECKING
+from typing import Any, Mapping, TYPE_CHECKING
 
 import pandas as pd
 

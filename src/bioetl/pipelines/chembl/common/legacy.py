@@ -137,7 +137,11 @@ class ChemblEntityPipeline(ChemblPipelineBase):
     # ------------------------------------------------------------------
     # Обработка стадий
     # ------------------------------------------------------------------
-    def extract(self, descriptor: Any | None, options: StageExecutionOptions) -> pd.DataFrame:
+    def extract(
+        self,
+        descriptor: ChemblExtractionDescriptor | None,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         if options.dry_run and self.validation_service:
             return self.validation_service.empty_frame()
 
