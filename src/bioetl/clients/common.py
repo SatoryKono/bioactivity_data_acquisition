@@ -317,6 +317,31 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         return self.iter_ids(ids)
 
+    def iterate_records(
+        self,
+        *,
+        ids: Sequence[str] | None = None,
+        page_size: int | None = None,
+        fetcher: Callable[[Sequence[str] | None], Any] | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        def iterator() -> Iterator[dict[str, Any]]:
+            if callable(fetcher):
+                result = fetcher(ids)
+                if isinstance(result, Iterator):
+                    yield from result
+                    return
+                if result is not None:
+                    yield from self._normalize_payload(result)
+                    return
+
+            if ids:
+                yield from self.fetch_by_ids(ids)
+                return
+
+            yield from self.list(page_size=page_size or 1000)
+
+        return self._wrap_iterator(iterator)
+
     def list(
         self,
         *,

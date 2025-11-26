@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Callable
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import structlog
 
@@ -11,11 +11,11 @@ from bioetl.clients.common import (
     DEFAULT_PAGE_PARAM,
     ApiTransportProtocol,
     PaginationStrategy,
+    UnifiedEntityClientBase,
 )
-from bioetl.clients.entities._base import _BaseEntityClient
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
-from bioetl.infra import PaginationRegistry
+from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
 
 class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
@@ -46,51 +46,25 @@ class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
         )
 
 
-class ChemblEntityClient(_BaseEntityClient):
+class ChemblEntityClient(UnifiedEntityClientBase):
     def __init__(
         self,
         transport: ApiTransportProtocol,
         entity: str,
         *,
-        pagination_strategy: PaginationStrategy | None = None,
         pagination_strategy_name: str | None = None,
         pagination_registry: PaginationRegistry | None = None,
     ) -> None:
+        pagination_registry = pagination_registry or get_default_pagination_registry()
         super().__init__(
             transport,
             entity,
-            pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
             pagination_registry=pagination_registry,
         )
 
     def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
         return self.pagination_registry.create(strategy_name or "next_link")
-
-    def iterate_records(
-        self,
-        *,
-        ids: Sequence[str] | None = None,
-        page_size: int | None = None,
-        fetcher: Callable[[Sequence[str] | None], Any] | None = None,
-    ) -> Iterator[dict[str, Any]]:
-        def iterator() -> Iterator[dict[str, Any]]:
-            if callable(fetcher):
-                result = fetcher(ids)
-                if isinstance(result, Iterator):
-                    yield from result
-                    return
-                if result is not None:
-                    yield from self._normalize_payload(result)
-                    return
-
-            if ids:
-                yield from self.fetch_by_ids(ids)
-                return
-
-            yield from self.list(page_size=page_size or 1000)
-
-        return self._wrap_iterator(iterator)
 
 
 __all__ = ["BaseChemblClient", "ChemblEntityClient"]
