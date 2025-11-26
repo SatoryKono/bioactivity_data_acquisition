@@ -1,3 +1,5 @@
+"""Smoke tests for the activity_chembl pipeline."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,6 +15,8 @@ from bioetl.pipelines.chembl.common.descriptor import (
 
 
 class DummyChemblClient:
+    """Fake ChEMBL client for activity pipeline tests."""
+
     def __init__(self, releases: list[str] | None = None) -> None:
         self.releases = releases or ["test-release"]
         self.status_calls = 0
@@ -58,6 +62,8 @@ class FailingChemblClient(DummyChemblClient):
 
 
 class DummyConfig(PipelineConfig):
+    """Minimal pipeline config for activity_chembl tests."""
+
     metadata: dict
 
     def __init__(
@@ -74,6 +80,8 @@ class DummyConfig(PipelineConfig):
 
 
 def test_run_smoke(tmp_path: Path) -> None:
+    """Run the pipeline and check output artifacts."""
+
     config = DummyConfig(tmp_path / "materialization")
     client = DummyChemblClient()
     pipeline = ChemblActivityPipeline(
@@ -85,9 +93,14 @@ def test_run_smoke(tmp_path: Path) -> None:
     result = pipeline.run(tmp_path, sample=5)
 
     assert result.success
-    run_dir = next(tmp_path.glob("_*"))
-    assert (run_dir / "meta.yaml").exists()
-    assert (run_dir / "run_manifest.json").exists()
+    artifacts = result.artifacts
+    run_dir = artifacts.output_dir
+    write_artifacts = artifacts.write_artifacts
+    assert write_artifacts is not None
+    assert write_artifacts.meta_path is not None
+    assert write_artifacts.manifest_path is not None
+    assert write_artifacts.meta_path.exists()
+    assert write_artifacts.manifest_path.exists()
     quality_reports = list((run_dir / "qc").glob("*quality_report.csv"))
     assert quality_reports
     assert client.status_calls == 1
@@ -96,6 +109,8 @@ def test_run_smoke(tmp_path: Path) -> None:
 def test_descriptor_extraction_handles_batches_and_failures(
     tmp_path: Path,
 ) -> None:
+    """Ensure batched extraction tolerates failures and records metadata."""
+
     config = DummyConfig(tmp_path / "materialization")
     client = FailingChemblClient()
     pipeline = ChemblActivityPipeline(

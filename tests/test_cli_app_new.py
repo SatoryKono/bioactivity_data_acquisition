@@ -1,5 +1,8 @@
+"""CLI smoke tests for the BioETL Typer application."""
+
 from __future__ import annotations
 
+import traceback
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -8,6 +11,8 @@ from bioetl.cli.cli_app import app
 
 
 def test_list_command_reports_registered_pipelines():
+    """Ensure list command shows registered pipelines."""
+
     runner = CliRunner()
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
@@ -15,6 +20,8 @@ def test_list_command_reports_registered_pipelines():
 
 
 def test_config_inspect_merges_overrides(tmp_path: Path):
+    """Override config via --set and show merged configuration."""
+
     runner = CliRunner()
     config_path = tmp_path / "config.yaml"
     config_path.write_text("pipeline:\n  name: demo\n", encoding="utf-8")
@@ -37,6 +44,8 @@ def test_config_inspect_merges_overrides(tmp_path: Path):
 
 
 def test_activity_chembl_dry_run(tmp_path: Path):
+    """Run activity_chembl in dry-run mode via CLI."""
+
     runner = CliRunner()
     output_dir = tmp_path / "out"
     config_path = tmp_path / "chembl.yaml"
@@ -72,7 +81,6 @@ sources:
         print(f"OUTPUT: {result.output}")
         print(f"EXCEPTION: {result.exception}")
         if result.exc_info:
-            import traceback
             traceback.print_exception(*result.exc_info)
 
     assert result.exit_code == 0

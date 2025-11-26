@@ -169,11 +169,12 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
                 "fail_on_schema_drift",
                 options.fail_on_schema_drift,
             )
-            if isinstance(self.config, MutableMapping):
-                self.config["metadata"] = metadata
-            elif hasattr(self.config, "metadata"):
+            cfg = self.config
+            if isinstance(cfg, MutableMapping):
+                cfg["metadata"] = metadata
+            elif hasattr(cfg, "metadata"):
                 try:
-                    self.config.metadata = metadata  # type: ignore[attr-defined]
+                    cfg.metadata = metadata  # type: ignore[attr-defined]
                 except (TypeError, ValueError):
                     pass  # Config is frozen/immutable
 
