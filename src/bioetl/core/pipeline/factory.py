@@ -34,25 +34,19 @@ class StageFactory:
     ) -> tuple[StageCommand, ...]:
         """Build a stage plan from descriptors."""
 
+        descriptors = tuple(descriptors)
         descriptor_map = {descriptor.id: descriptor for descriptor in descriptors}
         selected: list[StageDescriptor]
         if stages is None:
-            selected = list(descriptor_map.values())
+            selected = list(descriptors)
         else:
             selected = []
             for stage in stages:
                 descriptor = descriptor_map.get(stage)
                 if descriptor is None:
-                    if options.dry_run and stage == "save_results":
-                        continue
                     msg = f"Unknown stage '{stage}'"
                     raise ValueError(msg)
                 selected.append(descriptor)
-
-        if options.dry_run:
-            selected = [descriptor for descriptor in selected if descriptor.id != "save_results"]
-            if getattr(self.pipeline, "validator", None) is None:
-                selected = [descriptor for descriptor in selected if descriptor.id == "extract"]
 
         context.pipeline = self.pipeline
         return tuple(self._build_stage(descriptor) for descriptor in selected)

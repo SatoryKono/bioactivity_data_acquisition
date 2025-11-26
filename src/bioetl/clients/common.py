@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import lru_cache
-from typing import Any, Protocol, Sequence as TypingSequence, TypeVar
+from typing import Any, Protocol, Sequence as TypingSequence, TypeVar, runtime_checkable
 import warnings
 
 import structlog
