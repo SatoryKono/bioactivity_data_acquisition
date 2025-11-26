@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import uuid
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, cast
+from typing import Any, Callable, Iterable, Mapping, Protocol, cast
 
 import pandas as pd
 
@@ -54,9 +55,88 @@ from bioetl.core.runtime import (
     OrchestrationCoordinator,
     QCCoordinator,
 )
-from bioetl.core.runtime.qc import default_qc_runtime_service_factory
+from bioetl.core.runtime.metadata import MetadataRuntimeBuilderProtocol
+from bioetl.core.runtime.qc import (
+    QCRuntimeBuilderProtocol,
+    default_qc_runtime_service_factory,
+)
 from bioetl.qc.executor import QCMetricsExecutor
 from bioetl.qc.plan import QCPlan
+
+
+class ArtifactRuntimeBuilderProtocol(Protocol):
+    """Интерфейс построителя сервисов артефактов."""
+
+    def build(self, pipeline: "PipelineRuntimeBase") -> ArtifactRuntimeService:
+        ...
+
+
+@dataclass(slots=True)
+class ArtifactRuntimeBuilder(ArtifactRuntimeBuilderProtocol):
+    """Билдер для сервисов работы с артефактами."""
+
+    artifact_planner: ArtifactPlanner | None = None
+    factory: Callable[["PipelineRuntimeBase"], ArtifactRuntimeService] | None = None
+
+    def build(self, pipeline: "PipelineRuntimeBase") -> ArtifactRuntimeService:
+        factory = self.factory or default_artifact_runtime_service_factory(
+            artifact_planner=self.artifact_planner
+        )
+        return factory(pipeline)
+
+
+@dataclass(slots=True)
+class QCRuntimeBuilder(QCRuntimeBuilderProtocol):
+    """Билдер для сервисов QC."""
+
+    qc_runtime_service_factory: Callable[[QCCoordinator], Any] | None = None
+    qc_service_factory: Callable[[QCCoordinator], QCService] | None = None
+    qc_service: QCService | None = None
+    qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None
+    qc_plan: QCPlan | None = None
+    qc_thresholds: Mapping[str, float] | None = None
+    qc_dry_run: bool | None = None
+    qc_enabled: bool | None = None
+
+    def build(self, coordinator: QCCoordinator) -> Any:
+        factory = self.qc_runtime_service_factory or default_qc_runtime_service_factory(
+            qc_service_factory=self.qc_service_factory,
+            qc_service=self.qc_service,
+            qc_executor_factory=self.qc_executor_factory,
+            qc_plan=self.qc_plan,
+            qc_thresholds=dict(self.qc_thresholds) if self.qc_thresholds else None,
+            qc_dry_run=self.qc_dry_run,
+            qc_enabled=self.qc_enabled,
+        )
+        return factory(coordinator)
+
+
+@dataclass(slots=True)
+class MetadataRuntimeBuilder(MetadataRuntimeBuilderProtocol):
+    """Билдер для сервисов метаданных."""
+
+    config: Mapping[str, Any] | Any | None = None
+    pipeline_code: str | None = None
+    metadata_service: MetadataService | None = None
+    metadata_service_factory: Callable[[MetadataCoordinator], MetadataService] | None = None
+    metadata_runtime_service_factory: (
+        Callable[[MetadataCoordinator], MetadataRuntimeService] | None
+    ) = None
+    run_metadata_builder: RunMetadataBuilder | None = None
+    logs_directory_resolver: Callable[[Path], Path] | None = None
+
+    def build(self, coordinator: MetadataCoordinator) -> MetadataRuntimeService:
+        factory = self.metadata_runtime_service_factory or (
+            default_metadata_runtime_service_factory(
+                config=self.config,
+                pipeline_code=self.pipeline_code,
+                metadata_service=self.metadata_service,
+                metadata_service_factory=self.metadata_service_factory,
+                run_metadata_builder=self.run_metadata_builder,
+                logs_directory_resolver=self.logs_directory_resolver,
+            )
+        )
+        return factory(coordinator)
 
 
 class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
@@ -108,6 +188,9 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             [QCCoordinator], Any
         ]
         | None = None,
+        artifact_runtime_builder: ArtifactRuntimeBuilderProtocol | None = None,
+        qc_runtime_builder: QCRuntimeBuilderProtocol | None = None,
+        metadata_runtime_builder: MetadataRuntimeBuilderProtocol | None = None,
         artifact_runtime_service: ArtifactRuntimeService | None = None,
         artifact_runtime_service_factory: Callable[
             ["PipelineRuntimeBase"], ArtifactRuntimeService
@@ -138,61 +221,56 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         )
         self.dry_run = False
 
-        artifact_runtime_factory = (
-            artifact_runtime_service_factory
-            or default_artifact_runtime_service_factory(
-                artifact_planner=artifact_planner
-            )
+        resolved_artifact_builder = artifact_runtime_builder or ArtifactRuntimeBuilder(
+            artifact_planner=artifact_planner,
+            factory=artifact_runtime_service_factory,
         )
         self.artifact_runtime_service = (
-            artifact_runtime_service or artifact_runtime_factory(self)
+            artifact_runtime_service
+            if artifact_runtime_service is not None
+            else resolved_artifact_builder.build(self)
         )
         self.artifact_planner = self.artifact_runtime_service.artifact_planner
         self.artifact_service = self.artifact_runtime_service.artifact_service
 
-        qc_runtime_factory = (
-            qc_runtime_service_factory
-            or default_qc_runtime_service_factory(
-                qc_service_factory=qc_service_factory,
-                qc_service=qc_service,
-                qc_executor_factory=qc_executor_factory,
-                qc_plan=qc_plan,
-                qc_thresholds=dict(qc_thresholds) if qc_thresholds else None,
-                qc_dry_run=qc_dry_run,
-                qc_enabled=qc_enabled,
-            )
-        )
         if qc_runtime_service is not None:
             self.qc_coordinator = QCCoordinator(
                 qc_runtime_service=qc_runtime_service,
                 stage_plan_executor=stage_plan_executor,
             )
         else:
-            self.qc_coordinator = QCCoordinator.from_factory(
-                qc_runtime_service_factory=qc_runtime_factory,
+            resolved_qc_builder = qc_runtime_builder or QCRuntimeBuilder(
+                qc_runtime_service_factory=qc_runtime_service_factory,
+                qc_service_factory=qc_service_factory,
+                qc_service=qc_service,
+                qc_executor_factory=qc_executor_factory,
+                qc_plan=qc_plan,
+                qc_thresholds=qc_thresholds,
+                qc_dry_run=qc_dry_run,
+                qc_enabled=qc_enabled,
+            )
+            self.qc_coordinator = QCCoordinator.from_builder(
+                builder=resolved_qc_builder,
                 stage_plan_executor=stage_plan_executor,
             )
         self.qc_runtime_service = self.qc_coordinator.qc_runtime_service
-
-        metadata_runtime_factory = (
-            metadata_runtime_service_factory
-            or default_metadata_runtime_service_factory(
-                config=config,
-                pipeline_code=self.pipeline_code,
-                metadata_service=metadata_service,
-                metadata_service_factory=metadata_service_factory,
-                run_metadata_builder=run_metadata_builder,
-                logs_directory_resolver=self.resolve_logs_directory,
-            )
-        )
         if metadata_runtime_service is not None:
             self.metadata_coordinator = MetadataCoordinator(
                 metadata_runtime_service=metadata_runtime_service,
                 logs_directory_resolver=self.resolve_logs_directory,
             )
         else:
-            self.metadata_coordinator = MetadataCoordinator.from_factory(
-                metadata_runtime_service_factory=metadata_runtime_factory,
+            resolved_metadata_builder = metadata_runtime_builder or MetadataRuntimeBuilder(
+                config=config,
+                pipeline_code=self.pipeline_code,
+                metadata_service=metadata_service,
+                metadata_service_factory=metadata_service_factory,
+                metadata_runtime_service_factory=metadata_runtime_service_factory,
+                run_metadata_builder=run_metadata_builder,
+                logs_directory_resolver=self.resolve_logs_directory,
+            )
+            self.metadata_coordinator = MetadataCoordinator.from_builder(
+                builder=resolved_metadata_builder,
                 logs_directory_resolver=self.resolve_logs_directory,
             )
         self.metadata_runtime_service = (
@@ -611,5 +689,8 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 
 __all__ = [
     "PipelineRuntimeBase",
+    "ArtifactRuntimeBuilder",
+    "QCRuntimeBuilder",
+    "MetadataRuntimeBuilder",
     "StagePlanExecutor",
 ]
