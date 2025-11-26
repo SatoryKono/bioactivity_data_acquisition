@@ -94,12 +94,11 @@ class ChemblBatchExecutor:
         effective_size = self._sanitize_batch_size(self.batch_size)
         sanitized_ids = list(ids) if ids else []
 
-        batches = [
-            sanitized_ids[i : i + effective_size]
-            for i in range(0, len(sanitized_ids), effective_size)
-        ]
+        batches: list[Sequence[str] | None] = []
+        for i in range(0, len(sanitized_ids), effective_size):
+            batches.append(sanitized_ids[i:i + effective_size])
         if not batches:
-            batches = [None]
+            batches.append(None)
         return batches
 
     @staticmethod

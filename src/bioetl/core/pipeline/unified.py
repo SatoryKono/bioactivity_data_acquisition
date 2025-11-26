@@ -126,10 +126,17 @@ class PipelineBase(PipelineRuntimeBase):
         return self.pipeline_code
 
     # Hooks ---------------------------------------------------------------
-    def prepare_run(self, options: StageExecutionOptions) -> None:  # pragma: no cover - optional hook
+    # pragma: no cover - optional hook
+    def prepare_run(
+        self,
+        options: StageExecutionOptions,
+    ) -> None:
         """Вызывается перед началом extract."""
 
-    def finalize_run(self, run_result: RunResult) -> None:  # pragma: no cover
+    def finalize_run(  # pragma: no cover
+        self,
+        run_result: RunResult,
+    ) -> None:
         """Вызывается после завершения write."""
 
 
@@ -182,11 +189,13 @@ class ChemblPipelineBase(UnifiedPipelineBase):
     ) -> None:
         super().__init__(config, run_id=run_id)
         if extraction_service is None:
-            from bioetl.pipelines.chembl.common.chembl_extraction_service import (
-                ChemblExtractionService,
+            from bioetl.pipelines.chembl.common import (
+                chembl_extraction_service,
             )
 
-            extraction_service = ChemblExtractionService()
+            extraction_service = (
+                chembl_extraction_service.ChemblExtractionService()
+            )
         self.extraction_service = extraction_service
 
     @property
@@ -215,4 +224,3 @@ class ChemblPipelineBase(UnifiedPipelineBase):
             fetch_mode=fetch_mode,
             **batch_kwargs,
         )
-

@@ -8,8 +8,14 @@ from typing import Any, Callable, Mapping, MutableMapping
 import pandas as pd
 
 from bioetl.clients.entities.client_activity import ChemblActivityClient
-from bioetl.clients.factories.default_chembl_factory import default_activity_client_factory
-from bioetl.core.io.artifacts import SchemaRegistry, SchemaRegistryEntry, WriteArtifacts
+from bioetl.clients.factories.default_chembl_factory import (
+    default_activity_client_factory,
+)
+from bioetl.core.io.artifacts import (
+    SchemaRegistry,
+    SchemaRegistryEntry,
+    WriteArtifacts,
+)
 from bioetl.core.pipeline.services import WriteService
 from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.types import (
@@ -27,7 +33,11 @@ from bioetl.pipelines.chembl.common import (
     descriptor_from_options,
 )
 from bioetl.pipelines.chembl.stage_runner import register_pipeline
-from bioetl.pipelines.chembl.activity.stages import ActivityExtractor, ActivityTransformer, ActivityWriter
+from bioetl.pipelines.chembl.activity.stages import (
+    ActivityExtractor,
+    ActivityTransformer,
+    ActivityWriter,
+)
 from bioetl.schemas.activity_schema import ActivityColumns, ActivitySchema
 
 
@@ -43,11 +53,25 @@ class ActivityWriteService(WriteService):
         *,
         context,
     ) -> WriteResult:
-        output_dir = artifacts.data_path.parent if artifacts.data_path else context.output_dir
-        run_stem = (
-            output_dir.name if artifacts.data_path else context.pipeline.build_run_stem(options.run_tag, options.mode)
+        output_dir = (
+            artifacts.data_path.parent
+            if artifacts.data_path
+            else context.output_dir
         )
-        return self.writer.write(df, artifacts, run_stem=run_stem, output_dir=output_dir)
+        run_stem = (
+            output_dir.name
+            if artifacts.data_path
+            else context.pipeline.build_run_stem(
+                options.run_tag,
+                options.mode,
+            )
+        )
+        return self.writer.write(
+            df,
+            artifacts,
+            run_stem=run_stem,
+            output_dir=output_dir,
+        )
 
 
 class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
@@ -84,13 +108,22 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
     # Descriptor lifecycle -------------------------------------------------
     def build_descriptor(self) -> ChemblExtractionDescriptor:
         metadata = getattr(self.config, "metadata", {}) or {}
-        ids = metadata.get("ids") if isinstance(metadata, Mapping) else None
-        pagination = metadata.get("pagination") if isinstance(metadata, Mapping) else None
+        if isinstance(metadata, Mapping):
+            ids = metadata.get("ids")
+            pagination = metadata.get("pagination")
+            batch_size = metadata.get("batch_size")
+            chunk_size = metadata.get("chunk_size")
+            release = metadata.get("chembl_release")
+        else:
+            ids = None
+            pagination = None
+            batch_size = None
+            chunk_size = None
+            release = None
         batch_plan = BatchPlan(
-            batch_size=(metadata.get("batch_size") if isinstance(metadata, Mapping) else None),
-            chunk_size=(metadata.get("chunk_size") if isinstance(metadata, Mapping) else None),
+            batch_size=batch_size,
+            chunk_size=chunk_size,
         )
-        release = metadata.get("chembl_release") if isinstance(metadata, Mapping) else None
         descriptor = descriptor_from_options(
             ids=ids,
             pagination=pagination if isinstance(pagination, dict) else None,
@@ -113,10 +146,17 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
     def prepare_run(self, options: StageExecutionOptions) -> None:
         self._descriptor = self._descriptor or self.build_descriptor()
         determinism = {"sort": {"by": list(ActivityColumns)}}
-        metadata = getattr(self.config, "metadata", {}) if hasattr(self.config, "metadata") else {}
+        metadata = (
+            getattr(self.config, "metadata", {})
+            if hasattr(self.config, "metadata")
+            else {}
+        )
         if isinstance(metadata, dict):
             metadata.setdefault("determinism", determinism)
-            metadata.setdefault("fail_on_schema_drift", options.fail_on_schema_drift)
+            metadata.setdefault(
+                "fail_on_schema_drift",
+                options.fail_on_schema_drift,
+            )
             self.config.metadata = metadata  # type: ignore[attr-defined]
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -126,38 +166,78 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         return df
 
     # Stage implementations -----------------------------------------------
-    def extract(self, descriptor: Any, options: StageExecutionOptions) -> pd.DataFrame:
+    def extract(
+        self,
+        descriptor: Any,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         descriptor = self._descriptor or self.build_descriptor()
         df, meta = self.run_descriptor_extraction(descriptor)
         self.extract_metadata.update(meta)
         return df
 
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def transform(
+        self,
+        df: pd.DataFrame,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         parsed = self.pre_transform(df)
         self.transformer.release = self._release
         return self.transformer.transform(parsed)
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def validate(
+        self,
+        df: pd.DataFrame,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         return df
 
     def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
     ) -> WriteResult:
-        output_dir = artifacts.data_path.parent if artifacts.data_path else self.output_root
-        run_stem = output_dir.name if artifacts.data_path else self.build_run_stem(options.run_tag, options.mode)
-        return self.writer.write(df, artifacts, run_stem=run_stem, output_dir=output_dir)
+        output_dir = (
+            artifacts.data_path.parent
+            if artifacts.data_path
+            else self.output_root
+        )
+        run_stem = (
+            output_dir.name
+            if artifacts.data_path
+            else self.build_run_stem(
+                options.run_tag,
+                options.mode,
+            )
+        )
+        return self.writer.write(
+            df,
+            artifacts,
+            run_stem=run_stem,
+            output_dir=output_dir,
+        )
 
     def finalize_run(self, run_result: RunResult) -> None:
-        run_result.metadata.update({
-            "chembl_release": self._release,
-            "extract_metadata": dict(self.extract_metadata),
-        })
+        run_result.metadata.update(
+            {
+                "chembl_release": self._release,
+                "extract_metadata": dict(self.extract_metadata),
+            }
+        )
 
     # Extraction helpers ---------------------------------------------------
     def run_descriptor_extraction(
-        self, descriptor: ChemblExtractionDescriptor, *, batch_size: int | None = None
+        self,
+        descriptor: ChemblExtractionDescriptor,
+        *,
+        batch_size: int | None = None,
     ) -> tuple[pd.DataFrame, dict]:
-        df, meta = self.extractor.extract(self.config, descriptor, batch_size=batch_size)
+        df, meta = self.extractor.extract(
+            self.config,
+            descriptor,
+            batch_size=batch_size,
+        )
         self._release = self.extractor.release or self._release
         return df, meta
 
@@ -179,7 +259,12 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         return registry
 
     # Deterministic outputs -----------------------------------------------
-    def plan_run_artifacts(self, output_dir: Path, run_tag: str | None, mode: str | None):
+    def plan_run_artifacts(
+        self,
+        output_dir: Path,
+        run_tag: str | None,
+        mode: str | None,
+    ):
         run_stem = self.build_run_stem(run_tag, mode)
         target_dir = output_dir / run_stem
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -187,11 +272,14 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         artifacts = WriteArtifacts(data_path=target_dir / dataset_name)
         return target_dir, artifacts
 
-
-
 def _registered_pipeline_factory() -> ChemblActivityPipeline:
-    materialization = MaterializationConfig(root=Path("/tmp/chembl_activity"))
-    config = PipelineConfig(pipeline=PipelineInfo(name="activity_chembl"), materialization=materialization)
+    materialization = MaterializationConfig(
+        root=Path("/tmp/chembl_activity"),
+    )
+    config = PipelineConfig(
+        pipeline=PipelineInfo(name="activity_chembl"),
+        materialization=materialization,
+    )
     return ChemblActivityPipeline(config, run_id="dev")
 
 

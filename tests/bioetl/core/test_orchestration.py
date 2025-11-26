@@ -30,24 +30,39 @@ class DummyPipeline(PipelineBaseCommon):
         self.calls.append("prepare_run")
 
     def extract(
-        self, descriptor: object, 
-        options: StageExecutionOptions) -> pd.DataFrame:
+        self,
+        descriptor: object,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         self.calls.append("extract")
         return pd.DataFrame({"value": [1, 2, 3]})
 
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def transform(
+        self,
+        df: pd.DataFrame,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         self.calls.append("transform")
         return df.assign(value=df["value"] * 2)
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def validate(
+        self,
+        df: pd.DataFrame,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         self.calls.append("validate")
         return df
 
     def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
     ) -> WriteResult:
         self.calls.append("save_results")
-        artifacts.data_path = artifacts.data_path or self.output_root / "result.csv"
+        artifacts.data_path = (
+            artifacts.data_path or self.output_root / "result.csv"
+        )
         artifacts.data_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(artifacts.data_path, index=False)
         return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)
@@ -66,7 +81,10 @@ def pipeline(tmp_path: Path) -> DummyPipeline:
     return DummyPipeline(config, run_id="test-run")
 
 
-def test_pipeline_run_executes_stages(pipeline: DummyPipeline, tmp_path: Path) -> None:
+def test_pipeline_run_executes_stages(
+    pipeline: DummyPipeline,
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "output"
     result = pipeline.run(output_dir, run_tag="nightly", mode="full")
 
@@ -83,10 +101,18 @@ def test_pipeline_run_executes_stages(pipeline: DummyPipeline, tmp_path: Path) -
     assert result.artifacts.write_artifacts is not None
     assert result.artifacts.write_artifacts.data_path is not None
     assert result.artifacts.write_artifacts.data_path.exists()
-    assert result.metadata["stage_plan"] == ["extract", "transform", "validate", "save_results"]
+    assert result.metadata["stage_plan"] == [
+        "extract",
+        "transform",
+        "validate",
+        "save_results",
+    ]
 
 
-def test_dry_run_skips_writing(pipeline: DummyPipeline, tmp_path: Path) -> None:
+def test_dry_run_skips_writing(
+    pipeline: DummyPipeline,
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "output"
     result = pipeline.run(output_dir, dry_run=True)
 
@@ -102,7 +128,10 @@ def test_pipeline_adheres_to_base_protocol(pipeline: DummyPipeline) -> None:
     assert isinstance(pipeline, PipelineBaseProtocol)
 
 
-def test_pipeline_sample_option_limits_rows(pipeline: DummyPipeline, tmp_path: Path) -> None:
+def test_pipeline_sample_option_limits_rows(
+    pipeline: DummyPipeline,
+    tmp_path: Path,
+) -> None:
     output_dir = tmp_path / "output"
     result = pipeline.run(output_dir, sample=1)
 

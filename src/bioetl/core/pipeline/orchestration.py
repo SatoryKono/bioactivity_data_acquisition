@@ -51,7 +51,9 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         )
         super().__init__(config, self.pipeline_definition, run_id=run_id)
         self.output_root = Path(config.materialization.root)
-        self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
+        self.logs_directory = (
+            self.output_root.parent / "logs" / self.pipeline_code
+        )
 
     # Hook methods -----------------------------------------------------
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -98,7 +100,9 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         run_stem = self.build_run_stem(run_tag, mode)
         target_dir = output_dir / run_stem
         target_dir.mkdir(parents=True, exist_ok=True)
-        artifacts = WriteArtifacts(data_path=target_dir / f"{self.pipeline_code}.csv")
+        artifacts = WriteArtifacts(
+            data_path=target_dir / f"{self.pipeline_code}.csv",
+        )
         return target_dir, artifacts
 
     # Metadata helpers --------------------------------------------------
@@ -109,6 +113,9 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
+        *,
+        rows: int = 0,
+        qc_metrics_path: Path | None = None,
     ) -> dict[str, Any]:
         metadata = super().build_run_metadata(
             context,
@@ -116,6 +123,8 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
             durations,
             run_tag,
             mode,
+            rows=rows,
+            qc_metrics_path=qc_metrics_path,
         )
         metadata.update({
             "started_at": datetime.now(timezone.utc).isoformat(),
