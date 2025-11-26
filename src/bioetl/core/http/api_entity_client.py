@@ -1,23 +1,22 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import Any, Protocol
-import warnings
+from typing import TYPE_CHECKING, Any, Protocol
 
 import structlog
 
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
-from bioetl.core.http.entity_helpers import (
+from bioetl.core.http.interfaces import ApiTransportProtocol
+from bioetl.core.http.pagination import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    fetch_all_entities,
-    iterate_entity_records,
-    list_entities,
+    PaginationStrategy,
 )
-from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.http.types import Normalizer
+
+if TYPE_CHECKING:
+    from bioetl.clients.utils import pagination as pagination_utils
 
 
 class EntityClientProtocol(Protocol):
@@ -62,29 +61,23 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         suffix = str(suffix).lstrip("/")
         return f"/{self.entity}/{suffix}"
 
-    def _build_normalizer(self, page_key: str) -> Normalizer:
-        def normalize(payload: Any) -> Iterator[dict[str, Any]]:
-            yield from self._normalize_payload(payload, page_key=page_key)
-
-        return normalize
-
     def iter_ids(
         self,
         ids: Sequence[str],
         path_template: str = "/{entity}/{id}",
     ) -> Iterator[dict[str, Any]]:
-        def iterator() -> Iterator[dict[str, Any]]:
-            for raw_id in ids:
-                entity_id = str(raw_id)
-                path = path_template.format(entity=self.entity, id=entity_id)
-                payload = self._wrap_callable(
-                    lambda: self._transport().request("GET", path),
-                    log_context={"path": path},
-                )
-                self._logger.info("api_call", entity=self.entity, entity_id=entity_id)
-                yield from self._normalize_payload(payload)
+        from bioetl.clients.utils import pagination as pagination_utils
 
-        return self._wrap_iterator(iterator)
+        return pagination_utils.iter_ids(
+            ids=ids,
+            entity=self.entity,
+            transport=self._transport(),
+            normalize=self._normalize_payload,
+            wrap_callable=self._wrap_callable,
+            wrap_iterator=self._wrap_iterator,
+            logger=self._logger,
+            path_template=path_template,
+        )
 
     def get(self, entity_id: str, *, params: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         return self._wrap_callable(
@@ -102,7 +95,9 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         page_size: int | None = None,
         fetcher: Callable[[Sequence[str] | None], Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
-        return iterate_entity_records(
+        from bioetl.clients.utils import pagination as pagination_utils
+
+        return pagination_utils.iterate_records(
             ids=ids,
             page_size=page_size,
             fetcher=fetcher,
@@ -121,15 +116,16 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
-        normalize_with_page = self._build_normalizer(page_key)
-        return list_entities(
+        from bioetl.clients.utils import pagination as pagination_utils
+
+        return pagination_utils.list_entities(
             transport=self._transport(),
             entity_path=self._entity_path(),
             pagination_strategy=self.pagination_strategy,
             wrap_callable=self._wrap_callable,
             wrap_iterator=self._wrap_iterator,
-            normalize_payload=normalize_with_page,
-            normalize_page=self._normalize_payload,
+            normalize_payload=lambda payload: self._normalize_payload(payload, page_key=page_key),
+            normalize_page=lambda page: self._normalize_payload(page, page_key=page_key),
             logger=self._logger,
             page_size=page_size,
             params=params,
@@ -147,12 +143,9 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
-        warnings.warn(
-            "fetch_all is deprecated; use list instead to enumerate entities.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return fetch_all_entities(
+        from bioetl.clients.utils import pagination as pagination_utils
+
+        return pagination_utils.warn_fetch_all(
             list_entities_fn=lambda: self.list(
                 page_size=page_size,
                 params=params,
