@@ -277,6 +277,8 @@ class StageContext(StageContextProtocol):
     output_dir: Path = field(default_factory=lambda: Path.cwd())
     data_bucket: DataBucket = field(default_factory=DataBucket)
     artifact_store: ArtifactStore = field(default_factory=ArtifactStore)
+    metadata_service: Any | None = None
+    qc_orchestrator: Any | None = None
 
     def __post_init__(self) -> None:  # pragma: no cover - trivial
         if self.trace_id is None:
