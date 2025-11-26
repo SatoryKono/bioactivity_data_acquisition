@@ -31,6 +31,17 @@ class BaseApiClient(Protocol):
     predictable.
     """
 
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, Any] | None = None,
+        json: Any | None = None,
+    ) -> JSONPayload:
+        """Perform a low-level HTTP request and return parsed JSON payload."""
+
     def get_json(
         self,
         endpoint: str,

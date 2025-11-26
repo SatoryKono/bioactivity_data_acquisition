@@ -1,25 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    from bioetl.clients.common import ApiTransportProtocol
-else:  # pragma: no cover - runtime-only Protocol fallback
-    class ApiTransportProtocol(Protocol):
-        def request(
-            self,
-            method: str,
-            path: str,
-            *,
-            headers: Mapping[str, str] | None = None,
-            params: Mapping[str, Any] | None = None,
-            json: Any | None = None,
-        ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
-            ...
-
-        def close(self) -> None:
-            ...
+from bioetl.base_classes import BaseApiClient
 
 ResponsePayload = Mapping[str, Any] | Sequence[Mapping[str, Any]]
 
@@ -31,7 +15,7 @@ class PaginationStrategy(Protocol):
     def iter_pages(
         self,
         initial_response: ResponsePayload,
-        transport: ApiTransportProtocol,
+        transport: BaseApiClient,
         *,
         endpoint: str,
         params: Mapping[str, Any] | None = None,
@@ -50,7 +34,7 @@ class DefaultPaginationStrategy(PaginationStrategy):
     def iter_pages(
         self,
         initial_response: ResponsePayload,
-        transport: ApiTransportProtocol,
+        transport: BaseApiClient,
         *,
         endpoint: str,
         params: Mapping[str, Any] | None = None,

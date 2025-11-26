@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from bioetl.clients.common import ApiTransportProtocol, PageParamPagination, PaginationStrategy, UnifiedEntityClientBase
-from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
+from bioetl.base_classes import BaseApiClient
+from bioetl.clients.common import PageParamPagination, PaginationStrategy, UnifiedEntityClientBase
 
 
 class _BaseEntityClient(UnifiedEntityClientBase):
     def __init__(
         self,
-        transport: ApiTransportProtocol,
+        transport: BaseApiClient,
         entity: str,
         *,
         pagination_strategy: PaginationStrategy | None = None,

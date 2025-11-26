@@ -10,8 +10,8 @@ from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
 class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
-    def __init__(self, api_client: BaseApiClient, source: str) -> None:
-        self.api_client = api_client
+    def __init__(self, transport: BaseApiClient, source: str) -> None:
+        self.transport = transport
         self._logger = structlog.get_logger(__name__).bind(source=source)
 
     def _get(
@@ -19,7 +19,7 @@ class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
     ) -> JSONRecordStream:
         def iterator() -> Iterator[dict[str, Any]]:
             payload = self._wrap_callable(
-                lambda: self.api_client.get_json(path, params=params), log_context={"path": path}
+                lambda: self.transport.get_json(path, params=params), log_context={"path": path}
             )
             self._logger.info("api_call", path=path)
 

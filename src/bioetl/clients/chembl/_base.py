@@ -5,24 +5,24 @@ from typing import Any
 
 import structlog
 
+from bioetl.base_classes import BaseApiClient
 from bioetl.clients.common import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    ApiClientMixin,
-    ApiTransportProtocol,
     ClosableMixin,
     NextLinkPagination,
     PaginationStrategy,
 )
 from bioetl.clients.entities._base import _BaseEntityClient
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
+from bioetl.core.http.client_mixins import ApiClientMixin
 
 
-class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
+class BaseChemblClient(ApiClientMixin, ClosableMixin, BaseApiClient):
     """Транспортный клиент ChEMBL без привязки к конкретной сущности."""
 
-    def __init__(self, transport: ApiTransportProtocol) -> None:
+    def __init__(self, transport: BaseApiClient) -> None:
         self.transport = transport
         self._logger = structlog.get_logger(__name__).bind(client="chembl_transport")
 
@@ -46,11 +46,42 @@ class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
             log_context={"path": path, "method": method},
         )
 
+    def get_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
+        return self._wrap_callable(
+            lambda: self.transport.get_json(endpoint, params=params, headers=headers),
+            log_context={"path": endpoint, "method": "GET"},
+        )
+
+    def paginate_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+    ) -> Iterator[Mapping[str, Any]]:
+        del headers
+        yield from self.transport.paginate_json(
+            endpoint,
+            params=params,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+        )
+
 
 class ChemblEntityClient(_BaseEntityClient):
     def __init__(
         self,
-        transport: ApiTransportProtocol,
+        transport: BaseApiClient,
         entity: str,
         *,
         pagination_strategy: PaginationStrategy | None = None,

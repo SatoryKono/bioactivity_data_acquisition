@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from bioetl.base_classes import BaseApiClient
 from bioetl.clients.chembl._base import ChemblEntityClient
-from bioetl.clients.common import ApiTransportProtocol
 
 
 class ChemblTestItemClient(ChemblEntityClient):
-    def __init__(self, transport: ApiTransportProtocol) -> None:
+    def __init__(self, transport: BaseApiClient) -> None:
         super().__init__(transport, "testitem")
 
 

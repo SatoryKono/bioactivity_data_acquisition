@@ -4,22 +4,22 @@ import pytest
 import structlog
 from structlog.testing import capture_logs
 
+from bioetl.base_classes import BaseApiClient
 from bioetl.clients import client_exceptions
 from bioetl.clients.chembl._base import ChemblEntityClient
-from bioetl.clients.common import ApiTransportProtocol
 from bioetl.clients.entities._base import _BaseEntityClient
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
 class _DummyApiClient(ApiClientMixin, ClosableMixin):
     def __init__(self) -> None:
-        self.transport = MagicMock(spec=ApiTransportProtocol)
+        self.transport = MagicMock(spec=BaseApiClient)
         self.entity = "dummy"
         self._logger = MagicMock()
 
 
 def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
-    transport = MagicMock(spec=ApiTransportProtocol)
+    transport = MagicMock(spec=BaseApiClient)
     transport.request.side_effect = [
         {"id": "10", "value": 1},
         [
@@ -49,7 +49,7 @@ def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
 
 
 def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
-    transport = MagicMock(spec=ApiTransportProtocol)
+    transport = MagicMock(spec=BaseApiClient)
     transport.request.side_effect = [
         {"chembl_id": "CHEMBL1"},
         {"chembl_id": "CHEMBL2"},
@@ -75,7 +75,7 @@ def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
 
 
 def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
-    transport = MagicMock(spec=ApiTransportProtocol)
+    transport = MagicMock(spec=BaseApiClient)
     transport.request.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
     pagination.iter_pages.return_value = iter([{"items": [{"id": 1}, {"id": 2}]}])
@@ -109,7 +109,7 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
 
 
 def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
-    transport = MagicMock(spec=ApiTransportProtocol)
+    transport = MagicMock(spec=BaseApiClient)
     transport.request.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
     pagination.iter_pages.return_value = iter([{"items": [{"id": 1}]}])
@@ -143,7 +143,7 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
 
 
 def test_entity_client_fetch_all_wraps_errors() -> None:
-    transport = MagicMock(spec=ApiTransportProtocol)
+    transport = MagicMock(spec=BaseApiClient)
     pagination = MagicMock()
     pagination.iter_pages.side_effect = RuntimeError("boom")
     transport.request.return_value = {}
@@ -156,7 +156,7 @@ def test_entity_client_fetch_all_wraps_errors() -> None:
 
 
 def test_chembl_client_fetch_all_wraps_errors() -> None:
-    transport = MagicMock(spec=ApiTransportProtocol)
+    transport = MagicMock(spec=BaseApiClient)
     pagination = MagicMock()
     pagination.iter_pages.side_effect = RuntimeError("boom")
     transport.request.return_value = {}
@@ -194,7 +194,7 @@ def test_wrap_callable_converts_errors() -> None:
 def test_wrap_callable_preserves_bound_logger_context() -> None:
     class _StructuredClient(ApiClientMixin, ClosableMixin):
         def __init__(self) -> None:
-            self.transport = MagicMock(spec=ApiTransportProtocol)
+            self.transport = MagicMock(spec=BaseApiClient)
             self._logger = structlog.get_logger(__name__).bind(entity="molecule")
             self.entity = "molecule"
 

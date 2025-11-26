@@ -13,10 +13,10 @@ from bioetl.clients.entities import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
-from bioetl.clients.common import ApiTransportProtocol
+from bioetl.base_classes import BaseApiClient
 
 
-class _DummyTransport(ApiTransportProtocol):
+class _DummyTransport(BaseApiClient):
     def __init__(self) -> None:
         self.request_called = False
 
@@ -61,15 +61,15 @@ def test_entity_client_factory_creates_specialized_clients_without_io():
     ],
 )
 def test_entity_specific_aliases_preserve_entity_names(builder, expected_entity):
-    transport = MagicMock(spec=ApiTransportProtocol)
+    transport = MagicMock(spec=BaseApiClient)
 
     assert builder(transport).entity == expected_entity.value
 
 
 def test_factory_uses_transport_factory_each_time():
     transport_factory = MagicMock()
-    first = MagicMock(spec=ApiTransportProtocol)
-    second = MagicMock(spec=ApiTransportProtocol)
+    first = MagicMock(spec=BaseApiClient)
+    second = MagicMock(spec=BaseApiClient)
     transport_factory.side_effect = [first, second]
 
     factory = ChemblEntityClientFactory(transport_factory)

@@ -11,7 +11,8 @@ from bioetl.clients.chembl import (
     ChemblTestItemClient,
 )
 from bioetl.clients.chembl._base import BaseChemblClient
-from bioetl.clients.common import ApiTransportProtocol, EntityClientProtocol
+from bioetl.base_classes import BaseApiClient
+from bioetl.clients.common import EntityClientProtocol
 from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
@@ -46,13 +47,13 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
 
 
 def default_chembl_factory(
-    config: PipelineConfig, transport_factory: Callable[[], ApiTransportProtocol] | None = None
+    config: PipelineConfig, transport_factory: Callable[[], BaseApiClient] | None = None
 ) -> dict[str, Callable[[], EntityClientProtocol]]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
 
-    def _build_transport() -> ApiTransportProtocol:
+    def _build_transport() -> BaseApiClient:
         if transport_factory is not None:
             return transport_factory()
 
@@ -80,7 +81,7 @@ def default_chembl_factory(
 
 
 def default_activity_client_factory(
-    config: PipelineConfig, transport_factory: Callable[[], ApiTransportProtocol] | None = None
+    config: PipelineConfig, transport_factory: Callable[[], BaseApiClient] | None = None
 ) -> ChemblActivityClient:
     """Построить клиент ChEMBL Activity с настройками по умолчанию."""
 

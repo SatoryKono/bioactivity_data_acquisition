@@ -3,7 +3,6 @@
 from bioetl.clients.client_exceptions import ConnectionError, HTTPError, RequestException, Timeout
 from bioetl.clients.common import (
     ApiClientMixin,
-    ApiTransportProtocol,
     EntityClientProtocol,
     NextLinkPagination,
     PageParamPagination,
@@ -26,7 +25,6 @@ __all__ = [
     "RequestException",
     "Timeout",
     "ApiClientMixin",
-    "ApiTransportProtocol",
     "EntityClientProtocol",
     "cache_entity_client",
     "PaginationStrategy",

@@ -13,10 +13,11 @@ from bioetl.clients import (
     PaginationStrategy,
     RequestException,
 )
-from bioetl.clients.common import ApiTransportProtocol, UnifiedEntityClientBase
+from bioetl.base_classes import BaseApiClient
+from bioetl.clients.common import UnifiedEntityClientBase
 
 
-class _DummyApiClient(ApiTransportProtocol):
+class _DummyApiClient(BaseApiClient):
     def __init__(self, payloads: list[Mapping[str, Any]]) -> None:
         self.payloads = payloads
         self.calls: list[tuple[str, Mapping[str, Any] | None]] = []
@@ -33,6 +34,23 @@ class _DummyApiClient(ApiTransportProtocol):
         del headers, json
         self.calls.append((path, params))
         return {"results": [{"endpoint": path, "params": dict(params or {})}]}
+
+    def get_json(self, endpoint: str, *, params: Mapping[str, Any] | None = None, headers=None):  # type: ignore[override]
+        del headers
+        return self.request("GET", endpoint, params=params)
+
+    def paginate_json(  # type: ignore[override]
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+    ):
+        del headers, page_key, next_key, page_param
+        yield self.get_json(endpoint, params=params)
 
     def close(self) -> None:  # pragma: no cover - noop for protocol compatibility
         return None

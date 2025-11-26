@@ -3,8 +3,9 @@ from __future__ import annotations
 from enum import Enum
 from typing import Callable, Type
 
+from bioetl.base_classes import BaseApiClient
 from bioetl.clients.chembl._base import ChemblEntityClient
-from bioetl.clients.common import ApiTransportProtocol, EntityClientProtocol
+from bioetl.clients.common import EntityClientProtocol
 
 
 class ChemblEntity(str, Enum):
@@ -17,7 +18,7 @@ class ChemblEntity(str, Enum):
 
 def _build_entity_client(name: str, entity: ChemblEntity) -> Type[ChemblEntityClient]:
     class EntityClient(ChemblEntityClient):
-        def __init__(self, transport: ApiTransportProtocol):
+        def __init__(self, transport: BaseApiClient):
             super().__init__(transport, entity)
 
     EntityClient.__name__ = name
@@ -28,7 +29,7 @@ def _build_entity_client(name: str, entity: ChemblEntity) -> Type[ChemblEntityCl
 class ChemblEntityClientFactory:
     """Конфигурационный слой для сборки клиентов сущностей ChEMBL."""
 
-    def __init__(self, transport_factory: Callable[[], ApiTransportProtocol]):
+    def __init__(self, transport_factory: Callable[[], BaseApiClient]):
         self._transport_factory = transport_factory
 
     def create(self, entity: ChemblEntity | str) -> EntityClientProtocol:
