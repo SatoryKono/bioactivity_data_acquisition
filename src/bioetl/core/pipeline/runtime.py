@@ -34,6 +34,12 @@ from bioetl.core.pipeline.types import (
     StageRuntimeContext,
     WriteArtifacts,
 )
+from bioetl.core.pipeline.services import (
+    ArtifactPlanner,
+    DefaultArtifactPlanner,
+    ValidationService,
+    WriteService,
+)
 from bioetl.qc.executor import QCMetricsExecutor
 from bioetl.qc.plan import QCPlan
 
@@ -151,6 +157,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         self.write_service = (
             write_service_factory(self) if write_service_factory is not None else None
         )
+        self.artifact_planner: ArtifactPlanner = artifact_planner or DefaultArtifactPlanner()
 
     # Lifecycle -----------------------------------------------------------
     def run(
@@ -200,12 +207,16 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         stage_factory = self.create_stage_factory()
         stages = stage_factory.build(stage_descriptors, stage_context, options)
         self.stage_plan = stages
-        durations, error, qc_path = self.stage_plan_executor.execute(
-            stages,
-            stage_context,
-            options,
-            include_qc_metrics=include_qc_metrics,
-        )
+        durations: dict[str, int] = {}
+        error: str | None = None
+        qc_path: Path | None = None
+        if not options.dry_run:
+            durations, error, qc_path = self.stage_plan_executor.execute(
+                stages,
+                stage_context,
+                options,
+                include_qc_metrics=include_qc_metrics,
+            )
 
         if options.extended and self.dry_run:
             metadata_writer = None
