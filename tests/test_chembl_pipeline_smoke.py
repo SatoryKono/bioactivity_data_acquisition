@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 """Smoke-тесты сухого прогона ChEMBL-пайплайнов."""
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Type
