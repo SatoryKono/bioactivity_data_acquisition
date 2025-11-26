@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-import pandas as pd
-
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     PipelineStagesProtocol,
@@ -69,38 +67,31 @@ class StageFactory:
         kind = descriptor.kind
         if kind == "extract":
             df = self.pipeline.extract(descriptor, runtime.options)
-            context.current_df = df
+            context.data_bucket.set(df)
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "transform":
-            frame = self._ensure_dataframe(context.current_df, kind)
+            frame = context.data_bucket.require(stage=kind)
             df = self.pipeline.transform(frame, runtime.options)
-            context.current_df = df
+            context.data_bucket.set(df)
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "validate":
-            frame = self._ensure_dataframe(context.current_df, kind)
+            frame = context.data_bucket.require(stage=kind)
             df = self.pipeline.validate(frame, runtime.options)
-            context.current_df = df
+            context.data_bucket.set(df)
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "save_results":
-            frame = self._ensure_dataframe(context.current_df, kind)
-            artifacts = context.artifacts or WriteArtifacts()
+            frame = context.data_bucket.require(stage=kind)
+            artifacts = context.artifact_store.get()
             result = self.pipeline.save_results(frame, artifacts, runtime.options)
             if isinstance(result, WriteResult):
-                context.artifacts = result.artifacts
+                context.artifact_store.set(result.artifacts)
             return StageResult(name=descriptor.id, output=result)
 
         msg = f"Unknown stage kind '{kind}'"
         raise ValueError(msg)
-
-    @staticmethod
-    def _ensure_dataframe(df: pd.DataFrame | None, stage: str) -> pd.DataFrame:
-        if df is None:
-            msg = f"Stage '{stage}' requires a DataFrame from a previous step"
-            raise ValueError(msg)
-        return df
 
 
 __all__ = ["StageFactory"]

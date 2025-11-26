@@ -16,12 +16,13 @@ def stage_context_factory() -> Callable[..., StageContext]:
         clients: Mapping[str, object] | None = None,
         config: Mapping[str, object] | None = None,
     ) -> StageContext:
+        cfg = config or {}
         return StageContext(
             logger=logger or MagicMock(),
             request_id="req-1",
             trace_id="trace-1",
             clients=clients or {},
-            config=config or {},
+            config_provider=lambda key, cfg=cfg: cfg[key],
         )
 
     return _build

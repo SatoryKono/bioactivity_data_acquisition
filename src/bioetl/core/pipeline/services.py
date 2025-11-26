@@ -81,9 +81,6 @@ class StagePlanExecutor:
         logger = context.logger
         durations: dict[str, int] = {}
         error: str | None = None
-        artifacts = context.artifacts or WriteArtifacts()
-        if not context.artifacts:
-            context.artifacts = artifacts
         runtime_context = runtime_context or StageRuntimeContext(context=context, options=options)
         runtime_context.context = context
         runtime_context.options = options
@@ -95,13 +92,13 @@ class StagePlanExecutor:
             try:
                 result = stage.execute(runtime_context)
                 if isinstance(result.output, pd.DataFrame):
-                    context.current_df = result.output
+                    context.data_bucket.set(result.output)
                 if stage.name == "extract" and isinstance(result.output, pd.DataFrame):
                     context.metadata["extract_rows"] = int(result.output.shape[0])
                 if stage.name == "save_results" and hasattr(result.output, "artifacts"):
                     artifacts = result.output.artifacts  # type: ignore[attr-defined]
                     if isinstance(artifacts, WriteArtifacts):
-                        context.artifacts = artifacts
+                        context.artifact_store.set(artifacts)
             except Exception as exc:  # pragma: no cover - surfaced via RunResult
                 error = str(exc)
                 if logger:
@@ -247,18 +244,17 @@ class QCExecutorAdapter:
         plan: QCPlan,
         artifacts: WriteArtifacts | None = None,
     ) -> Path | None:
-        if context.current_df is None:
+        current_df = context.data_bucket.get()
+        if current_df is None:
             return None
 
-        dataset_artifacts = artifacts or context.artifacts or WriteArtifacts()
+        dataset_artifacts = artifacts or context.artifact_store.get()
         dataset_name = (
             dataset_artifacts.data_path.stem if dataset_artifacts and dataset_artifacts.data_path else "dataset"
         )
         executor_factory = self.executor_factory or QCMetricsExecutor
         executor = executor_factory()
-        quality_report, metrics_payload = executor.execute(
-            context.current_df, plan, dataset_name=dataset_name
-        )
+        quality_report, metrics_payload = executor.execute(current_df, plan, dataset_name=dataset_name)
         if quality_report.empty and not metrics_payload:
             return None
 
@@ -270,7 +266,7 @@ class QCExecutorAdapter:
         metrics_path.write_text(json.dumps(metrics_payload, indent=2))
         dataset_artifacts.quality_report_path = quality_path
         dataset_artifacts.qc_summary_path = metrics_path
-        context.artifacts = dataset_artifacts
+        context.artifact_store.set(dataset_artifacts)
         return metrics_path
 
 
@@ -298,7 +294,7 @@ class QCService:
         resolved_plan = self._resolve_plan(context, options)
         if not resolved_plan.enabled:
             return None
-        artifacts = context.artifacts or WriteArtifacts()
+        artifacts = context.artifact_store.get()
         return self.adapter.execute(context, resolved_plan, artifacts)
 
     def _resolve_plan(self, context: StageContext, options: StageExecutionOptions) -> QCPlan:
@@ -374,8 +370,9 @@ class RunMetadataBuilder:
             "mode": mode,
             "duration_seconds": sum(durations.values()) / 1000,
         }
-        if context.artifacts and context.artifacts.data_path:
-            metadata["output_path"] = str(context.artifacts.data_path)
+        artifacts = context.artifact_store.get()
+        if artifacts.data_path:
+            metadata["output_path"] = str(artifacts.data_path)
         return metadata
 
     def _resolve_git_commit(self) -> str | None:
