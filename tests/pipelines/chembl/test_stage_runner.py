@@ -6,7 +6,7 @@ import pandas as pd
 
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.core.pipeline.unified import UnifiedPipelineBase
-from bioetl.pipelines.chembl.stage_runner import run_chembl_stage
+from bioetl.application.pipelines.chembl.stage_runner import run_chembl_stage
 
 
 class DummyPipeline(UnifiedPipelineBase):
