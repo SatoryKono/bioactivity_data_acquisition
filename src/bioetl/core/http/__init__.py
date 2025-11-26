@@ -1,4 +1,5 @@
 from .api_client import APIConfig, HTTPClientError, ResilientRequestExecutorFactory, UnifiedAPIClient
+from .api_entity_client import BaseApiEntityClient
 from .client_mixins import ApiClientMixin, ClosableMixin
 from .cache import CacheStrategy, TTLCache, TTLCacheConfig
 from .circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerOpenError, CircuitBreakerStrategy
@@ -17,6 +18,7 @@ __all__ = [
     "ClosableMixin",
     "HTTPClientError",
     "RetryPolicy",
+    "BaseApiEntityClient",
     "UnifiedAPIClient",
     "ResilientRequestExecutorFactory",
     "RequestBuilder",
