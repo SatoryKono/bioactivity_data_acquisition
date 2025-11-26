@@ -9,7 +9,7 @@ from structlog.testing import capture_logs
 from bioetl.clients import NextLinkPagination, PageParamPagination, PaginationStrategy, RequestException
 from bioetl.base_classes import BaseApiClient
 from bioetl.clients.common import ApiTransportProtocol, UnifiedEntityClientBase
-from bioetl.core.http.client_mixins import ApiClientMixin
+from bioetl.core.http import ApiClientMixin
 
 
 class _DummyApiClient(ApiTransportProtocol):

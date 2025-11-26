@@ -5,10 +5,11 @@ import structlog
 from structlog.testing import capture_logs
 
 from bioetl.clients import client_exceptions
-from bioetl.clients.chembl._base import ChemblEntityClient
+from bioetl.clients.chembl._base import BaseChemblClient, ChemblEntityClient
 from bioetl.clients.common import ApiTransportProtocol
+from bioetl.clients.enrichers._base import _BaseEnricherClient
 from bioetl.clients.entities._base import _BaseEntityClient
-from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
+from bioetl.core.http import ApiClientMixin, ClosableMixin
 
 
 class _DummyApiClient(ApiClientMixin, ClosableMixin):
@@ -206,3 +207,21 @@ def test_wrap_callable_preserves_bound_logger_context() -> None:
 
     assert logs[0]["event"] == "api_call_failed"
     assert logs[0]["entity"] == "molecule"
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [
+        _BaseEntityClient,
+        ChemblEntityClient,
+        BaseChemblClient,
+        _BaseEnricherClient,
+    ],
+)
+def test_mixins_are_not_duplicated_in_mro(cls: type) -> None:
+    mro = cls.mro()
+
+    assert issubclass(cls, ApiClientMixin)
+    assert issubclass(cls, ClosableMixin)
+    assert mro.count(ApiClientMixin) == 1
+    assert mro.count(ClosableMixin) == 1

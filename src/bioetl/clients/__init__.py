@@ -16,7 +16,7 @@ from bioetl.clients.chembl import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
-from bioetl.core.http.client_mixins import ApiClientMixin
+from bioetl.core.http import ApiClientMixin
 from bioetl.clients.transports import AioHttpTransport, RequestsTransport
 from bioetl.clients.factories import default_chembl_factory
 
