@@ -5,8 +5,8 @@ from collections.abc import Callable
 from typing import Any
 
 from bioetl.clients.chembl import ChemblActivityClient
-from bioetl.clients.chembl._base import BaseChemblClient
 from bioetl.clients.entities.common import ChemblEntityClientFactory
+from bioetl.infrastructure.chembl import BaseChemblClient
 from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
 from bioetl.core.http.api_client import APIConfig

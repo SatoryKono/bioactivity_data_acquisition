@@ -14,6 +14,7 @@ from bioetl.clients.entities import (
     ChemblTestItemClient,
 )
 from bioetl.core.http.interfaces import ApiTransportProtocol
+from bioetl.infrastructure.chembl import BaseChemblClient
 
 
 class _DummyTransport(ApiTransportProtocol):
@@ -33,6 +34,26 @@ class _DummyTransport(ApiTransportProtocol):
         raise AssertionError(
             "Transport should not be used during client construction",
         )
+
+    def close(self) -> None:  # pragma: no cover - noop
+        return None
+
+
+class _MetadataTransport(ApiTransportProtocol):
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers=None,
+        params=None,
+        json=None,
+    ):  # type: ignore[override]
+        self.calls.append((method, path))
+        return {"page_meta": {"total": 2, "page": 1}, "results": []}
 
     def close(self) -> None:  # pragma: no cover - noop
         return None
@@ -90,3 +111,14 @@ def test_factory_uses_transport_factory_each_time():
     assert factory.activity().transport is first
     assert factory.assay().transport is second
     assert transport_factory.call_count == 2
+
+
+def test_base_chembl_client_collects_metadata():
+    transport = _MetadataTransport()
+    client = BaseChemblClient(transport)
+
+    response = client.request("GET", "/activity")
+
+    assert response["page_meta"] == {"total": 2, "page": 1}
+    assert client.metadata == {"total": 2, "page": 1}
+    assert transport.calls == [("GET", "/activity")]
