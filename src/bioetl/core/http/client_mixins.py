@@ -15,6 +15,16 @@ _T = TypeVar("_T")
 
 
 class ApiClientMixin:
+    """Миксин для обработки исключений и логирования в API-клиентах.
+
+    Отвечает за:
+    1. Логирование ошибок при выполнении запросов через ``_logger``.
+    2. Перехват исключений и приведение их к ``bioetl.clients.client_exceptions.RequestException``.
+    3. Предоставление методов-обёрток ``_wrap_callable`` и ``_wrap_iterator``.
+
+    Клиентский код не должен дублировать логику обработки исключений, а использовать
+    эти методы.
+    """
     api_client: BaseApiClient | ApiTransportProtocol
     _logger: structlog.stdlib.BoundLogger | structlog.types.BindableLogger
 
@@ -53,6 +63,19 @@ class ApiClientMixin:
     def _wrap_callable(
         self, func: Callable[[], _T], *, log_context: Mapping[str, Any] | None = None
     ) -> _T:
+        """Обернуть вызов функции для обработки ошибок и логирования.
+
+        Args:
+            func: Функция для выполнения (обычно lambda с вызовом клиента).
+            log_context: Дополнительный контекст для логирования ошибки.
+
+        Returns:
+            Результат выполнения ``func``.
+
+        Raises:
+            client_exceptions.HTTPError: Пробрасывается без изменений (ожидаемая ошибка).
+            client_exceptions.RequestException: Оборачивает любые другие исключения (IOError и т.д.).
+        """
         from bioetl.clients import client_exceptions
 
         try:
@@ -67,6 +90,21 @@ class ApiClientMixin:
     def _wrap_iterator(
         self, func: Callable[[], Iterator[dict[str, Any]]], *, log_context: Mapping[str, Any] | None = None
     ) -> Iterator[dict[str, Any]]:
+        """Обернуть итератор для обработки ошибок и логирования.
+
+        Аналогичен ``_wrap_callable``, но для генераторов/итераторов.
+
+        Args:
+            func: Функция, возвращающая итератор.
+            log_context: Дополнительный контекст для логирования.
+
+        Yields:
+            Элементы из итератора.
+
+        Raises:
+            client_exceptions.HTTPError: Пробрасывается.
+            client_exceptions.RequestException: Оборачивает прочие ошибки.
+        """
         from bioetl.clients import client_exceptions
 
         try:

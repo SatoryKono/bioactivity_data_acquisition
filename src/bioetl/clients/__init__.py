@@ -18,7 +18,6 @@ from bioetl.clients.chembl import (
 )
 from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.clients.entities.common import CHEMBL_ALLOWED_ENTITIES
-from bioetl.core.http import ApiClientMixin
 from bioetl.clients.transports import AioHttpTransport, RequestsTransport
 from bioetl.clients.factories import default_chembl_factory
 from bioetl.infra import PaginationRegistry
@@ -54,7 +53,6 @@ __all__ = [
     "HTTPError",
     "RequestException",
     "Timeout",
-    "ApiClientMixin",
     "ApiTransportProtocol",
     "EntityClientProtocol",
     "cache_entity_client",

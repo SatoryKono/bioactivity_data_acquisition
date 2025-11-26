@@ -157,10 +157,8 @@ def cache_entity_client(
 
 
 __all__ = [
-    "ApiClientMixin",
     "ApiTransportProtocol",
     "BaseApiClient",
-    "ClosableMixin",
     "EntityClientProtocol",
     "JSONPage",
     "JSONPayload",
