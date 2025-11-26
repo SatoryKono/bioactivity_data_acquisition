@@ -9,7 +9,6 @@ import warnings
 import structlog
 
 from bioetl.clients import client_exceptions
-from bioetl.core.http.pagination import PaginationStrategy
 
 
 JSONPayload = Mapping[str, Any] | list[Mapping[str, Any]]
@@ -62,6 +61,10 @@ class ApiTransportProtocol(Protocol):
 
     def close(self) -> None:
         """Release any underlying transport resources (sessions, pools, etc.)."""
+
+
+from bioetl.core.http.pagination import PaginationStrategy
+from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
 
 class EntityClientProtocol(Protocol):
@@ -341,14 +344,19 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
         entity: str,
         *,
         pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         self.transport = transport
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
-        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy()
+        self.pagination_registry = pagination_registry or get_default_pagination_registry()
+        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy(
+            strategy_name=pagination_strategy_name
+        )
 
     @abstractmethod
-    def default_pagination_strategy(self) -> PaginationStrategy:
+    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
         """Выбор стратегии пагинации по умолчанию для конкретного клиента."""
 
     def _entity_path(self, suffix: str | None = None) -> str:
@@ -397,7 +405,7 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
                 page_param=page_param,
                 normalize=self._normalize_payload,
             ):
-                yield from self._normalize_payload(page)
+                yield from _iter_payload_items(page, page_key=page_key, normalize=None)
 
         return self._wrap_iterator(iterator)
 

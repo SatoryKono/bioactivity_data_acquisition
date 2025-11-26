@@ -12,11 +12,11 @@ from bioetl.clients.common import (
     ApiClientMixin,
     ApiTransportProtocol,
     ClosableMixin,
-    NextLinkPagination,
     PaginationStrategy,
 )
 from bioetl.clients.entities._base import _BaseEntityClient
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
+from bioetl.infra import PaginationRegistry
 
 
 class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
@@ -54,15 +54,19 @@ class ChemblEntityClient(_BaseEntityClient):
         entity: str,
         *,
         pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         super().__init__(
             transport,
             entity,
-            pagination_strategy=pagination_strategy or NextLinkPagination(),
+            pagination_strategy=pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=pagination_registry,
         )
 
-    def default_pagination_strategy(self) -> PaginationStrategy:
-        return NextLinkPagination()
+    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
+        return self.pagination_registry.create(strategy_name or "next_link")
 
     def iterate_records(self, descriptor: ChemblExtractionDescriptor) -> Iterator[dict[str, Any]]:
         def iterator() -> Iterator[dict[str, Any]]:
