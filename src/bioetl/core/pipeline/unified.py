@@ -18,6 +18,7 @@ import pandera as pa
 from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.services import (
+    ArtifactRuntimeService,
     ValidationService,
     WriteService,
     default_validation_service_factory,
@@ -71,6 +72,9 @@ class PipelineBase(PipelineRuntimeBase):
             Callable[[PipelineRuntimeBase], WriteService] | None
         ) = None,
         pipeline_definition: PipelineDefinition | None = None,
+        artifact_runtime_service_factory: (
+            Callable[[PipelineRuntimeBase], ArtifactRuntimeService] | None
+        ) = None,
     ) -> None:
         super().__init__(
             config,
@@ -85,6 +89,8 @@ class PipelineBase(PipelineRuntimeBase):
                 write_service_factory
                 or default_write_service_factory
             ),
+            artifact_runtime_service_factory=
+            artifact_runtime_service_factory,
         )
 
     @abstractmethod

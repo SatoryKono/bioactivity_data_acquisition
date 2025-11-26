@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Adapters for running ChEMBL pipeline stages via the unified runner."""
+
+from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
@@ -133,12 +133,15 @@ class RuntimeContextBuilder:
         target_dir, artifact_store = self.artifact_planner.plan(
             output_dir, run_tag, mode
         )
-        logger = UnifiedLogger.get(self.pipeline.__class__.__name__).bind(
-            run_id=getattr(self.pipeline, "run_id", ""),
-            pipeline=getattr(
-                self.pipeline,
-                "pipeline_code",
-                self.pipeline.__class__.__name__,
+        logger = cast(
+            UnifiedLogger,
+            UnifiedLogger.get(self.pipeline.__class__.__name__).bind(
+                run_id=getattr(self.pipeline, "run_id", ""),
+                pipeline=getattr(
+                    self.pipeline,
+                    "pipeline_code",
+                    self.pipeline.__class__.__name__,
+                ),
             ),
         )
         resolved_options = options or StageExecutionOptions(

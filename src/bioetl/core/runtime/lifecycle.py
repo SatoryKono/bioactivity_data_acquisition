@@ -16,6 +16,7 @@ from bioetl.core.pipeline.types import (
     DefaultDomainContext,
     DefaultExecutionContext,
     DefaultInfrastructureContext,
+    PipelineBaseProtocol,
     RunResult,
     RunState,
     StageExecutionOptions,
@@ -36,7 +37,11 @@ class OrchestrationCoordinatorProtocol(Protocol):
         ...
 
     def plan_run_artifacts(
-        self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
+        self,
+        output_dir: Path,
+        pipeline_code: str,
+        run_tag: str | None,
+        mode: str | None,
     ) -> tuple[Path, object]:
         ...
 
@@ -53,7 +58,7 @@ class OrchestrationCoordinator:
 class LifecycleCoordinator:
     """Делегат для запуска пайплайна."""
 
-    pipeline: object
+    pipeline: PipelineBaseProtocol
     orchestration_service: OrchestrationCoordinatorProtocol
     metadata_coordinator: MetadataCoordinator
     qc_coordinator: QCCoordinator
@@ -98,11 +103,13 @@ class LifecycleCoordinator:
         logger.info("STAGE_RUN_START", stage="prepare_run")
         self.pipeline.prepare_run(options)
 
-        target_dir, artifacts = self.artifact_runtime_service.plan_run_artifacts(
-            output_dir,
-            self.pipeline.pipeline_code,
-            run_tag,
-            mode,
+        target_dir, artifacts = (
+            self.artifact_runtime_service.plan_run_artifacts(
+                output_dir,
+                self.pipeline.pipeline_code,
+                run_tag,
+                mode,
+            )
         )
         run_state.artifacts = artifacts
         data_bucket = DataBucket()
@@ -136,19 +143,25 @@ class LifecycleCoordinator:
         stage_factory = self.pipeline.create_stage_factory()
         stages = stage_factory.build(stage_descriptors, stage_context, options)
         self.pipeline.stage_plan = stages
-        durations, error = self.orchestration_service.execute(
-            stages,
-            stage_context,
-            options,
+        durations, error = (
+            self.orchestration_service.execute(
+                stages,
+                stage_context,
+                options,
+            )
         )
         run_state.durations = durations
         run_state.error = error
-        run_state.artifacts = stage_context.artifact_store.get() or run_state.artifacts
+        run_state.artifacts = (
+            stage_context.artifact_store.get() or run_state.artifacts
+        )
 
         qc_path: Path | None = None
         if run_state.error is None:
-            qc_path, qc_error = self.qc_coordinator.qc_runtime_service.run(
-                stage_context, options
+            qc_path, qc_error = (
+                self.qc_coordinator.qc_runtime_service.run(
+                    stage_context, options
+                )
             )
             if qc_error is not None:
                 run_state.error = qc_error
@@ -184,20 +197,25 @@ class LifecycleCoordinator:
 
         result_frame = stage_context.data_bucket.get()
         rows = 0
-        if isinstance(result_frame, pd.DataFrame) and not self.pipeline.dry_run:
+        is_dataframe = isinstance(result_frame, pd.DataFrame)
+        if is_dataframe and not self.pipeline.dry_run:
             rows = int(result_frame.shape[0])
         success = run_state.error is None
-        run_result = self.metadata_coordinator.metadata_runtime_service.build_run_result(
-            context=stage_context,
-            stage_plan=stages,
-            run_state=run_state,
-            run_tag=run_tag,
-            mode=mode,
-            rows=rows,
-            qc_metrics_path=qc_path,
-            success=success,
-            output_dir=target_dir,
-            logs_directory=self.metadata_coordinator.logs_directory_resolver(target_dir),
+        metadata_service = self.metadata_coordinator.metadata_runtime_service
+        logs_resolver = self.metadata_coordinator.logs_directory_resolver
+        run_result = (
+            metadata_service.build_run_result(
+                context=stage_context,
+                stage_plan=stages,
+                run_state=run_state,
+                run_tag=run_tag,
+                mode=mode,
+                rows=rows,
+                qc_metrics_path=qc_path,
+                success=success,
+                output_dir=target_dir,
+                logs_directory=logs_resolver(target_dir),
+            )
         )
         self.pipeline.finalize_run(run_result)
         return run_result

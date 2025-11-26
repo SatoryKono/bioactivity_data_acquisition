@@ -81,10 +81,26 @@ class ChemblEntityClientFactory:
         return self._create_specific(ChemblDocumentClient)
 
 
-ChemblAssayClient = _build_entity_client("ChemblAssayClient", ChemblEntity.ASSAY)
-ChemblTargetClient = _build_entity_client("ChemblTargetClient", ChemblEntity.TARGET)
-ChemblTestItemClient = _build_entity_client("ChemblTestItemClient", ChemblEntity.TESTITEM)
-ChemblDocumentClient = _build_entity_client("ChemblDocumentClient", ChemblEntity.DOCUMENT)
+ChemblActivityClient = _build_entity_client(
+    "ChemblActivityClient",
+    ChemblEntity.ACTIVITY,
+)
+ChemblAssayClient = _build_entity_client(
+    "ChemblAssayClient",
+    ChemblEntity.ASSAY,
+)
+ChemblTargetClient = _build_entity_client(
+    "ChemblTargetClient",
+    ChemblEntity.TARGET,
+)
+ChemblTestItemClient = _build_entity_client(
+    "ChemblTestItemClient",
+    ChemblEntity.TESTITEM,
+)
+ChemblDocumentClient = _build_entity_client(
+    "ChemblDocumentClient",
+    ChemblEntity.DOCUMENT,
+)
 
 __all__ = [
     "ChemblEntity",

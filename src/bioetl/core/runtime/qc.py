@@ -56,7 +56,9 @@ class QCCoordinator:
     def from_factory(
         cls,
         *,
-        qc_runtime_service_factory: Callable[["QCCoordinator"], QCRuntimeService],
+        qc_runtime_service_factory: Callable[
+            ["QCCoordinator"], "QCRuntimeService"
+        ],
         stage_plan_executor: StagePlanExecutor | None,
     ) -> "QCCoordinator":
         placeholder = cls.__new__(cls)
@@ -68,7 +70,9 @@ class QCCoordinator:
         )
         return placeholder
 
-    def _attach_qc_orchestrator(self, stage_plan_executor: StagePlanExecutor) -> StagePlanExecutor:
+    def _attach_qc_orchestrator(
+        self, stage_plan_executor: StagePlanExecutor
+    ) -> StagePlanExecutor:
         stage_plan_executor.qc_orchestrator = self.qc_orchestrator
         return stage_plan_executor
 
@@ -80,8 +84,12 @@ class QCCoordinator:
     def qc_service(self, value: Any | None) -> None:
         if hasattr(self.qc_runtime_service, "qc_service"):
             self.qc_runtime_service.qc_service = value
-        if self.qc_runtime_service and hasattr(self.qc_runtime_service, "qc_orchestrator"):
-            orchestrator = getattr(self.qc_runtime_service, "qc_orchestrator", None)
+        if self.qc_runtime_service and hasattr(
+            self.qc_runtime_service, "qc_orchestrator"
+        ):
+            orchestrator = getattr(
+                self.qc_runtime_service, "qc_orchestrator", None
+            )
             if orchestrator is not None:
                 orchestrator.qc_service = value
             elif value is not None:
@@ -104,7 +112,7 @@ def default_qc_runtime_service_factory(
     qc_dry_run: bool | None = None,
     qc_enabled: bool | None = None,
 ) -> Callable[["QCCoordinator"], QCRuntimeService]:
-    from bioetl.core.pipeline.services import QCOrchestrator, QCService, QCRuntimeService
+    from bioetl.core.pipeline.services import QCOrchestrator, QCRuntimeService
 
     def _factory(coordinator: QCCoordinator) -> QCRuntimeService:
         if qc_service is not None:
@@ -118,7 +126,9 @@ def default_qc_runtime_service_factory(
                 qc_enabled=qc_enabled,
             )
             resolved_service = adapter_factory(coordinator)
-        orchestrator = QCOrchestrator(resolved_service) if resolved_service else None
+        orchestrator = (
+            QCOrchestrator(resolved_service) if resolved_service else None
+        )
         return QCRuntimeService(resolved_service, orchestrator)
 
     return _factory
