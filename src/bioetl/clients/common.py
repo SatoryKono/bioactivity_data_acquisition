@@ -8,6 +8,13 @@ import warnings
 
 import structlog
 
+warnings.warn(
+    "bioetl.clients.common устаревает как источник ApiClientMixin/ClosableMixin; "
+    "используйте bioetl.core.http.client_mixins вместо прямого импорта из clients.common.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 from bioetl.clients import client_exceptions
 from bioetl.core.http.interfaces import ApiTransportProtocol, BaseApiClient
 from bioetl.core.http.pagination import PaginationStrategy
