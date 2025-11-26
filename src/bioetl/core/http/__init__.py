@@ -1,5 +1,5 @@
 from .api_client import APIConfig, HTTPClientError, ResilientRequestExecutorFactory, UnifiedAPIClient
-from .api_entity_client import BaseApiEntityClient
+from .api_entity_client import BaseApiEntityClient, EntityClientProtocol
 from .client_mixins import ApiClientMixin, ClosableMixin
 from .cache import CacheStrategy, TTLCache, TTLCacheConfig
 from .circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerOpenError, CircuitBreakerStrategy
@@ -12,6 +12,15 @@ from .pagination import (
     NextLinkPagination,
     PageParamPagination,
     PaginationStrategy,
+)
+from .types import (
+    JSONPage,
+    JSONPayload,
+    JSONRecord,
+    JSONRecordStream,
+    Normalizer,
+    WrapCallable,
+    WrapIterator,
 )
 from .request_builder import RequestBuilder
 from .rate_limiter import RateLimiter, TokenBucketConfig, TokenBucketRateLimiter
@@ -27,10 +36,15 @@ __all__ = [
     "HTTPClientError",
     "RetryPolicy",
     "BaseApiEntityClient",
+    "EntityClientProtocol",
     "UnifiedAPIClient",
     "ResilientRequestExecutorFactory",
     "RequestBuilder",
     "BaseApiClient",
+    "JSONPage",
+    "JSONPayload",
+    "JSONRecord",
+    "JSONRecordStream",
     "TokenBucketConfig",
     "TokenBucketRateLimiter",
     "TTLCache",
@@ -46,4 +60,7 @@ __all__ = [
     "PaginationStrategy",
     "RateLimiter",
     "RetryStrategy",
+    "WrapCallable",
+    "WrapIterator",
+    "Normalizer",
 ]
