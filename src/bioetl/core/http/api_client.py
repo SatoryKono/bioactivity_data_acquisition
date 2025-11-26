@@ -8,6 +8,7 @@ import structlog
 from bioetl.core.http.cache import CacheStrategy
 from bioetl.core.http.circuit_breaker import CircuitBreakerStrategy
 from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
+from bioetl.core.http.pagination_helpers import iter_pages
 from bioetl.core.http.rate_limiter import RateLimiter
 from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.request_executor import HTTPClientError, _ResilientRequestExecutor
@@ -132,14 +133,17 @@ class UnifiedAPIClient:
         page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
         first_payload = self.request("GET", path, params=params)
-        yield from self._pagination.iter_pages(
+        yield from iter_pages(
+            self._pagination,
             first_payload,
             self,
             endpoint=path,
             params=params,
+            logger=self._logger,
             page_key=page_key,
             next_key=next_key,
             page_param=page_param,
+            normalize=None,
         )
 
     def close(self) -> None:
