@@ -18,7 +18,14 @@ from bioetl.core.io.artifacts import (
     WriteArtifacts,
 )
 from bioetl.core.logging import UnifiedLogger
-from bioetl.core.pipeline.services import DefaultValidationService, WriteService
+from bioetl.core.pipeline.runtime import PipelineRuntimeBase
+from bioetl.core.pipeline.services import (
+    ArtifactPlanner,
+    ArtifactRuntimeService,
+    DefaultValidationService,
+    WriteService,
+    default_artifact_service_factory,
+)
 from bioetl.core.pipeline.types import (
     ArtifactStore,
     DataBucket,
@@ -90,6 +97,37 @@ class ActivityWriteService(WriteService):
         )
 
 
+class ActivityArtifactPlanner(ArtifactPlanner):
+    """Deterministic artifact planner for the activity pipeline."""
+
+    def __init__(self, pipeline: PipelineRuntimeBase) -> None:
+        self.pipeline = pipeline
+
+    def plan(
+        self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
+    ) -> tuple[Path, WriteArtifacts]:
+        _ = pipeline_code
+        run_stem = self.pipeline.build_run_stem(run_tag, mode)
+        target_dir = output_dir / run_stem
+        target_dir.mkdir(parents=True, exist_ok=True)
+        dataset_name = f"activity_{run_stem}.csv"
+        artifacts = WriteArtifacts(data_path=target_dir / dataset_name)
+        return target_dir, artifacts
+
+
+def activity_artifact_runtime_service_factory(
+    pipeline: PipelineRuntimeBase,
+) -> ArtifactRuntimeService:
+    """Create an artifact runtime service with activity-specific planning."""
+
+    planner = ActivityArtifactPlanner(pipeline)
+    artifact_service = default_artifact_service_factory(planner)
+    return ArtifactRuntimeService(
+        artifact_planner=planner,
+        artifact_service=artifact_service,
+    )
+
+
 class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
     """Implements the activity_chembl pipeline contract."""
 
@@ -103,7 +141,11 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         *,
         client_factory: Callable[[Any], ChemblActivityClient] | None = None,
     ) -> None:
-        super().__init__(config, run_id=run_id)
+        super().__init__(
+            config,
+            run_id=run_id,
+            artifact_runtime_service_factory=activity_artifact_runtime_service_factory,
+        )
         self.client_factory = client_factory or default_activity_client_factory
         self.validator = ActivitySchema
         self.validation_service = DefaultValidationService(self.validator)
@@ -313,20 +355,6 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
             )
         )
         return registry
-
-    # Deterministic outputs -----------------------------------------------
-    def plan_run_artifacts(
-        self,
-        output_dir: Path,
-        run_tag: str | None,
-        mode: str | None,
-    ):
-        run_stem = self.build_run_stem(run_tag, mode)
-        target_dir = output_dir / run_stem
-        target_dir.mkdir(parents=True, exist_ok=True)
-        dataset_name = f"activity_{run_stem}.csv"
-        artifacts = WriteArtifacts(data_path=target_dir / dataset_name)
-        return target_dir, artifacts
 
 
 def _registered_pipeline_factory() -> ChemblActivityPipeline:
