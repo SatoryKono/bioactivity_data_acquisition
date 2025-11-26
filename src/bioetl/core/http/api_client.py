@@ -1,3 +1,5 @@
+"""Unified HTTP client for BioETL pipeline components."""
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, Mapping
@@ -7,17 +9,25 @@ import structlog
 
 from bioetl.core.http.cache import CacheStrategy
 from bioetl.core.http.circuit_breaker import CircuitBreakerStrategy
-from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
+from bioetl.core.http.pagination import (
+    DefaultPaginationStrategy,
+    PaginationStrategy,
+)
 from bioetl.core.http.pagination_helpers import iter_pages
 from bioetl.core.http.rate_limiter import RateLimiter
 from bioetl.core.http.request_builder import RequestBuilder
-from bioetl.core.http.request_executor import HTTPClientError, _ResilientRequestExecutor
+from bioetl.core.http.request_executor import (
+    HTTPClientError,  # pylint: disable=unused-import # noqa: F401
+    _ResilientRequestExecutor,
+)
 from bioetl.core.http.resilience import ResilientRequestExecutorFactory
 from bioetl.core.http.retry import RetryStrategy
 
 
 @dataclass
 class APIConfig:
+    """Configuration for the UnifiedAPIClient."""
+
     base_url: str
     timeout_sec: float
     max_retries: int
@@ -34,6 +44,17 @@ class APIConfig:
 
 
 class UnifiedAPIClient:
+    """
+    Unified HTTP client providing resilience, caching, and pagination.
+
+    Handles all external HTTP interactions with built-in support for:
+    - Retry logic with exponential backoff
+    - Rate limiting
+    - Circuit breaking
+    - Caching
+    - Pagination
+    """
+
     def __init__(
         self,
         config: APIConfig,
@@ -43,7 +64,9 @@ class UnifiedAPIClient:
         pagination_strategy: PaginationStrategy | None = None,
     ) -> None:
         self.config = config
-        self._logger = structlog.get_logger(__name__).bind(api_base=config.base_url)
+        self._logger = structlog.get_logger(__name__).bind(
+            api_base=config.base_url
+        )
         self._request_builder = request_builder
         self._pagination = pagination_strategy or DefaultPaginationStrategy()
         self._request_executor = request_executor
@@ -63,6 +86,12 @@ class UnifiedAPIClient:
         verify_ssl: bool = True,
         default_headers: Mapping[str, str] | None = None,
     ) -> "UnifiedAPIClient":
+        """
+        Create a UnifiedAPIClient instance from configuration.
+
+        Constructs all necessary components (executor, strategies) based on the
+        provided config.
+        """
         builder = request_builder or RequestBuilder(
             config,
             session=session,
@@ -94,6 +123,18 @@ class UnifiedAPIClient:
         *,
         paginate: bool = False,
     ) -> Dict[str, Any] | list[Dict[str, Any]]:
+        """
+        Perform a GET request and return the JSON response.
+
+        Args:
+            path: URL path relative to base_url.
+            params: Query parameters.
+            headers: Request headers.
+            paginate: If True, consume all pages and return list of results.
+
+        Returns:
+            Parsed JSON response (dict or list if paginated).
+        """
         if paginate:
             return list(self.iterate_paginated(path, params=params or {}))
         return self.request("GET", path, headers=headers, params=params)
@@ -104,6 +145,17 @@ class UnifiedAPIClient:
         json: Any,
         headers: Mapping[str, str] | None = None,
     ) -> Dict[str, Any]:
+        """
+        Perform a POST request with JSON body.
+
+        Args:
+            path: URL path relative to base_url.
+            json: JSON serializable body.
+            headers: Request headers.
+
+        Returns:
+            Parsed JSON response.
+        """
         return self.request("POST", path, headers=headers, json=json)
 
     def paginate_json(
@@ -115,6 +167,19 @@ class UnifiedAPIClient:
         next_key: str = "next",
         page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
+        """
+        Iterate over paginated JSON responses.
+
+        Args:
+            path: URL path relative to base_url.
+            params: Query parameters.
+            page_key: Key in response containing the list of items.
+            next_key: Key in response containing the next page URL/token.
+            page_param: Query parameter name for page number.
+
+        Yields:
+            Individual items from the paginated responses.
+        """
         yield from self.iterate_paginated(
             path,
             params=params or {},
@@ -131,7 +196,12 @@ class UnifiedAPIClient:
         page_key: str = "results",
         next_key: str = "next",
         page_param: str | None = "page",
-    ) -> Iterator[Dict[str, Any]]:
+    ) -> Iterator[Mapping[str, Any]]:
+        """
+        Low-level iterator for paginated requests.
+
+        Uses the configured PaginationStrategy to traverse pages.
+        """
         first_payload = self.request("GET", path, params=params)
         yield from iter_pages(
             self._pagination,
@@ -147,6 +217,7 @@ class UnifiedAPIClient:
         )
 
     def close(self) -> None:
+        """Close the underlying request builder and session."""
         self._request_builder.close()
 
     # --------------------------- internals -----------------------------
@@ -159,6 +230,19 @@ class UnifiedAPIClient:
         params: Mapping[str, Any] | None = None,
         json: Any | None = None,
     ) -> Dict[str, Any]:
+        """
+        Execute a raw HTTP request using the resilient executor.
+
+        Args:
+            method: HTTP method (GET, POST, etc.).
+            path: URL path relative to base_url.
+            headers: Optional headers.
+            params: Optional query parameters.
+            json: Optional JSON body.
+
+        Returns:
+            Parsed JSON response.
+        """
         url = self._request_builder.build_url(path)
         merged_headers = self._request_builder.merge_headers(headers)
         return self._request_executor.request(
@@ -169,9 +253,10 @@ class UnifiedAPIClient:
             json=json,
         )
 
-    __all__ = [
-        "APIConfig",
-        "UnifiedAPIClient",
-        "HTTPClientError",
-        "ResilientRequestExecutorFactory",
-    ]
+
+__all__ = [
+    "APIConfig",
+    "UnifiedAPIClient",
+    "HTTPClientError",
+    "ResilientRequestExecutorFactory",
+]

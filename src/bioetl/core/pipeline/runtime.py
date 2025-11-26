@@ -104,7 +104,10 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         ]
         | None = None,
         qc_runtime_service: Any | None = None,
-        qc_runtime_service_factory: Callable[[QCCoordinator], Any] | None = None,
+        qc_runtime_service_factory: Callable[
+            [QCCoordinator], Any
+        ]
+        | None = None,
         artifact_runtime_service: ArtifactRuntimeService | None = None,
         artifact_runtime_service_factory: Callable[
             ["PipelineRuntimeBase"], ArtifactRuntimeService
@@ -196,7 +199,11 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             self.metadata_coordinator.metadata_runtime_service
         )
         self.metadata_service = self.metadata_coordinator.metadata_service
-        self.run_metadata_builder = getattr(self.metadata_service, "builder", None)
+        self.run_metadata_builder = getattr(
+            self.metadata_service,
+            "builder",
+            None,
+        )
         self._git_commit = self.metadata_coordinator.git_commit
         self._config_hash = self.metadata_coordinator.config_hash
 
@@ -212,7 +219,9 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             stage_plan_executor=self.stage_plan_executor,
             artifact_service=self.artifact_service,
         )
-        self.orchestration_service = orchestration_factory(orchestration_coordinator)
+        self.orchestration_service = orchestration_factory(
+            orchestration_coordinator
+        )
 
         self.validation_service = None
         if validation_service_factory is not None:
@@ -224,7 +233,9 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             else None
         )
         self.stage_plan: Iterable[Any] | None = None
-        context_factory = context_builder_factory or default_context_builder_factory()
+        context_factory = (
+            context_builder_factory or default_context_builder_factory()
+        )
         self.context_builder = context_builder or context_factory(self)
 
         self.lifecycle = LifecycleCoordinator(
@@ -235,7 +246,6 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             context_builder=self.context_builder,
             artifact_runtime_service=self.artifact_runtime_service,
         )
-
 
     @property
     def qc_service(self) -> QCService | None:
@@ -289,14 +299,18 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         options: StageExecutionOptions,
         logger: UnifiedLogger,
     ) -> tuple[StageContext, RunState, Path]:
-        """Собирает состояние запуска и StageContext перед исполнением плана."""
+        """Собирает состояние запуска и StageContext перед
+        исполнением плана.
+        """
 
         run_state = RunState()
 
-        logger.info("STAGE_RUN_START", stage="prepare_run")  # type: ignore
+        any_logger = cast(Any, logger)
+        any_logger.info("STAGE_RUN_START", stage="prepare_run")
         self.prepare_run(options)
 
-        target_dir, artifacts = self.artifact_runtime_service.plan_run_artifacts(
+        plan_run = self.artifact_runtime_service.plan_run_artifacts
+        target_dir, artifacts = plan_run(
             output_dir,
             self.pipeline_code,
             options.run_tag,
@@ -328,14 +342,21 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         return stage_context, run_state, target_dir
 
     def _execute_stage_plan(
-        self, stage_context: StageContext, options: StageExecutionOptions
+        self,
+        stage_context: StageContext,
+        options: StageExecutionOptions,
     ) -> tuple[Iterable[StageCommand], dict[str, int], str | None]:
-        """Формирует и исполняет план стадий, возвращая длительности и ошибку."""
+        """Формирует и исполняет план стадий,
+        возвращая длительности и ошибку.
+        """
 
         stage_descriptors = self.build_stage_plan(stage_context, options)
         stage_factory = self.create_stage_factory()
-        # type: ignore[arg-type] - StageContext satisfies Protocol via Adapter
-        stages = stage_factory.build(stage_descriptors, stage_context, options)
+        stages = stage_factory.build(
+            stage_descriptors,
+            stage_context,
+            options,
+        )  # type: ignore[arg-type]
         self.stage_plan = stages
         durations, error = self.orchestration_service.execute(
             stages,
@@ -356,15 +377,21 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         if run_state.error is not None:
             return None
 
-        qc_path, qc_error = self.qc_coordinator.qc_runtime_service.run(
-            stage_context, options
+        result = self.qc_coordinator.qc_runtime_service.run(
+            stage_context,
+            options,
+        )
+        qc_path, qc_error = cast(
+            tuple[Path | None, str | None],
+            result,
         )
         if qc_error is not None:
             run_state.error = qc_error
-            logger.error(
+            any_logger = cast(Any, logger)
+            any_logger.error(
                 "QC_METRICS_ERROR",
                 error=run_state.error,
-            )  # type: ignore
+            )
         return qc_path
 
     def _build_run_result(
@@ -394,13 +421,13 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
                         dry_run=True,
                     )
             if metadata_writer is None:
-                legacy_writer = getattr(
+                legacy_writer: Callable[..., Any] | None = getattr(
                     self,
                     "_write_metadata",
                     None,
                 )
-                if callable(legacy_writer):  # pragma: no cover - defensive
-                    cast(Callable[..., Any], legacy_writer)(
+                if legacy_writer is not None:  # pragma: no cover - defensive
+                    legacy_writer(
                         target_dir,
                         stage_context.data_bucket.get(),
                     )
@@ -410,8 +437,15 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         if isinstance(result_frame, pd.DataFrame) and not self.dry_run:
             rows = int(result_frame.shape[0])
         success = run_state.error is None
-        run_result = (
-            self.metadata_coordinator.metadata_runtime_service.build_run_result(
+        metadata_runtime_service = (
+            self.metadata_coordinator.metadata_runtime_service
+        )
+        logs_directory_resolver = (
+            self.metadata_coordinator.logs_directory_resolver
+        )
+        run_result = cast(
+            RunResult,
+            metadata_runtime_service.build_run_result(
                 context=stage_context,
                 stage_plan=stages,
                 run_state=run_state,
@@ -421,10 +455,10 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
                 qc_metrics_path=qc_path,
                 success=success,
                 output_dir=target_dir,
-                logs_directory=self.metadata_coordinator.logs_directory_resolver(
+                logs_directory=logs_directory_resolver(
                     target_dir
                 ),
-            )
+            ),
         )
         self.finalize_run(run_result)
         return run_result
@@ -497,14 +531,18 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
                     mode,
                 ),
             )
-        return self.metadata_runtime_service.build_run_metadata(
-            context,
-            stage_plan,
-            durations,
-            run_tag,
-            mode,
-            rows=rows,
-            qc_metrics_path=qc_metrics_path,
+        metadata_runtime_service = self.metadata_runtime_service
+        return cast(
+            "dict[str, Any]",
+            metadata_runtime_service.build_run_metadata(
+                context,
+                stage_plan,
+                durations,
+                run_tag,
+                mode,
+                rows=rows,
+                qc_metrics_path=qc_metrics_path,
+            ),
         )
 
     def resolve_logs_directory(self, output_dir: Path) -> Path:

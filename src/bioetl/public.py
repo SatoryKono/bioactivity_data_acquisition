@@ -13,8 +13,11 @@ from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import RunResult
 from bioetl.core.pipeline.unified import UnifiedPipelineBase
 
+PipelineBase = UnifiedPipelineBase
+
 __all__ = [
     "BaseApiClient",
+    "PipelineBase",
     "UnifiedPipelineBase",
     "PipelineConfig",
     "RunResult",

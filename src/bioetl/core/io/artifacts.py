@@ -55,8 +55,13 @@ class SchemaRegistryEntry:
     row_hash_fields: tuple[str, ...] = ()
     required_fields: tuple[str, ...] = ()
 
-    def with_determinism(self, sort_by: Sequence[str] | None) -> "SchemaRegistryEntry":
-        settings = DeterminismSettings(sort_by=tuple(sort_by) if sort_by else None)
+    def with_determinism(
+        self,
+        sort_by: Sequence[str] | None,
+    ) -> "SchemaRegistryEntry":
+        settings = DeterminismSettings(
+            sort_by=tuple(sort_by) if sort_by else None
+        )
         return SchemaRegistryEntry(
             identifier=self.identifier,
             schema=self.schema,
@@ -79,10 +84,16 @@ class SchemaRegistry:
         if entry.identifier in self._entries:
             msg = f"Schema '{entry.identifier}' is already registered"
             raise ValueError(msg)
-        missing = [col for col in entry.column_order if col not in entry.schema.columns]
+        missing = [
+            col
+            for col in entry.column_order
+            if col not in entry.schema.columns
+        ]
         if missing:
             msg = (
-                f"Schema '{entry.identifier}' column_order references missing columns: "
+                "Schema '"
+                f"{entry.identifier}"
+                "' column_order references missing columns: "
                 f"{missing}"
             )
             raise ValueError(msg)
@@ -101,6 +112,7 @@ class SchemaRegistry:
 
 @dataclass(slots=True)
 class WriteArtifacts:
+    dataset: str | None = None
     data_path: Path | None = None
     meta_path: Path | None = None
     manifest_path: Path | None = None

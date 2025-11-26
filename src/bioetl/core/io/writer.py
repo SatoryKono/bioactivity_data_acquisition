@@ -37,7 +37,9 @@ class ArtifactWriter:
         extended: bool = False,
     ) -> WriteResult:
         output_dir.mkdir(parents=True, exist_ok=True)
-        dataset_path = artifacts.data_path or output_dir / f"{self.pipeline_code}.csv"
+        dataset_path = (
+            artifacts.data_path or output_dir / f"{self.pipeline_code}.csv"
+        )
         artifacts.data_path = dataset_path
 
         sorted_df = _sort_dataframe(df)
@@ -46,11 +48,13 @@ class ArtifactWriter:
         tmp_path.replace(dataset_path)
 
         if extended:
-            self._write_metadata(output_dir, artifacts, sorted_df, dry_run=dry_run)
+            self.write_metadata(
+                output_dir, artifacts, sorted_df, dry_run=dry_run
+            )
 
         return WriteResult(rows=int(sorted_df.shape[0]), artifacts=artifacts)
 
-    def _write_metadata(
+    def write_metadata(
         self,
         output_dir: Path,
         artifacts: WriteArtifacts,
@@ -59,7 +63,9 @@ class ArtifactWriter:
         dry_run: bool,
     ) -> None:
         meta_path = artifacts.meta_path or output_dir / "meta.yaml"
-        manifest_path = artifacts.manifest_path or output_dir / "run_manifest.json"
+        manifest_path = (
+            artifacts.manifest_path or output_dir / "run_manifest.json"
+        )
 
         artifacts.meta_path = meta_path
         artifacts.manifest_path = manifest_path
@@ -82,7 +88,9 @@ class ArtifactWriter:
             },
             "metrics": payload,
         }
-        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False))
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2, ensure_ascii=False)
+        )
 
 
 __all__ = ["ArtifactWriter"]
