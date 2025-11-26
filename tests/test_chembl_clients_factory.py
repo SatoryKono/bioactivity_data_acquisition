@@ -108,8 +108,8 @@ def test_factory_uses_transport_factory_each_time():
 
     factory = ChemblEntityClientFactory(transport_factory)
 
-    assert factory.activity().transport is first
-    assert factory.assay().transport is second
+    assert factory.activity().transport.base_transport is first
+    assert factory.assay().transport.base_transport is second
     assert transport_factory.call_count == 2
 
 

@@ -8,7 +8,7 @@ from bioetl.clients.entities.common import (
     ChemblActivityClient,
     ChemblEntityClientFactory,
 )
-from bioetl.infrastructure.chembl import BaseChemblClient
+from bioetl.infrastructure.chembl import ChemblTransportAdapter
 from bioetl.config.models import PipelineConfig
 from bioetl.core.http import (
     ResilientRequestExecutorFactory,
@@ -87,7 +87,7 @@ def default_chembl_factory(
         components = ResilientRequestExecutorFactory(api_config).create(
             pagination_strategy=DefaultPaginationStrategy(),
         )
-        return BaseChemblClient(
+        return ChemblTransportAdapter(
             UnifiedAPIClient(
                 api_config,
                 request_executor=components.executor,
