@@ -4,7 +4,7 @@ from typer.testing import CliRunner
 
 from bioetl.cli.cli_app import app
 from bioetl.cli.cli_registry import PIPELINE_REGISTRY
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline.unified import UnifiedPipelineBase as PipelineBase
 
 
 def test_pipeline_base_is_importable() -> None:
