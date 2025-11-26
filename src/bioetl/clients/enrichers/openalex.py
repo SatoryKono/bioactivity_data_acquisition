@@ -4,7 +4,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from bioetl.clients.enrichers._base import _BaseEnricherClient
-from bioetl.base_classes import BaseApiClient
+from bioetl.clients.common import BaseApiClient
 
 
 class OpenAlexClient(_BaseEnricherClient):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from bioetl.base_classes import BaseApiClient
+from bioetl.clients.common import BaseApiClient
 from bioetl.core.http.cache import CacheStrategy
 from bioetl.core.http.circuit_breaker import CircuitBreakerStrategy
 from bioetl.core.http.pagination import PaginationStrategy
