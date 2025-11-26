@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioetl.core.pipeline.orchestration import PipelineBaseCommon
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.services import QCService
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
@@ -16,13 +16,16 @@ from bioetl.core.pipeline.types import (
 )
 
 
-class QCPipeline(PipelineBaseCommon):
+class QCPipeline(UnifiedPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.validator = None
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self._finalized = False
 
-    def prepare_run(self, options: StageExecutionOptions) -> None:  # pragma: no cover - not used
+    def prepare_run(
+        self,
+        options: StageExecutionOptions,
+    ) -> None:  # pragma: no cover - not used
         return None
 
     def extract(
@@ -46,7 +49,9 @@ class QCPipeline(PipelineBaseCommon):
         artifacts: WriteArtifacts,
         options: StageExecutionOptions,
     ) -> WriteResult:
-        artifacts.data_path = artifacts.data_path or self.output_root / "data.csv"
+        artifacts.data_path = artifacts.data_path or (
+            self.output_root / "data.csv"
+        )
         artifacts.data_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(artifacts.data_path, index=False)
         return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)

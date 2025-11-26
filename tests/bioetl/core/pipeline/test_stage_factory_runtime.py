@@ -7,10 +7,17 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.orchestration import PipelineBaseCommon
-from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
+from bioetl.core.pipeline.stage_plan import (
+    StagePlanMetadata,
+    build_default_stage_plan,
+)
 from bioetl.core.pipeline.types import (
     ArtifactStore,
+    DefaultArtifactContext,
+    DefaultDomainContext,
+    DefaultExecutionContext,
+    DefaultInfrastructureContext,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -24,10 +31,10 @@ from bioetl.core.pipeline.types import (
 )
 
 
-class CommandSpyPipeline(PipelineBaseCommon):
+class CommandSpyPipeline(UnifiedPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.validator = None
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self.calls: list[str] = []
 
     def prepare_run(self, options: StageExecutionOptions) -> None:
@@ -65,14 +72,13 @@ CONFIG = PipelineConfig(
 OPTIONS = StageExecutionOptions(run_tag=None, mode=None)
 
 
-def _stage_context(pipeline: PipelineBaseCommon) -> StageContext:
+def _stage_context(pipeline: UnifiedPipelineBase) -> StageContext:
     logger = UnifiedLogger.get("StageFactoryTest")
     return StageContext(
-        pipeline=pipeline,
-        logger=logger,
-        request_id="test",
-        output_dir=Path("/tmp/out"),
-        artifact_store=ArtifactStore(WriteArtifacts()),
+        execution=DefaultExecutionContext(logger=logger, request_id="test"),
+        domain=DefaultDomainContext(pipeline=pipeline),
+        infrastructure=DefaultInfrastructureContext(output_dir=Path("/tmp/out")),
+        artifacts=DefaultArtifactContext(artifact_store=ArtifactStore(WriteArtifacts())),
     )
 
 
@@ -100,7 +106,7 @@ def test_stage_plan_respects_dry_run_without_validator() -> None:
 
 
 class FakeStageFactory(StageFactory):
-    def __init__(self, pipeline: PipelineBaseCommon) -> None:
+    def __init__(self, pipeline: UnifiedPipelineBase) -> None:
         super().__init__(pipeline)
         self.created_from: list[str] = []
 
@@ -109,6 +115,7 @@ class FakeStageFactory(StageFactory):
         descriptors: Iterable[StageDescriptor],
         context: StageContext,
         options: StageExecutionOptions,
+        stages: list[str] | None = None,
     ):
         stages = []
         for descriptor in descriptors:
@@ -147,7 +154,7 @@ class FactorySpyPipeline(CommandSpyPipeline):
         run_id: str,
         factory: FakeStageFactory,
     ) -> None:
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self._factory = factory
 
     def create_stage_factory(self) -> StageFactory:
@@ -166,7 +173,10 @@ def test_pipeline_runtime_uses_stage_factory() -> None:
         def build_stage_plan(
             self, context: StageContext, options: StageExecutionOptions
         ) -> tuple[StageDescriptor, ...]:
-            metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=True)
+            metadata = StagePlanMetadata(
+                dry_run=options.dry_run,
+                has_validator=True,
+            )
             return tuple(build_default_stage_plan(context.descriptor, metadata))
 
     pipeline = _Pipeline(CONFIG, "spy-3")
@@ -174,4 +184,9 @@ def test_pipeline_runtime_uses_stage_factory() -> None:
 
     assert result.success is True
     assert factory is not None
-    assert factory.created_from == ["extract", "transform", "validate", "save_results"]
+    assert factory.created_from == [
+        "extract",
+        "transform",
+        "validate",
+        "save_results",
+    ]

@@ -29,6 +29,10 @@ from bioetl.core.pipeline.services import (
 from bioetl.core.pipeline.types import (
     ArtifactStore,
     DataBucket,
+    DefaultArtifactContext,
+    DefaultDomainContext,
+    DefaultExecutionContext,
+    DefaultInfrastructureContext,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -295,16 +299,26 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
 
         output_dir = artifacts.data_path.parent if artifacts.data_path else self.output_root
 
+        logger = UnifiedLogger.get(self.__class__.__name__).bind(
+            run_id=self.run_id,
+            pipeline=self.pipeline_code,
+        )
         stage_context = self.context_builder.build(
-            logger=UnifiedLogger.get(self.__class__.__name__).bind(
-                run_id=self.run_id,
-                pipeline=self.pipeline_code,
+            execution=DefaultExecutionContext(
+                logger=logger,
+                request_id=self.run_id,
+                trace_id=self.run_id,
             ),
-            output_dir=output_dir,
-            data_bucket=DataBucket(),
-            artifact_store=ArtifactStore(artifacts),
-            metadata_service=self.metadata_service,
-            qc_orchestrator=self.qc_orchestrator,
+            domain=DefaultDomainContext(pipeline=self),
+            infrastructure=DefaultInfrastructureContext(
+                output_dir=output_dir,
+                metadata_service=self.metadata_service,
+                qc_orchestrator=self.qc_orchestrator,
+            ),
+            artifacts=DefaultArtifactContext(
+                data_bucket=DataBucket(),
+                artifact_store=ArtifactStore(artifacts),
+            ),
         )
         runtime_context = StageRuntimeContext(context=stage_context, options=options)
 

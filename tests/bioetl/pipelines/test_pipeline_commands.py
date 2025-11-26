@@ -7,12 +7,16 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.orchestration import PipelineBaseCommon
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.stage_plan import (
     StagePlanMetadata,
     build_default_stage_plan,
 )
 from bioetl.core.pipeline.types import (
+    DefaultArtifactContext,
+    DefaultDomainContext,
+    DefaultExecutionContext,
+    DefaultInfrastructureContext,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -24,13 +28,13 @@ from bioetl.core.pipeline.types import (
 )
 
 
-class CommandSpyPipeline(PipelineBaseCommon):
+class CommandSpyPipeline(UnifiedPipelineBase):
     """Test pipeline that records method calls."""
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         if not hasattr(self, "validator"):
             self.validator = None
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self.calls: list[str] = []
 
     def prepare_run(self, options: StageExecutionOptions) -> None:
@@ -78,7 +82,7 @@ class ValidatingCommandSpyPipeline(CommandSpyPipeline):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.validator = object()
-        super().__init__(config, run_id)
+        super().__init__(config, run_id=run_id)
         self.validator = object()
 
     def build_stage_plan(
@@ -100,15 +104,15 @@ OPTIONS = StageExecutionOptions(run_tag=None, mode=None)
 
 
 def _contexts(
-    pipeline: PipelineBaseCommon,
+    pipeline: UnifiedPipelineBase,
 ) -> tuple[StageContext, StageRuntimeContext]:
     logger = UnifiedLogger.get("StageFactoryTest")
     context = StageContext(
-        logger=logger,
-        request_id="test",
-        pipeline=pipeline,
+        execution=DefaultExecutionContext(logger=logger, request_id="test"),
+        domain=DefaultDomainContext(pipeline=pipeline),
+        infrastructure=DefaultInfrastructureContext(output_dir=Path("/tmp/out")),
+        artifacts=DefaultArtifactContext(),
         config_provider=lambda _k: {},
-        output_dir=Path("/tmp/out"),
     )
     runtime = StageRuntimeContext(context=context, options=OPTIONS)
     return context, runtime

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-"""Общие утилиты и базовые классы для ChEMBL пайплайнов."""
+"""Общий каркас для пайплайнов ChEMBL на новом рантайме."""
 
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 import pandas as pd
 import yaml
 
+from bioetl.core.pipeline.services import default_write_service_factory
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
-from bioetl.core.pipeline.services import WriteService
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor, ChemblPipelineBase
 from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
 
@@ -19,10 +19,10 @@ class ConfigValidationError(ValueError):
     """Исключение при валидации пользовательской конфигурации."""
 
 
-class ChemblWriteService(WriteService):
-    """Service encapsulating deterministic writing for ChemblEntityPipeline."""
+class ChemblWriteService:
+    """Детерминированная запись для ChEMBL-пайплайнов."""
 
-    def __init__(self, pipeline: "ChemblEntityPipeline") -> None:
+    def __init__(self, pipeline: "ChemblCommonPipeline") -> None:
         self.pipeline = pipeline
 
     def save(
@@ -32,8 +32,10 @@ class ChemblWriteService(WriteService):
         options: StageExecutionOptions,
         *,
         context,
+        runtime,
     ) -> WriteResult:
-        date_suffix = date.today().isoformat()
+        _ = runtime
+        date_suffix = datetime.utcnow().date().isoformat()
         stem = f"{self.pipeline.entity_name}_chembl"
         dataset_path = artifacts.data_path or artifacts.extra.get("dataset")
         output_dir = (dataset_path.parent if dataset_path else context.output_dir).resolve()
@@ -48,8 +50,9 @@ class ChemblWriteService(WriteService):
         artifacts.meta_path = meta_path
         artifacts.manifest_path = manifest_path
 
-        df.to_csv(dataset_path, index=False)
-        self.pipeline._write_quality_report(df, quality_report_path)
+        if not options.dry_run:
+            df.to_csv(dataset_path, index=False)
+            self.pipeline._write_quality_report(df, quality_report_path)
 
         payload = {
             "run_id": self.pipeline.run_id,
@@ -83,9 +86,14 @@ class ChemblWriteService(WriteService):
                 metadata_writer(output_dir, df)
         return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)
 
+    def write_metadata(self, output_dir: Path, artifacts: WriteArtifacts, df: pd.DataFrame | None, *, dry_run: bool) -> None:  # noqa: D401
+        """Совместимость с интерфейсом WriteService (метаданные пишутся в save)."""
+        _ = (output_dir, artifacts, df, dry_run)
+        return None
 
-class ChemblEntityPipeline(ChemblPipelineBase):
-    """Базовый класс для сущностей ChEMBL с общей валидацией."""
+
+class ChemblCommonPipeline(ChemblPipelineBase):
+    """Базовый класс для ChEMBL-пайплайнов без legacy-зависимостей."""
 
     entity_name: str = "chembl"
     required_sort_fields: Sequence[str] = ()
@@ -97,13 +105,15 @@ class ChemblEntityPipeline(ChemblPipelineBase):
         run_id: str | None = None,
         extraction_service: ChemblExtractionService | None = None,
     ) -> None:
-        super().__init__(config, run_id=run_id, extraction_service=extraction_service)
+        super().__init__(
+            config,
+            run_id=run_id,
+            extraction_service=extraction_service,
+            write_service_factory=default_write_service_factory,
+        )
         self._validate_common_config()
         self.write_service = ChemblWriteService(self)
 
-    # ------------------------------------------------------------------
-    # Общая конфигурация
-    # ------------------------------------------------------------------
     def _validate_common_config(self) -> None:
         batch_size = self._get_config_value("sources.chembl.batch_size")
         if not isinstance(batch_size, int) or batch_size <= 0 or batch_size > 25:
@@ -134,9 +144,6 @@ class ChemblEntityPipeline(ChemblPipelineBase):
             current = current[part]
         return current
 
-    # ------------------------------------------------------------------
-    # Обработка стадий
-    # ------------------------------------------------------------------
     def extract(
         self,
         descriptor: ChemblExtractionDescriptor | None,
@@ -156,66 +163,18 @@ class ChemblEntityPipeline(ChemblPipelineBase):
         return frame
 
     def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        # Тонкий слой для переопределения в наследниках.
         return df
 
     def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        # Дополнительные пользовательские проверки можно внедрить в наследниках.
+        if self.validation_service:
+            return self.validation_service.validate(df, pipeline=self, options=options)
         return df
 
     def save_results(
         self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
     ) -> WriteResult:
-        date_suffix = date.today().isoformat()
-        stem = f"{self.entity_name}_chembl"
-        dataset_path = artifacts.data_path or artifacts.extra.get("dataset")
-        output_dir = (dataset_path.parent if dataset_path else Path.cwd()).resolve()
-        output_dir.mkdir(parents=True, exist_ok=True)
-        dataset_path = dataset_path or output_dir / f"{stem}_all_{date_suffix}.csv"
-        quality_report_path = artifacts.quality_report_path or output_dir / f"{stem}_quality_report.csv"
-        meta_path = artifacts.meta_path or output_dir / f"{stem}_meta.yaml"
-        manifest_path = artifacts.manifest_path or output_dir / f"{stem}_run_manifest.json"
+        return super().save_results(df, artifacts, options)
 
-        artifacts.data_path = dataset_path
-        artifacts.quality_report_path = quality_report_path
-        artifacts.meta_path = meta_path
-        artifacts.manifest_path = manifest_path
-
-        df.to_csv(dataset_path, index=False)
-        self._write_quality_report(df, quality_report_path)
-
-        payload = {
-            "run_id": self.run_id,
-            "pipeline": self.pipeline_name,
-            "entity": self.entity_name,
-            "rows": int(df.shape[0]),
-            "columns": list(df.columns),
-            "generated_at": datetime.utcnow().isoformat(),
-        }
-        meta_path.write_text(yaml.safe_dump(payload, allow_unicode=True))
-        manifest_path.write_text(
-            yaml.safe_dump(
-                {
-                    "run_id": self.run_id,
-                    "artifacts": {
-                        "dataset": dataset_path.name,
-                        "quality_report": quality_report_path.name,
-                        "meta": meta_path.name,
-                    },
-                }
-            )
-        )
-
-        log_dir = Path("/data/logs") / stem
-        log_dir.mkdir(parents=True, exist_ok=True)
-        (log_dir / f"{stem}.log").touch()
-
-        if options.extended:
-            # Делегируем базовой реализации запись meta/run_manifest.
-            self._write_metadata(output_dir, df)
-        return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)
-
-    # ------------------------------------------------------------------
     def _write_quality_report(self, df: pd.DataFrame, output_path: Path) -> None:
         summary = {
             "rows": int(df.shape[0]),
@@ -224,7 +183,6 @@ class ChemblEntityPipeline(ChemblPipelineBase):
         }
         pd.DataFrame([summary]).to_csv(output_path, index=False)
 
-    # ------------------------------------------------------------------
     def _fallback_rows(self, ids: Iterable[str], exc: Exception) -> list[dict[str, Any]]:
         timestamp = datetime.utcnow().isoformat()
         return [
@@ -240,9 +198,8 @@ class ChemblEntityPipeline(ChemblPipelineBase):
             for chembl_id in ids
         ]
 
-    # ------------------------------------------------------------------
     def _build_generic_descriptor(self) -> ChemblExtractionDescriptor:
-        def build_context(_pipeline: ChemblEntityPipeline) -> Mapping[str, Any]:
+        def build_context(_pipeline: ChemblCommonPipeline) -> Mapping[str, Any]:
             chembl_ctx = self.config.get("sources", {}).get("chembl", {}) if isinstance(self.config, Mapping) else {}
             return {
                 "chembl_client": chembl_ctx.get("client"),
@@ -261,7 +218,7 @@ class ChemblEntityPipeline(ChemblPipelineBase):
                         result = fetcher(batch)
                     else:
                         result = [{"chembl_id": chembl_id} for chembl_id in batch]
-                except Exception as exc:  # pragma: no cover - защитный сценарий
+                except Exception as exc:  # pragma: no cover
                     fallback_rows = self._fallback_rows(batch, exc)
                     meta["fallback"] = len(fallback_rows)
                     return fallback_rows, meta
@@ -291,7 +248,8 @@ class ChemblEntityPipeline(ChemblPipelineBase):
             finalizer_factory=finalizer_factory,
         )
 
-    # Наследники обязаны предоставить build_descriptor
-    def build_descriptor(self) -> ChemblExtractionDescriptor:
+    def build_descriptor(self) -> ChemblExtractionDescriptor:  # pragma: no cover - должен быть переопределён
         raise NotImplementedError
 
+
+__all__ = ["ChemblCommonPipeline", "ChemblWriteService", "ConfigValidationError"]

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Mapping, TypedDict
+from typing import Any, Mapping
+
+from typing_extensions import TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
