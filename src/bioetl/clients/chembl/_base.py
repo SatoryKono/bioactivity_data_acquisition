@@ -77,5 +77,12 @@ class ChemblEntityClient(ChemblPaginationMixin, BaseApiEntityClient):
         )
         super().__init__(self.transport, pagination, entity=entity)
 
+    def status(self) -> Mapping[str, Any]:
+        """Check ChEMBL API status."""
+        return self._wrap_callable(
+            lambda: self._transport().request("GET", "/status"),
+            log_context={"path": "/status", "method": "GET"},
+        )  # type: ignore[return-value]
+
 
 __all__ = ["BaseChemblClient", "ChemblEntityClient"]

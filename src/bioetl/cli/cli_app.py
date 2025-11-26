@@ -4,6 +4,7 @@ from pathlib import Path
 
 import typer
 import yaml
+from pydantic import SecretStr
 
 from bioetl.cli.cli_command import (
     _handle_cli_exception,
@@ -12,6 +13,14 @@ from bioetl.cli.cli_command import (
 )
 from bioetl.cli.cli_registry import PIPELINE_REGISTRY
 from bioetl.config.loader import load_config
+
+
+def _secret_str_representer(dumper: yaml.SafeDumper, data: SecretStr) -> yaml.nodes.ScalarNode:
+    return dumper.represent_scalar("tag:yaml.org,2002:str", "**********")
+
+
+yaml.SafeDumper.add_representer(SecretStr, _secret_str_representer)
+
 
 app = typer.Typer(help="BioETL pipelines", add_completion=False)
 config_app = typer.Typer(help="Конфигурационные утилиты")

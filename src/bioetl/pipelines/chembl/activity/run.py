@@ -44,6 +44,8 @@ from bioetl.schemas.activity_schema import ActivityColumns, ActivitySchema
 
 
 class ActivityWriteService(WriteService):
+    """Service for writing activity pipeline results."""
+
     def __init__(self, writer: ActivityWriter) -> None:
         self.writer = writer
 
@@ -176,9 +178,11 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
                     pass  # Config is frozen/immutable
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Pre-transform hook."""
         return df
 
     def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Enrich data with domain-specific fields."""
         return df
 
     # Stage implementations -----------------------------------------------
@@ -187,6 +191,10 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         descriptor: Any,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
+        """Extract data based on descriptor."""
+        if options.dry_run:
+            return pd.DataFrame(columns=list(ActivityColumns))
+
         descriptor = self._descriptor or self.build_descriptor()
         df, meta = self.run_descriptor_extraction(descriptor)
         self.extract_metadata.update(meta)
@@ -197,6 +205,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         df: pd.DataFrame,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
+        """Transform extracted data."""
         parsed = self.pre_transform(df)
         self.transformer.release = self._release
         return self.transformer.transform(parsed)
@@ -206,6 +215,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         df: pd.DataFrame,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
+        """Validate transformed data."""
         return df
 
     def save_results(
@@ -214,6 +224,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         artifacts: WriteArtifacts,
         options: StageExecutionOptions,
     ) -> WriteResult:
+        """Save pipeline results."""
         output_dir = (
             artifacts.data_path.parent
             if artifacts.data_path

@@ -1,6 +1,8 @@
 """Shared runtime primitives for orchestrating ETL pipelines."""
 from __future__ import annotations
 
+# pylint: disable=undefined-variable
+
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -18,6 +20,7 @@ from bioetl.core.pipeline.services import (
     MetadataRuntimeService,
     MetadataService,
     OrchestrationService,
+    QCOrchestrator,
     QCService,
     RunMetadataBuilder,
     StagePlanExecutor,
@@ -28,7 +31,6 @@ from bioetl.core.pipeline.services import (
     default_metadata_runtime_service_factory,
     default_orchestration_service_factory,
     default_qc_runtime_service_factory,
-    default_qc_service_factory,
 )
 from bioetl.core.pipeline.types import (
     ArtifactStore,
@@ -138,8 +140,6 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             qc_enabled=qc_enabled,
         )
         self.qc_runtime_service = qc_runtime_service or qc_runtime_factory(self)
-        self.qc_service = getattr(self.qc_runtime_service, "qc_service", None)
-        self.qc_orchestrator = getattr(self.qc_runtime_service, "qc_orchestrator", None)
 
         metadata_runtime_factory = metadata_runtime_service_factory or default_metadata_runtime_service_factory(
             config=config,
@@ -182,6 +182,29 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         self.stage_plan: Iterable[Any] | None = None
         context_factory = context_builder_factory or default_context_builder_factory()
         self.context_builder = context_builder or context_factory(self)
+
+    @property
+    def qc_service(self) -> QCService | None:
+        """Access the underlying QC service."""
+        return getattr(self.qc_runtime_service, "qc_service", None)
+
+    @qc_service.setter
+    def qc_service(self, value: QCService | None) -> None:
+        """Update the underlying QC service and propagate to orchestrator."""
+        if self.qc_runtime_service:
+            self.qc_runtime_service.qc_service = value
+            if value is not None:
+                if self.qc_runtime_service.qc_orchestrator:
+                    self.qc_runtime_service.qc_orchestrator.qc_service = value
+                else:
+                    self.qc_runtime_service.qc_orchestrator = QCOrchestrator(value)
+            else:
+                self.qc_runtime_service.qc_orchestrator = None
+
+    @property
+    def qc_orchestrator(self) -> QCOrchestrator | None:
+        """Access the underlying QC orchestrator."""
+        return getattr(self.qc_runtime_service, "qc_orchestrator", None)
 
     def _create_stage_executor(
         self,

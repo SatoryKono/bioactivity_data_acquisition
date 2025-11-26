@@ -1,21 +1,16 @@
+"""Factory functions for creating ChEMBL clients."""
 from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
 
-from bioetl.clients.chembl import (
-    ChemblActivityClient,
-    ChemblAssayClient,
-    ChemblDocumentClient,
-    ChemblTargetClient,
-    ChemblTestItemClient,
-)
+from bioetl.clients.chembl import ChemblActivityClient
 from bioetl.clients.chembl._base import BaseChemblClient
-from bioetl.clients.entities import ChemblEntityClientFactory
+from bioetl.clients.entities.common import ChemblEntityClientFactory
 from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
-from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.api_client import APIConfig
+from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
@@ -26,15 +21,24 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
         metadata = config.get("metadata") or {}
     else:
         metadata = getattr(config, "metadata", {}) or {}
-    chembl_cfg = metadata.get("chembl_api", {}) if isinstance(metadata, dict) else {}
+
+    chembl_cfg = {}
+    if isinstance(metadata, dict):
+        chembl_cfg = metadata.get("chembl_api", {})
 
     def _get(key: str, default: Any) -> Any:
         if isinstance(chembl_cfg, dict):
             return chembl_cfg.get(key, default)
         return default
 
+    default_headers = _get("default_headers", {})
+    if not isinstance(default_headers, dict):
+        default_headers = {}
+
     return APIConfig(
-        base_url=str(_get("base_url", "https://www.ebi.ac.uk/chembl/api/data")),
+        base_url=str(
+            _get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
+        ),
         timeout_sec=float(_get("timeout_sec", 30)),
         max_retries=int(_get("max_retries", 3)),
         backoff_factor=float(_get("backoff_factor", 1)),
@@ -45,7 +49,7 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
         cache_ttl_sec=int(_get("cache_ttl_sec", 300)),
         circuit_breaker_fail_max=int(_get("circuit_breaker_fail_max", 5)),
         circuit_breaker_reset_sec=int(_get("circuit_breaker_reset_sec", 60)),
-        default_headers=dict(_get("default_headers", {})) if isinstance(_get("default_headers", {}), dict) else {},
+        default_headers=dict(default_headers),
         user_agent=str(_get("user_agent", "bioetl-chembl-client")),
     )
 
@@ -119,8 +123,8 @@ def default_activity_client_factory(
     if not isinstance(client, ChemblActivityClient):
         print(f"DEBUG: client type: {type(client)}")
         print(f"DEBUG: expected type: {ChemblActivityClient}")
-        print(f"DEBUG: client MRO: {type(client).__mro__}")
-        print(f"DEBUG: expected MRO: {ChemblActivityClient.__mro__}")
+        print(f"DEBUG: client module: {client.__class__.__module__}")
+        print(f"DEBUG: expected module: {ChemblActivityClient.__module__}")
         raise TypeError("Configured activity builder did not produce ChemblActivityClient")
     return client
 

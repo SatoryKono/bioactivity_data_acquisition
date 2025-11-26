@@ -1,3 +1,6 @@
+# pylint: disable=protected-access
+# pyright: reportPrivateUsage=false
+# ruff: noqa: SLF001
 from unittest.mock import ANY, MagicMock, call
 
 import pytest

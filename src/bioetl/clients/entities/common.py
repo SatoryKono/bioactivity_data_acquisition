@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Callable, Type
 
 from bioetl.clients.chembl._base import ChemblEntityClient
+from bioetl.clients.chembl.client_activity import ChemblActivityClient
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
@@ -78,7 +79,6 @@ class ChemblEntityClientFactory:
         return self._create_specific(ChemblDocumentClient)
 
 
-ChemblActivityClient = _build_entity_client("ChemblActivityClient", ChemblEntity.ACTIVITY)
 ChemblAssayClient = _build_entity_client("ChemblAssayClient", ChemblEntity.ASSAY)
 ChemblTargetClient = _build_entity_client("ChemblTargetClient", ChemblEntity.TARGET)
 ChemblTestItemClient = _build_entity_client("ChemblTestItemClient", ChemblEntity.TESTITEM)
