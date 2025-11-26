@@ -14,6 +14,7 @@ from bioetl.clients import (
     RequestException,
 )
 from bioetl.clients.common import ApiTransportProtocol, UnifiedEntityClientBase
+from bioetl.infra.pagination_registry import PaginationRegistry
 
 
 class _DummyApiClient(ApiTransportProtocol):
@@ -67,10 +68,14 @@ class _DummyPagination(PaginationStrategy):
 class _DummyEntityClient(UnifiedEntityClientBase):
     def __init__(self, api_client: _DummyApiClient, payloads: list[Mapping[str, Any]]) -> None:
         self._payloads = payloads
-        super().__init__(api_client, "dummy", pagination_strategy=_DummyPagination(payloads))
+        super().__init__(
+            api_client,
+            "dummy",
+            pagination_strategy=_DummyPagination(payloads),
+        )
 
-    def default_pagination_strategy(self) -> PaginationStrategy:
-        return _DummyPagination(self._payloads)
+    def default_pagination_strategy_name(self) -> str:
+        return "dummy"
 
 
 def test_clients_are_exported() -> None:
@@ -94,6 +99,36 @@ def test_fetch_all_uses_bound_logger_and_pagination() -> None:
     assert records == [{"id": 1}, {"id": 2}, {"id": 3}]
     assert any(entry.get("event") == "paginate_called" for entry in logs)
     assert all(entry.get("entity") == "dummy" for entry in logs)
+
+
+def test_pagination_strategy_resolved_from_registry() -> None:
+    payloads = [
+        {"results": [{"id": 1}]},
+        {"results": [{"id": 2}]},
+    ]
+    registry = PaginationRegistry()
+
+    factory_calls: list[str] = []
+
+    def _factory() -> PaginationStrategy:
+        factory_calls.append("built")
+        return _DummyPagination(payloads)
+
+    registry.register("dummy", _factory)
+
+    class _RegistryEntityClient(UnifiedEntityClientBase):
+        def default_pagination_strategy_name(self) -> str:
+            return "dummy"
+
+    api_client = _DummyApiClient(payloads)
+    client = _RegistryEntityClient(
+        api_client,
+        "dummy",
+        pagination_registry=registry,
+    )
+
+    assert factory_calls == ["built"]
+    assert list(client.fetch_all()) == [{"id": 1}, {"id": 2}]
 
 
 def test_wrap_callable_converts_exceptions_and_logs_error() -> None:

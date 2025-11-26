@@ -3,11 +3,21 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import lru_cache
-from typing import Any, Protocol, Sequence as TypingSequence, TypeVar, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Protocol,
+    Sequence as TypingSequence,
+    TypeVar,
+    runtime_checkable,
+)
 
 import structlog
 
 from bioetl.clients import client_exceptions
+
+if TYPE_CHECKING:  # pragma: no cover
+    from bioetl.infra.pagination_registry import PaginationRegistry
 
 
 @runtime_checkable
@@ -320,15 +330,28 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
         entity: str,
         *,
         pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         self.transport = transport
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
-        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy()
+        if pagination_registry is None:
+            from bioetl.infra.pagination_registry import default_pagination_registry
+
+            pagination_registry = default_pagination_registry
+
+        strategy = pagination_strategy
+        if strategy is None:
+            strategy_name = pagination_strategy_name or self.default_pagination_strategy_name()
+            strategy = pagination_registry.get(strategy_name)
+
+        self.pagination_strategy = strategy
+        self._pagination_registry = pagination_registry
 
     @abstractmethod
-    def default_pagination_strategy(self) -> PaginationStrategy:
-        """Выбор стратегии пагинации по умолчанию для конкретного клиента."""
+    def default_pagination_strategy_name(self) -> str:
+        """Имя стратегии пагинации по умолчанию для конкретного клиента."""
 
     def _entity_path(self, suffix: str | None = None) -> str:
         if not suffix:

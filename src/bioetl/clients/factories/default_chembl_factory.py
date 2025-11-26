@@ -17,6 +17,7 @@ from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
 from bioetl.core.http.api_client import APIConfig
 from bioetl.core.http.pagination import DefaultPaginationStrategy
+from bioetl.infra.pagination_registry import PaginationRegistry, default_pagination_registry
 
 
 def _resolve_api_config(config: PipelineConfig) -> APIConfig:
@@ -46,7 +47,10 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
 
 
 def default_chembl_factory(
-    config: PipelineConfig, transport_factory: Callable[[], ApiTransportProtocol] | None = None
+    config: PipelineConfig,
+    transport_factory: Callable[[], ApiTransportProtocol] | None = None,
+    *,
+    pagination_registry: PaginationRegistry | None = None,
 ) -> dict[str, Callable[[], EntityClientProtocol]]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
@@ -68,7 +72,14 @@ def default_chembl_factory(
             )
         )
 
-    entity_factory = ChemblEntityClientFactory(_build_transport)
+    effective_registry = pagination_registry or default_pagination_registry
+    strategy_name = str(chembl_cfg.get("pagination_strategy", "next_link")) if isinstance(chembl_cfg, dict) else None
+
+    entity_factory = ChemblEntityClientFactory(
+        _build_transport,
+        pagination_registry=effective_registry,
+        pagination_strategy_name=strategy_name,
+    )
 
     return {
         "activity": entity_factory.activity,
