@@ -39,6 +39,7 @@ class StageExecutionOptions:
     limit: int | None = None
     include_qc_metrics: bool = False
     fail_on_schema_drift: bool = True
+    enable_validation: bool = True
     extraction_mode: PipelineExtractionMode = PipelineExtractionMode.FULL
 
 

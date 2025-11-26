@@ -16,7 +16,7 @@ from bioetl.core.io.artifacts import (
     SchemaRegistryEntry,
     WriteArtifacts,
 )
-from bioetl.core.pipeline.services import WriteService
+from bioetl.core.pipeline.services import DefaultValidationService, WriteService
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -94,6 +94,8 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
     ) -> None:
         super().__init__(config, run_id=run_id)
         self.client_factory = client_factory or default_activity_client_factory
+        self.validator = ActivitySchema
+        self.validation_service = DefaultValidationService(self.validator)
         self._descriptor: ChemblExtractionDescriptor | None = None
         self._schema_registry = self._build_schema_registry()
         self._release: str | None = None
