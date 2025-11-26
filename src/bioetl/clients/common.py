@@ -8,6 +8,7 @@ from typing import Any, Protocol, Sequence as TypingSequence, TypeVar, runtime_c
 import structlog
 
 from bioetl.clients import client_exceptions
+from bioetl.core.http.pagination import PaginationStrategy
 
 
 @runtime_checkable
@@ -160,22 +161,6 @@ def iterate_by_ids(
     return wrap_iterator(iterator)
 
 
-class PaginatedFetcher(Protocol):
-    def paginate(
-        self,
-        transport: ApiTransportProtocol,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        logger: Any | None = None,
-        page_key: str | None = None,
-        next_key: str | None = None,
-        page_param: str | None = None,
-        normalize: Normalizer | None = None,
-    ) -> Iterator[dict[str, Any]]:
-        """Iterate over paginated API responses for ``endpoint``."""
-
-
 def _iter_payload_items(
     payload: Any, *, page_key: str, normalize: Normalizer | None
 ) -> Iterator[dict[str, Any]]:
@@ -199,10 +184,6 @@ def _iter_payload_items(
         yield payload
 
 
-# Backwards-compatibility alias until pagination implementations migrate fully.
-PaginationStrategy = PaginatedFetcher
-
-
 class NextLinkPagination:
     """Follow ChEMBL-style pagination using ``next`` links in responses."""
 
@@ -215,39 +196,42 @@ class NextLinkPagination:
         self.page_key = page_key
         self.next_key = next_key
 
-    def paginate(
+    def iter_pages(
         self,
+        initial_response: Mapping[str, Any] | Sequence[Mapping[str, Any]],
         transport: ApiTransportProtocol,
-        endpoint: str,
         *,
+        endpoint: str,
         params: Mapping[str, Any] | None = None,
         logger: Any | None = None,
         page_key: str | None = None,
         next_key: str | None = None,
         page_param: str | None = None,
         normalize: Normalizer | None = None,
-    ) -> Iterator[dict[str, Any]]:
-        del page_param
+    ) -> Iterator[Mapping[str, Any] | Sequence[Mapping[str, Any]]]:
+        del page_param, normalize
 
         page_key = page_key or self.page_key
         next_key = next_key or self.next_key
         next_path = endpoint
+        response: Mapping[str, Any] | Sequence[Mapping[str, Any]] = initial_response
         query_params: Mapping[str, Any] | None = dict(params) if params else None
 
         while next_path:
-            payload = transport.request("GET", next_path, params=query_params)
+            yield response
+
+            if not isinstance(response, Mapping):
+                break
+
+            next_candidate = response.get(next_key)
+            if not isinstance(next_candidate, str) or not next_candidate:
+                break
+
+            next_path = next_candidate
+            query_params = None
+            response = transport.request("GET", next_path, params=query_params)
             if logger:
                 logger.info("api_call", path=next_path)
-
-            query_params = None
-            if isinstance(payload, Mapping):
-                yield from _iter_payload_items(payload, page_key=page_key, normalize=normalize)
-
-                next_candidate = payload.get(next_key)
-                next_path = next_candidate if isinstance(next_candidate, str) else None
-                continue
-
-            yield from _iter_payload_items(payload, page_key=page_key, normalize=normalize)
 
 
 class PageParamPagination:
@@ -264,20 +248,19 @@ class PageParamPagination:
         self.page_key = page_key
         self.next_key = next_key
 
-    def paginate(
+    def iter_pages(
         self,
+        initial_response: Mapping[str, Any] | Sequence[Mapping[str, Any]],
         transport: ApiTransportProtocol,
-        endpoint: str,
         *,
+        endpoint: str,
         params: Mapping[str, Any] | None = None,
         logger: Any | None = None,
         page_key: str | None = None,
         next_key: str | None = None,
         page_param: str | None = None,
         normalize: Normalizer | None = None,
-    ) -> Iterator[dict[str, Any]]:
-        del logger
-
+    ) -> Iterator[Mapping[str, Any] | Sequence[Mapping[str, Any]]]:
         page_key = page_key or self.page_key
         next_key = next_key or self.next_key
         page_param = page_param if page_param is not None else self.page_param
@@ -285,30 +268,32 @@ class PageParamPagination:
         page_num = 1
         next_path = endpoint
         query_params = dict(params) if params else {}
+        response: Mapping[str, Any] | Sequence[Mapping[str, Any]] = initial_response
 
         while next_path:
-            effective_params = dict(query_params)
-            if page_param is not None:
-                effective_params[page_param] = page_num
+            yield response
 
-            payload = transport.request("GET", next_path, params=effective_params)
-            if logger:
-                logger.info("api_call", path=next_path)
-
-            page_items = list(_iter_payload_items(payload, page_key=page_key, normalize=normalize))
-            yield from page_items
-
-            next_candidate = payload.get(next_key) if isinstance(payload, Mapping) else None
+            next_candidate = response.get(next_key) if isinstance(response, Mapping) else None
             if isinstance(next_candidate, str) and next_candidate:
                 next_path = next_candidate
                 query_params = {}
                 page_num += 1
+                response = transport.request("GET", next_path, params=None)
+                if logger:
+                    logger.info("api_call", path=next_path)
                 continue
 
-            if page_items:
-                page_num += 1
-                continue
-            break
+            page_items = list(_iter_payload_items(response, page_key=page_key, normalize=normalize))
+            if not page_items:
+                break
+
+            page_num += 1
+            effective_params = dict(query_params)
+            if page_param is not None:
+                effective_params[page_param] = page_num
+            response = transport.request("GET", next_path, params=effective_params)
+            if logger:
+                logger.info("api_call", path=next_path)
 
 
 class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtocol, ABC):
@@ -367,9 +352,16 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
             if params:
                 query_params.update(params)
 
-            for payload in self.pagination_strategy.paginate(
+            first_payload = self._wrap_callable(
+                lambda: self._transport().request("GET", self._entity_path(), params=query_params),
+                log_context={"path": self._entity_path()},
+            )
+            self._logger.info("api_call", path=self._entity_path())
+
+            for page in self.pagination_strategy.iter_pages(
+                first_payload,
                 self._transport(),
-                self._entity_path(),
+                endpoint=self._entity_path(),
                 params=query_params,
                 logger=self._logger,
                 page_key=page_key,
@@ -377,7 +369,7 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
                 page_param=page_param,
                 normalize=self._normalize_payload,
             ):
-                yield payload
+                yield from self._normalize_payload(page)
 
         return self._wrap_iterator(iterator)
 

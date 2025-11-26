@@ -42,11 +42,12 @@ class _DummyPagination(PaginationStrategy):
     def __init__(self, payloads: list[Mapping[str, Any]]) -> None:
         self.payloads = payloads
 
-    def paginate(
+    def iter_pages(
         self,
+        initial_response: Mapping[str, Any],
         transport: Any,
-        endpoint: str,
         *,
+        endpoint: str,
         params: Mapping[str, Any] | None = None,
         logger: Any | None = None,
         page_key: str | None = None,
@@ -54,13 +55,9 @@ class _DummyPagination(PaginationStrategy):
         page_param: str | None = None,
         normalize: Any | None = None,
     ) -> Iterator[Any]:
-        del transport, page_key, next_key, page_param
+        del initial_response, transport, page_key, next_key, page_param, normalize
         if logger:
             logger.info("paginate_called", path=endpoint, params=dict(params or {}))
-        if normalize:
-            for payload in self.payloads:
-                yield from normalize(payload)
-            return
         yield from self.payloads
 
 

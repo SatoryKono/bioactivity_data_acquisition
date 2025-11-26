@@ -127,10 +127,12 @@ class UnifiedAPIClient:
         next_key: str = "next",
         page_param: str | None = "page",
     ) -> Iterator[Dict[str, Any]]:
-        yield from self._pagination.paginate(
-            path,
-            params,
-            lambda next_path, page_params: self.request("GET", next_path, params=page_params),
+        first_payload = self.request("GET", path, params=params)
+        yield from self._pagination.iter_pages(
+            first_payload,
+            self,
+            endpoint=path,
+            params=params,
             page_key=page_key,
             next_key=next_key,
             page_param=page_param,

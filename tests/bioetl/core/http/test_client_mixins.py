@@ -76,8 +76,9 @@ def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
 
 def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
     transport = MagicMock(spec=ApiTransportProtocol)
+    transport.request.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
-    pagination.paginate.return_value = iter([{"id": 1}, {"id": 2}])
+    pagination.iter_pages.return_value = iter([{"items": [{"id": 1}, {"id": 2}]}])
 
     client = _BaseEntityClient(transport=transport, entity="targets", pagination_strategy=pagination)
     client._logger = MagicMock()
@@ -93,9 +94,10 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
     )
 
     assert result == [{"id": 1}, {"id": 2}]
-    pagination.paginate.assert_called_once_with(
+    pagination.iter_pages.assert_called_once_with(
+        {"items": [{"id": 1}]},
         transport,
-        "/targets",
+        endpoint="/targets",
         params={"limit": 2, "foo": "bar"},
         logger=client._logger,
         page_key="items",
@@ -103,12 +105,14 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
         page_param=None,
         normalize=client._normalize_payload,
     )
+    transport.request.assert_called_once_with("GET", "/targets", params={"limit": 2, "foo": "bar"})
 
 
 def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
     transport = MagicMock(spec=ApiTransportProtocol)
+    transport.request.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
-    pagination.paginate.return_value = iter([{"id": 1}])
+    pagination.iter_pages.return_value = iter([{"items": [{"id": 1}]}])
 
     client = ChemblEntityClient(transport=transport, entity="molecule", pagination_strategy=pagination)
     client._logger = MagicMock()
@@ -124,9 +128,10 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
     )
 
     assert result == [{"id": 1}]
-    pagination.paginate.assert_called_once_with(
+    pagination.iter_pages.assert_called_once_with(
+        {"items": [{"id": 1}]},
         transport,
-        "/molecule",
+        endpoint="/molecule",
         params={"limit": 10, "offset": 5},
         logger=client._logger,
         page_key="items",
@@ -134,12 +139,14 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
         page_param="page_num",
         normalize=client._normalize_payload,
     )
+    transport.request.assert_called_once_with("GET", "/molecule", params={"limit": 10, "offset": 5})
 
 
 def test_entity_client_fetch_all_wraps_errors() -> None:
     transport = MagicMock(spec=ApiTransportProtocol)
     pagination = MagicMock()
-    pagination.paginate.side_effect = RuntimeError("boom")
+    pagination.iter_pages.side_effect = RuntimeError("boom")
+    transport.request.return_value = {}
 
     client = _BaseEntityClient(transport=transport, entity="targets", pagination_strategy=pagination)
     client._logger = MagicMock()
@@ -151,7 +158,8 @@ def test_entity_client_fetch_all_wraps_errors() -> None:
 def test_chembl_client_fetch_all_wraps_errors() -> None:
     transport = MagicMock(spec=ApiTransportProtocol)
     pagination = MagicMock()
-    pagination.paginate.side_effect = RuntimeError("boom")
+    pagination.iter_pages.side_effect = RuntimeError("boom")
+    transport.request.return_value = {}
 
     client = ChemblEntityClient(transport=transport, entity="molecule", pagination_strategy=pagination)
     client._logger = MagicMock()
