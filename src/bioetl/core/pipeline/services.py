@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Protocol, ca
 import pandas as pd
 import pandera as pa
 
-from bioetl.core.io import ArtifactWriter
+from bioetl.core.io.writer import ArtifactWriter
 from bioetl.core.pipeline.types import (
     ArtifactContext,
     ArtifactStore,

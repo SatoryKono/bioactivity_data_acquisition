@@ -3,14 +3,14 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from unittest.mock import MagicMock
 
-from bioetl.clients.chembl._base import BaseChemblClient
+from bioetl.infrastructure.chembl import BaseChemblClient
 from bioetl.clients.entities import ChemblEntityClient
 from bioetl.infra import PaginationRegistry
 
 
 class _DummyPaginationStrategy:
-    def iter_pages(self, initial_response, transport, **kwargs):  # pragma: no cover - interface stub
-        yield initial_response
+    def iter_pages(self, initial_response, transport, **kwargs):
+        yield initial_response  # pragma: no cover - interface stub
 
 
 class _IteratorPaginationStrategy:
@@ -18,7 +18,12 @@ class _IteratorPaginationStrategy:
         self.pages = pages
         self.calls: list[Mapping[str, object]] = []
 
-    def iter_pages(self, initial_response, transport, **kwargs) -> Iterator[Mapping[str, object]]:  # type: ignore[override]
+    def iter_pages(
+        self,
+        initial_response,
+        transport,
+        **kwargs,
+    ) -> Iterator[Mapping[str, object]]:  # type: ignore[override]
         self.calls.append({"initial": initial_response, "kwargs": kwargs})
         yield initial_response
         yield from self.pages
@@ -82,13 +87,24 @@ def test_iterate_records_prefers_fetcher_and_respects_ids_and_pagination():
             return [{"id": f"fetched-{ids[0]}"}]
         return None
 
-    records_with_ids = list(client.iterate_records(ids=["10"], fetcher=fetcher))
+    records_with_ids = list(
+        client.iterate_records(ids=["10"], fetcher=fetcher)
+    )
     assert records_with_ids == [{"id": "fetched-10"}]
 
     transport.request.return_value = {"results": [{"id": 1}]}
-    records_paginated = list(client.iterate_records(fetcher=fetcher, page_size=1))
+    records_paginated = list(
+        client.iterate_records(fetcher=fetcher, page_size=1)
+    )
 
     assert records_paginated == [{"id": 1}, {"id": 2}, {"id": 3}]
     assert fetch_calls == [["10"], None]
-    assert transport.request.call_args_list[0].args[1] == "/assay"
-    assert pagination.calls and pagination.calls[0]["kwargs"]["page_key"] == "results"
+    assert (
+        transport.request.call_args_list[0].args[1]
+        == "/assay"
+    )
+    assert pagination.calls
+    assert (
+        pagination.calls[0]["kwargs"]["page_key"]
+        == "results"
+    )

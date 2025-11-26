@@ -8,7 +8,7 @@ from typing import Any, Callable, Mapping, MutableMapping, cast
 import pandas as pd
 
 from bioetl.config.models import ChemblPipelineMetadata
-from bioetl.clients.entities.client_activity import ChemblActivityClient
+from bioetl.clients.entities.common import ChemblActivityClient
 from bioetl.clients.factories.default_chembl_factory import (
     default_activity_client_factory,
 )
@@ -36,7 +36,6 @@ from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
-    RunResult,
     StageContextProtocol,
     StageExecutionOptions,
     StageRuntimeContext,
@@ -108,7 +107,11 @@ class ActivityArtifactPlanner(ArtifactPlanner):
         self.pipeline = pipeline
 
     def plan(
-        self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
+        self,
+        output_dir: Path,
+        pipeline_code: str,
+        run_tag: str | None,
+        mode: str | None,
     ) -> tuple[Path, WriteArtifacts]:
         _ = pipeline_code
         run_stem = self.pipeline.build_run_stem(run_tag, mode)
@@ -140,7 +143,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
 
     def __init__(
         self,
-        config: Mapping[str, Any],
+        config: Mapping[str, Any] | PipelineConfig,
         run_id: str,
         *,
         client_factory: Callable[[Any], ChemblActivityClient] | None = None,
@@ -148,7 +151,9 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         super().__init__(
             config,
             run_id=run_id,
-            artifact_runtime_service_factory=activity_artifact_runtime_service_factory,
+            artifact_runtime_service_factory=(
+                activity_artifact_runtime_service_factory
+            ),
         )
         self.client_factory = client_factory or default_activity_client_factory
         self.validator = ActivitySchema
@@ -297,7 +302,11 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
             )
             artifacts.data_path = planned_artifacts.data_path
 
-        output_dir = artifacts.data_path.parent if artifacts.data_path else self.output_root
+        output_dir = (
+            artifacts.data_path.parent
+            if artifacts.data_path
+            else self.output_root
+        )
 
         logger = UnifiedLogger.get(self.__class__.__name__).bind(
             run_id=self.run_id,
@@ -320,7 +329,10 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
                 artifact_store=ArtifactStore(artifacts),
             ),
         )
-        runtime_context = StageRuntimeContext(context=stage_context, options=options)
+        runtime_context = StageRuntimeContext(
+            context=stage_context,
+            options=options,
+        )
 
         return self.write_service.save(
             df,

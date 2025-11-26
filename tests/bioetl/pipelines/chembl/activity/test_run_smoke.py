@@ -23,10 +23,12 @@ class DummyChemblClient:
         self.fetch_calls: list[list[str]] = []
 
     def status(self):
+        """Return fake status."""
         self.status_calls += 1
         return {"chembl_release": self.releases[0]}
 
     def fetch_by_ids(self, ids):
+        """Return fake data for requested IDs."""
         self.fetch_calls.append(list(ids))
         return {
             str(identifier): {
@@ -41,11 +43,14 @@ class DummyChemblClient:
 
 
 class FailingChemblClient(DummyChemblClient):
+    """Client that simulates failures for specific IDs."""
+
     def __init__(self) -> None:
         super().__init__()
         self.fail_for: set[str] = {"2"}
 
     def fetch_by_ids(self, ids):
+        """Return fake data with failures for specific IDs."""
         self.fetch_calls.append(list(ids))
         data = {}
         for identifier in ids:

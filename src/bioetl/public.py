@@ -11,11 +11,11 @@ from bioetl.config import PipelineConfig, load_config
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import RunResult
-from bioetl.core.pipeline.unified import UnifiedPipelineBase as PipelineBase
+from bioetl.core.pipeline.unified import UnifiedPipelineBase
 
 __all__ = [
     "BaseApiClient",
-    "PipelineBase",
+    "UnifiedPipelineBase",
     "PipelineConfig",
     "RunResult",
     "UnifiedAPIClient",

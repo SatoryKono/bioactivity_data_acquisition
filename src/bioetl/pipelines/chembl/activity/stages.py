@@ -9,7 +9,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.clients.entities.client_activity import ChemblActivityClient
+from bioetl.clients.entities.common import ChemblActivityClient
 from bioetl.clients.factories.default_chembl_factory import (
     default_activity_client_factory,
 )

@@ -4,16 +4,27 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from bioetl.clients.chembl import ChemblActivityClient
-from bioetl.clients.entities.common import ChemblEntityClientFactory
+from bioetl.clients.entities.common import (
+    ChemblActivityClient,
+    ChemblEntityClientFactory,
+)
 from bioetl.infrastructure.chembl import BaseChemblClient
 from bioetl.config.models import PipelineConfig
-from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
+from bioetl.core.http import (
+    ResilientRequestExecutorFactory,
+    UnifiedAPIClient,
+)
 from bioetl.core.http.api_client import APIConfig
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
-from bioetl.infra import PaginationRegistry, get_default_pagination_registry
+from bioetl.core.http.pagination import (
+    DefaultPaginationStrategy,
+    PaginationStrategy,
+)
+from bioetl.infra import (
+    PaginationRegistry,
+    get_default_pagination_registry,
+)
 
 
 def _resolve_api_config(config: PipelineConfig) -> APIConfig:
@@ -126,7 +137,9 @@ def default_activity_client_factory(
         print(f"DEBUG: expected type: {ChemblActivityClient}")
         print(f"DEBUG: client module: {client.__class__.__module__}")
         print(f"DEBUG: expected module: {ChemblActivityClient.__module__}")
-        raise TypeError("Configured activity builder did not produce ChemblActivityClient")
+        raise TypeError(
+            "Configured activity builder did not produce ChemblActivityClient"
+        )
     return client
 
 

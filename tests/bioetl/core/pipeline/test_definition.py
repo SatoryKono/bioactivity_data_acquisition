@@ -24,7 +24,10 @@ def _runtime_factory() -> Any:
 
 
 def test_validate_accepts_minimal_definition() -> None:
-    definition = PipelineDefinition(name="demo", runtime_factory=_runtime_factory)
+    definition = PipelineDefinition(
+        name="demo",
+        runtime_factory=_runtime_factory,
+    )
 
     definition.validate()
 
@@ -36,10 +39,18 @@ def test_validate_accepts_minimal_definition() -> None:
         ("runtime_factory", None, "runtime_factory must be callable"),
         ("stages", ("extract", "extract"), "stages must be unique"),
         ("stages", ("",), "stages must not contain empty names"),
-        ("stage_factory", object, "stage_factory must be a StageFactory subclass"),
+        (
+            "stage_factory",
+            object,
+            "stage_factory must be a StageFactory subclass",
+        ),
     ],
 )
-def test_validate_raises_for_invalid_payload(field: str, value: Any, expected: str) -> None:
+def test_validate_raises_for_invalid_payload(
+    field: str,
+    value: Any,
+    expected: str,
+) -> None:
     kwargs: dict[str, Any] = {
         "name": "demo",
         "runtime_factory": _runtime_factory,

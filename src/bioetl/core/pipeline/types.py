@@ -173,7 +173,10 @@ class StageCommand(StageProtocol):
     """Lightweight callable used to execute a pipeline stage."""
 
     name: str
-    handler: Callable[["StageContextProtocol", StageRuntimeContext], Any]
+    handler: Callable[
+        ["StageContextProtocol | None", StageRuntimeContext],
+        Any,
+    ]
     description: str | None = None
 
     def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
@@ -202,7 +205,9 @@ class PipelineStagesProtocol(Protocol):
         ...
 
     def extract(
-        self, descriptor: "ChemblExtractionDescriptor | None", options: StageExecutionOptions
+        self,
+        descriptor: "ChemblExtractionDescriptor | None",
+        options: StageExecutionOptions,
     ) -> pd.DataFrame:
         """Extract data from source."""
         ...
@@ -546,9 +551,17 @@ class StageContextAdapter:
     def data_bucket(self) -> DataBucket:
         return self.artifacts.data_bucket
 
+    @data_bucket.setter
+    def data_bucket(self, value: DataBucket) -> None:
+        self.artifacts.data_bucket = value
+
     @property
     def artifact_store(self) -> ArtifactStore:
         return self.artifacts.artifact_store
+
+    @artifact_store.setter
+    def artifact_store(self, value: ArtifactStore) -> None:
+        self.artifacts.artifact_store = value
 
     @property
     def current_df(self) -> pd.DataFrame | None:
