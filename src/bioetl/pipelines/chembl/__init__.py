@@ -7,12 +7,24 @@ try:  # pragma: no cover - optional heavy dependencies
     from .document import ChemblDocumentPipeline
     from .target import ChemblTargetPipeline
     from .testitem import TestItemChemblPipeline
+    from .thin import (
+        ChemblActivityThinPipeline,
+        ChemblAssayThinPipeline,
+        ChemblDocumentThinPipeline,
+        ChemblTargetThinPipeline,
+        ChemblTestItemThinPipeline,
+    )
 except Exception:  # pragma: no cover - allow lightweight imports
     ChemblActivityPipeline = None
     ChemblAssayPipeline = None
     ChemblDocumentPipeline = None
     ChemblTargetPipeline = None
     TestItemChemblPipeline = None
+    ChemblActivityThinPipeline = None
+    ChemblAssayThinPipeline = None
+    ChemblDocumentThinPipeline = None
+    ChemblTargetThinPipeline = None
+    ChemblTestItemThinPipeline = None
 
 __all__ = [
     "run_chembl_stage",
@@ -21,5 +33,10 @@ __all__ = [
     "ChemblDocumentPipeline",
     "ChemblTargetPipeline",
     "TestItemChemblPipeline",
+    "ChemblActivityThinPipeline",
+    "ChemblAssayThinPipeline",
+    "ChemblDocumentThinPipeline",
+    "ChemblTargetThinPipeline",
+    "ChemblTestItemThinPipeline",
 ]
 

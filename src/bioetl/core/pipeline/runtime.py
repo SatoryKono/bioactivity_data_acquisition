@@ -8,6 +8,10 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
+import pandas as pd
+
+from bioetl.core.logging import UnifiedLogger
+
 from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.services import (
@@ -258,6 +262,14 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             enable_validation=enable_validation,
         )
 
+    def _prepare_stage_context(
+        self,
+        output_dir: Path,
+        options: StageExecutionOptions,
+        logger: UnifiedLogger,
+    ) -> tuple[StageContext, RunState, Path]:
+        """Собирает состояние запуска и StageContext перед исполнением плана."""
+
         run_state = RunState()
 
         logger.info("STAGE_RUN_START", stage="prepare_run")
@@ -266,28 +278,38 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         target_dir, artifacts = self.artifact_runtime_service.plan_run_artifacts(
             output_dir,
             self.pipeline_code,
-            run_tag,
-            mode,
+            options.run_tag,
+            options.mode,
         )
         run_state.artifacts = artifacts
+
         data_bucket = DataBucket()
         artifact_store = ArtifactStore(artifacts)
         execution_context = DefaultExecutionContext(
-            logger=logger, request_id=self.run_id, trace_id=self.run_id
+            logger=logger,
+            request_id=self.run_id,
+            trace_id=self.run_id,
         )
         stage_context = self.context_builder.build(
             execution=execution_context,
             domain=DefaultDomainContext(pipeline=self),
             infrastructure=DefaultInfrastructureContext(
                 output_dir=target_dir,
-                metadata_service=self.metadata_service,
-                qc_orchestrator=self.qc_orchestrator,
+                metadata_service=self.metadata_coordinator.metadata_service,
+                qc_orchestrator=self.qc_coordinator.qc_orchestrator,
             ),
             artifacts=DefaultArtifactContext(
                 data_bucket=data_bucket,
                 artifact_store=artifact_store,
             ),
         )
+
+        return stage_context, run_state, target_dir
+
+    def _execute_stage_plan(
+        self, stage_context: StageContext, options: StageExecutionOptions
+    ) -> tuple[Iterable[StageCommand], dict[str, int], str | None]:
+        """Формирует и исполняет план стадий, возвращая длительности и ошибку."""
 
         stage_descriptors = self.build_stage_plan(stage_context, options)
         stage_factory = self.create_stage_factory()
@@ -298,19 +320,38 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             stage_context,
             options,
         )
-        run_state.durations = durations
-        run_state.error = error
-        run_state.artifacts = (
-            stage_context.artifact_store.get() or run_state.artifacts
-        )
+        return stages, durations, error
 
-        qc_path: Path | None = None
-        if run_state.error is None:
-            qc_path, qc_error = self.qc_runtime_service.run(stage_context, options)
-            if qc_error is not None:
-                run_state.error = qc_error
-                if logger:
-                    logger.error("QC_METRICS_ERROR", error=run_state.error)
+    def _run_qc(
+        self,
+        stage_context: StageContext,
+        options: StageExecutionOptions,
+        run_state: RunState,
+        logger: UnifiedLogger,
+    ) -> Path | None:
+        """Запускает QC-этап, обновляя состояние выполнения."""
+
+        if run_state.error is not None:
+            return None
+
+        qc_path, qc_error = self.qc_coordinator.qc_runtime_service.run(
+            stage_context, options
+        )
+        if qc_error is not None:
+            run_state.error = qc_error
+            logger.error("QC_METRICS_ERROR", error=run_state.error)
+        return qc_path
+
+    def _build_run_result(
+        self,
+        stage_context: StageContext,
+        stages: Iterable[StageCommand],
+        run_state: RunState,
+        target_dir: Path,
+        options: StageExecutionOptions,
+        qc_path: Path | None,
+    ) -> RunResult:
+        """Собирает итоговый RunResult и инициирует финализацию."""
 
         if options.extended and self.dry_run:
             metadata_writer = None
@@ -323,7 +364,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
                 if callable(metadata_writer):
                     metadata_writer(
                         target_dir,
-                        artifacts,
+                        run_state.artifacts,
                         stage_context.data_bucket.get(),
                         dry_run=True,
                     )
@@ -344,38 +385,22 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         if isinstance(result_frame, pd.DataFrame) and not self.dry_run:
             rows = int(result_frame.shape[0])
         success = run_state.error is None
-        run_result = self.metadata_runtime_service.build_run_result(
+        run_result = self.metadata_coordinator.metadata_runtime_service.build_run_result(
             context=stage_context,
             stage_plan=stages,
             run_state=run_state,
-            run_tag=run_tag,
-            mode=mode,
+            run_tag=options.run_tag,
+            mode=options.mode,
             rows=rows,
             qc_metrics_path=qc_path,
             success=success,
             output_dir=target_dir,
-            logs_directory=self.resolve_logs_directory(target_dir),
+            logs_directory=self.metadata_coordinator.logs_directory_resolver(
+                target_dir
+            ),
         )
         self.finalize_run(run_result)
-        logger.info("STAGE_RUN_END", stage="pipeline", success=success)
         return run_result
-
-    def _build_config_provider(self) -> Callable[[str], Any]:
-        def _resolver(key: str) -> Any:
-            if hasattr(self.config, key):
-                return getattr(self.config, key)
-            if isinstance(self.config, Mapping) and key in self.config:
-                return self.config[key]
-            msg = f"Config key '{key}' not found"
-            raise KeyError(msg)
-
-        return _resolver
-
-    def prepare_run(
-        self,
-        options: StageExecutionOptions,
-    ) -> None:  # pragma: no cover - optional hook
-        """Вызывается перед началом extract."""
 
     def finalize_run(  # pragma: no cover
         self,
@@ -451,6 +476,22 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 
     def resolve_logs_directory(self, output_dir: Path) -> Path:
         return output_dir / "logs"
+
+    def prepare_run(
+        self,
+        options: StageExecutionOptions,
+    ) -> None:  # pragma: no cover - optional hook
+        """Hook executed before the pipeline stages start."""
+
+    def _build_config_provider(self) -> Callable[[str], Any]:
+        """Return a simple config accessor for :class:`StageContext`."""
+
+        def _provider(key: str) -> Any:
+            if isinstance(self.config, Mapping):
+                return self.config.get(key)
+            return getattr(self.config, key)
+
+        return _provider
 
     def _resolve_pipeline_code(
         self,

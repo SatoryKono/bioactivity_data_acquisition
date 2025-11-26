@@ -137,6 +137,8 @@ class StagePlanExecutor:
         return durations, error
 
 
+
+
 @dataclass(slots=True)
 class ArtifactService:
     """Service responsible for deterministic artifact planning."""
@@ -738,6 +740,9 @@ def default_context_builder_factory(
         return ContextBuilder(pipeline=pipeline, config_provider=provider)
 
     return _factory
+
+
+from bioetl.core.runtime.qc import default_qc_runtime_service_factory, default_qc_service_factory
 
 
 __all__ = [
