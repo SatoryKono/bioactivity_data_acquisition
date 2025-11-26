@@ -17,7 +17,6 @@ from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     StageCommand,
-    StageContext,
     StageContextProtocol,
     StageExecutionOptions,
     StageRuntimeContext,
@@ -74,7 +73,7 @@ class StagePlanExecutor:
     def execute(
         self,
         stages: Iterable[StageCommand],
-        context: StageContext,
+        context: StageContextProtocol,
         options: StageExecutionOptions,
         runtime_context: StageRuntimeContext | None = None,
     ) -> tuple[dict[str, int], str | None]:
@@ -143,7 +142,7 @@ class OrchestrationService:
     def execute(
         self,
         stages: Iterable[StageCommand],
-        context: StageContext,
+        context: StageContextProtocol,
         options: StageExecutionOptions,
         runtime_context: StageRuntimeContext | None = None,
     ) -> tuple[dict[str, int], str | None]:
@@ -260,7 +259,7 @@ class QCExecutorAdapter:
 
     def execute(
         self,
-        context: StageContext,
+        context: StageContextProtocol,
         plan: QCPlan,
         artifacts: WriteArtifacts | None = None,
     ) -> Path | None:
@@ -308,7 +307,7 @@ class QCService:
         self.dry_run = dry_run
         self.thresholds = thresholds or {}
 
-    def execute(self, context: StageContext, options: StageExecutionOptions) -> Path | None:
+    def execute(self, context: StageContextProtocol, options: StageExecutionOptions) -> Path | None:
         if self.enabled is False or not options.include_qc_metrics:
             return None
         resolved_plan = self._resolve_plan(context, options)
@@ -317,7 +316,7 @@ class QCService:
         artifacts = context.artifact_store.get()
         return self.adapter.execute(context, resolved_plan, artifacts)
 
-    def _resolve_plan(self, context: StageContext, options: StageExecutionOptions) -> QCPlan:
+    def _resolve_plan(self, context: StageContextProtocol, options: StageExecutionOptions) -> QCPlan:
         base_plan = self.plan or getattr(context.pipeline, "qc_plan", None) or QCPlan.with_default_metrics()
         thresholds = {**base_plan.thresholds, **self.thresholds}
         resolved_dry_run = self.dry_run if self.dry_run is not None else options.dry_run
@@ -331,7 +330,7 @@ class QCOrchestrator:
 
     qc_service: QCService
 
-    def run(self, context: StageContext, options: StageExecutionOptions) -> tuple[Path | None, str | None]:
+    def run(self, context: StageContextProtocol, options: StageExecutionOptions) -> tuple[Path | None, str | None]:
         try:
             return self.qc_service.execute(context, options), None
         except Exception as exc:  # pragma: no cover - surfaced via RunResult
@@ -352,7 +351,7 @@ class MetadataService:
 
     def build(
         self,
-        context: StageContext,
+        context: StageContextProtocol,
         stage_plan: Iterable[StageProtocol],
         durations: Mapping[str, int],
         run_tag: str | None,
@@ -362,7 +361,7 @@ class MetadataService:
 
     def build_for_run(
         self,
-        context: StageContext,
+        context: StageContextProtocol,
         stage_plan: Iterable[StageProtocol],
         durations: Mapping[str, int],
         run_tag: str | None,

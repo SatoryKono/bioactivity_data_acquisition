@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from bioetl.core.pipeline.types import StageDescriptor
+from bioetl.core.pipeline.types import StageDescriptor, StageExecutionOptions
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,7 +15,9 @@ class StagePlanMetadata:
 
 
 def build_default_stage_plan(
-    descriptor: Any | None, pipeline_metadata: Mapping[str, Any] | StagePlanMetadata | None = None
+    descriptor: Any | None,
+    pipeline_metadata: Mapping[str, Any] | StagePlanMetadata | Any | None = None,
+    options: StageExecutionOptions | None = None,
 ) -> list[StageDescriptor]:
     """Deterministic stage descriptors for the default ETL workflow.
 
@@ -23,7 +25,7 @@ def build_default_stage_plan(
     dependency injection are handled elsewhere by :class:`StageFactory`.
     """
 
-    metadata = _normalize_metadata(pipeline_metadata)
+    metadata = _normalize_stage_metadata(descriptor, pipeline_metadata, options)
     base_plan: list[StageDescriptor] = _linear_plan()
 
     if metadata.dry_run:
@@ -45,6 +47,22 @@ def _normalize_metadata(
         dry_run=bool(payload.get("dry_run", False)),
         has_validator=bool(payload.get("has_validator", True)),
     )
+
+
+def _normalize_stage_metadata(
+    descriptor: Any | None,
+    payload: Mapping[str, Any] | StagePlanMetadata | Any | None,
+    options: StageExecutionOptions | None,
+) -> StagePlanMetadata:
+    if isinstance(payload, StageExecutionOptions) and options is None:
+        options = payload
+        payload = None
+
+    if options is not None:
+        has_validator = bool(getattr(descriptor, "validator", None))
+        return StagePlanMetadata(dry_run=options.dry_run, has_validator=has_validator)
+
+    return _normalize_metadata(payload)
 
 
 def _linear_plan() -> list[StageDescriptor]:
