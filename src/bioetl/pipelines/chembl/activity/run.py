@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Mapping, MutableMapping
+from typing import Any, Callable, Mapping, MutableMapping, cast
 
 import pandas as pd
 
+from bioetl.config.models import ChemblPipelineMetadata
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.clients.factories.default_chembl_factory import (
     default_activity_client_factory,
@@ -16,7 +17,7 @@ from bioetl.core.io.artifacts import (
     SchemaRegistryEntry,
     WriteArtifacts,
 )
-from bioetl.core.pipeline.services import WriteService
+from bioetl.core.pipeline.services import DefaultValidationService, WriteService
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -87,13 +88,15 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
 
     def __init__(
         self,
-        config,
+        config: Mapping[str, Any],
         run_id: str,
         *,
         client_factory: Callable[[Any], ChemblActivityClient] | None = None,
     ) -> None:
         super().__init__(config, run_id=run_id)
         self.client_factory = client_factory or default_activity_client_factory
+        self.validator = ActivitySchema
+        self.validation_service = DefaultValidationService(self.validator)
         self._descriptor: ChemblExtractionDescriptor | None = None
         self._schema_registry = self._build_schema_registry()
         self._release: str | None = None
@@ -111,12 +114,17 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         self.write_service = ActivityWriteService(self.writer)
 
     # Descriptor lifecycle -------------------------------------------------
-    def _get_config_metadata(self, config: Any = None) -> dict[str, Any]:
+    def _get_config_metadata(
+        self, config: Mapping[str, Any] | None = None
+    ) -> ChemblPipelineMetadata:
         """Safely retrieve metadata from config (dict or object)."""
         cfg = config if config is not None else self.config
         if isinstance(cfg, Mapping):
-            return cfg.get("metadata") or {}  # type: ignore[no-any-return]
-        return getattr(cfg, "metadata", {}) or {}
+            metadata = cfg.get("metadata") or {}
+            if isinstance(metadata, Mapping):
+                return cast(ChemblPipelineMetadata, dict(metadata))
+        metadata = getattr(cfg, "metadata", {}) if cfg is not None else {}
+        return cast(ChemblPipelineMetadata, dict(metadata))
 
     def build_descriptor(self) -> ChemblExtractionDescriptor:
         metadata = self._get_config_metadata()
@@ -147,8 +155,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         return descriptor
 
     def resolve_chembl_release(
-        self,
-        config,
+        self, config: Mapping[str, Any] | None
     ) -> tuple[str | None, dict]:  # type: ignore[override]
         metadata = self._get_config_metadata(config)
         if isinstance(metadata, Mapping) and metadata.get("chembl_release"):
@@ -189,7 +196,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
     # Stage implementations -----------------------------------------------
     def extract(
         self,
-        descriptor: Any,
+        descriptor: ChemblExtractionDescriptor | None,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         """Extract data based on descriptor."""
