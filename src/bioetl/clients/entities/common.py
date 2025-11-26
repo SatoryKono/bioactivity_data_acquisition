@@ -20,8 +20,8 @@ class ChemblEntity(str, Enum):
 
 def _build_entity_client(name: str, entity: ChemblEntity) -> Type[ChemblEntityClient]:
     class EntityClient(ChemblEntityClient):
-        def __init__(self, transport: ApiTransportProtocol):
-            super().__init__(transport, entity)
+        def __init__(self, transport: ApiTransportProtocol, **kwargs):
+            super().__init__(transport, entity, **kwargs)
 
     EntityClient.__name__ = name
     EntityClient.__qualname__ = name
@@ -54,20 +54,28 @@ class ChemblEntityClientFactory:
             pagination_strategy_name=self._pagination_strategy_name,
         )
 
+    def _create_specific(self, client_cls: Type[ChemblEntityClient]) -> EntityClientProtocol:
+        return client_cls(
+            self._transport_factory(),
+            pagination_strategy=self._pagination_strategy,
+            pagination_registry=self._pagination_registry,
+            pagination_strategy_name=self._pagination_strategy_name,
+        )
+
     def activity(self) -> EntityClientProtocol:
-        return self.create(ChemblEntity.ACTIVITY)
+        return self._create_specific(ChemblActivityClient)
 
     def assay(self) -> EntityClientProtocol:
-        return self.create(ChemblEntity.ASSAY)
+        return self._create_specific(ChemblAssayClient)
 
     def target(self) -> EntityClientProtocol:
-        return self.create(ChemblEntity.TARGET)
+        return self._create_specific(ChemblTargetClient)
 
     def testitem(self) -> EntityClientProtocol:
-        return self.create(ChemblEntity.TESTITEM)
+        return self._create_specific(ChemblTestItemClient)
 
     def document(self) -> EntityClientProtocol:
-        return self.create(ChemblEntity.DOCUMENT)
+        return self._create_specific(ChemblDocumentClient)
 
 
 ChemblActivityClient = _build_entity_client("ChemblActivityClient", ChemblEntity.ACTIVITY)

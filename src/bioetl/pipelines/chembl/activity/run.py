@@ -109,8 +109,15 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         self.write_service = ActivityWriteService(self.writer)
 
     # Descriptor lifecycle -------------------------------------------------
+    def _get_config_metadata(self, config: Any = None) -> dict[str, Any]:
+        """Safely retrieve metadata from config (dict or object)."""
+        cfg = config if config is not None else self.config
+        if isinstance(cfg, Mapping):
+            return cfg.get("metadata") or {}  # type: ignore[no-any-return]
+        return getattr(cfg, "metadata", {}) or {}
+
     def build_descriptor(self) -> ChemblExtractionDescriptor:
-        metadata = getattr(self.config, "metadata", {}) or {}
+        metadata = self._get_config_metadata()
         if isinstance(metadata, Mapping):
             ids = metadata.get("ids")
             pagination = metadata.get("pagination")
@@ -141,7 +148,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         self,
         config,
     ) -> tuple[str | None, dict]:  # type: ignore[override]
-        metadata = getattr(config, "metadata", {}) or {}
+        metadata = self._get_config_metadata(config)
         if isinstance(metadata, Mapping) and metadata.get("chembl_release"):
             return metadata.get("chembl_release"), {"source": "config"}
         if self._release:
@@ -152,18 +159,21 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
     def prepare_run(self, options: StageExecutionOptions) -> None:
         self._descriptor = self._descriptor or self.build_descriptor()
         determinism = {"sort": {"by": list(ActivityColumns)}}
-        metadata = (
-            getattr(self.config, "metadata", {})
-            if hasattr(self.config, "metadata")
-            else {}
-        )
+        metadata = self._get_config_metadata()
+
         if isinstance(metadata, dict):
             metadata.setdefault("determinism", determinism)
             metadata.setdefault(
                 "fail_on_schema_drift",
                 options.fail_on_schema_drift,
             )
-            self.config.metadata = metadata  # type: ignore[attr-defined]
+            if isinstance(self.config, MutableMapping):
+                self.config["metadata"] = metadata
+            elif hasattr(self.config, "metadata"):
+                try:
+                    self.config.metadata = metadata  # type: ignore[attr-defined]
+                except (TypeError, ValueError):
+                    pass  # Config is frozen/immutable
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         return df

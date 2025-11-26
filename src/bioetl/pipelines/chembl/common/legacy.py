@@ -138,6 +138,9 @@ class ChemblEntityPipeline(ChemblPipelineBase):
     # Обработка стадий
     # ------------------------------------------------------------------
     def extract(self, descriptor: Any | None, options: StageExecutionOptions) -> pd.DataFrame:
+        if options.dry_run and self.validation_service:
+            return self.validation_service.empty_frame()
+
         ids = self.config.get("ids") if isinstance(self.config, Mapping) else None
         descriptor = descriptor or self.build_descriptor()
         frame, _stats = self.run_descriptor_extraction(

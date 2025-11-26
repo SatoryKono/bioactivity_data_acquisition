@@ -68,5 +68,12 @@ sources:
         ],
     )
 
+    if result.exit_code != 0:
+        print(f"OUTPUT: {result.output}")
+        print(f"EXCEPTION: {result.exception}")
+        if result.exc_info:
+            import traceback
+            traceback.print_exception(*result.exc_info)
+
     assert result.exit_code == 0
     assert "Pipeline activity_chembl finished" in result.stdout

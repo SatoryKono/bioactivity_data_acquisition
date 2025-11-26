@@ -17,12 +17,15 @@ from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.api_client import APIConfig
 from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.core.http.pagination import DefaultPaginationStrategy
+from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
 
 def _resolve_api_config(config: PipelineConfig) -> APIConfig:
-    metadata = config.metadata or {}
+    if isinstance(config, dict):
+        metadata = config.get("metadata") or {}
+    else:
+        metadata = getattr(config, "metadata", {}) or {}
     chembl_cfg = metadata.get("chembl_api", {}) if isinstance(metadata, dict) else {}
 
     def _get(key: str, default: Any) -> Any:
@@ -114,6 +117,10 @@ def default_activity_client_factory(
         raise RuntimeError("Activity client builder is not configured")
     client = builder()
     if not isinstance(client, ChemblActivityClient):
+        print(f"DEBUG: client type: {type(client)}")
+        print(f"DEBUG: expected type: {ChemblActivityClient}")
+        print(f"DEBUG: client MRO: {type(client).__mro__}")
+        print(f"DEBUG: expected MRO: {ChemblActivityClient.__mro__}")
         raise TypeError("Configured activity builder did not produce ChemblActivityClient")
     return client
 
