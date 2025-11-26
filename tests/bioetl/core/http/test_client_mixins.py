@@ -79,9 +79,15 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
     transport = MagicMock(spec=ApiTransportProtocol)
     transport.request.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
-    pagination.iter_pages.return_value = iter([{"items": [{"id": 1}, {"id": 2}]}])
+    pagination.iter_pages.return_value = iter(
+        [{"items": [{"id": 1}, {"id": 2}]}]
+    )
 
-    client = _BaseEntityClient(transport=transport, entity="targets", pagination_strategy=pagination)
+    client = _BaseEntityClient(
+        transport=transport,
+        entity="targets",
+        pagination_strategy=pagination,
+    )
     client._logger = MagicMock()
 
     result = list(
@@ -106,7 +112,11 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
         page_param=None,
         normalize=client._normalize_payload,
     )
-    transport.request.assert_called_once_with("GET", "/targets", params={"limit": 2, "foo": "bar"})
+    transport.request.assert_called_once_with(
+        "GET",
+        "/targets",
+        params={"limit": 2, "foo": "bar"},
+    )
 
 
 def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
@@ -115,7 +125,11 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
     pagination = MagicMock()
     pagination.iter_pages.return_value = iter([{"items": [{"id": 1}]}])
 
-    client = ChemblEntityClient(transport=transport, entity="molecule", pagination_strategy=pagination)
+    client = ChemblEntityClient(
+        transport=transport,
+        entity="molecule",
+        pagination_strategy=pagination,
+    )
     client._logger = MagicMock()
 
     result = list(
@@ -140,7 +154,11 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
         page_param="page_num",
         normalize=client._normalize_payload,
     )
-    transport.request.assert_called_once_with("GET", "/molecule", params={"limit": 10, "offset": 5})
+    transport.request.assert_called_once_with(
+        "GET",
+        "/molecule",
+        params={"limit": 10, "offset": 5},
+    )
 
 
 def test_entity_client_fetch_all_wraps_errors() -> None:
@@ -149,7 +167,11 @@ def test_entity_client_fetch_all_wraps_errors() -> None:
     pagination.iter_pages.side_effect = RuntimeError("boom")
     transport.request.return_value = {}
 
-    client = _BaseEntityClient(transport=transport, entity="targets", pagination_strategy=pagination)
+    client = _BaseEntityClient(
+        transport=transport,
+        entity="targets",
+        pagination_strategy=pagination,
+    )
     client._logger = MagicMock()
 
     with pytest.raises(client_exceptions.RequestException):
@@ -162,7 +184,11 @@ def test_chembl_client_fetch_all_wraps_errors() -> None:
     pagination.iter_pages.side_effect = RuntimeError("boom")
     transport.request.return_value = {}
 
-    client = ChemblEntityClient(transport=transport, entity="molecule", pagination_strategy=pagination)
+    client = ChemblEntityClient(
+        transport=transport,
+        entity="molecule",
+        pagination_strategy=pagination,
+    )
     client._logger = MagicMock()
 
     with pytest.raises(client_exceptions.RequestException):
@@ -187,23 +213,32 @@ def test_wrap_callable_converts_errors() -> None:
     client = _DummyApiClient()
 
     with pytest.raises(client_exceptions.RequestException):
-        client._wrap_callable(lambda: (_ for _ in ()).throw(ValueError("boom")))
+        client._wrap_callable(
+            lambda: (_ for _ in ()).throw(ValueError("boom"))
+        )
 
-    client._logger.error.assert_called_once_with("api_call_failed", error="boom")
+    client._logger.error.assert_called_once_with(
+        "api_call_failed",
+        error="boom",
+    )
 
 
 def test_wrap_callable_preserves_bound_logger_context() -> None:
     class _StructuredClient(ApiClientMixin, ClosableMixin):
         def __init__(self) -> None:
             self.transport = MagicMock(spec=ApiTransportProtocol)
-            self._logger = structlog.get_logger(__name__).bind(entity="molecule")
+            self._logger = structlog.get_logger(__name__).bind(
+                entity="molecule"
+            )
             self.entity = "molecule"
 
     with capture_logs() as logs:
         client = _StructuredClient()
 
         with pytest.raises(client_exceptions.RequestException):
-            client._wrap_callable(lambda: (_ for _ in ()).throw(RuntimeError("fail")))
+            client._wrap_callable(
+                lambda: (_ for _ in ()).throw(RuntimeError("fail"))
+            )
 
     assert logs[0]["event"] == "api_call_failed"
     assert logs[0]["entity"] == "molecule"

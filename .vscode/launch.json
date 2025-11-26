@@ -1,6 +1,12 @@
 {
     "configurations": [
         {
+            "name": "PowerShell: Windows PowerShell",
+            "type": "PowerShell",
+            "request": "launch",
+            "sessionName": "Windows PowerShell (x64)"
+        },
+        {
             "name": "Containers: Node.js Launch",
             "type": "docker",
             "request": "launch",
