@@ -271,30 +271,15 @@ class PageParamPagination:
                 logger.info("api_call", path=next_path)
 
 
-class ChemblClientBase(ApiClientMixin, ClosableMixin, EntityClientProtocol, ABC):
-    """Базовый клиент ChEMBL с общей логикой пагинации и обхода записей."""
+class BaseApiEntityClient(ApiClientMixin, ClosableMixin, EntityClientProtocol, ABC):
+    """Базовый клиент сущности на произвольном ``ApiTransportProtocol``."""
 
-    def __init__(
-        self,
-        transport: ApiTransportProtocol,
-        entity: str,
-        *,
-        pagination_strategy: PaginationStrategy | None = None,
-        pagination_strategy_name: str | None = None,
-        pagination_registry: PaginationRegistry | None = None,
-    ) -> None:
+    def __init__(self, transport: ApiTransportProtocol, pagination: PaginationStrategy, *, entity: str) -> None:
         self.transport = transport
         self.entity = entity.strip("/")
+        self.pagination_strategy = pagination
+        self.pagination = pagination
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
-        self.pagination_registry = pagination_registry or get_default_pagination_registry()
-        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy(
-            strategy_name=pagination_strategy_name
-        )
-
-    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
-        """Выбор стратегии пагинации через реестр (по умолчанию ``next_link``)."""
-
-        return self.pagination_registry.create(strategy_name or "next_link")
 
     def _entity_path(self, suffix: str | None = None) -> str:
         if not suffix:
@@ -370,7 +355,7 @@ class ChemblClientBase(ApiClientMixin, ClosableMixin, EntityClientProtocol, ABC)
             )
             self._logger.info("api_call", path=self._entity_path())
 
-            for page in self.pagination_strategy.iter_pages(
+            for page in self.pagination.iter_pages(
                 first_payload,
                 self._transport(),
                 endpoint=self._entity_path(),
@@ -414,6 +399,32 @@ class ChemblClientBase(ApiClientMixin, ClosableMixin, EntityClientProtocol, ABC)
             next_key=next_key,
             page_param=page_param,
         )
+
+    def search(self, params: Mapping[str, Any]) -> Iterator[dict[str, Any]]:
+        return self.list(params=params)
+
+
+class ChemblClientBase(BaseApiEntityClient, ABC):
+    """Базовый клиент ChEMBL с общей логикой пагинации и обхода записей."""
+
+    def __init__(
+        self,
+        transport: ApiTransportProtocol,
+        entity: str,
+        *,
+        pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
+    ) -> None:
+        registry = pagination_registry or get_default_pagination_registry()
+        pagination = pagination_strategy or registry.create(pagination_strategy_name or "next_link")
+        self.pagination_registry = registry
+        super().__init__(transport, pagination, entity=entity)
+
+    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
+        """Выбор стратегии пагинации через реестр (по умолчанию ``next_link``)."""
+
+        return self.pagination_registry.create(strategy_name or "next_link")
 
     def search(self, params: Mapping[str, Any]) -> Iterator[dict[str, Any]]:
         return self.list(params=params)
@@ -516,6 +527,7 @@ __all__ = [
     "JSONPayload",
     "JSONRecord",
     "JSONRecordStream",
+    "BaseApiEntityClient",
     "NextLinkPagination",
     "PageParamPagination",
     "PaginationStrategy",
