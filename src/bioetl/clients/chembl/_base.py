@@ -10,8 +10,8 @@ from bioetl.clients.common import (
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
     ApiTransportProtocol,
+    ChemblClientBase,
     PaginationStrategy,
-    UnifiedEntityClientBase,
 )
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
@@ -21,9 +21,20 @@ from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
     """Транспортный клиент ChEMBL без привязки к конкретной сущности."""
 
-    def __init__(self, transport: ApiTransportProtocol) -> None:
+    def __init__(
+        self,
+        transport: ApiTransportProtocol,
+        *,
+        pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
+    ) -> None:
         self.transport = transport
         self._logger = structlog.get_logger(__name__).bind(client="chembl_transport")
+        self.pagination_registry = pagination_registry or get_default_pagination_registry()
+        self.pagination_strategy = pagination_strategy or self.pagination_registry.create(
+            pagination_strategy_name or "next_link"
+        )
 
     def request(
         self,
@@ -46,7 +57,7 @@ class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
         )
 
 
-class ChemblEntityClient(UnifiedEntityClientBase):
+class ChemblEntityClient(ChemblClientBase):
     def __init__(
         self,
         transport: ApiTransportProtocol,
@@ -55,16 +66,12 @@ class ChemblEntityClient(UnifiedEntityClientBase):
         pagination_strategy_name: str | None = None,
         pagination_registry: PaginationRegistry | None = None,
     ) -> None:
-        pagination_registry = pagination_registry or get_default_pagination_registry()
         super().__init__(
             transport,
             entity,
             pagination_strategy_name=pagination_strategy_name,
-            pagination_registry=pagination_registry,
+            pagination_registry=pagination_registry or get_default_pagination_registry(),
         )
-
-    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
-        return self.pagination_registry.create(strategy_name or "next_link")
 
 
 __all__ = ["BaseChemblClient", "ChemblEntityClient"]
