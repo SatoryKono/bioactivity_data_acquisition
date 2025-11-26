@@ -8,7 +8,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Protocol, cast
 
 import pandas as pd
 import pandera as pa
@@ -550,7 +550,48 @@ class RunMetadataBuilder:
         artifacts = context.artifact_store.get()
         if artifacts.data_path:
             metadata["output_path"] = str(artifacts.data_path)
+        pipeline_metadata = self._collect_pipeline_metadata(context)
+        if pipeline_metadata:
+            metadata = self._merge_metadata(metadata, pipeline_metadata)
         return metadata
+
+    def _collect_pipeline_metadata(
+        self, context: StageContext
+    ) -> Mapping[str, Any]:  # pragma: no cover - thin adapter
+        pipeline = getattr(context, "pipeline", None)
+        if pipeline is None:
+            return {}
+        builder = getattr(pipeline, "build_pipeline_metadata", None)
+        if callable(builder):
+            try:
+                extra = builder(context)
+            except TypeError:
+                extra = builder()
+            if isinstance(extra, Mapping):
+                return extra
+            try:
+                return dict(extra)
+            except Exception:
+                return {}
+        return {}
+
+    @staticmethod
+    def _merge_metadata(
+        base: dict[str, Any], extra: Mapping[str, Any]
+    ) -> dict[str, Any]:  # pragma: no cover - pure function
+        merged = dict(base)
+        for key, value in extra.items():
+            if (
+                key == "extract_metadata"
+                and isinstance(value, Mapping)
+                and isinstance(base.get(key), Mapping)
+            ):
+                combined = dict(cast(Mapping[str, Any], base[key]))
+                combined.update(value)
+                merged[key] = combined
+            else:
+                merged[key] = value
+        return merged
 
     def _resolve_git_commit(self) -> str | None:
         try:
@@ -662,6 +703,9 @@ def default_metadata_runtime_service_factory(
         )
 
     return _factory
+
+
+from bioetl.core.runtime.qc import default_qc_runtime_service_factory, default_qc_service_factory
 
 
 @dataclass(slots=True)
