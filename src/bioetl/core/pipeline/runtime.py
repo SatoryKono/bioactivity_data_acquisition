@@ -212,6 +212,7 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         run_state.artifacts = artifacts
         data_bucket = DataBucket()
         artifact_store = ArtifactStore(artifacts)
+        self.qc_orchestrator = QCOrchestrator(self.qc_service) if self.qc_service else None
         stage_context = StageContext(
             logger=logger,
             request_id=self.run_id,

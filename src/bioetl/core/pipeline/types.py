@@ -92,7 +92,7 @@ class StageResult:
 class StageRuntimeContext:
     """Runtime payload passed into instantiated stages."""
 
-    context: "StageContext | None" = None
+    context: "StageContextProtocol | None" = None
     options: StageExecutionOptions | None = None
     descriptor: StageDescriptor | None = None
     input_data: Any | None = None
@@ -241,51 +241,89 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
 
 
 @runtime_checkable
-class StageContextProtocol(Protocol):
-    """Stable contract for pipeline stage dependencies."""
+class ExecutionContext(Protocol):
+    """Execution metadata such as logging and trace identifiers."""
 
     logger: UnifiedLogger
     request_id: str | None
     trace_id: str | None
-    pipeline: "PipelineBaseProtocol" | None
-    data_bucket: DataBucket
-    artifact_store: ArtifactStore
+
+
+@runtime_checkable
+class ConfigContext(Protocol):
+    """Configuration access contract."""
+
+    def get_config(self, key: str) -> Any:
+        ...
+
+
+@runtime_checkable
+class ClientContext(Protocol):
+    """Lookup contract for external clients."""
 
     def get_client(self, name: str) -> Any:
         ...
 
-    def get_config(self, key: str) -> Any:
-        ...
+
+@runtime_checkable
+class DataContext(Protocol):
+    """Access to data and artifact stores shared between stages."""
+
+    data_bucket: DataBucket
+    artifact_store: ArtifactStore
+
+
+@runtime_checkable
+class MetricsContext(Protocol):
+    """Metrics emission contract."""
 
     def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
         ...
 
 
+@runtime_checkable
+class StageFactoryContext(DataContext, Protocol):
+    """Minimal contract required to execute built stage descriptors."""
+
+    descriptor: Any | None
+
+
+@runtime_checkable
+class StageContextProtocol(
+    ExecutionContext,
+    ConfigContext,
+    ClientContext,
+    MetricsContext,
+    StageFactoryContext,
+    Protocol,
+):
+    """Stable contract for pipeline stage dependencies."""
+
+    pipeline: "PipelineBaseProtocol" | None
+    metadata: dict[str, Any]
+    output_dir: Path
+    metadata_service: Any | None
+    qc_orchestrator: Any | None
+
+
 @dataclass(slots=True)
-class StageContext(StageContextProtocol):
-    """Default implementation of :class:`StageContextProtocol`."""
+class DefaultExecutionContext(ExecutionContext):
+    """Default implementation for execution context."""
 
     logger: UnifiedLogger
     request_id: str | None
     trace_id: str | None = None
-    pipeline: "PipelineBaseProtocol" | None = None
-    clients: Mapping[str, Any] = field(default_factory=dict)
-    config_provider: Callable[[str], Any] | None = None
-    metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-    descriptor: Any | None = None
-    output_dir: Path = field(default_factory=lambda: Path.cwd())
-    data_bucket: DataBucket = field(default_factory=DataBucket)
-    artifact_store: ArtifactStore = field(default_factory=ArtifactStore)
-    metadata_service: Any | None = None
-    qc_orchestrator: Any | None = None
 
     def __post_init__(self) -> None:  # pragma: no cover - trivial
         if self.trace_id is None:
             self.trace_id = self.request_id
 
-    def get_client(self, name: str) -> Any:
-        return self.clients[name]
+
+@dataclass(slots=True)
+class DefaultConfigContext(ConfigContext):
+    """Config provider-based context."""
+
+    config_provider: Callable[[str], Any] | None = None
 
     def get_config(self, key: str) -> Any:
         if self.config_provider is None:
@@ -293,9 +331,134 @@ class StageContext(StageContextProtocol):
             raise KeyError(msg)
         return self.config_provider(key)
 
+
+@dataclass(slots=True)
+class DefaultClientContext(ClientContext):
+    """Simple registry-based client context."""
+
+    clients: Mapping[str, Any] = field(default_factory=dict)
+
+    def get_client(self, name: str) -> Any:
+        return self.clients[name]
+
+
+@dataclass(slots=True)
+class DefaultDataContext(DataContext):
+    """In-memory data and artifact context."""
+
+    data_bucket: DataBucket = field(default_factory=DataBucket)
+    artifact_store: ArtifactStore = field(default_factory=ArtifactStore)
+
+
+@dataclass(slots=True)
+class DefaultMetricsContext(MetricsContext):
+    """Callable-based metrics context."""
+
+    metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None
+
     def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
         if self.metric_emitter:
             self.metric_emitter(name, value, tags)
+
+
+@dataclass(slots=True)
+class StageContextAdapter:
+    """Composable adapter that delegates to specialized contexts."""
+
+    execution: ExecutionContext
+    data: DataContext
+    config: ConfigContext | None = None
+    clients: ClientContext | None = None
+    metrics: MetricsContext | None = None
+    pipeline: "PipelineBaseProtocol" | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    descriptor: Any | None = None
+    output_dir: Path = field(default_factory=lambda: Path.cwd())
+    metadata_service: Any | None = None
+    qc_orchestrator: Any | None = None
+
+    @property
+    def logger(self) -> UnifiedLogger:
+        return self.execution.logger
+
+    @property
+    def request_id(self) -> str | None:
+        return self.execution.request_id
+
+    @property
+    def trace_id(self) -> str | None:
+        return self.execution.trace_id
+
+    @property
+    def data_bucket(self) -> DataBucket:
+        return self.data.data_bucket
+
+    @property
+    def artifact_store(self) -> ArtifactStore:
+        return self.data.artifact_store
+
+    def get_config(self, key: str) -> Any:
+        if self.config is None:
+            msg = "Config provider is not configured"
+            raise KeyError(msg)
+        return self.config.get_config(key)
+
+    def get_client(self, name: str) -> Any:
+        if self.clients is None:
+            msg = "Client registry is not configured"
+            raise KeyError(msg)
+        return self.clients.get_client(name)
+
+    def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
+        if self.metrics:
+            self.metrics.emit_metric(name, value, tags)
+
+
+@dataclass(slots=True)
+class StageContext(StageContextAdapter):
+    """Default implementation of :class:`StageContextProtocol`."""
+
+    def __init__(
+        self,
+        *,
+        logger: UnifiedLogger,
+        request_id: str | None,
+        trace_id: str | None = None,
+        pipeline: "PipelineBaseProtocol" | None = None,
+        clients: Mapping[str, Any] | None = None,
+        config_provider: Callable[[str], Any] | None = None,
+        metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None,
+        metadata: dict[str, Any] | None = None,
+        descriptor: Any | None = None,
+        output_dir: Path | None = None,
+        data_bucket: DataBucket | None = None,
+        artifact_store: ArtifactStore | None = None,
+        metadata_service: Any | None = None,
+        qc_orchestrator: Any | None = None,
+    ) -> None:
+        execution = DefaultExecutionContext(logger=logger, request_id=request_id, trace_id=trace_id)
+        data_context = DefaultDataContext(
+            data_bucket=data_bucket or DataBucket(),
+            artifact_store=artifact_store or ArtifactStore(),
+        )
+        config_context = DefaultConfigContext(config_provider)
+        client_context = DefaultClientContext(clients or {})
+        metrics_context = DefaultMetricsContext(metric_emitter)
+
+        StageContextAdapter.__init__(
+            self,
+            execution=execution,
+            data=data_context,
+            config=config_context,
+            clients=client_context,
+            metrics=metrics_context,
+            pipeline=pipeline,
+            metadata=metadata or {},
+            descriptor=descriptor,
+            output_dir=output_dir or Path.cwd(),
+            metadata_service=metadata_service,
+            qc_orchestrator=qc_orchestrator,
+        )
 
 
 @dataclass(slots=True)
@@ -323,6 +486,17 @@ class PipelineConfig:
 __all__ = [
     "ArtifactStore",
     "DataBucket",
+    "ExecutionContext",
+    "ConfigContext",
+    "ClientContext",
+    "DataContext",
+    "MetricsContext",
+    "StageFactoryContext",
+    "DefaultExecutionContext",
+    "DefaultConfigContext",
+    "DefaultClientContext",
+    "DefaultDataContext",
+    "DefaultMetricsContext",
     "MaterializationConfig",
     "PipelineConfig",
     "PipelineExtractionMode",
@@ -338,6 +512,7 @@ __all__ = [
     "RunArtifacts",
     "RunResult",
     "RunState",
+    "StageContextAdapter",
     "StageContext",
     "StageContextProtocol",
     "StageExecutionOptions",
