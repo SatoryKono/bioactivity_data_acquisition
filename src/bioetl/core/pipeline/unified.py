@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Generic, Mapping, Sequence, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Mapping,
+    Sequence,
+    TypeVar,
+)
 
 import pandas as pd
 import pandera as pa
@@ -14,7 +22,10 @@ from bioetl.core.pipeline.services import (
     default_validation_service_factory,
     default_write_service_factory,
 )
-from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
+from bioetl.core.pipeline.stage_plan import (
+    StagePlanMetadata,
+    build_default_stage_plan,
+)
 from bioetl.core.pipeline.types import (
     RunResult,
     StageContext,
@@ -24,7 +35,9 @@ from bioetl.core.pipeline.types import (
     WriteResult,
 )
 if TYPE_CHECKING:
-    from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
+    from bioetl.pipelines.chembl.common.chembl_extraction_service import (
+        ChemblExtractionService,
+    )
 
 
 @dataclass(slots=True)
@@ -49,8 +62,12 @@ class PipelineBase(PipelineRuntimeBase):
         *,
         run_id: str | None = None,
         validator: pa.DataFrameSchema | None = None,
-        validation_service_factory: Callable[[PipelineRuntimeBase], ValidationService] | None = None,
-        write_service_factory: Callable[[PipelineRuntimeBase], WriteService] | None = None,
+        validation_service_factory: (
+            Callable[[PipelineRuntimeBase], ValidationService] | None
+        ) = None,
+        write_service_factory: (
+            Callable[[PipelineRuntimeBase], WriteService] | None
+        ) = None,
         pipeline_definition: PipelineDefinition | None = None,
     ) -> None:
         super().__init__(
@@ -58,25 +75,50 @@ class PipelineBase(PipelineRuntimeBase):
             pipeline_definition,
             run_id=run_id,
             validator=validator,
-            validation_service_factory=validation_service_factory or default_validation_service_factory,
-            write_service_factory=write_service_factory or default_write_service_factory,
+            validation_service_factory=(
+                validation_service_factory
+                or default_validation_service_factory
+            ),
+            write_service_factory=(
+                write_service_factory
+                or default_write_service_factory
+            ),
         )
 
     @abstractmethod
-    def extract(self, descriptor: Any | None, options: StageExecutionOptions) -> pd.DataFrame:
+    def extract(
+        self,
+        descriptor: Any | None,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         ...
 
     @abstractmethod
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def transform(
+        self,
+        df: pd.DataFrame,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         ...
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def validate(
+        self,
+        df: pd.DataFrame,
+        options: StageExecutionOptions,
+    ) -> pd.DataFrame:
         return df
 
     def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
     ) -> WriteResult:
-        msg = "write_service is not configured; provide write_service_factory or override save_results"
+        msg = (
+            "write_service is not configured; "
+            "provide write_service_factory or "
+            "override save_results"
+        )
         raise NotImplementedError(msg)
 
     @property
@@ -87,7 +129,7 @@ class PipelineBase(PipelineRuntimeBase):
     def prepare_run(self, options: StageExecutionOptions) -> None:  # pragma: no cover - optional hook
         """Вызывается перед началом extract."""
 
-    def finalize_run(self, result: RunResult) -> None:  # pragma: no cover
+    def finalize_run(self, run_result: RunResult) -> None:  # pragma: no cover
         """Вызывается после завершения write."""
 
 
@@ -97,8 +139,12 @@ class UnifiedPipelineBase(PipelineBase):
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
     ) -> tuple[StageDescriptor, ...]:
-        metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=self.validator is not None)
+        metadata = StagePlanMetadata(
+            dry_run=options.dry_run,
+            has_validator=self.validator is not None,
+        )
         return tuple(build_default_stage_plan(context.descriptor, metadata))
+
 
 ChemblPipelineT = TypeVar("ChemblPipelineT", bound="ChemblPipelineBase")
 
@@ -110,8 +156,14 @@ class ChemblExtractionDescriptor(Generic[ChemblPipelineT]):
         self,
         *,
         build_context: Callable[[ChemblPipelineT], Mapping[str, Any]],
-        fetcher_factory: Callable[[Mapping[str, Any]], Callable[[Sequence[str] | None], Any]],
-        finalizer_factory: Callable[[Mapping[str, Any]], Callable[[pd.DataFrame], pd.DataFrame]],
+        fetcher_factory: Callable[
+            [Mapping[str, Any]],
+            Callable[[Sequence[str] | None], Any],
+        ],
+        finalizer_factory: Callable[
+            [Mapping[str, Any]],
+            Callable[[pd.DataFrame], pd.DataFrame],
+        ],
     ) -> None:
         self.build_context = build_context
         self.fetcher_factory = fetcher_factory
