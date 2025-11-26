@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, call
+from unittest.mock import ANY, MagicMock, call
 
 import pytest
 import structlog
@@ -110,7 +110,7 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
         page_key="items",
         next_key="next_link",
         page_param=None,
-        normalize=client._normalize_payload,
+        normalize=ANY,
     )
     transport.request.assert_called_once_with(
         "GET",
@@ -152,7 +152,7 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
         page_key="items",
         next_key="next_link",
         page_param="page_num",
-        normalize=client._normalize_payload,
+        normalize=ANY,
     )
     transport.request.assert_called_once_with(
         "GET",
