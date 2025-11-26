@@ -4,11 +4,47 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import lru_cache
 from typing import Any, Protocol, Sequence as TypingSequence, TypeVar, runtime_checkable
+import warnings
 
 import structlog
 
 from bioetl.clients import client_exceptions
 from bioetl.core.http.pagination import PaginationStrategy
+
+
+JSONPayload = Mapping[str, Any] | list[Mapping[str, Any]]
+JSONPage = Iterator[Mapping[str, Any]]
+JSONRecord = Mapping[str, Any]
+JSONRecordStream = Iterator[JSONRecord]
+
+
+@runtime_checkable
+class BaseApiClient(Protocol):
+    """Protocol describing the minimal HTTP client surface area."""
+
+    def get_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> JSONPayload:
+        """Fetch a single resource from ``endpoint`` and return decoded JSON."""
+
+    def paginate_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+    ) -> JSONPage:
+        """Iterate over paginated JSON resources for the given ``endpoint``."""
+
+    def close(self) -> None:
+        """Release any resources (e.g. sessions) associated with the client."""
 
 
 @runtime_checkable
@@ -382,6 +418,11 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
+        warnings.warn(
+            "fetch_all is deprecated; use list instead to enumerate entities.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.list(
             page_size=page_size,
             params=params,
@@ -433,6 +474,28 @@ def cache_entity_client(
                 page_param=page_param,
             )
 
+        def fetch_all(
+            self,
+            *,
+            page_size: int = 1000,
+            params: Mapping[str, Any] | None = None,
+            page_key: str = DEFAULT_PAGE_KEY,
+            next_key: str = DEFAULT_NEXT_KEY,
+            page_param: str | None = DEFAULT_PAGE_PARAM,
+        ) -> Iterator[Mapping[str, Any]]:
+            warnings.warn(
+                "fetch_all is deprecated; use list instead to enumerate entities.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            yield from self.list(
+                page_size=page_size,
+                params=params,
+                page_key=page_key,
+                next_key=next_key,
+                page_param=page_param,
+            )
+
         def fetch_by_ids(self, ids: TypingSequence[str]) -> Iterator[Mapping[str, Any]]:
             for entity_id in ids:
                 yield self.get(str(entity_id))
@@ -453,13 +516,19 @@ __all__ = [
     "DEFAULT_PAGE_KEY",
     "DEFAULT_PAGE_PARAM",
     "ApiClientMixin",
+    "BaseApiClient",
     "ClosableMixin",
-    "iterate_by_ids",
-    "PaginationStrategy",
+    "EntityClientProtocol",
+    "JSONPage",
+    "JSONPayload",
+    "JSONRecord",
+    "JSONRecordStream",
     "NextLinkPagination",
     "PageParamPagination",
+    "PaginationStrategy",
     "UnifiedEntityClientBase",
     "ApiTransportProtocol",
-    "EntityClientProtocol",
     "cache_entity_client",
+    "iterate_by_ids",
 ]
+

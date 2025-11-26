@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, TypeVar
 
 import structlog
 
-from bioetl.base_classes import BaseApiClient
+from bioetl.clients.common import BaseApiClient
 
 if TYPE_CHECKING:
     from bioetl.clients import client_exceptions as client_exceptions_module
