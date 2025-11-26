@@ -48,6 +48,18 @@ class _ResilientRequestExecutor:
         self._breaker = circuit_breaker
         self._timeout_sec = timeout_sec
 
+    def _normalize_cache_params(
+        self,
+        params: Mapping[str, Any] | None,
+    ) -> Mapping[str, Any] | None:
+        if not params:
+            return None
+        normalized: dict[str, Any] = dict(params)
+        page_value = normalized.get("page")
+        if page_value is not None and str(page_value) == "1":
+            normalized.pop("page")
+        return normalized or None
+
     def request(
         self,
         method: str,
@@ -59,7 +71,13 @@ class _ResilientRequestExecutor:
     ) -> dict[str, Any]:
         cache_key = None
         if method.upper() == "GET" and self._cache:
-            cache_key = self._cache.make_key(method, url, params, headers)
+            norm_params = self._normalize_cache_params(params)
+            cache_key = self._cache.make_key(
+                method,
+                url,
+                norm_params,
+                headers,
+            )
             cached = self._cache.get(cache_key)
             if cached is not None:
                 return self._deserialize(cached)

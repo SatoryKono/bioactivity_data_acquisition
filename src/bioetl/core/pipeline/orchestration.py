@@ -4,14 +4,17 @@ from __future__ import annotations
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
 from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
-from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
+from bioetl.core.pipeline.stage_plan import (
+    StagePlanMetadata,
+    build_default_stage_plan,
+)
 from bioetl.core.pipeline.types import (
     PipelineConfig,
     PipelineStagesProtocol,
@@ -30,22 +33,25 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         warnings.warn(
-            "PipelineBaseCommon устарел и будет удалён. Используйте UnifiedPipelineBase.",
+            (
+                "PipelineBaseCommon устарел и будет удалён. "
+                "Используйте UnifiedPipelineBase."
+            ),
             DeprecationWarning,
             stacklevel=2,
         )
         self.pipeline_code = config.pipeline.name
         validator = getattr(self, "validator", None)
         metadata = StagePlanMetadata(has_validator=validator is not None)
+        default_plan = build_default_stage_plan(None, metadata)
         self.pipeline_definition = PipelineDefinition(
             name=self.pipeline_code,
             runtime_factory=self.__class__,
-            stages=tuple(build_default_stage_plan(None, metadata)),
+            stages=tuple(stage.id for stage in default_plan),
         )
         super().__init__(config, self.pipeline_definition, run_id=run_id)
         self.output_root = Path(config.materialization.root)
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
-        self.stage_plan: tuple[StageDescriptor, ...] = ()
 
     # Hook methods -----------------------------------------------------
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -99,13 +105,10 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
     def build_run_metadata(
         self,
         context: StageContext,
-        stage_plan: tuple[StageCommand, ...],
-        durations: dict[str, int],
+        stage_plan: Iterable[StageCommand],
+        durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
-        *,
-        rows: int = 0,
-        qc_metrics_path: Path | None = None,
     ) -> dict[str, Any]:
         metadata = super().build_run_metadata(
             context,
@@ -113,10 +116,10 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
             durations,
             run_tag,
             mode,
-            rows=rows,
-            qc_metrics_path=qc_metrics_path,
         )
-        metadata.update({"started_at": datetime.now(timezone.utc).isoformat()})
+        metadata.update({
+            "started_at": datetime.now(timezone.utc).isoformat(),
+        })
         return self.augment_metadata(metadata)
 
     def resolve_logs_directory(self, output_dir: Path) -> Path:
