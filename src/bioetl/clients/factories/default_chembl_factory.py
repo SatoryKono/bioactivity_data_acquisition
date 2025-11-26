@@ -17,6 +17,7 @@ from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
 from bioetl.core.http.api_client import APIConfig
 from bioetl.core.http.pagination import DefaultPaginationStrategy
+from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
 
 def _resolve_api_config(config: PipelineConfig) -> APIConfig:
@@ -46,7 +47,11 @@ def _resolve_api_config(config: PipelineConfig) -> APIConfig:
 
 
 def default_chembl_factory(
-    config: PipelineConfig, transport_factory: Callable[[], ApiTransportProtocol] | None = None
+    config: PipelineConfig,
+    transport_factory: Callable[[], ApiTransportProtocol] | None = None,
+    *,
+    pagination_registry: PaginationRegistry | None = None,
+    pagination_strategy_name: str | None = None,
 ) -> dict[str, Callable[[], EntityClientProtocol]]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
@@ -68,7 +73,13 @@ def default_chembl_factory(
             )
         )
 
-    entity_factory = ChemblEntityClientFactory(_build_transport)
+    registry = pagination_registry or get_default_pagination_registry()
+
+    entity_factory = ChemblEntityClientFactory(
+        _build_transport,
+        pagination_registry=registry,
+        pagination_strategy_name=pagination_strategy_name,
+    )
 
     return {
         "activity": entity_factory.activity,
@@ -80,11 +91,20 @@ def default_chembl_factory(
 
 
 def default_activity_client_factory(
-    config: PipelineConfig, transport_factory: Callable[[], ApiTransportProtocol] | None = None
+    config: PipelineConfig,
+    transport_factory: Callable[[], ApiTransportProtocol] | None = None,
+    *,
+    pagination_registry: PaginationRegistry | None = None,
+    pagination_strategy_name: str | None = None,
 ) -> ChemblActivityClient:
     """Построить клиент ChEMBL Activity с настройками по умолчанию."""
 
-    factory = default_chembl_factory(config, transport_factory=transport_factory)
+    factory = default_chembl_factory(
+        config,
+        transport_factory=transport_factory,
+        pagination_registry=pagination_registry,
+        pagination_strategy_name=pagination_strategy_name,
+    )
     builder = factory.get("activity")
     if builder is None:  # pragma: no cover - защитная проверка
         raise RuntimeError("Activity client builder is not configured")

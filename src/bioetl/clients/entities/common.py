@@ -5,6 +5,7 @@ from typing import Callable, Type
 
 from bioetl.clients.chembl._base import ChemblEntityClient
 from bioetl.clients.common import ApiTransportProtocol, EntityClientProtocol
+from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
 
 class ChemblEntity(str, Enum):
@@ -28,12 +29,25 @@ def _build_entity_client(name: str, entity: ChemblEntity) -> Type[ChemblEntityCl
 class ChemblEntityClientFactory:
     """Конфигурационный слой для сборки клиентов сущностей ChEMBL."""
 
-    def __init__(self, transport_factory: Callable[[], ApiTransportProtocol]):
+    def __init__(
+        self,
+        transport_factory: Callable[[], ApiTransportProtocol],
+        *,
+        pagination_registry: PaginationRegistry | None = None,
+        pagination_strategy_name: str | None = None,
+    ):
         self._transport_factory = transport_factory
+        self._pagination_registry = pagination_registry or get_default_pagination_registry()
+        self._pagination_strategy_name = pagination_strategy_name
 
     def create(self, entity: ChemblEntity | str) -> EntityClientProtocol:
         entity_name = ChemblEntity(entity).value if not isinstance(entity, ChemblEntity) else entity.value
-        return ChemblEntityClient(self._transport_factory(), entity_name)
+        return ChemblEntityClient(
+            self._transport_factory(),
+            entity_name,
+            pagination_registry=self._pagination_registry,
+            pagination_strategy_name=self._pagination_strategy_name,
+        )
 
     def activity(self) -> EntityClientProtocol:
         return self.create(ChemblEntity.ACTIVITY)

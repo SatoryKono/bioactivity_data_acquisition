@@ -19,6 +19,56 @@ JSONRecord = Mapping[str, Any]
 JSONRecordStream = Iterator[JSONRecord]
 
 
+@runtime_checkable
+class BaseApiClient(Protocol):
+    """Protocol describing the minimal HTTP client surface area."""
+
+    def get_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> JSONPayload:
+        """Fetch a single resource from ``endpoint`` and return decoded JSON."""
+
+    def paginate_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+    ) -> JSONPage:
+        """Iterate over paginated JSON resources for the given ``endpoint``."""
+
+    def close(self) -> None:
+        """Release any resources (e.g. sessions) associated with the client."""
+
+
+@runtime_checkable
+class ApiTransportProtocol(Protocol):
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, Any] | None = None,
+        json: Any | None = None,
+    ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
+        """Perform a low-level HTTP request and return parsed JSON."""
+
+    def close(self) -> None:
+        """Release any underlying transport resources (sessions, pools, etc.)."""
+
+
+from bioetl.core.http.pagination import PaginationStrategy
+from bioetl.infra import PaginationRegistry, get_default_pagination_registry
+
+
 class EntityClientProtocol(Protocol):
     entity: str
 
@@ -221,14 +271,19 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
         entity: str,
         *,
         pagination_strategy: PaginationStrategy | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         self.transport = transport
         self.entity = entity.strip("/")
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
-        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy()
+        self.pagination_registry = pagination_registry or get_default_pagination_registry()
+        self.pagination_strategy = pagination_strategy or self.default_pagination_strategy(
+            strategy_name=pagination_strategy_name
+        )
 
     @abstractmethod
-    def default_pagination_strategy(self) -> PaginationStrategy:
+    def default_pagination_strategy(self, *, strategy_name: str | None = None) -> PaginationStrategy:
         """Выбор стратегии пагинации по умолчанию для конкретного клиента."""
 
     def _entity_path(self, suffix: str | None = None) -> str:
