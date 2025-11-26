@@ -3,12 +3,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import lru_cache
-from typing import Any, Protocol, Sequence as TypingSequence, TypeVar, runtime_checkable
+from typing import Any, Protocol, Sequence as TypingSequence, TypeVar
 import warnings
 
 import structlog
 
 from bioetl.clients import client_exceptions
+from bioetl.core.http.interfaces import ApiTransportProtocol, BaseApiClient
 from bioetl.core.http.pagination import PaginationStrategy
 
 
@@ -16,52 +17,6 @@ JSONPayload = Mapping[str, Any] | list[Mapping[str, Any]]
 JSONPage = Iterator[Mapping[str, Any]]
 JSONRecord = Mapping[str, Any]
 JSONRecordStream = Iterator[JSONRecord]
-
-
-@runtime_checkable
-class BaseApiClient(Protocol):
-    """Protocol describing the minimal HTTP client surface area."""
-
-    def get_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-    ) -> JSONPayload:
-        """Fetch a single resource from ``endpoint`` and return decoded JSON."""
-
-    def paginate_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-        page_key: str = "results",
-        next_key: str = "next",
-        page_param: str | None = "page",
-    ) -> JSONPage:
-        """Iterate over paginated JSON resources for the given ``endpoint``."""
-
-    def close(self) -> None:
-        """Release any resources (e.g. sessions) associated with the client."""
-
-
-@runtime_checkable
-class ApiTransportProtocol(Protocol):
-    def request(
-        self,
-        method: str,
-        path: str,
-        *,
-        headers: Mapping[str, str] | None = None,
-        params: Mapping[str, Any] | None = None,
-        json: Any | None = None,
-    ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
-        """Perform a low-level HTTP request and return parsed JSON."""
-
-    def close(self) -> None:
-        """Release any underlying transport resources (sessions, pools, etc.)."""
 
 
 class EntityClientProtocol(Protocol):
@@ -93,86 +48,11 @@ class EntityClientProtocol(Protocol):
 
 _T = TypeVar("_T")
 Normalizer = Callable[[Any], Iterator[dict[str, Any]]]
-_T = TypeVar("_T")
-
-
-class ApiClientMixin:
-    def _transport(self) -> ApiTransportProtocol:
-        transport = getattr(self, "transport", None) or getattr(self, "api_client", None)
-        if transport is None:
-            raise AttributeError("ApiClientMixin requires 'transport' or 'api_client' attribute")
-        return transport
-
-    def _wrap_callable(
-        self, func: Callable[[], _T], *, log_context: Mapping[str, Any] | None = None
-    ) -> _T:
-        try:
-            return func()
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            context = dict(log_context or {})
-            self._logger.error("api_call_failed", error=str(exc), **context)
-            raise client_exceptions.RequestException(str(exc)) from exc
-
-    def _wrap_iterator(
-        self, func: Callable[[], Iterator[dict[str, Any]]], *, log_context: Mapping[str, Any] | None = None
-    ) -> Iterator[dict[str, Any]]:
-        try:
-            yield from func()
-        except client_exceptions.HTTPError:
-            raise
-        except Exception as exc:  # noqa: BLE001
-            context = dict(log_context or {})
-            self._logger.error("api_call_failed", error=str(exc), **context)
-            raise client_exceptions.RequestException(str(exc)) from exc
-
-    def _normalize_payload(self, payload: Any) -> Iterator[dict[str, Any]]:
-        if isinstance(payload, Mapping):
-            results = payload.get("results")
-            if isinstance(results, Iterable) and not isinstance(results, (str, bytes, bytearray)):
-                for item in results:
-                    if isinstance(item, Mapping):
-                        yield dict(item)
-                return
-
-            yield dict(payload)
-            return
-
-        if isinstance(payload, Iterable) and not isinstance(payload, (str, bytes, bytearray)):
-            for item in payload:
-                if isinstance(item, Mapping):
-                    yield dict(item)
-            return
-
-        if payload is not None:
-            yield {"result": payload}
-
-
-class ClosableMixin:
-    transport: ApiTransportProtocol
-
-    def close(self) -> None:
-        close = getattr(self._transport(), "close", None)
-        if callable(close):
-            close()
-
-    def iter_ids(self, ids: Sequence[str], path_template: str = "/{entity}/{id}") -> Iterator[dict[str, Any]]:
-        def iterator() -> Iterator[dict[str, Any]]:
-            for raw_id in ids:
-                entity_id = str(raw_id)
-                path = path_template.format(entity=self.entity, id=entity_id)
-                payload = self._wrap_callable(
-                    lambda: self._transport().request("GET", path),
-                    log_context={"path": path},
-                )
-                self._logger.info("api_call", entity=self.entity, entity_id=entity_id)
-                yield from self._normalize_payload(payload)
-
-        return self._wrap_iterator(iterator)
 DEFAULT_PAGE_KEY = "results"
 DEFAULT_NEXT_KEY = "next"
 DEFAULT_PAGE_PARAM = "page"
+
+from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
 def iterate_by_ids(
@@ -357,6 +237,20 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
         suffix = str(suffix).lstrip("/")
         return f"/{self.entity}/{suffix}"
 
+    def iter_ids(self, ids: Sequence[str], path_template: str = "/{entity}/{id}") -> Iterator[dict[str, Any]]:
+        def iterator() -> Iterator[dict[str, Any]]:
+            for raw_id in ids:
+                entity_id = str(raw_id)
+                path = path_template.format(entity=self.entity, id=entity_id)
+                payload = self._wrap_callable(
+                    lambda: self._transport().request("GET", path),
+                    log_context={"path": path},
+                )
+                self._logger.info("api_call", entity=self.entity, entity_id=entity_id)
+                yield from self._normalize_payload(payload)
+
+        return self._wrap_iterator(iterator)
+
     def get(self, entity_id: str, *, params: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
         return self._wrap_callable(
             lambda: self._transport().request("GET", self._entity_path(entity_id), params=params),
@@ -397,9 +291,17 @@ class UnifiedEntityClientBase(ApiClientMixin, ClosableMixin, EntityClientProtoco
                 page_param=page_param,
                 normalize=self._normalize_payload,
             ):
-                yield from self._normalize_payload(page)
+                yield from self._normalize_payload(page, page_key=None)
 
-        return self._wrap_iterator(iterator)
+        def wrapped_iterator() -> Iterator[dict[str, Any]]:
+            original_page_key_override = getattr(self, "_page_key_override", None)
+            self._page_key_override = page_key
+            try:
+                yield from self._wrap_iterator(iterator)
+            finally:
+                self._page_key_override = original_page_key_override
+
+        return wrapped_iterator()
 
     def fetch_all(
         self,
