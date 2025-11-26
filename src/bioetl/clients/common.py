@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from functools import lru_cache
 from typing import Any, Sequence as TypingSequence, TypeVar
-import warnings
 
 import structlog
+import warnings
 
 warnings.warn(
     "bioetl.clients.common устаревает как источник ApiClientMixin/ClosableMixin; "
@@ -14,17 +14,17 @@ warnings.warn(
     stacklevel=2,
 )
 
-from bioetl.core.http import ApiClientMixin, ClosableMixin
-from bioetl.core.http.api_entity_client import EntityClientProtocol
-from bioetl.core.http.interfaces import ApiTransportProtocol, BaseApiClient
-from bioetl.core.http.pagination import (
+from bioetl.clients.utils.pagination import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
-    NextLinkPagination,
-    PageParamPagination,
-    PaginationStrategy,
+    iter_ids,
+    warn_fetch_all,
 )
+from bioetl.core.http import ApiClientMixin, ClosableMixin
+from bioetl.core.http.api_entity_client import EntityClientProtocol
+from bioetl.core.http.interfaces import ApiTransportProtocol, BaseApiClient
+from bioetl.core.http.pagination import NextLinkPagination, PageParamPagination, PaginationStrategy
 from bioetl.core.http.types import (
     JSONPage,
     JSONPayload,
@@ -38,6 +38,25 @@ from bioetl.core.http.types import (
 _T = TypeVar("_T")
 
 
+class _BaseClientAdapter(ApiTransportProtocol):
+    def __init__(self, api_client: BaseApiClient) -> None:
+        self._api_client = api_client
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, Any] | None = None,
+        json: Any | None = None,
+    ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
+        del json
+        if method.upper() != "GET":  # pragma: no cover - защитная проверка
+            raise ValueError("_BaseClientAdapter supports only GET requests")
+        return self._api_client.get_json(path, params=params, headers=headers)
+
+
 def iterate_by_ids(
     *,
     ids: Sequence[str],
@@ -49,15 +68,18 @@ def iterate_by_ids(
     logger: structlog.stdlib.BoundLogger | structlog.types.BindableLogger,
     path_template: str = "/{entity}/{id}",
 ) -> Iterator[dict[str, Any]]:
-    def iterator() -> Iterator[dict[str, Any]]:
-        for raw_id in ids:
-            entity_id = str(raw_id)
-            path = path_template.format(entity=entity, id=entity_id)
-            payload = wrap_callable(lambda: api_client.get_json(path), log_context={"path": path})
-            logger.info("api_call", entity=entity, entity_id=entity_id)
-            yield from normalize(payload)
+    """Обёртка для обхода ``ids`` поверх клиента, совместимого с ``BaseApiClient``."""
 
-    return wrap_iterator(iterator, log_context=None)
+    return iter_ids(
+        ids=ids,
+        entity=entity,
+        transport=_BaseClientAdapter(api_client),
+        normalize=normalize,
+        wrap_callable=wrap_callable,
+        wrap_iterator=wrap_iterator,
+        logger=logger,
+        path_template=path_template,
+    )
 
 
 def cache_entity_client(
@@ -108,17 +130,15 @@ def cache_entity_client(
             next_key: str = DEFAULT_NEXT_KEY,
             page_param: str | None = DEFAULT_PAGE_PARAM,
         ) -> Iterator[Mapping[str, Any]]:
-            warnings.warn(
-                "fetch_all is deprecated; use list instead to enumerate entities.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            yield from self.list(
-                page_size=page_size,
-                params=params,
-                page_key=page_key,
-                next_key=next_key,
-                page_param=page_param,
+            yield from warn_fetch_all(
+                list_entities_fn=lambda: self.list(
+                    page_size=page_size,
+                    params=params,
+                    page_key=page_key,
+                    next_key=next_key,
+                    page_param=page_param,
+                ),
+                wrap_iterator=self._wrap_iterator,
             )
 
         def fetch_by_ids(self, ids: TypingSequence[str]) -> Iterator[Mapping[str, Any]]:
