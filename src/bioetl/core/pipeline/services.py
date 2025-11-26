@@ -8,7 +8,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Mapping, Protocol
 
 import pandas as pd
 import pandera as pa
@@ -32,6 +32,11 @@ from bioetl.core.pipeline.types import (
 )
 from bioetl.qc.executor import QCMetricsExecutor
 from bioetl.qc.plan import QCPlan
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from bioetl.core.runtime.lifecycle import OrchestrationCoordinatorProtocol
+    from bioetl.core.runtime.metadata import MetadataCoordinator
+    from bioetl.core.runtime.qc import QCOrchestratorProtocol
 
 
 class ValidationService(Protocol):
@@ -73,7 +78,9 @@ class WriteService(Protocol):
 class StagePlanExecutor:
     """Ответственный за исполнение плана стадий и подсчет длительностей."""
 
-    def __init__(self, qc_orchestrator: "QCOrchestrator | None" = None) -> None:
+    def __init__(
+        self, qc_orchestrator: QCOrchestratorProtocol | None = None
+    ) -> None:
         self.qc_orchestrator = qc_orchestrator
 
     def execute(
@@ -124,6 +131,9 @@ class StagePlanExecutor:
                     logger.info("STAGE_RUN_END", stage=stage.name, duration_ms=duration_ms)
 
         return durations, error
+
+
+from bioetl.core.runtime.qc import default_qc_runtime_service_factory, default_qc_service_factory
 
 
 @dataclass(slots=True)
@@ -574,31 +584,13 @@ def default_artifact_service_factory(artifact_planner: ArtifactPlanner | None = 
 def default_orchestration_service_factory(
     stage_plan_executor: StagePlanExecutor | None = None,
     artifact_service: ArtifactService | None = None,
-) -> Callable[[PipelineBaseProtocol], OrchestrationService]:
-    def _factory(_: PipelineBaseProtocol) -> OrchestrationService:
+) -> Callable[[OrchestrationCoordinatorProtocol], OrchestrationService]:
+    def _factory(coordinator: OrchestrationCoordinatorProtocol) -> OrchestrationService:
+        executor = stage_plan_executor or getattr(coordinator, "stage_plan_executor", None)
+        artifacts = artifact_service or getattr(coordinator, "artifact_service", None)
         return OrchestrationService(
-            stage_plan_executor=stage_plan_executor or StagePlanExecutor(),
-            artifact_service=artifact_service or default_artifact_service_factory(),
-        )
-
-    return _factory
-
-
-def default_qc_service_factory(
-    *,
-    qc_plan: QCPlan | None = None,
-    executor_factory: Callable[[], QCMetricsExecutor] | None = None,
-    qc_thresholds: Mapping[str, float] | None = None,
-    qc_dry_run: bool | None = None,
-    qc_enabled: bool | None = None,
-) -> Callable[[PipelineBaseProtocol], QCService]:
-    def _factory(_: PipelineBaseProtocol) -> QCService:
-        return QCService(
-            QCExecutorAdapter(executor_factory=executor_factory),
-            enabled=qc_enabled,
-            plan=qc_plan,
-            dry_run=qc_dry_run,
-            thresholds=qc_thresholds,
+            stage_plan_executor=executor or StagePlanExecutor(),
+            artifact_service=artifacts or default_artifact_service_factory(),
         )
 
     return _factory
@@ -641,54 +633,26 @@ def default_artifact_runtime_service_factory(
     return _factory
 
 
-def default_qc_runtime_service_factory(
-    *,
-    qc_service: QCService | None = None,
-    qc_service_factory: Callable[[PipelineBaseProtocol], QCService] | None = None,
-    qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None,
-    qc_plan: QCPlan | None = None,
-    qc_thresholds: Mapping[str, float] | None = None,
-    qc_dry_run: bool | None = None,
-    qc_enabled: bool | None = None,
-) -> Callable[[PipelineBaseProtocol], QCRuntimeService]:
-    def _factory(pipeline: PipelineBaseProtocol) -> QCRuntimeService:
-        if qc_service is not None:
-            resolved_service = qc_service
-        else:
-            qc_factory = qc_service_factory or default_qc_service_factory(
-                qc_plan=qc_plan,
-                executor_factory=qc_executor_factory,
-                qc_thresholds=qc_thresholds,
-                qc_dry_run=qc_dry_run,
-                qc_enabled=qc_enabled,
-            )
-            resolved_service = qc_factory(pipeline)
-        orchestrator = QCOrchestrator(resolved_service) if resolved_service else None
-        return QCRuntimeService(resolved_service, orchestrator)
-
-    return _factory
-
-
 def default_metadata_runtime_service_factory(
     *,
     config: Mapping[str, Any] | Any | None = None,
     pipeline_code: str | None = None,
     metadata_service: MetadataService | None = None,
-    metadata_service_factory: Callable[[PipelineBaseProtocol], MetadataService] | None = None,
+    metadata_service_factory: Callable[[MetadataCoordinator], MetadataService] | None = None,
     run_metadata_builder: RunMetadataBuilder | None = None,
     logs_directory_resolver: Callable[[Path], Path] | None = None,
-) -> Callable[[PipelineBaseProtocol], MetadataRuntimeService]:
-    def _factory(pipeline: PipelineBaseProtocol) -> MetadataRuntimeService:
+) -> Callable[[MetadataCoordinator], MetadataRuntimeService]:
+    def _factory(coordinator: MetadataCoordinator) -> MetadataRuntimeService:
         if metadata_service is not None:
             resolved_service = metadata_service
         elif metadata_service_factory is not None:
-            resolved_service = metadata_service_factory(pipeline)
+            resolved_service = metadata_service_factory(coordinator)
         else:
-            resolved_config = config if config is not None else getattr(pipeline, "config", {})
-            resolved_code = pipeline_code or getattr(pipeline, "pipeline_code", "")
+            resolved_config = config if config is not None else getattr(coordinator, "config", {})
+            resolved_code = pipeline_code or getattr(coordinator, "pipeline_code", "")
             builder = run_metadata_builder or RunMetadataBuilder(resolved_config, resolved_code)
             resolved_service = MetadataService(builder=builder)
-        resolver = logs_directory_resolver or getattr(pipeline, "resolve_logs_directory")
+        resolver = logs_directory_resolver or getattr(coordinator, "logs_directory_resolver")
         return MetadataRuntimeService(
             metadata_service=resolved_service,
             logs_directory_resolver=resolver,
@@ -712,7 +676,7 @@ class ContextBuilder:
         data_bucket: DataBucket,
         artifact_store: ArtifactStore,
         metadata_service: Any | None,
-        qc_orchestrator: QCOrchestrator | None,
+        qc_orchestrator: QCOrchestratorProtocol | None,
     ) -> "StageContext":
         return StageContext(
             logger=logger,
