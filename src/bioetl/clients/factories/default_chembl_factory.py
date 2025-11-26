@@ -11,12 +11,13 @@ from bioetl.clients.chembl import (
     ChemblTestItemClient,
 )
 from bioetl.clients.chembl._base import BaseChemblClient
-from bioetl.clients.common import ApiTransportProtocol, EntityClientProtocol
+from bioetl.clients.common import EntityClientProtocol
 from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
 from bioetl.core.http.api_client import APIConfig
-from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
+from bioetl.core.http.interfaces import ApiTransportProtocol
+from bioetl.core.http.pagination import DefaultPaginationStrategy
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
 

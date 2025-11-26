@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from bioetl.clients.chembl._base import ChemblEntityClient
-from bioetl.clients.common import ApiTransportProtocol
+from bioetl.core.http.interfaces import ApiTransportProtocol
 
 
 class ChemblTestItemClient(ChemblEntityClient):

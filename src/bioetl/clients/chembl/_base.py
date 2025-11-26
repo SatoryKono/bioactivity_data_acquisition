@@ -5,15 +5,10 @@ from typing import Any
 
 import structlog
 
-from bioetl.clients.common import (
-    DEFAULT_NEXT_KEY,
-    DEFAULT_PAGE_KEY,
-    DEFAULT_PAGE_PARAM,
-    ApiTransportProtocol,
-    ChemblClientBase,
-    PaginationStrategy,
-)
+from bioetl.clients.common import DEFAULT_NEXT_KEY, DEFAULT_PAGE_KEY, DEFAULT_PAGE_PARAM, ChemblClientBase
 from bioetl.core.http import ApiClientMixin, ClosableMixin
+from bioetl.core.http.interfaces import ApiTransportProtocol
+from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 

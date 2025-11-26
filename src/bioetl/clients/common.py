@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import lru_cache
-from typing import Any, Protocol, Sequence as TypingSequence, TypeVar, runtime_checkable
+from typing import Any, Protocol, Sequence as TypingSequence, TypeVar
 import warnings
 
 import structlog
@@ -26,52 +26,6 @@ JSONPayload = Mapping[str, Any] | list[Mapping[str, Any]]
 JSONPage = Iterator[Mapping[str, Any]]
 JSONRecord = Mapping[str, Any]
 JSONRecordStream = Iterator[JSONRecord]
-
-
-@runtime_checkable
-class BaseApiClient(Protocol):
-    """Protocol describing the minimal HTTP client surface area."""
-
-    def get_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-    ) -> JSONPayload:
-        """Fetch a single resource from ``endpoint`` and return decoded JSON."""
-
-    def paginate_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-        page_key: str = "results",
-        next_key: str = "next",
-        page_param: str | None = "page",
-    ) -> JSONPage:
-        """Iterate over paginated JSON resources for the given ``endpoint``."""
-
-    def close(self) -> None:
-        """Release any resources (e.g. sessions) associated with the client."""
-
-
-@runtime_checkable
-class ApiTransportProtocol(Protocol):
-    def request(
-        self,
-        method: str,
-        path: str,
-        *,
-        headers: Mapping[str, str] | None = None,
-        params: Mapping[str, Any] | None = None,
-        json: Any | None = None,
-    ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
-        """Perform a low-level HTTP request and return parsed JSON."""
-
-    def close(self) -> None:
-        """Release any underlying transport resources (sessions, pools, etc.)."""
 
 
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry

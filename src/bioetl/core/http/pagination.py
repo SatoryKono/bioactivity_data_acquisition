@@ -4,7 +4,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from bioetl.clients.common import ApiTransportProtocol
+    from bioetl.core.http.interfaces import ApiTransportProtocol
 else:  # pragma: no cover - runtime-only Protocol fallback
     class ApiTransportProtocol(Protocol):
         def request(
