@@ -5,15 +5,16 @@ from typing import Any
 
 import structlog
 
-from bioetl.clients.common import DEFAULT_NEXT_KEY, DEFAULT_PAGE_KEY, DEFAULT_PAGE_PARAM, ChemblClientBase
+from bioetl.clients.common import ChemblClientBase
+from bioetl.clients.chembl.common import ChemblPaginationMixin
 from bioetl.core.http import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
-from bioetl.infra import PaginationRegistry, get_default_pagination_registry
+from bioetl.infra import PaginationRegistry
 
 
-class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
+class BaseChemblClient(ChemblPaginationMixin, ApiClientMixin, ClosableMixin, ApiTransportProtocol):
     """Транспортный клиент ChEMBL без привязки к конкретной сущности."""
 
     def __init__(
@@ -24,12 +25,13 @@ class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
         pagination_strategy_name: str | None = None,
         pagination_registry: PaginationRegistry | None = None,
     ) -> None:
-        self.transport = transport
-        self._logger = structlog.get_logger(__name__).bind(client="chembl_transport")
-        self.pagination_registry = pagination_registry or get_default_pagination_registry()
-        self.pagination_strategy = pagination_strategy or self.pagination_registry.create(
-            pagination_strategy_name or "next_link"
+        self._init_transport_and_pagination(
+            transport,
+            pagination_strategy=pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=pagination_registry,
         )
+        self._logger = structlog.get_logger(__name__).bind(client="chembl_transport")
 
     def request(
         self,
@@ -67,7 +69,7 @@ class ChemblEntityClient(ChemblClientBase):
             entity,
             pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
-            pagination_registry=pagination_registry or get_default_pagination_registry(),
+            pagination_registry=pagination_registry,
         )
 
 
