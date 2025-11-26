@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from bioetl.clients.common import (
     ApiTransportProtocol,
-    PageParamPagination,
     PaginatedFetcher,
     PaginationStrategy,
     UnifiedEntityClientBase,
 )
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
+from bioetl.infra.pagination_registry import PaginationRegistry
 
 
 class _BaseEntityClient(UnifiedEntityClientBase):
@@ -17,12 +17,16 @@ class _BaseEntityClient(UnifiedEntityClientBase):
         entity: str,
         *,
         pagination_strategy: PaginatedFetcher | None = None,
+        pagination_strategy_name: str | None = None,
+        pagination_registry: PaginationRegistry | None = None,
     ) -> None:
         super().__init__(
             transport,
             entity,
-            pagination_strategy=pagination_strategy or PageParamPagination(),
+            pagination_strategy=pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_registry=pagination_registry,
         )
 
-    def default_pagination_strategy(self) -> PaginationStrategy:
-        return PageParamPagination()
+    def default_pagination_strategy_name(self) -> str:
+        return "page_param"
