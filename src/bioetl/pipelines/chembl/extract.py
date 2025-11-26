@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from bioetl.core.pipeline.unified import PipelineBase
-from bioetl.pipelines.chembl.stage_runner import run_chembl_stage
+from bioetl.application.pipelines.chembl.stage_runner import run_chembl_stage
 
 
 def run_extract(pipeline: PipelineBase, **kwargs: Any):

@@ -26,7 +26,7 @@ from bioetl.pipelines.chembl.common import (
     ChemblPipelineContract,
     descriptor_from_options,
 )
-from bioetl.pipelines.chembl.stage_runner import register_pipeline
+from bioetl.application.pipelines.chembl.stage_runner import register_pipeline
 from bioetl.pipelines.chembl.activity.stages import ActivityExtractor, ActivityTransformer, ActivityWriter
 from bioetl.schemas.activity_schema import ActivityColumns, ActivitySchema
 
