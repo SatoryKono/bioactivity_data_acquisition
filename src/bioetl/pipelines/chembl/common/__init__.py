@@ -6,8 +6,8 @@ from .descriptor import (
     descriptor_from_csv,
     descriptor_from_options,
 )
+from .base import ChemblCommonPipeline, ChemblWriteService
 from .chembl_extraction_service import ChemblExtractionService
-from .legacy import ChemblEntityPipeline
 
 __all__ = [
     "BatchPlan",
@@ -17,5 +17,6 @@ __all__ = [
     "descriptor_from_csv",
     "descriptor_from_options",
     "ChemblExtractionService",
-    "ChemblEntityPipeline",
+    "ChemblCommonPipeline",
+    "ChemblWriteService",
 ]

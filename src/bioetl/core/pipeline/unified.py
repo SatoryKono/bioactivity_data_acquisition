@@ -122,12 +122,38 @@ class PipelineBase(PipelineRuntimeBase):
         artifacts: WriteArtifacts,
         options: StageExecutionOptions,
     ) -> WriteResult:
-        msg = (
-            "write_service is not configured; "
-            "provide write_service_factory or "
-            "override save_results"
+        if self.write_service is None:
+            msg = (
+                "write_service is not configured; "
+                "provide write_service_factory or "
+                "override save_results"
+            )
+            raise NotImplementedError(msg)
+
+        from bioetl.core.logging import UnifiedLogger
+        from bioetl.core.pipeline.types import ArtifactStore, DataBucket, StageRuntimeContext
+
+        output_dir = artifacts.data_path.parent if artifacts.data_path else self.output_root
+        stage_context = self.context_builder.build(
+            logger=UnifiedLogger.get(self.__class__.__name__).bind(
+                run_id=self.run_id,
+                pipeline=self.pipeline_code,
+            ),
+            output_dir=output_dir,
+            data_bucket=DataBucket(),
+            artifact_store=ArtifactStore(artifacts),
+            metadata_service=self.metadata_service,
+            qc_orchestrator=self.qc_orchestrator,
         )
-        raise NotImplementedError(msg)
+        runtime_context = StageRuntimeContext(context=stage_context, options=options)
+
+        return self.write_service.save(
+            df,
+            artifacts,
+            options,
+            context=stage_context,
+            runtime=runtime_context,
+        )
 
     @property
     def pipeline_name(self) -> str:
@@ -196,8 +222,9 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         *,
         run_id: str | None = None,
         extraction_service: "ChemblExtractionService" | None = None,
+        **kwargs: Any,
     ) -> None:
-        super().__init__(config, run_id=run_id)
+        super().__init__(config, run_id=run_id, **kwargs)
         if extraction_service is None:
             from bioetl.pipelines.chembl.common import (
                 chembl_extraction_service as ces,

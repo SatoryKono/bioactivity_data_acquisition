@@ -10,14 +10,14 @@ import pandas as pd
 from bioetl.core.io.artifacts import RunArtifacts
 from bioetl.core.pipeline.services import DefaultValidationService
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
-from bioetl.pipelines.chembl.common import ChemblEntityPipeline, ConfigValidationError
+from bioetl.pipelines.chembl.common import ChemblCommonPipeline, ConfigValidationError
 from bioetl.schemas import DocumentSchema
 
 if TYPE_CHECKING:  # pragma: no cover
     from bioetl.core.io.output import UnifiedOutputWriter
 
 
-class ChemblDocumentPipeline(ChemblEntityPipeline):
+class ChemblDocumentPipeline(ChemblCommonPipeline):
     """Скелет пайплайна для ChEMBL Document с обогащением внешними источниками."""
 
     entity_name = "document"
