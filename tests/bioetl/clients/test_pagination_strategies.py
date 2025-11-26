@@ -1,81 +1,77 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 from bioetl.clients.common import NextLinkPagination, PageParamPagination
 
 
 def test_next_link_pagination_traverses_next_links_and_params() -> None:
-    api_client = MagicMock()
-    api_client.get_json.side_effect = [
-        {"results": [{"id": 1}, {"id": 2}], "next": "/entities?page=2"},
-        {"results": [{"id": 3}], "next": None},
-    ]
+    transport = MagicMock()
+    transport.request.return_value = {"results": [{"id": 3}], "next": None}
+
+    initial_page = {"results": [{"id": 1}, {"id": 2}], "next": "/entities?page=2"}
 
     logger = MagicMock()
     strategy = NextLinkPagination()
 
-    result = list(strategy.paginate(api_client, "/entities", params={"limit": 2}, logger=logger))
+    pages = list(
+        strategy.iter_pages(
+            initial_page,
+            transport,
+            endpoint="/entities",
+            params={"limit": 2},
+            logger=logger,
+        )
+    )
 
-    assert result == [{"id": 1}, {"id": 2}, {"id": 3}]
-    assert api_client.get_json.call_args_list == [
-        call("/entities", params={"limit": 2}),
-        call("/entities?page=2", params=None),
-    ]
-    assert logger.info.call_args_list == [
-        call("api_call", path="/entities"),
-        call("api_call", path="/entities?page=2"),
-    ]
+    assert pages == [initial_page, {"results": [{"id": 3}], "next": None}]
+    transport.request.assert_called_once_with("GET", "/entities?page=2", params=None)
+    logger.info.assert_called_once_with("api_call", path="/entities?page=2")
 
 
 def test_next_link_pagination_yields_payload_without_results() -> None:
-    api_client = MagicMock()
-    api_client.get_json.return_value = {"value": 42}
-
+    transport = MagicMock()
     strategy = NextLinkPagination()
 
-    result = list(strategy.paginate(api_client, "/entities"))
+    initial_page = {"value": 42}
 
-    assert result == [{"value": 42}]
-    api_client.get_json.assert_called_once_with("/entities", params=None)
+    pages = list(strategy.iter_pages(initial_page, transport, endpoint="/entities"))
+
+    assert pages == [initial_page]
+    transport.request.assert_not_called()
 
 
-def test_page_param_pagination_uses_paginate_json_and_flattens_results() -> None:
-    api_client = MagicMock()
-    api_client.paginate_json.return_value = iter(
-        [
-            {"results": [{"id": 1}]},
-            {"results": [{"id": 2}, {"id": 3}]},
-        ]
-    )
+def test_page_param_pagination_uses_page_param_and_flattens_results() -> None:
+    transport = MagicMock()
+    transport.request.side_effect = [
+        {"results": [{"id": 2}, {"id": 3}], "next": None},
+    ]
 
     strategy = PageParamPagination(page_param="page")
+    initial_page = {"results": [{"id": 1}]}
 
-    result = list(strategy.paginate(api_client, "/entities", params={"limit": 50, "foo": "bar"}))
+    pages = list(
+        strategy.iter_pages(
+            initial_page,
+            transport,
+            endpoint="/entities",
+            params={"limit": 50, "foo": "bar"},
+        )
+    )
 
-    assert result == [{"id": 1}, {"id": 2}, {"id": 3}]
-    api_client.paginate_json.assert_called_once_with(
-        "/entities",
-        params={"limit": 50, "foo": "bar"},
-        page_key="results",
-        next_key="next",
-        page_param="page",
+    assert pages == [initial_page, {"results": [{"id": 2}, {"id": 3}], "next": None}]
+    transport.request.assert_called_once_with(
+        "GET", "/entities", params={"limit": 50, "foo": "bar", "page": 2}
     )
 
 
 def test_page_param_pagination_falls_back_without_results() -> None:
-    api_client = MagicMock()
-    api_client.paginate_json.return_value = iter([{"value": "fallback"}])
-
+    transport = MagicMock()
     strategy = PageParamPagination()
 
-    result = list(strategy.paginate(api_client, "/entities"))
+    initial_page = {"value": "fallback"}
 
-    assert result == [{"value": "fallback"}]
-    api_client.paginate_json.assert_called_once_with(
-        "/entities",
-        params=None,
-        page_key="results",
-        next_key="next",
-        page_param="page",
-    )
+    pages = list(strategy.iter_pages(initial_page, transport, endpoint="/entities"))
+
+    assert pages == [initial_page]
+    transport.request.assert_not_called()
