@@ -15,8 +15,12 @@ import pandera as pa
 
 from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.types import (
+    ArtifactContext,
     ArtifactStore,
     DataBucket,
+    DomainContext,
+    ExecutionContext,
+    InfrastructureContext,
     RunState,
     PipelineBaseProtocol,
     StageCommand,
@@ -707,23 +711,17 @@ class ContextBuilder:
     def build(
         self,
         *,
-        logger: UnifiedLogger,
-        output_dir: Path,
-        data_bucket: DataBucket,
-        artifact_store: ArtifactStore,
-        metadata_service: Any | None,
-        qc_orchestrator: QCOrchestrator | None,
+        execution: ExecutionContext,
+        domain: DomainContext,
+        infrastructure: InfrastructureContext,
+        artifacts: ArtifactContext,
     ) -> "StageContext":
         return StageContext(
-            logger=logger,
-            request_id=getattr(self.pipeline, "run_id", None),
+            execution=execution,
+            domain=domain,
+            infrastructure=infrastructure,
+            artifacts=artifacts,
             config_provider=self.config_provider,
-            output_dir=output_dir,
-            data_bucket=data_bucket,
-            artifact_store=artifact_store,
-            pipeline=self.pipeline,
-            metadata_service=metadata_service,
-            qc_orchestrator=qc_orchestrator,
         )
 
 

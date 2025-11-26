@@ -35,6 +35,10 @@ from bioetl.core.pipeline.services import (
 from bioetl.core.pipeline.types import (
     ArtifactStore,
     DataBucket,
+    DefaultArtifactContext,
+    DefaultDomainContext,
+    DefaultExecutionContext,
+    DefaultInfrastructureContext,
     PipelineBaseProtocol,
     RunArtifacts,
     RunResult,
@@ -263,13 +267,21 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         run_state.artifacts = artifacts
         data_bucket = DataBucket()
         artifact_store = ArtifactStore(artifacts)
+        execution_context = DefaultExecutionContext(
+            logger=logger, request_id=self.run_id, trace_id=self.run_id
+        )
         stage_context = self.context_builder.build(
-            logger=logger,
-            output_dir=target_dir,
-            data_bucket=data_bucket,
-            artifact_store=artifact_store,
-            metadata_service=self.metadata_service,
-            qc_orchestrator=self.qc_orchestrator,
+            execution=execution_context,
+            domain=DefaultDomainContext(pipeline=self),
+            infrastructure=DefaultInfrastructureContext(
+                output_dir=target_dir,
+                metadata_service=self.metadata_service,
+                qc_orchestrator=self.qc_orchestrator,
+            ),
+            artifacts=DefaultArtifactContext(
+                data_bucket=data_bucket,
+                artifact_store=artifact_store,
+            ),
         )
 
         stage_descriptors = self.build_stage_plan(stage_context, options)
