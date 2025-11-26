@@ -17,6 +17,7 @@ from bioetl.core.io.artifacts import (
     SchemaRegistryEntry,
     WriteArtifacts,
 )
+from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.services import (
     ArtifactPlanner,
@@ -26,6 +27,8 @@ from bioetl.core.pipeline.services import (
     default_artifact_service_factory,
 )
 from bioetl.core.pipeline.types import (
+    ArtifactStore,
+    DataBucket,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -66,19 +69,26 @@ class ActivityWriteService(WriteService):
         context: StageContextProtocol,
         runtime: StageRuntimeContext,
     ) -> WriteResult:
+        runtime_context = runtime.context or context
+        pipeline = getattr(runtime_context, "pipeline", None)
         output_dir = (
             artifacts.data_path.parent
             if artifacts.data_path
-            else context.output_dir
+            else runtime_context.output_dir
         )
+        output_dir.mkdir(parents=True, exist_ok=True)
         run_stem = (
             output_dir.name
             if artifacts.data_path
-            else context.pipeline.build_run_stem(
+            else pipeline.build_run_stem(
                 options.run_tag,
                 options.mode,
             )
+            if pipeline
+            else output_dir.name
         )
+        if artifacts.data_path is None:
+            artifacts.data_path = output_dir / f"activity_{run_stem}.csv"
         return self.writer.write(
             df,
             artifacts,
@@ -275,24 +285,35 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         options: StageExecutionOptions,
     ) -> WriteResult:
         """Save pipeline results."""
-        output_dir = (
-            artifacts.data_path.parent
-            if artifacts.data_path
-            else self.output_root
-        )
-        run_stem = (
-            output_dir.name
-            if artifacts.data_path
-            else self.build_run_stem(
+        if artifacts.data_path is None:
+            _, planned_artifacts = self.plan_run_artifacts(
+                self.output_root,
                 options.run_tag,
                 options.mode,
             )
+            artifacts.data_path = planned_artifacts.data_path
+
+        output_dir = artifacts.data_path.parent if artifacts.data_path else self.output_root
+
+        stage_context = self.context_builder.build(
+            logger=UnifiedLogger.get(self.__class__.__name__).bind(
+                run_id=self.run_id,
+                pipeline=self.pipeline_code,
+            ),
+            output_dir=output_dir,
+            data_bucket=DataBucket(),
+            artifact_store=ArtifactStore(artifacts),
+            metadata_service=self.metadata_service,
+            qc_orchestrator=self.qc_orchestrator,
         )
-        return self.writer.write(
+        runtime_context = StageRuntimeContext(context=stage_context, options=options)
+
+        return self.write_service.save(
             df,
             artifacts,
-            run_stem=run_stem,
-            output_dir=output_dir,
+            options,
+            context=stage_context,
+            runtime=runtime_context,
         )
 
     def finalize_run(self, run_result: RunResult) -> None:
