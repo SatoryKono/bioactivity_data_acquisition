@@ -13,6 +13,10 @@ from bioetl.core.pipeline.stage_plan import (
     build_default_stage_plan,
 )
 from bioetl.core.pipeline.types import (
+    DefaultArtifactContext,
+    DefaultDomainContext,
+    DefaultExecutionContext,
+    DefaultInfrastructureContext,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -104,11 +108,11 @@ def _contexts(
 ) -> tuple[StageContext, StageRuntimeContext]:
     logger = UnifiedLogger.get("StageFactoryTest")
     context = StageContext(
-        logger=logger,
-        request_id="test",
-        pipeline=pipeline,
+        execution=DefaultExecutionContext(logger=logger, request_id="test"),
+        domain=DefaultDomainContext(pipeline=pipeline),
+        infrastructure=DefaultInfrastructureContext(output_dir=Path("/tmp/out")),
+        artifacts=DefaultArtifactContext(),
         config_provider=lambda _k: {},
-        output_dir=Path("/tmp/out"),
     )
     runtime = StageRuntimeContext(context=context, options=OPTIONS)
     return context, runtime

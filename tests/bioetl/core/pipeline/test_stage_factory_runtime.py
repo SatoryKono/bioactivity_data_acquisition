@@ -14,6 +14,10 @@ from bioetl.core.pipeline.stage_plan import (
 )
 from bioetl.core.pipeline.types import (
     ArtifactStore,
+    DefaultArtifactContext,
+    DefaultDomainContext,
+    DefaultExecutionContext,
+    DefaultInfrastructureContext,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -71,11 +75,10 @@ OPTIONS = StageExecutionOptions(run_tag=None, mode=None)
 def _stage_context(pipeline: UnifiedPipelineBase) -> StageContext:
     logger = UnifiedLogger.get("StageFactoryTest")
     return StageContext(
-        pipeline=pipeline,
-        logger=logger,
-        request_id="test",
-        output_dir=Path("/tmp/out"),
-        artifact_store=ArtifactStore(WriteArtifacts()),
+        execution=DefaultExecutionContext(logger=logger, request_id="test"),
+        domain=DefaultDomainContext(pipeline=pipeline),
+        infrastructure=DefaultInfrastructureContext(output_dir=Path("/tmp/out")),
+        artifacts=DefaultArtifactContext(artifact_store=ArtifactStore(WriteArtifacts())),
     )
 
 
