@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Iterator
+from typing import Any, Iterator
 
 import pytest
 import responses
 
-from bioetl.core.http import (
+from bioetl.core.http.api_client import (
     APIConfig,
     UnifiedAPIClient,
 )
 
 
-def api_config(**overrides):
+def api_config(**overrides: Any) -> APIConfig:
+    """Create a default APIConfig with optional overrides."""
     cfg = APIConfig(
         base_url="http://example.com/",
         timeout_sec=0.2,
@@ -34,9 +35,15 @@ def api_config(**overrides):
     return cfg
 
 
-def test_unified_client_respects_retry_after(monkeypatch):
+def test_unified_client_respects_retry_after(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Test that the client sleeps for the duration specified in
+    Retry-After header.
+    """
     sleep_calls: list[float] = []
-    monkeypatch.setattr(time, "sleep", lambda s: sleep_calls.append(s))
+    monkeypatch.setattr(time, "sleep", sleep_calls.append)
 
     client = UnifiedAPIClient.from_config(api_config())
     retry_at = (
@@ -65,7 +72,8 @@ def test_unified_client_respects_retry_after(monkeypatch):
     assert sleep_calls and sleep_calls[0] >= 0.1
 
 
-def test_unified_client_cache_and_pagination():
+def test_unified_client_cache_and_pagination() -> None:
+    """Test pagination iterator and caching behavior."""
     client = UnifiedAPIClient.from_config(api_config())
     with responses.RequestsMock() as rsps:
         rsps.add(
@@ -79,7 +87,7 @@ def test_unified_client_cache_and_pagination():
             json={"items": []},
         )
 
-        pages: Iterator[dict] = client.paginate_json("/items")
+        pages: Iterator[dict[str, Any]] = client.paginate_json("/items")
         first = next(pages)
         second = next(pages)
         with pytest.raises(StopIteration):
