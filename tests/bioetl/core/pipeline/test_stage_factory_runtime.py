@@ -122,11 +122,11 @@ class _StubStage:
     def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
         self.executed = True
         if self.name == "extract":
-            runtime_context.context.data_bucket.set(pd.DataFrame({"value": [1]}))
+            runtime_context.context.set_current_df(pd.DataFrame({"value": [1]}))
         if self.name == "save_results":
-            artifacts = runtime_context.context.artifact_store.get() or WriteArtifacts()
+            artifacts = runtime_context.context.get_artifacts() or WriteArtifacts()
             return StageResult(name=self.name, output=WriteResult(rows=1, artifacts=artifacts))
-        return StageResult(name=self.name, output=runtime_context.context.data_bucket.get())
+        return StageResult(name=self.name, output=runtime_context.context.get_current_df())
 
 
 class FactorySpyPipeline(CommandSpyPipeline):

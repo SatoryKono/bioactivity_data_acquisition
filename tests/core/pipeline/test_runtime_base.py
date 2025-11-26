@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -10,9 +11,11 @@ from bioetl.core.pipeline.runtime import PipelineRuntimeBase, StagePlanExecutor
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
     StageContext,
+    StageContextProtocol,
     StageExecutionOptions,
     StageRuntimeContext,
     WriteArtifacts,
+    WriteResult,
 )
 
 
@@ -47,7 +50,7 @@ class RecordingExecutor(StagePlanExecutor):
                     runtime.input_data = command.handler(context, runtime)
                     if isinstance(runtime.input_data, pd.DataFrame):
                         runtime.attributes["last_dataframe"] = runtime.input_data
-                        context.data_bucket.set(runtime.input_data)
+                        context.set_current_df(runtime.input_data)
                     break
                 except RetryableError as exc:
                     if attempts > self.max_retries:
@@ -192,3 +195,30 @@ def test_executor_receives_qc_service() -> None:
     assert executor.qc_orchestrator is runtime.qc_orchestrator
     assert runtime.qc_orchestrator is not None
     assert runtime.qc_orchestrator.qc_service is runtime.qc_service
+
+
+def test_stage_plan_executor_relies_on_context_interface() -> None:
+    executor = StagePlanExecutor()
+    metadata: dict[str, Any] = {}
+    artifacts = WriteArtifacts()
+
+    context = mock.Mock(spec=StageContextProtocol)
+    context.logger = None
+    context.get_metadata.return_value = metadata
+    context.get_artifacts.return_value = artifacts
+
+    options = StageExecutionOptions(run_tag=None, mode=None)
+    stages = (
+        PipelineStageCommand("extract", lambda ctx, runtime_ctx: pd.DataFrame({"value": [1, 2]})),
+        PipelineStageCommand(
+            "save_results", lambda ctx, runtime_ctx: WriteResult(rows=2, artifacts=artifacts)
+        ),
+    )
+
+    durations, error = executor.execute(stages, context, options)
+
+    assert error is None
+    assert durations == {"extract": mock.ANY, "save_results": mock.ANY}
+    context.set_current_df.assert_called_once()
+    context.set_artifacts.assert_called_once_with(artifacts)
+    assert metadata["extract_rows"] == 2
