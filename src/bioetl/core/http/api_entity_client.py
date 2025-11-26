@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any, Protocol
 
 import structlog
 
@@ -13,11 +13,8 @@ from bioetl.core.http.pagination import (
     DEFAULT_PAGE_PARAM,
     PaginationStrategy,
 )
+from bioetl.core.http.pagination_helpers import iter_ids, iterate_records, list_entities, warn_fetch_all
 from bioetl.core.http.types import Normalizer
-
-if TYPE_CHECKING:
-    from bioetl.clients.utils import pagination as pagination_utils
-
 
 class EntityClientProtocol(Protocol):
     entity: str
@@ -66,9 +63,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         ids: Sequence[str],
         path_template: str = "/{entity}/{id}",
     ) -> Iterator[dict[str, Any]]:
-        from bioetl.clients.utils import pagination as pagination_utils
-
-        return pagination_utils.iter_ids(
+        return iter_ids(
             ids=ids,
             entity=self.entity,
             transport=self._transport(),
@@ -95,9 +90,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         page_size: int | None = None,
         fetcher: Callable[[Sequence[str] | None], Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
-        from bioetl.clients.utils import pagination as pagination_utils
-
-        return pagination_utils.iterate_records(
+        return iterate_records(
             ids=ids,
             page_size=page_size,
             fetcher=fetcher,
@@ -116,9 +109,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
-        from bioetl.clients.utils import pagination as pagination_utils
-
-        return pagination_utils.list_entities(
+        return list_entities(
             transport=self._transport(),
             entity_path=self._entity_path(),
             pagination_strategy=self.pagination_strategy,
@@ -143,9 +134,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
-        from bioetl.clients.utils import pagination as pagination_utils
-
-        return pagination_utils.warn_fetch_all(
+        return warn_fetch_all(
             list_entities_fn=lambda: self.list(
                 page_size=page_size,
                 params=params,
