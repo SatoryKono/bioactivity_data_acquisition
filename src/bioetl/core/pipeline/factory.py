@@ -7,9 +7,9 @@ from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     PipelineStagesProtocol,
     StageCommand,
-    StageContext,
     StageDescriptor,
     StageExecutionOptions,
+    StageFactoryContext,
     StageResult,
     StageRuntimeContext,
     WriteArtifacts,
@@ -26,7 +26,7 @@ class StageFactory:
     def build(
         self,
         descriptors: Iterable[StageDescriptor],
-        context: StageContext,
+        context: StageFactoryContext,
         options: StageExecutionOptions,
         stages: Sequence[str] | None = None,
     ) -> tuple[StageCommand, ...]:
@@ -46,7 +46,6 @@ class StageFactory:
                     raise ValueError(msg)
                 selected.append(descriptor)
 
-        context.pipeline = self.pipeline
         return tuple(self._build_stage(descriptor) for descriptor in selected)
 
     def _build_stage(self, descriptor: StageDescriptor) -> StageCommand:
@@ -58,7 +57,7 @@ class StageFactory:
 
     def _execute_descriptor(
         self,
-        context: StageContext,
+        context: StageFactoryContext,
         runtime: StageRuntimeContext,
         descriptor: StageDescriptor,
     ) -> StageResult:
