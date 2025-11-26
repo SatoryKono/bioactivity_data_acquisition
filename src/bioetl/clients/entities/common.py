@@ -4,7 +4,6 @@ from enum import Enum
 from typing import Callable, Type
 
 from bioetl.clients.chembl._base import ChemblEntityClient
-from bioetl.clients.chembl.client_activity import ChemblActivityClient
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
@@ -17,6 +16,9 @@ class ChemblEntity(str, Enum):
     TARGET = "target"
     TESTITEM = "testitem"
     DOCUMENT = "document"
+
+
+CHEMBL_ALLOWED_ENTITIES: tuple[str, ...] = tuple(member.value for member in ChemblEntity)
 
 
 def _build_entity_client(name: str, entity: ChemblEntity) -> Type[ChemblEntityClient]:
@@ -88,6 +90,7 @@ __all__ = [
     "ChemblEntity",
     "ChemblEntityClient",
     "ChemblEntityClientFactory",
+    "CHEMBL_ALLOWED_ENTITIES",
     "ChemblActivityClient",
     "ChemblAssayClient",
     "ChemblTargetClient",

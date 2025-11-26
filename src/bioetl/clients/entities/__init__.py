@@ -4,6 +4,7 @@ __all__ = [
     "ChemblActivityClient",
     "ChemblAssayClient",
     "ChemblDocumentClient",
+    "CHEMBL_ALLOWED_ENTITIES",
     "ChemblEntity",
     "ChemblEntityClient",
     "ChemblEntityClientFactory",
