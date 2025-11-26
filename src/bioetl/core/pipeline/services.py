@@ -13,7 +13,6 @@ import pandera as pa
 from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
-    Stage,
     StageContext,
     StageContextProtocol,
     StageExecutionOptions,

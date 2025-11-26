@@ -16,8 +16,8 @@ from bioetl.core.pipeline.types import (
     StageContext,
     StageDescriptor,
     StageExecutionOptions,
-    StageResult,
     StageRuntimeContext,
+    StageResult,
     WriteArtifacts,
     WriteResult,
 )
@@ -25,6 +25,7 @@ from bioetl.core.pipeline.types import (
 
 class CommandSpyPipeline(PipelineBaseCommon):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
+        self.validator = None
         super().__init__(config, run_id)
         self.calls: list[str] = []
 
@@ -64,11 +65,9 @@ def _stage_context(pipeline: PipelineBaseCommon) -> StageContext:
     logger = UnifiedLogger.get("StageFactoryTest")
     return StageContext(
         pipeline=pipeline,
-        output_dir=Path("/tmp/out"),
         logger=logger,
-        run_id="test",
-        run_tag=None,
-        mode=None,
+        request_id="test",
+        output_dir=Path("/tmp/out"),
         artifacts=WriteArtifacts(),
     )
 
@@ -78,7 +77,7 @@ def test_stage_factory_executes_pipeline_methods() -> None:
     context = _stage_context(pipeline)
     descriptors = pipeline.build_stage_plan(context, OPTIONS)
     factory = StageFactory(pipeline)
-    stages = factory.build(descriptors, context)
+    stages = factory.build(descriptors, context, OPTIONS)
 
     runtime_context = StageRuntimeContext(context=context, options=OPTIONS)
     for stage in stages:
@@ -101,7 +100,12 @@ class FakeStageFactory(StageFactory):
         super().__init__(pipeline)
         self.created_from: list[str] = []
 
-    def build(self, descriptors: Iterable[StageDescriptor], context: StageContext):
+    def build(
+        self,
+        descriptors: Iterable[StageDescriptor],
+        context: StageContext,
+        options: StageExecutionOptions,
+    ):
         stages = []
         for descriptor in descriptors:
             self.created_from.append(descriptor.id)

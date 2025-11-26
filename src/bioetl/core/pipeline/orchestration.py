@@ -15,7 +15,7 @@ from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_sta
 from bioetl.core.pipeline.types import (
     PipelineConfig,
     PipelineStagesProtocol,
-    Stage,
+    StageCommand,
     StageContext,
     StageDescriptor,
     StageExecutionOptions,
@@ -61,7 +61,7 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
 
     # Factory helpers --------------------------------------------------
     def create_stage_factory(self) -> StageFactory:
-        return StageFactory(self.pipeline_definition)
+        return StageFactory(self)
 
     # Orchestration ----------------------------------------------------
     def build_stage_plan(
@@ -94,7 +94,7 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
     def build_run_metadata(
         self,
         context: StageContext,
-        stage_plan: tuple[Stage, ...],
+        stage_plan: tuple[StageCommand, ...],
         durations: dict[str, int],
         run_tag: str | None,
         mode: str | None,

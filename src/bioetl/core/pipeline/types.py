@@ -61,26 +61,6 @@ class RunResult:
         return self.metadata
 
 
-@dataclass(slots=True, frozen=True)
-class Stage:
-    """Lightweight callable used to execute a pipeline stage."""
-
-    name: str
-    handler: Callable[["StageContextProtocol", "StageRuntimeContext"], Any]
-    description: str | None = None
-
-    def run(self, context: "StageContext", options: StageExecutionOptions) -> Any:
-        return self.handler(context, options)
-
-    def validate(self) -> None:
-        if not self.name:
-            raise ValueError("Stage name must be provided")
-
-
-# Backwards-compatible alias
-PipelineStageCommand = Stage
-
-
 @dataclass(frozen=True, slots=True)
 class StageDescriptor:
     """Pure description of a pipeline stage independent of runtime deps."""
@@ -105,16 +85,40 @@ class StageRuntimeContext:
 
     context: "StageContext"
     options: StageExecutionOptions
+    descriptor: StageDescriptor | None = None
 
 
 @runtime_checkable
-class Stage(Protocol):
+class StageProtocol(Protocol):
     """Executable stage with deterministic contract."""
 
     name: str
 
     def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
         ...
+
+
+@dataclass(slots=True, frozen=True)
+class StageCommand(StageProtocol):
+    """Lightweight callable used to execute a pipeline stage."""
+
+    name: str
+    handler: Callable[["StageContextProtocol", StageRuntimeContext], Any]
+    description: str | None = None
+
+    def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
+        output = self.handler(runtime_context.context, runtime_context)
+        if isinstance(output, StageResult):
+            return output
+        return StageResult(name=self.name, output=output)
+
+    def validate(self) -> None:
+        if not self.name:
+            raise ValueError("Stage name must be provided")
+
+
+# Backwards-compatible alias
+PipelineStageCommand = StageCommand
 
 
 @runtime_checkable
@@ -177,7 +181,7 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
     def build_run_metadata(
         self,
         context: "StageContext",
-        stage_plan: Iterable[Stage],
+        stage_plan: Iterable[StageProtocol],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
@@ -195,6 +199,7 @@ class StageContextProtocol(Protocol):
     logger: UnifiedLogger
     request_id: str | None
     trace_id: str | None
+    pipeline: "PipelineBaseProtocol" | None
 
     def get_client(self, name: str) -> Any:
         ...
@@ -213,6 +218,7 @@ class StageContext(StageContextProtocol):
     logger: UnifiedLogger
     request_id: str | None
     trace_id: str | None = None
+    pipeline: "PipelineBaseProtocol" | None = None
     clients: Mapping[str, Any] = field(default_factory=dict)
     config: Mapping[str, Any] = field(default_factory=dict)
     metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None
@@ -267,17 +273,16 @@ __all__ = [
     "PipelineBaseProtocol",
     "PipelineStageCommand",
     "PipelineStagesProtocol",
-    "Stage",
+    "StageCommand",
     "StageDescriptor",
+    "StageProtocol",
     "StageResult",
     "StageRuntimeContext",
     "RunArtifacts",
     "RunResult",
-    "Stage",
     "StageContext",
     "StageContextProtocol",
     "StageExecutionOptions",
-    "StageRuntimeContext",
     "WriteArtifacts",
     "WriteResult",
 ]
