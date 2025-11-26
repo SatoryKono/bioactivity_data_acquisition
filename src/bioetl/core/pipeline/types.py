@@ -61,6 +61,15 @@ class RunResult:
         return self.metadata
 
 
+@dataclass(slots=True)
+class RunState:
+    """Хранилище промежуточного состояния запуска пайплайна."""
+
+    durations: dict[str, int] = field(default_factory=dict)
+    error: str | None = None
+    artifacts: WriteArtifacts | None = None
+
+
 @dataclass(frozen=True, slots=True)
 class StageDescriptor:
     """Pure description of a pipeline stage independent of runtime deps."""
@@ -282,6 +291,7 @@ __all__ = [
     "StageRuntimeContext",
     "RunArtifacts",
     "RunResult",
+    "RunState",
     "StageContext",
     "StageContextProtocol",
     "StageExecutionOptions",

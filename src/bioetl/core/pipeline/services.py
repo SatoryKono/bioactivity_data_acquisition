@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Protocol
@@ -15,11 +16,12 @@ import pandera as pa
 from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
-    Stage,
+    StageCommand,
     StageContext,
     StageContextProtocol,
     StageExecutionOptions,
     StageRuntimeContext,
+    StageProtocol,
     WriteArtifacts,
     WriteResult,
 )
@@ -61,6 +63,79 @@ class WriteService(Protocol):
         self, output_dir: Path, artifacts: WriteArtifacts, df: pd.DataFrame | None, *, dry_run: bool
     ) -> None:
         ...
+
+
+class StagePlanExecutor:
+    """Ответственный за исполнение плана стадий и подсчет длительностей."""
+
+    def __init__(self) -> None:
+        self.qc_service = None
+
+    def execute(
+        self,
+        stages: Iterable[StageCommand],
+        context: StageContext,
+        options: StageExecutionOptions,
+        runtime_context: StageRuntimeContext | None = None,
+    ) -> tuple[dict[str, int], str | None]:
+        logger = context.logger
+        durations: dict[str, int] = {}
+        error: str | None = None
+        artifacts = context.artifacts or WriteArtifacts()
+        if not context.artifacts:
+            context.artifacts = artifacts
+        runtime_context = runtime_context or StageRuntimeContext(context=context, options=options)
+        runtime_context.context = context
+        runtime_context.options = options
+
+        for stage in stages:
+            started = time.perf_counter()
+            if logger:
+                logger.info("STAGE_RUN_START", stage=stage.name)
+            try:
+                result = stage.execute(runtime_context)
+                if isinstance(result.output, pd.DataFrame):
+                    context.current_df = result.output
+                if stage.name == "extract" and isinstance(result.output, pd.DataFrame):
+                    context.metadata["extract_rows"] = int(result.output.shape[0])
+                if stage.name == "save_results" and hasattr(result.output, "artifacts"):
+                    artifacts = result.output.artifacts  # type: ignore[attr-defined]
+                    if isinstance(artifacts, WriteArtifacts):
+                        context.artifacts = artifacts
+            except Exception as exc:  # pragma: no cover - surfaced via RunResult
+                error = str(exc)
+                if logger:
+                    logger.error("STAGE_RUN_ERROR", stage=stage.name, error=error)
+                break
+            finally:
+                duration_ms = int((time.perf_counter() - started) * 1000)
+                durations[stage.name] = duration_ms
+                if logger:
+                    logger.info("STAGE_RUN_END", stage=stage.name, duration_ms=duration_ms)
+
+        return durations, error
+
+
+@dataclass(slots=True)
+class OrchestrationService:
+    """Оркестрация стадий и планирование артефактов."""
+
+    stage_plan_executor: StagePlanExecutor
+    artifact_planner: ArtifactPlanner
+
+    def execute(
+        self,
+        stages: Iterable[StageCommand],
+        context: StageContext,
+        options: StageExecutionOptions,
+        runtime_context: StageRuntimeContext | None = None,
+    ) -> tuple[dict[str, int], str | None]:
+        return self.stage_plan_executor.execute(stages, context, options, runtime_context)
+
+    def plan_run_artifacts(
+        self, output_dir: Path, pipeline_code: str, run_tag: str | None, mode: str | None
+    ) -> tuple[Path, WriteArtifacts]:
+        return self.artifact_planner.plan(output_dir, pipeline_code, run_tag, mode)
 
 
 def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -249,7 +324,7 @@ class MetadataService:
     def build(
         self,
         context: StageContext,
-        stage_plan: Iterable[Stage],
+        stage_plan: Iterable[StageProtocol],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
@@ -284,7 +359,7 @@ class RunMetadataBuilder:
     def build(
         self,
         context: StageContext,
-        stages: Iterable[Stage],
+        stages: Iterable[StageProtocol],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
@@ -331,16 +406,48 @@ def default_artifact_planner_factory() -> ArtifactPlanner:
     return DefaultArtifactPlanner()
 
 
+def default_orchestration_service_factory(
+    stage_plan_executor: StagePlanExecutor | None = None,
+    artifact_planner: ArtifactPlanner | None = None,
+) -> Callable[[PipelineBaseProtocol], OrchestrationService]:
+    def _factory(_: PipelineBaseProtocol) -> OrchestrationService:
+        return OrchestrationService(
+            stage_plan_executor=stage_plan_executor or StagePlanExecutor(),
+            artifact_planner=artifact_planner or DefaultArtifactPlanner(),
+        )
+
+    return _factory
+
+
 def default_qc_service_factory(
-    *, qc_plan: QCPlan | None = None, executor_factory: Callable[[], QCMetricsExecutor] | None = None
-) -> QCService:
-    return QCService(QCExecutorAdapter(executor_factory=executor_factory, qc_plan=qc_plan))
+    *,
+    qc_plan: QCPlan | None = None,
+    executor_factory: Callable[[], QCMetricsExecutor] | None = None,
+    qc_thresholds: Mapping[str, float] | None = None,
+    qc_dry_run: bool | None = None,
+    qc_enabled: bool | None = None,
+) -> Callable[[PipelineBaseProtocol], QCService]:
+    def _factory(_: PipelineBaseProtocol) -> QCService:
+        return QCService(
+            QCExecutorAdapter(executor_factory=executor_factory),
+            enabled=qc_enabled,
+            plan=qc_plan,
+            dry_run=qc_dry_run,
+            thresholds=qc_thresholds,
+        )
+
+    return _factory
 
 
 def default_metadata_service_factory(
-    config: Mapping[str, Any] | Any, pipeline_code: str
-) -> MetadataService:
-    return MetadataService(builder=RunMetadataBuilder(config, pipeline_code))
+    config: Mapping[str, Any] | Any | None = None, pipeline_code: str | None = None
+) -> Callable[[PipelineBaseProtocol], MetadataService]:
+    def _factory(pipeline: PipelineBaseProtocol) -> MetadataService:
+        resolved_config = config if config is not None else getattr(pipeline, "config", {})
+        resolved_code = pipeline_code or pipeline.pipeline_code
+        return MetadataService(builder=RunMetadataBuilder(resolved_config, resolved_code))
+
+    return _factory
 
 
 __all__ = [
@@ -348,6 +455,7 @@ __all__ = [
     "DefaultArtifactPlanner",
     "DefaultValidationService",
     "DefaultWriteService",
+    "OrchestrationService",
     "MetadataService",
     "RunMetadataBuilder",
     "QCExecutorAdapter",
@@ -356,7 +464,9 @@ __all__ = [
     "WriteService",
     "default_artifact_planner_factory",
     "default_metadata_service_factory",
+    "default_orchestration_service_factory",
     "default_qc_service_factory",
     "default_validation_service_factory",
     "default_write_service_factory",
+    "StagePlanExecutor",
 ]
