@@ -11,11 +11,12 @@ from bioetl.clients.chembl import (
     ChemblTestItemClient,
 )
 from bioetl.clients.chembl._base import BaseChemblClient
-from bioetl.clients.common import ApiTransportProtocol, EntityClientProtocol
+from bioetl.clients.common import EntityClientProtocol
 from bioetl.clients.entities import ChemblEntityClientFactory
 from bioetl.config.models import PipelineConfig
 from bioetl.core.http import ResilientRequestExecutorFactory, UnifiedAPIClient
 from bioetl.core.http.api_client import APIConfig
+from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import DefaultPaginationStrategy
 from bioetl.infra import PaginationRegistry, get_default_pagination_registry
 
@@ -56,6 +57,10 @@ def default_chembl_factory(
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
+    registry = pagination_registry or get_default_pagination_registry()
+    pagination_strategy: PaginationStrategy | None = None
+    if pagination_strategy_name:
+        pagination_strategy = registry.create(pagination_strategy_name)
 
     def _build_transport() -> ApiTransportProtocol:
         if transport_factory is not None:
@@ -73,11 +78,10 @@ def default_chembl_factory(
             )
         )
 
-    registry = pagination_registry or get_default_pagination_registry()
-
     entity_factory = ChemblEntityClientFactory(
         _build_transport,
         pagination_registry=registry,
+        pagination_strategy=pagination_strategy,
         pagination_strategy_name=pagination_strategy_name,
     )
 

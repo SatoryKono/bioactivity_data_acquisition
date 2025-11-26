@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any, Protocol, runtime_checkable
 
 from bioetl.core.http.cache import CacheStrategy
@@ -34,6 +34,15 @@ class BaseApiClient(Protocol):
         page_param: str | None = "page",
     ) -> Sequence[Mapping[str, Any]]:
         """Iterate over paginated JSON resources for the given ``endpoint``."""
+
+    def iterate_records(
+        self,
+        *,
+        ids: Sequence[str] | None = None,
+        page_size: int | None = None,
+        fetcher: Callable[[Sequence[str] | None], Any] | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Yield normalized records, optionally using ``ids`` or a custom ``fetcher``."""
 
     def close(self) -> None:
         """Release any resources (e.g. sessions) associated with the client."""
