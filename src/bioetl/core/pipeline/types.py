@@ -88,6 +88,9 @@ class StageRuntimeContext:
     descriptor: StageDescriptor | None = None
     input_data: Any | None = None
     attributes: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    data_bucket: "DataBucket" = field(default_factory=lambda: DataBucket())
+    artifact_store: "ArtifactStore" = field(default_factory=lambda: ArtifactStore())
 
 
 @runtime_checkable
@@ -214,6 +217,27 @@ class StageContextProtocol(Protocol):
 
 
 @dataclass(slots=True)
+class DataBucket:
+    """Mutable storage for stage input/output payloads."""
+
+    current: pd.DataFrame | None = None
+
+
+@dataclass(slots=True)
+class ArtifactStore:
+    """Container for artifacts and related metadata."""
+
+    artifacts: WriteArtifacts | None = None
+    output_dir: Path | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def resolve_artifacts(self) -> WriteArtifacts:
+        if self.artifacts is None:
+            self.artifacts = WriteArtifacts()
+        return self.artifacts
+
+
+@dataclass(slots=True)
 class StageContext(StageContextProtocol):
     """Default implementation of :class:`StageContextProtocol`."""
 
@@ -222,13 +246,10 @@ class StageContext(StageContextProtocol):
     trace_id: str | None = None
     pipeline: "PipelineBaseProtocol" | None = None
     clients: Mapping[str, Any] = field(default_factory=dict)
-    config: Mapping[str, Any] = field(default_factory=dict)
+    config_provider: Callable[[str], Any] | Mapping[str, Any] | None = None
     metric_emitter: Callable[[str, Any, Mapping[str, str] | None], None] | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-    artifacts: WriteArtifacts | None = None
-    current_df: pd.DataFrame | None = None
-    descriptor: Any | None = None
-    output_dir: Path = field(default_factory=lambda: Path.cwd())
+    data_bucket: DataBucket | None = None
+    artifact_store: ArtifactStore | None = None
 
     def __post_init__(self) -> None:  # pragma: no cover - trivial
         if self.trace_id is None:
@@ -238,7 +259,12 @@ class StageContext(StageContextProtocol):
         return self.clients[name]
 
     def get_config(self, key: str) -> Any:
-        return self.config[key]
+        if callable(self.config_provider):
+            return self.config_provider(key)
+        if isinstance(self.config_provider, Mapping):
+            return self.config_provider[key]
+        msg = "Config provider is not configured"
+        raise KeyError(msg)
 
     def emit_metric(self, name: str, value: Any, tags: Mapping[str, str] | None = None) -> None:
         if self.metric_emitter:
@@ -283,6 +309,8 @@ __all__ = [
     "RunArtifacts",
     "RunResult",
     "StageContext",
+    "DataBucket",
+    "ArtifactStore",
     "StageContextProtocol",
     "StageExecutionOptions",
     "WriteArtifacts",

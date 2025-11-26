@@ -65,31 +65,30 @@ class StageFactory:
         descriptor: StageDescriptor,
     ) -> StageResult:
         runtime.descriptor = descriptor
-        context.descriptor = descriptor
         kind = descriptor.kind
         if kind == "extract":
             df = self.pipeline.extract(descriptor, runtime.options)
-            context.current_df = df
+            runtime.data_bucket.current = df
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "transform":
-            frame = self._ensure_dataframe(context.current_df, kind)
+            frame = self._ensure_dataframe(runtime.data_bucket.current, kind)
             df = self.pipeline.transform(frame, runtime.options)
-            context.current_df = df
+            runtime.data_bucket.current = df
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "validate":
-            frame = self._ensure_dataframe(context.current_df, kind)
+            frame = self._ensure_dataframe(runtime.data_bucket.current, kind)
             df = self.pipeline.validate(frame, runtime.options)
-            context.current_df = df
+            runtime.data_bucket.current = df
             return StageResult(name=descriptor.id, output=df)
 
         if kind == "save_results":
-            frame = self._ensure_dataframe(context.current_df, kind)
-            artifacts = context.artifacts or WriteArtifacts()
+            frame = self._ensure_dataframe(runtime.data_bucket.current, kind)
+            artifacts = runtime.artifact_store.resolve_artifacts()
             result = self.pipeline.save_results(frame, artifacts, runtime.options)
             if isinstance(result, WriteResult):
-                context.artifacts = result.artifacts
+                runtime.artifact_store.artifacts = result.artifacts
             return StageResult(name=descriptor.id, output=result)
 
         msg = f"Unknown stage kind '{kind}'"

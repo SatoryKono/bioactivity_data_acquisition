@@ -10,7 +10,14 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.factory import StageFactory
-from bioetl.core.pipeline.types import StageContext, StageDescriptor, StageExecutionOptions, StageRuntimeContext
+from bioetl.core.pipeline.types import (
+    ArtifactStore,
+    DataBucket,
+    StageContext,
+    StageDescriptor,
+    StageExecutionOptions,
+    StageRuntimeContext,
+)
 from bioetl.pipelines.chembl.common import ChemblPipelineContract
 
 _PIPELINE_REGISTRY: dict[str, Callable[[], ChemblPipelineContract]] = {}
@@ -52,27 +59,22 @@ def _build_stage_contexts(
         run_id=getattr(pipeline, "run_id", ""),
         pipeline=getattr(pipeline, "pipeline_code", pipeline.__class__.__name__),
     )
+    data_bucket = DataBucket()
+    artifact_store = ArtifactStore(artifacts=artifacts, output_dir=target_dir)
     stage_context = StageContext(
         logger=logger,
         request_id=getattr(pipeline, "run_id", ""),
         trace_id=getattr(pipeline, "run_id", ""),
-        config=getattr(pipeline, "config", {}),
+        config_provider=getattr(pipeline, "get_config_value", None),
+        data_bucket=data_bucket,
+        artifact_store=artifact_store,
     )
     runtime_context = StageRuntimeContext(
         context=stage_context,
         options=StageExecutionOptions(run_tag=run_tag, mode=mode, dry_run=pipeline.dry_run),
+        data_bucket=data_bucket,
+        artifact_store=artifact_store,
     )
-    # Temporary workaround for attributes if needed, but types don't support it.
-    # Assuming StageContext or other mechanism handles this now.
-    # We inject output_dir into context as it seems required by factory.py
-    # However, StageContext definition in types.py doesn't have output_dir.
-    # We will assume runtime injection or dynamic attribute for now to fix syntax.
-    # To avoid runtime errors if slots are strict, we might have issues.
-    # But let's fix the merge conflict first.
-    if hasattr(stage_context, "output_dir"):
-        setattr(stage_context, "output_dir", target_dir)
-    if hasattr(stage_context, "artifacts"):
-        stage_context.artifacts = artifacts
 
     return stage_context, runtime_context
 
@@ -96,11 +98,10 @@ def build_extract_plan(
     runtime.options.dry_run = False
 
     descriptors = pipeline.build_stage_plan(context, runtime.options)
-    context.descriptor = pipeline.build_descriptor()
 
     definition = getattr(pipeline, "pipeline_definition", None)
     factory = StageFactory(definition)
-    stages = factory.build(_filter_descriptors(descriptors, ("extract",)), context)
+    stages = factory.build(_filter_descriptors(descriptors, ("extract",)), context, runtime.options)
 
     for stage in stages:
         stage.execute(runtime)
@@ -158,11 +159,11 @@ def run_chembl_stage(
     context, runtime = _build_stage_contexts(pipeline, output_root, run_tag=run_tag, mode=mode)
     # Override options with full options constructed above
     runtime.options = options
-    context.current_df = df
-    
+    runtime.data_bucket.current = df
+
     if descriptor is None and normalized_stage == "extract":
         descriptor = getattr(pipeline, "build_descriptor", lambda: None)()
-    context.descriptor = descriptor
+    runtime.descriptor = descriptor
 
     descriptors = pipeline.build_stage_plan(context, options)
     descriptor_plan = _filter_descriptors(descriptors, (normalized_stage,))
@@ -172,7 +173,7 @@ def run_chembl_stage(
 
     definition = getattr(pipeline, "pipeline_definition", None)
     factory = StageFactory(definition)
-    stages = factory.build(descriptor_plan, context)
+    stages = factory.build(descriptor_plan, context, options)
 
     result: Any = None
     for stage in stages:

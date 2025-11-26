@@ -15,7 +15,7 @@ import pandera as pa
 from bioetl.core.io import ArtifactWriter
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
-    Stage,
+    StageCommand,
     StageContext,
     StageContextProtocol,
     StageExecutionOptions,
@@ -111,7 +111,8 @@ class DefaultWriteService:
         context: StageContextProtocol,
         runtime: StageRuntimeContext,
     ) -> WriteResult:
-        output_dir = artifacts.data_path.parent if artifacts.data_path else runtime.context.output_dir
+        fallback_dir = runtime.artifact_store.output_dir or Path.cwd()
+        output_dir = artifacts.data_path.parent if artifacts.data_path else fallback_dir
         return self.artifact_writer.write(
             df,
             artifacts,
@@ -168,26 +169,27 @@ class QCExecutorAdapter:
 
     def execute(
         self,
-        context: StageContext,
+        runtime: StageRuntimeContext,
         plan: QCPlan,
         artifacts: WriteArtifacts | None = None,
     ) -> Path | None:
-        if context.current_df is None:
+        if runtime.data_bucket.current is None:
             return None
 
-        dataset_artifacts = artifacts or context.artifacts or WriteArtifacts()
+        dataset_artifacts = artifacts or runtime.artifact_store.resolve_artifacts()
         dataset_name = (
             dataset_artifacts.data_path.stem if dataset_artifacts and dataset_artifacts.data_path else "dataset"
         )
         executor_factory = self.executor_factory or QCMetricsExecutor
         executor = executor_factory()
         quality_report, metrics_payload = executor.execute(
-            context.current_df, plan, dataset_name=dataset_name
+            runtime.data_bucket.current, plan, dataset_name=dataset_name
         )
         if quality_report.empty and not metrics_payload:
             return None
 
-        qc_dir = context.output_dir / "qc"
+        base_dir = runtime.artifact_store.output_dir or Path.cwd()
+        qc_dir = base_dir / "qc"
         qc_dir.mkdir(parents=True, exist_ok=True)
         quality_path = qc_dir / f"{dataset_name}_quality_report.csv"
         metrics_path = qc_dir / f"{dataset_name}_qc_metrics.json"
@@ -195,7 +197,7 @@ class QCExecutorAdapter:
         metrics_path.write_text(json.dumps(metrics_payload, indent=2))
         dataset_artifacts.quality_report_path = quality_path
         dataset_artifacts.qc_summary_path = metrics_path
-        context.artifacts = dataset_artifacts
+        runtime.artifact_store.artifacts = dataset_artifacts
         return metrics_path
 
 
@@ -217,14 +219,16 @@ class QCService:
         self.dry_run = dry_run
         self.thresholds = thresholds or {}
 
-    def execute(self, context: StageContext, options: StageExecutionOptions) -> Path | None:
+    def execute(
+        self, context: StageContext, runtime: StageRuntimeContext, options: StageExecutionOptions
+    ) -> Path | None:
         if self.enabled is False or not options.include_qc_metrics:
             return None
         resolved_plan = self._resolve_plan(context, options)
         if not resolved_plan.enabled:
             return None
-        artifacts = context.artifacts or WriteArtifacts()
-        return self.adapter.execute(context, resolved_plan, artifacts)
+        artifacts = runtime.artifact_store.resolve_artifacts()
+        return self.adapter.execute(runtime, resolved_plan, artifacts)
 
     def _resolve_plan(self, context: StageContext, options: StageExecutionOptions) -> QCPlan:
         base_plan = self.plan or getattr(context.pipeline, "qc_plan", None) or QCPlan.with_default_metrics()
@@ -284,14 +288,17 @@ class RunMetadataBuilder:
     def build(
         self,
         context: StageContext,
-        stages: Iterable[Stage],
+        stages: Iterable[StageCommand],
         durations: Mapping[str, int],
         run_tag: str | None,
         mode: str | None,
     ) -> dict[str, Any]:
+        artifact_store = getattr(context, "artifact_store", None)
+        metadata_source = artifact_store.metadata if artifact_store else {}
+        write_artifacts = artifact_store.artifacts if artifact_store else None
         metadata: dict[str, Any] = {
             "stage_plan": [stage.name for stage in stages],
-            "extract_metadata": context.metadata,
+            "extract_metadata": metadata_source,
             "git_commit": self._git_commit,
             "config_hash": self._config_hash,
             "pipeline": self.pipeline_code,
@@ -299,8 +306,8 @@ class RunMetadataBuilder:
             "mode": mode,
             "duration_seconds": sum(durations.values()) / 1000,
         }
-        if context.artifacts and context.artifacts.data_path:
-            metadata["output_path"] = str(context.artifacts.data_path)
+        if write_artifacts and write_artifacts.data_path:
+            metadata["output_path"] = str(write_artifacts.data_path)
         return metadata
 
     def _resolve_git_commit(self) -> str | None:
@@ -332,9 +339,15 @@ def default_artifact_planner_factory() -> ArtifactPlanner:
 
 
 def default_qc_service_factory(
-    *, qc_plan: QCPlan | None = None, executor_factory: Callable[[], QCMetricsExecutor] | None = None
+    *,
+    qc_plan: QCPlan | None = None,
+    executor_factory: Callable[[], QCMetricsExecutor] | None = None,
+    enabled: bool | None = None,
+    dry_run: bool | None = None,
+    thresholds: Mapping[str, float] | None = None,
 ) -> QCService:
-    return QCService(QCExecutorAdapter(executor_factory=executor_factory, qc_plan=qc_plan))
+    adapter = QCExecutorAdapter(executor_factory=executor_factory)
+    return QCService(adapter, enabled=enabled, plan=qc_plan, dry_run=dry_run, thresholds=thresholds)
 
 
 def default_metadata_service_factory(

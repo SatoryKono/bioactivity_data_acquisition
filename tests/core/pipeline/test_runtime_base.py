@@ -38,6 +38,7 @@ class RecordingExecutor(StagePlanExecutor):
         runtime = runtime_context or StageRuntimeContext(options=options, attributes={})
         if isinstance(runtime.input_data, pd.DataFrame):
             runtime.attributes["last_dataframe"] = runtime.input_data
+            runtime.data_bucket.current = runtime.input_data
         for command in stage_plan:
             attempts = 0
             while True:
@@ -47,7 +48,7 @@ class RecordingExecutor(StagePlanExecutor):
                     runtime.input_data = command.handler(context, runtime)
                     if isinstance(runtime.input_data, pd.DataFrame):
                         runtime.attributes["last_dataframe"] = runtime.input_data
-                        context.current_df = runtime.input_data
+                        runtime.data_bucket.current = runtime.input_data
                     break
                 except RetryableError as exc:
                     if attempts > self.max_retries:
@@ -95,9 +96,10 @@ class DummyRuntime(PipelineRuntimeBase):
 
         def _save(ctx: StageContext, exec_runtime: StageRuntimeContext) -> WriteArtifacts:
             self.calls.append("save_results")
-            artifacts = exec_runtime.attributes.get("artifacts") or WriteArtifacts()
-            artifacts.data_path = exec_runtime.attributes.get("output_dir", Path.cwd()) / "dataset.csv"
-            exec_runtime.attributes["artifacts"] = artifacts
+            artifacts = exec_runtime.artifact_store.resolve_artifacts()
+            output_dir = exec_runtime.artifact_store.output_dir or Path.cwd()
+            artifacts.data_path = exec_runtime.attributes.get("output_dir", output_dir) / "dataset.csv"
+            exec_runtime.artifact_store.artifacts = artifacts
             return artifacts
 
         return (
@@ -130,7 +132,7 @@ def test_run_handles_retries_and_metadata(tmp_path: Path) -> None:
     ]
     assert result.duration_ms == {"extract": 5, "transform": 5, "save_results": 5}
     assert result.metadata["rows"] == 2
-    assert result.artifacts.write_artifacts.data_path == tmp_path / "DummyRuntime.csv"
+    assert result.artifacts.write_artifacts.data_path == tmp_path / "dataset.csv"
 
 
 def test_run_stops_after_retry_exhaustion(tmp_path: Path) -> None:

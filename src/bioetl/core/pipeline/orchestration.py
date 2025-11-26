@@ -68,7 +68,9 @@ class PipelineBaseCommon(PipelineRuntimeBase, PipelineStagesProtocol):
         self, context: StageContext, options: StageExecutionOptions
     ) -> tuple[StageDescriptor, ...]:
         metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=self.validator is not None)
-        plan = tuple(build_default_stage_plan(context.descriptor, metadata))
+        descriptor_builder = getattr(self, "build_descriptor", None)
+        descriptor = descriptor_builder() if callable(descriptor_builder) else None
+        plan = tuple(build_default_stage_plan(descriptor, metadata))
         self.stage_plan = plan
         return plan
 

@@ -10,6 +10,8 @@ from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.orchestration import PipelineBaseCommon
 from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
 from bioetl.core.pipeline.types import (
+    ArtifactStore,
+    DataBucket,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
@@ -63,12 +65,14 @@ OPTIONS = StageExecutionOptions(run_tag=None, mode=None)
 
 def _stage_context(pipeline: PipelineBaseCommon) -> StageContext:
     logger = UnifiedLogger.get("StageFactoryTest")
+    artifact_store = ArtifactStore(artifacts=WriteArtifacts(), output_dir=Path("/tmp/out"))
+    data_bucket = DataBucket()
     return StageContext(
         pipeline=pipeline,
         logger=logger,
         request_id="test",
-        output_dir=Path("/tmp/out"),
-        artifacts=WriteArtifacts(),
+        data_bucket=data_bucket,
+        artifact_store=artifact_store,
     )
 
 
@@ -79,7 +83,12 @@ def test_stage_factory_executes_pipeline_methods() -> None:
     factory = StageFactory(pipeline)
     stages = factory.build(descriptors, context, OPTIONS)
 
-    runtime_context = StageRuntimeContext(context=context, options=OPTIONS)
+    runtime_context = StageRuntimeContext(
+        context=context,
+        options=OPTIONS,
+        artifact_store=context.artifact_store,
+        data_bucket=context.data_bucket,
+    )
     for stage in stages:
         stage.execute(runtime_context)
 
@@ -121,11 +130,11 @@ class _StubStage:
     def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
         self.executed = True
         if self.name == "extract":
-            runtime_context.context.current_df = pd.DataFrame({"value": [1]})
+            runtime_context.data_bucket.current = pd.DataFrame({"value": [1]})
         if self.name == "save_results":
-            artifacts = runtime_context.context.artifacts or WriteArtifacts()
+            artifacts = runtime_context.artifact_store.resolve_artifacts()
             return StageResult(name=self.name, output=WriteResult(rows=1, artifacts=artifacts))
-        return StageResult(name=self.name, output=runtime_context.context.current_df)
+        return StageResult(name=self.name, output=runtime_context.data_bucket.current)
 
 
 class FactorySpyPipeline(CommandSpyPipeline):
@@ -150,7 +159,7 @@ def test_pipeline_runtime_uses_stage_factory() -> None:
             self, context: StageContext, options: StageExecutionOptions
         ) -> tuple[StageDescriptor, ...]:
             metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=True)
-            return tuple(build_default_stage_plan(context.descriptor, metadata))
+            return tuple(build_default_stage_plan(None, metadata))
 
     pipeline = _Pipeline(CONFIG, "spy-3")
     result = pipeline.run(Path("/tmp/out"))
