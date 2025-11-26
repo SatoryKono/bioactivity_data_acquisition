@@ -1,9 +1,6 @@
 """Shared runtime primitives for orchestrating ETL pipelines."""
 from __future__ import annotations
 
-import hashlib
-import json
-import subprocess
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -11,11 +8,21 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 import pandas as pd
-import yaml
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.factory import StageFactory
+from bioetl.core.pipeline.services import (
+    ArtifactPlanner,
+    MetadataService,
+    QCService,
+    RunMetadataBuilder,
+    ValidationService,
+    WriteService,
+    default_artifact_planner_factory,
+    default_metadata_service_factory,
+    default_qc_service_factory,
+)
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     RunArtifacts,
@@ -37,60 +44,11 @@ from bioetl.qc.executor import QCMetricsExecutor
 from bioetl.qc.plan import QCPlan
 
 
-class QCExecutorAdapter:
-    """Obвязка над :class:`QCMetricsExecutor` с обработкой артефактов."""
-
-    def __init__(
-        self,
-        *,
-        executor_factory: Callable[[], QCMetricsExecutor] | None = None,
-        qc_plan: QCPlan | None = None,
-    ) -> None:
-        self.executor_factory = executor_factory
-        self.qc_plan = qc_plan
-
-    def execute(
-        self,
-        context: StageContextProtocol,
-        runtime: StageRuntimeContext,
-        artifacts: WriteArtifacts,
-    ) -> Path | None:
-        """Выполнить QC-метрики и вернуть путь до json-отчета."""
-
-        dataframe = runtime.context.current_df
-        if dataframe is None or not runtime.options.include_qc_metrics:
-            return None
-
-        plan = self.qc_plan or QCPlan.with_default_metrics()
-        if runtime.options.dry_run:
-            plan = plan.model_copy(update={"dry_run": True})
-
-        dataset_name = artifacts.data_path.stem if artifacts and artifacts.data_path else "dataset"
-        executor_factory = self.executor_factory or QCMetricsExecutor
-        executor = executor_factory()
-        quality_report, metrics_payload = executor.execute(dataframe, plan, dataset_name=dataset_name)
-        if quality_report.empty and not metrics_payload:
-            return None
-
-        output_dir = runtime.context.output_dir
-        qc_dir = output_dir / "qc"
-        qc_dir.mkdir(parents=True, exist_ok=True)
-        quality_path = qc_dir / f"{dataset_name}_quality_report.csv"
-        metrics_path = qc_dir / f"{dataset_name}_qc_metrics.json"
-        quality_report.to_csv(quality_path, index=False)
-        metrics_path.write_text(json.dumps(metrics_payload, indent=2))
-        if artifacts:
-            artifacts.quality_report_path = quality_path
-            artifacts.qc_summary_path = metrics_path
-            runtime.context.artifacts = artifacts
-        return metrics_path
-
-
 class StagePlanExecutor:
     """Ответственный за исполнение плана стадий и подсчет длительностей."""
 
-    def __init__(self, qc_adapter: QCExecutorAdapter) -> None:
-        self.qc_adapter = qc_adapter
+    def __init__(self, qc_service: QCService) -> None:
+        self.qc_service = qc_service
 
     def execute(
         self,
@@ -135,75 +93,13 @@ class StagePlanExecutor:
 
         if error is None and include_qc_metrics:
             try:
-                qc_metrics_path = self.qc_adapter.execute(context, runtime_context, artifacts)
+                qc_metrics_path = self.qc_service.execute(context, options)
             except Exception as exc:  # pragma: no cover - surfaced via RunResult
                 error = str(exc)
                 if logger:
                     logger.error("QC_METRICS_ERROR", error=error)
 
         return durations, error, qc_metrics_path
-
-
-class RunMetadataBuilder:
-    """Конструктор метаданных запуска пайплайна."""
-
-    def __init__(self, config: Mapping[str, Any] | Any, pipeline_code: str) -> None:
-        self.pipeline_code = pipeline_code
-        self._git_commit = self._resolve_git_commit()
-        self._config_hash = self._compute_config_hash(config)
-
-    @property
-    def git_commit(self) -> str | None:
-        return self._git_commit
-
-    @property
-    def config_hash(self) -> str | None:
-        return self._config_hash
-
-    def build(
-        self,
-        context: StageContext,
-        stages: Iterable[Stage],
-        durations: Mapping[str, int],
-        run_tag: str | None,
-        mode: str | None,
-    ) -> dict[str, Any]:
-        metadata: dict[str, Any] = {
-            "stage_plan": [stage.name for stage in stages],
-            "extract_metadata": context.metadata,
-            "git_commit": self._git_commit,
-            "config_hash": self._config_hash,
-            "pipeline": self.pipeline_code,
-            "run_tag": run_tag,
-            "mode": mode,
-            "duration_seconds": sum(durations.values()) / 1000,
-        }
-        if context.artifacts and context.artifacts.data_path:
-            metadata["output_path"] = str(context.artifacts.data_path)
-        return metadata
-
-    def _resolve_git_commit(self) -> str | None:
-        try:
-            completed = subprocess.run(
-                ["git", "rev-parse", "HEAD"], capture_output=True, check=True, text=True
-            )
-        except Exception:
-            return None
-        return completed.stdout.strip() or None
-
-    def _compute_config_hash(self, config: Mapping[str, Any] | Any) -> str | None:
-        try:
-            payload: Mapping[str, Any]
-            if isinstance(config, Mapping):
-                payload = dict(config)
-            elif hasattr(config, "__dict__"):
-                payload = dict(config.__dict__)
-            else:
-                return None
-            serialized = yaml.safe_dump(payload, sort_keys=True).encode("utf-8")
-            return hashlib.sha256(serialized).hexdigest()
-        except Exception:
-            return None
 
 
 class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
@@ -221,7 +117,6 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         validation_service_factory: Callable[["PipelineRuntimeBase"], ValidationService]
         | None = None,
         write_service_factory: Callable[["PipelineRuntimeBase"], WriteService] | None = None,
-        qc_executor_adapter: QCExecutorAdapter | None = None,
         qc_executor_factory: Callable[[], QCMetricsExecutor] | None = None,
         qc_plan: QCPlan | None = None,
         stage_plan_executor: StagePlanExecutor | None = None,
@@ -239,15 +134,21 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         root = getattr(materialization, "root", None)
         self.output_root = Path(root) if root else Path.cwd()
         self.logs_directory = self.output_root.parent / "logs" / self.pipeline_code
-        self.qc_executor_adapter = qc_executor_adapter or QCExecutorAdapter(
-            executor_factory=qc_executor_factory, qc_plan=qc_plan
-        )
-        self.stage_plan_executor = stage_plan_executor or StagePlanExecutor(self.qc_executor_adapter)
-        self.run_metadata_builder = run_metadata_builder or RunMetadataBuilder(config, self.pipeline_code)
         self.qc_plan = qc_plan
         self.dry_run = False
-        self._git_commit = self.run_metadata_builder.git_commit
-        self._config_hash = self.run_metadata_builder.config_hash
+        self.artifact_planner = artifact_planner or default_artifact_planner_factory()
+        self.qc_service = qc_service or default_qc_service_factory(
+            qc_plan=qc_plan, executor_factory=qc_executor_factory
+        )
+        self.stage_plan_executor = stage_plan_executor or StagePlanExecutor(self.qc_service)
+        self.metadata_service = metadata_service or default_metadata_service_factory(
+            config, self.pipeline_code
+        )
+        self.run_metadata_builder = run_metadata_builder or getattr(
+            self.metadata_service, "builder", None
+        )
+        self._git_commit = getattr(self.metadata_service, "git_commit", None)
+        self._config_hash = getattr(self.metadata_service, "config_hash", None)
         self.validation_service = (
             validation_service_factory(self)
             if validation_service_factory is not None
@@ -393,9 +294,15 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         run_tag: str | None,
         mode: str | None,
     ) -> dict[str, Any]:
-        return self.run_metadata_builder.build(
-            context, stage_plan, durations, run_tag, mode
-        )
+        if self.metadata_service is not None:
+            return self.metadata_service.build(
+                context, stage_plan, durations, run_tag, mode
+            )
+        if self.run_metadata_builder is not None:
+            return self.run_metadata_builder.build(
+                context, stage_plan, durations, run_tag, mode
+            )
+        return {}
 
     def resolve_logs_directory(self, output_dir: Path) -> Path:
         return output_dir / "logs"
@@ -438,5 +345,4 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
 __all__ = [
     "PipelineRuntimeBase",
     "StagePlanExecutor",
-    "RunMetadataBuilder",
 ]

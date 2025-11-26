@@ -4,12 +4,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.logging import UnifiedLogger
+from bioetl.core.pipeline.factory import StageFactory
+from bioetl.core.pipeline.stage_plan import StagePlanMetadata, build_default_stage_plan
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
+    StageDescriptor,
     StageContext,
     StageExecutionOptions,
     StageRuntimeContext,
@@ -20,6 +22,8 @@ from bioetl.core.pipeline.orchestration import PipelineBaseCommon
 
 class CommandSpyPipeline(PipelineBaseCommon):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
+        if not hasattr(self, "validator"):
+            self.validator = None
         super().__init__(config, run_id)
         self.calls: list[str] = []
 
@@ -46,6 +50,19 @@ class CommandSpyPipeline(PipelineBaseCommon):
 
     def finalize_run(self, run_result) -> None:
         self.calls.append("finalize_run")
+
+
+class ValidatingCommandSpyPipeline(CommandSpyPipeline):
+    def __init__(self, config: PipelineConfig, run_id: str) -> None:
+        self.validator = object()
+        super().__init__(config, run_id)
+        self.validator = object()
+
+    def build_stage_plan(
+        self, context: StageContext, options: StageExecutionOptions
+    ) -> tuple[StageDescriptor, ...]:
+        metadata = StagePlanMetadata(dry_run=options.dry_run, has_validator=True)
+        return tuple(build_default_stage_plan(context.descriptor, metadata))
 
 
 CONFIG = PipelineConfig(
@@ -98,3 +115,14 @@ def test_dry_run_skips_save_results_stage() -> None:
     plan = factory.build(descriptors, context, runtime.options)
 
     assert "save_results" not in [cmd.name for cmd in plan]
+
+
+def test_dry_run_with_validator_retains_validation_steps() -> None:
+    pipeline = ValidatingCommandSpyPipeline(CONFIG, run_id="spy-4")
+    factory = StageFactory(pipeline)
+    context, runtime = _contexts(pipeline)
+    runtime.options = StageExecutionOptions(run_tag=None, mode=None, dry_run=True)
+    descriptors = pipeline.build_stage_plan(context, runtime.options)
+    plan = factory.build(descriptors, context, runtime.options)
+
+    assert [cmd.name for cmd in plan] == ["extract", "transform", "validate"]
