@@ -13,7 +13,7 @@ from bioetl.clients.entities import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
-from bioetl.clients.common import ApiTransportProtocol
+from bioetl.core.http.interfaces import ApiTransportProtocol
 
 
 class _DummyTransport(ApiTransportProtocol):

@@ -5,8 +5,13 @@ from typing import Any
 
 import structlog
 
-from bioetl.clients.common import DEFAULT_NEXT_KEY, DEFAULT_PAGE_KEY, DEFAULT_PAGE_PARAM, ChemblClientBase
 from bioetl.core.http import ApiClientMixin, ClosableMixin
+from bioetl.core.http.api_entity_client import BaseApiEntityClient
+from bioetl.core.http.entity_helpers import (
+    DEFAULT_NEXT_KEY,
+    DEFAULT_PAGE_KEY,
+    DEFAULT_PAGE_PARAM,
+)
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
@@ -52,7 +57,7 @@ class BaseChemblClient(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
         )
 
 
-class ChemblEntityClient(ChemblClientBase):
+class ChemblEntityClient(BaseApiEntityClient):
     def __init__(
         self,
         transport: ApiTransportProtocol,
@@ -62,13 +67,9 @@ class ChemblEntityClient(ChemblClientBase):
         pagination_strategy_name: str | None = None,
         pagination_registry: PaginationRegistry | None = None,
     ) -> None:
-        super().__init__(
-            transport,
-            entity,
-            pagination_strategy=pagination_strategy,
-            pagination_strategy_name=pagination_strategy_name,
-            pagination_registry=pagination_registry or get_default_pagination_registry(),
-        )
+        registry = pagination_registry or get_default_pagination_registry()
+        pagination = pagination_strategy or registry.create(pagination_strategy_name or "next_link")
+        super().__init__(transport, pagination, entity=entity)
 
 
 __all__ = ["BaseChemblClient", "ChemblEntityClient"]

@@ -1,22 +1,17 @@
 """Deprecated shim for common client contracts.
 
-This module now re-exports definitions from :mod:`bioetl.clients.common` to
+This module now re-exports definitions from :mod:`bioetl.core.http` to
 provide backwards compatibility. Prefer importing directly from
-``bioetl.clients.common``.
+``bioetl.core.http`` and related modules.
 """
 
 from __future__ import annotations
 
 import warnings
 
-from bioetl.clients.common import (
-    BaseApiClient,
-    EntityClientProtocol,
-    JSONPage,
-    JSONPayload,
-    JSONRecord,
-    JSONRecordStream,
-)
+from bioetl.core.http.api_entity_client import EntityClientProtocol
+from bioetl.core.http.interfaces import BaseApiClient
+from bioetl.core.http.types import JSONPage, JSONPayload, JSONRecord, JSONRecordStream
 
 __all__ = [
     "BaseApiClient",
@@ -28,7 +23,7 @@ __all__ = [
 ]
 
 warnings.warn(
-    "bioetl.base_classes is deprecated; use bioetl.clients.common instead.",
+    "bioetl.base_classes is deprecated; use bioetl.core.http instead.",
     DeprecationWarning,
     stacklevel=2,
 )

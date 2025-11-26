@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from bioetl.clients.common import NextLinkPagination, PageParamPagination
+from bioetl.core.http.pagination import NextLinkPagination, PageParamPagination
 
 
 def test_next_link_pagination_traverses_next_links_and_params() -> None:
