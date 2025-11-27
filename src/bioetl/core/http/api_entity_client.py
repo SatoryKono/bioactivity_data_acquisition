@@ -1,3 +1,5 @@
+"""Base API entity client implementation."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -13,14 +15,23 @@ from bioetl.core.http.pagination import (
     DEFAULT_PAGE_PARAM,
     PaginationStrategy,
 )
-from bioetl.core.http.pagination_helpers import iter_ids, iterate_records, list_entities, warn_fetch_all
-from bioetl.core.http.types import Normalizer
+from bioetl.core.http.pagination_helpers import (
+    iter_ids,
+    iterate_records,
+    list_entities,
+    warn_fetch_all,
+)
+
 
 class EntityClientProtocol(Protocol):
+    """Protocol for entity clients."""
+
     entity: str
 
-    def get(self, entity_id: str, *, params: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
-        ...
+    def get(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Retrieve an entity by ID."""
 
     def list(
         self,
@@ -31,28 +42,53 @@ class EntityClientProtocol(Protocol):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[Mapping[str, Any]]:
-        ...
+        """Retrieve a list of entities."""
 
-    def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[Mapping[str, Any]]:
-        ...
+    def fetch_by_ids(
+        self, ids: Sequence[str]
+    ) -> Iterator[Mapping[str, Any]]:
+        """Retrieve entities by IDs."""
 
-    def search(self, params: Mapping[str, Any]) -> Iterator[Mapping[str, Any]]:
-        ...
+    def search(
+        self, params: Mapping[str, Any]
+    ) -> Iterator[Mapping[str, Any]]:
+        """Search for entities."""
 
     def close(self) -> None:
-        ...
+        """Close the client."""
 
 
 class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
     """Базовый клиент сущности API с общей логикой обхода записей."""
 
-    def __init__(self, transport: ApiTransportProtocol, pagination: PaginationStrategy, *, entity: str) -> None:
+    def __init__(
+        self,
+        transport: ApiTransportProtocol,
+        pagination: PaginationStrategy,
+        *,
+        entity: str,
+    ) -> None:
+        """Initialize the client.
+
+        Args:
+            transport: The API transport protocol.
+            pagination: The pagination strategy.
+            entity: The entity name.
+        """
         self.transport = transport
         self.entity = entity.strip("/")
         self.pagination_strategy = pagination
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
 
     def _entity_path(self, suffix: str | None = None) -> str:
+        """Get the entity path.
+
+        Args:
+            suffix: The path suffix.
+
+        Returns:
+            The entity path.
+        """
         if not suffix:
             return f"/{self.entity}"
         suffix = str(suffix).lstrip("/")
@@ -63,6 +99,15 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         ids: Sequence[str],
         path_template: str = "/{entity}/{id}",
     ) -> Iterator[dict[str, Any]]:
+        """Iterate over entity IDs.
+
+        Args:
+            ids: The entity IDs.
+            path_template: The path template.
+
+        Returns:
+            An iterator over entity IDs.
+        """
         return iter_ids(
             ids=ids,
             entity=self.entity,
@@ -74,13 +119,34 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             path_template=path_template,
         )
 
-    def get(self, entity_id: str, *, params: Mapping[str, Any] | None = None) -> Mapping[str, Any]:
+    def get(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Retrieve an entity by ID.
+
+        Args:
+            entity_id: The entity ID.
+            params: The request parameters.
+
+        Returns:
+            The entity data.
+        """
         return self._wrap_callable(
-            lambda: self._transport().request("GET", self._entity_path(entity_id), params=params),
+            lambda: self._transport().request(
+                "GET", self._entity_path(entity_id), params=params
+            ),
             log_context={"path": self._entity_path(entity_id)},
         )
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
+        """Retrieve entities by IDs.
+
+        Args:
+            ids: The entity IDs.
+
+        Returns:
+            An iterator over entity data.
+        """
         return self.iter_ids(ids)
 
     def iterate_records(
@@ -90,6 +156,16 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         page_size: int | None = None,
         fetcher: Callable[[Sequence[str] | None], Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
+        """Iterate over entity records.
+
+        Args:
+            ids: The entity IDs.
+            page_size: The page size.
+            fetcher: The fetcher function.
+
+        Returns:
+            An iterator over entity records.
+        """
         return iterate_records(
             ids=ids,
             page_size=page_size,
@@ -109,14 +185,30 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
+        """Retrieve a list of entities.
+
+        Args:
+            page_size: The page size.
+            params: The request parameters.
+            page_key: The page key.
+            next_key: The next key.
+            page_param: The page parameter.
+
+        Returns:
+            An iterator over entity data.
+        """
         return list_entities(
             transport=self._transport(),
             entity_path=self._entity_path(),
             pagination_strategy=self.pagination_strategy,
             wrap_callable=self._wrap_callable,
             wrap_iterator=self._wrap_iterator,
-            normalize_payload=lambda payload: self._normalize_payload(payload, page_key=page_key),
-            normalize_page=lambda page: self._normalize_payload(page, page_key=page_key),
+            normalize_payload=lambda payload: self._normalize_payload(
+                payload, page_key=page_key
+            ),
+            normalize_page=lambda page: self._normalize_payload(
+                page, page_key=page_key
+            ),
             logger=self._logger,
             page_size=page_size,
             params=params,

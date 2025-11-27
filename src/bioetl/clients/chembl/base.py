@@ -1,3 +1,4 @@
+"""Base ChEMBL client implementations."""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -6,20 +7,22 @@ from typing import Any
 from bioetl.clients.chembl.adapter import ChemblTransportAdapter
 from bioetl.clients.pagination import PaginationFactory
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
+from bioetl.core.http.interfaces import ApiTransportProtocol
+from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.http.pagination_helpers import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
 )
-from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.core.http.pagination import PaginationStrategy
 
 
 class BaseChemblClient(ChemblTransportAdapter):
-    """Совместимый транспортный клиент ChEMBL поверх произвольного транспорта."""
+    """Compatible ChEMBL transport client over arbitrary transport."""
 
 
 class ChemblEntityClient(BaseApiEntityClient):
+    """Client for specific ChEMBL entity types (activity, assay, etc)."""
+
     def __init__(
         self,
         transport: ApiTransportProtocol,
@@ -39,6 +42,7 @@ class ChemblEntityClient(BaseApiEntityClient):
 
     @property
     def metadata(self) -> Mapping[str, Any]:
+        """Return metadata from the underlying transport."""
         base_transport = getattr(self, "transport", None)
         if base_transport is None:
             return {}

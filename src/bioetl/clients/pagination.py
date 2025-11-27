@@ -49,7 +49,8 @@ def create_pagination_strategy(
     except KeyError as exc:  # pragma: no cover - safety guard
         available = ", ".join(sorted(registry)) or "<empty>"
         raise KeyError(
-            f"Pagination strategy '{strategy_name}' is not registered. Available: {available}"
+            f"Pagination strategy '{strategy_name}' is not registered. "
+            f"Available: {available}"
         ) from exc
     return factory(**kwargs)
 

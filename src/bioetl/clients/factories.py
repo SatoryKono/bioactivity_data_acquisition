@@ -4,12 +4,16 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from typing import Any
 
+from bioetl.clients.chembl.adapter import ChemblTransportAdapter
 from bioetl.clients.chembl.entities import (
+    CHEMBL_ALLOWED_ENTITIES,
     ChemblActivityClient,
     ChemblEntityClientFactory,
-    CHEMBL_ALLOWED_ENTITIES,
 )
-from bioetl.clients.chembl.adapter import ChemblTransportAdapter
+from bioetl.clients.pagination import (
+    PaginationFactory,
+    create_pagination_strategy,
+)
 from bioetl.core.config.models import PipelineConfig
 from bioetl.core.http import (
     ResilientRequestExecutorFactory,
@@ -18,7 +22,6 @@ from bioetl.core.http import (
 from bioetl.core.http.api_client import APIConfig
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.clients.pagination import PaginationFactory, create_pagination_strategy
 from bioetl.core.http.pagination import (
     DefaultPaginationStrategy,
     PaginationStrategy,
@@ -169,4 +172,8 @@ def default_activity_client_factory(
     return client
 
 
-__all__ = ["default_chembl_factory", "default_activity_client_factory", "make_chembl_client"]
+__all__ = [
+    "default_chembl_factory",
+    "default_activity_client_factory",
+    "make_chembl_client",
+]
