@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pandera as pa
+import pandas as pd
 
 # Full column list from activity_chembl.yaml config
 _CHEMBL_ACTIVITY_COLUMNS = [
@@ -60,7 +61,7 @@ ChEMBLActivitySchema = pa.DataFrameSchema(
     {
         "activity_id": pa.Column(pa.String, nullable=False),
         "row_subtype": pa.Column(pa.String, nullable=True),
-        "row_index": pa.Column(pa.Int64, nullable=True),
+        "row_index": pa.Column(pd.Int64Dtype(), nullable=True),
         "assay_chembl_id": pa.Column(pa.String, nullable=False),
         "assay_type": pa.Column(pa.String, nullable=True),
         "assay_description": pa.Column(pa.String, nullable=True),
