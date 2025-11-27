@@ -1,3 +1,9 @@
+"""
+Adapter for ChEMBL transport layer.
+
+This module provides the ChemblTransportAdapter which wraps the underlying
+HTTP transport to add logging, metadata capture, and pagination support.
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -8,11 +14,15 @@ import structlog
 from bioetl.core.http import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
-from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
-from bioetl.clients.pagination import PaginationRegistry, get_default_pagination_registry
+from bioetl.clients.pagination import (
+    PaginationRegistry,
+    get_default_pagination_registry,
+)
 
 
-class ChemblTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
+class ChemblTransportAdapter(
+    ApiClientMixin, ClosableMixin, ApiTransportProtocol
+):
     """Обёртка над транспортом ChEMBL с логированием и сбором метаданных."""
 
     def __init__(
@@ -25,21 +35,28 @@ class ChemblTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtocol
     ) -> None:
         self._base_transport = transport
         self.transport = transport
-        self.pagination_registry = pagination_registry or get_default_pagination_registry()
-        self.pagination_strategy = pagination_strategy or self.pagination_registry.create(
-            pagination_strategy_name or "next_link"
+        self.pagination_registry = (
+            pagination_registry or get_default_pagination_registry()
+        )
+        self.pagination_strategy = (
+            pagination_strategy
+            or self.pagination_registry.create(
+                pagination_strategy_name or "next_link"
+            )
         )
         self._metadata: dict[str, Any] = {}
-        self._logger = structlog.get_logger(__name__).bind(client="chembl_transport")
+        self._logger = structlog.get_logger(__name__).bind(
+            client="chembl_transport"
+        )
 
     @property
     def base_transport(self) -> ApiTransportProtocol:
         """Доступ к исходному транспорту без обёртки."""
-
         return self._base_transport
 
     @property
     def metadata(self) -> Mapping[str, Any]:
+        """Return collected metadata from responses."""
         return dict(self._metadata)
 
     def _capture_metadata(
@@ -80,4 +97,4 @@ class ChemblTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtocol
         return response
 
 
-__all__ = ["ChemblTransportAdapter", "ChemblExtractionDescriptor"]
+__all__ = ["ChemblTransportAdapter"]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 """Запуск ChEMBL Assay pipeline."""
 
+from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
@@ -55,7 +56,10 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
     ) -> WriteResult:
         output_service = PipelineOutputService(self.config)
         try:
-            return output_service.save(df, artifacts, options)
+            output_dir = (
+                artifacts.data_path.parent if artifacts.data_path else Path.cwd()
+            )
+            return output_service.save(df, artifacts, output_dir)
         except ValueError:
             return super().save_results(df, artifacts, options)
         except Exception:  # pragma: no cover - fallback совместимости

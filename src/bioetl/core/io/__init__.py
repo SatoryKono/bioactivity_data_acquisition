@@ -1,4 +1,11 @@
+"""
+Core IO module for BioETL.
+
+This module exposes key IO components like Artifacts, SchemaRegistry, and
+lazy-loaded writers/services.
+"""
 from importlib import import_module
+from typing import TYPE_CHECKING
 
 from bioetl.core.io.artifacts import (
     DeterminismSettings,
@@ -10,7 +17,8 @@ from bioetl.core.io.artifacts import (
     hash_business_key,
     hash_row,
 )
-try:  # pragma: no cover - допускаем отсутствие тяжёлых зависимостей при импорте
+
+if TYPE_CHECKING:
     from bioetl.core.io.output import (
         AtomicWriter,
         UnifiedOutputWriter,
@@ -20,36 +28,27 @@ try:  # pragma: no cover - допускаем отсутствие тяжёлы�
         write_json_atomic,
         write_yaml_atomic,
     )
-except Exception:  # pragma: no cover - заглушки для ленивой загрузки
-    AtomicWriter = None
-    UnifiedOutputWriter = None
-    build_meta_yaml = None
-    emit_qc_artifact = None
-    validate_with_schema = None
-    write_json_atomic = None
-    write_yaml_atomic = None
-
-try:
     from bioetl.core.io.output_service import PipelineOutputService
-except Exception:
-    PipelineOutputService = None
-
-try:
     from bioetl.core.io.writer import ArtifactWriter
-except Exception:
-    ArtifactWriter = None
 
 __all__ = [
     "ArtifactWriter",
+    "AtomicWriter",
     "DeterminismSettings",
     "PipelineOutputService",
     "RunArtifacts",
     "SchemaRegistry",
     "SchemaRegistryEntry",
+    "UnifiedOutputWriter",
     "WriteArtifacts",
+    "build_meta_yaml",
     "compute_file_hash",
+    "emit_qc_artifact",
     "hash_business_key",
     "hash_row",
+    "validate_with_schema",
+    "write_json_atomic",
+    "write_yaml_atomic",
 ]
 
 
@@ -73,4 +72,4 @@ def __getattr__(name: str):  # pragma: no cover - thin lazy loader
             module_name = "bioetl.core.io.output"
         module = import_module(module_name)
         return getattr(module, name)
-    raise AttributeError(name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

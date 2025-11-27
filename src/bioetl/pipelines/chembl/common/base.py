@@ -11,7 +11,7 @@ import yaml
 
 from bioetl.core.pipeline.services import default_write_service_factory
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
-from bioetl.core.pipeline.unified import ChemblExtractionDescriptor, ChemblPipelineBase
+from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor, ChemblPipelineBase
 from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
 from bioetl.pipelines.chembl.common.descriptor import ConfigValidationError
 

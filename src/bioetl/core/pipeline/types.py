@@ -206,7 +206,7 @@ class PipelineStagesProtocol(Protocol):
 
     def extract(
         self,
-        descriptor: "ChemblExtractionDescriptor | None",
+        descriptor: Any,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         """Extract data from source."""

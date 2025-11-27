@@ -1,3 +1,9 @@
+"""
+ChEMBL API clients and related utilities.
+
+This package provides clients for interacting with the ChEMBL API, including
+entity-specific clients, transport adapters, and normalization logic.
+"""
 from bioetl.clients.chembl.base import (
     BaseChemblClient,
     ChemblEntityClient,
@@ -5,10 +11,8 @@ from bioetl.clients.chembl.base import (
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
 )
-from bioetl.clients.chembl.adapter import (
-    ChemblExtractionDescriptor,
-    ChemblTransportAdapter,
-)
+from bioetl.clients.chembl.adapter import ChemblTransportAdapter
+from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor
 from bioetl.clients.chembl.entities import (
     ChemblActivityClient,
     ChemblAssayClient,
@@ -32,7 +36,7 @@ __all__ = [
     "DEFAULT_NEXT_KEY",
     "DEFAULT_PAGE_KEY",
     "DEFAULT_PAGE_PARAM",
-    "ChemblExtractionDescriptor",
+    "ChemblExtractionServiceDescriptor",
     "ChemblActivityClient",
     "ChemblAssayClient",
     "ChemblDocumentClient",

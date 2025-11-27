@@ -270,13 +270,15 @@ class UnifiedOutputWriter:
         df: pd.DataFrame,
         artifacts: RunArtifacts,
         *,
-        format: Literal["csv", "parquet"] = "csv",
+        file_format: Literal["csv", "parquet"] = "csv",
         encoding: str = "utf-8",
         index: bool = False,
     ) -> WriteResult:
         schema_entry = self.schema_registry.get(self.pipeline_code)
         fail_on_schema_drift = bool(
-            (getattr(self.config, "metadata", None) or {}).get("fail_on_schema_drift", True)
+            (getattr(self.config, "metadata", None) or {}).get(
+                "fail_on_schema_drift", True
+            )
         )
         df_aligned = _align_for_validation(df, schema_entry)
         df_validated = validate_with_schema(
@@ -292,16 +294,26 @@ class UnifiedOutputWriter:
         df_sorted = _sort_dataframe(df_ordered, determinism)
 
         write_artifacts = artifacts.write_artifacts or WriteArtifacts()
-        extension = ".csv" if format == "csv" else ".parquet"
-        data_path = write_artifacts.data_path or self.output_dir / f"{self.run_stem}{extension}"
+        extension = ".csv" if file_format == "csv" else ".parquet"
+        data_path = (
+            write_artifacts.data_path
+            or self.output_dir / f"{self.run_stem}{extension}"
+        )
         write_artifacts.data_path = data_path
-        write_artifacts.meta_path = write_artifacts.meta_path or self.output_dir / "meta.yaml"
-        write_artifacts.manifest_path = write_artifacts.manifest_path or self.output_dir / "run_manifest.json"
+        write_artifacts.meta_path = (
+            write_artifacts.meta_path or self.output_dir / "meta.yaml"
+        )
+        write_artifacts.manifest_path = (
+            write_artifacts.manifest_path
+            or self.output_dir / "run_manifest.json"
+        )
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         with AtomicWriter(data_path) as writer:
-            if format == "csv":
-                df_sorted.to_csv(writer.temp_path, index=index, encoding=encoding)
+            if file_format == "csv":
+                df_sorted.to_csv(
+                    writer.temp_path, index=index, encoding=encoding
+                )
             else:
                 df_sorted.to_parquet(writer.temp_path, index=index)
         data_hash = compute_file_hash(data_path)
@@ -330,7 +342,7 @@ class UnifiedOutputWriter:
             "artifacts": {
                 "dataset": {
                     "path": data_path.name,
-                    "format": format,
+                    "format": file_format,
                     "hash": data_hash,
                     "rows": int(len(df_sorted)),
                     "business_key_hash": business_key_hash,
