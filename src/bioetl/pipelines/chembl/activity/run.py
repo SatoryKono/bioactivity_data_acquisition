@@ -172,7 +172,11 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         self.extractor = ActivityExtractor(client_factory=self.client_factory)
         self.transformer = ActivityTransformer()
         self.writer = ActivityWriter(
-            schema_registry=self._schema_registry_factory() if self._schema_registry_factory else self._build_schema_registry(),
+            schema_registry=(
+                self._schema_registry_factory()
+                if self._schema_registry_factory
+                else self._build_schema_registry()
+            ),
             config=config,
             pipeline_code=self.pipeline_code,
             run_id=self.run_id,
@@ -229,7 +233,6 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         if self._release:
             return self._release
         return None
-        return None, {"source": "unknown"}
 
     # Orchestration hooks --------------------------------------------------
     def prepare_run(self, options: StageExecutionOptions) -> None:
@@ -334,11 +337,15 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         
         # Plan artifacts and save results
         artifacts = self.plan_run_artifacts(output_dir, run_tag, mode)[1]
-        result = self.save_results(df, artifacts, options)
+        self.save_results(df, artifacts, options)
         
         # Generate QC reports
         if self.qc_orchestrator and not options.dry_run:
             try:
+                # Add DataFrame to data bucket for QC processing
+                data_bucket = DataBucket()
+                data_bucket.set(df)
+                
                 qc_context = self.context_builder.build(
                     execution=DefaultExecutionContext(
                         logger=UnifiedLogger.get(self.__class__.__name__).bind(
@@ -355,7 +362,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
                         qc_orchestrator=self.qc_orchestrator,
                     ),
                     artifacts=DefaultArtifactContext(
-                        data_bucket=DataBucket(),
+                        data_bucket=data_bucket,
                         artifact_store=ArtifactStore(artifacts),
                     ),
                 )

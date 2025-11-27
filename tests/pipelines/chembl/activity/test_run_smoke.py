@@ -131,7 +131,7 @@ def test_run_smoke(tmp_path: Path) -> None:
         client_factory=lambda _cfg: client,
     )
 
-    result = pipeline.run(tmp_path, sample=5)
+    result = pipeline.run(tmp_path, sample=5, include_qc_metrics=True)
 
     assert result.success
     artifacts = result.artifacts
