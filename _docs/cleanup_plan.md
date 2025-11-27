@@ -7,14 +7,14 @@
 | `src/**/__pycache__/` | каталог | артефакт выполнения/сборки | высокий |
 | `tests/**/__pycache__/` | каталог | артефакт выполнения тестов | высокий |
 | `src/bioetl/sources/__init__.py` | модуль | устаревший shim, перенаправляющий на инфраструктурные нормалайзеры, избыточен после переноса в `bioetl.clients` | средний (проверить внешние импорты) |
-| `src/bioetl/clients/utils/pagination.py` | модуль | дублирует `bioetl.core.http.pagination_helpers`, помечен DeprecationWarning | высокий (после обновления импортов) |
+| `src/bioetl/clients/utils/pagination.py` | модуль | EOL-прокси к `bioetl.core.http.pagination_helpers` после переноса импортов | высокий (после наблюдения за внешними зависимостями) |
 | `src/bioetl/core/runtime/__pycache__/` | каталог | локальный артефакт выполнения | высокий |
 | Технические `__init__.py` в однофайловых каталогах (`bioetl/core/logging`, `bioetl/clients/utils`) | модуль | не формируют публичный API, могут быть упразднены при слиянии файлов | средний (оставить, если используется как namespace) |
 
 ## Дубликаты
 | Группа | Файлы/объекты | Рекомендованный источник | Комментарий |
 |---|---|---|---|
-| G1 | `bioetl/clients/utils/pagination.py`, `bioetl/core/http/pagination_helpers.py` | `bioetl/core/http/pagination_helpers.py` | После обновления импортов удалить shim, при необходимости временно оставить прокси с DeprecationWarning |
+| G1 | `bioetl/clients/utils/pagination.py`, `bioetl/core/http/pagination_helpers.py` | `bioetl/core/http/pagination_helpers.py` | Импорты переведены на новый путь; EOL-прокси оставить временно с DeprecationWarning и снять после подтверждения отсутствия зависимостей |
 | G2 | `bioetl/sources/__init__.py` и экспорт нормалайзеров из `bioetl/clients/chembl/*` | `bioetl/clients/chembl/*` | После подтверждения отсутствия внешних импортов удалить shim или заменить на явный re-export с предупреждением |
 
 ## План чистки
@@ -24,7 +24,7 @@
    - Оставить файлы, формирующие публичный API (реэкспорт классов/констант) или обеспечивающие namespace для подкаталогов.
    - Спорные случаи (формируют DeprecationWarning) пометить к ручной проверке.
 3. Проверить shim-модули:
-   - `bioetl/clients/utils/pagination.py`: найти все импорты `bioetl.clients.utils.pagination` и перевести на `bioetl.core.http.pagination_helpers`; после этого удалить файл или оставить тонкий прокси с явной пометкой EOL.
+   - `bioetl/clients/utils/pagination.py`: импорты переведены на `bioetl.core.http.pagination_helpers`; оставить тонкий EOL-прокси до полного удаления.
    - `bioetl/sources/__init__.py`: поиск по репозиторию (`rg "bioetl\.sources" src tests`) и внешним докам; при отсутствии критичных зависимостей удалить файл либо заменить на минимальный re-export без предупреждения.
 4. Выявить мёртвые модули после переноса (ориентируясь на план из шага 2):
    - Пройтись по старым путям перенесённых файлов и проверить отсутствие импортов через `rg "bioetl\.core\.http"` и старые алиасы; удалить оставшиеся дубликаты, оставив при необходимости фасады.
