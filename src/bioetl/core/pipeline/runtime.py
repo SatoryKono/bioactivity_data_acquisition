@@ -13,6 +13,7 @@ import pandas as pd
 from bioetl.core.logging import UnifiedLogger
 
 from bioetl.core.pipeline.definition import PipelineDefinition
+from bioetl.core.pipeline import factories
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.services import (
     ArtifactPlanner,
@@ -26,10 +27,7 @@ from bioetl.core.pipeline.services import (
     StagePlanExecutor,
     ValidationService,
     WriteService,
-    default_artifact_runtime_service_factory,
     default_context_builder_factory,
-    default_metadata_runtime_service_factory,
-    default_orchestration_service_factory,
 )
 from bioetl.core.pipeline.types import (
     ArtifactStore,
@@ -87,8 +85,18 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
             [OrchestrationCoordinator], OrchestrationService
         ]
         | None = None,
+        artifact_runtime_service_factory: Callable[
+            ["PipelineRuntimeBase"], ArtifactRuntimeService
+        ]
+        | None = None,
+        artifact_runtime_service: ArtifactRuntimeService | None = None,
         artifact_runtime_builder: ArtifactRuntimeBuilderProtocol | None = None,
+        qc_runtime_service_factory: Callable[["PipelineRuntimeBase"], Any] | None = None,
         qc_runtime_builder: QCRuntimeBuilder | None = None,
+        metadata_runtime_service_factory: Callable[
+            ["PipelineRuntimeBase"], MetadataRuntimeService
+        ]
+        | None = None,
         metadata_runtime_builder: MetadataRuntimeBuilder | None = None,
         context_builder: ContextBuilder | None = None,
         context_builder_factory: Callable[
@@ -114,22 +122,32 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         )
         self.dry_run = False
 
-        resolved_artifact_builder = artifact_runtime_builder or ArtifactRuntimeBuilder()
-        self.artifact_runtime_service = resolved_artifact_builder.build(self)
+        artifact_runtime_factory = artifact_runtime_service_factory or factories.default_artifact_runtime_service_factory(
+            artifact_runtime_builder=artifact_runtime_builder,
+            artifact_runtime_service=artifact_runtime_service,
+        )
+        self.artifact_runtime_service = artifact_runtime_service or artifact_runtime_factory(
+            self
+        )
         self.artifact_planner = self.artifact_runtime_service.artifact_planner
         self.artifact_service = self.artifact_runtime_service.artifact_service
 
-        resolved_qc_builder = qc_runtime_builder or QCRuntimeBuilder()
-        self.qc_coordinator = resolved_qc_builder.build(stage_plan_executor)
-        self.qc_runtime_service = self.qc_coordinator.qc_runtime_service
-        resolved_metadata_builder = metadata_runtime_builder or MetadataRuntimeBuilder(
-            config=config,
-            pipeline_code=self.pipeline_code,
-            logs_directory_resolver=self.resolve_logs_directory,
+        qc_runtime_factory = qc_runtime_service_factory or factories.default_qc_runtime_service_factory(
+            stage_plan_executor=stage_plan_executor,
+            qc_runtime_builder=qc_runtime_builder,
         )
-        self.metadata_coordinator = resolved_metadata_builder.build()
-        self.metadata_runtime_service = (
-            self.metadata_coordinator.metadata_runtime_service
+        self.qc_runtime_service, self.qc_coordinator = qc_runtime_factory(self)
+        metadata_runtime_factory = (
+            metadata_runtime_service_factory
+            or factories.default_metadata_runtime_service_factory(
+                config=config,
+                pipeline_code=self.pipeline_code,
+                logs_directory_resolver=self.resolve_logs_directory,
+                metadata_runtime_builder=metadata_runtime_builder,
+            )
+        )
+        self.metadata_runtime_service, self.metadata_coordinator = metadata_runtime_factory(
+            self
         )
         self.metadata_service = self.metadata_coordinator.metadata_service
         self.run_metadata_builder = getattr(
@@ -143,18 +161,12 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         self.stage_plan_executor = self.qc_coordinator.stage_plan_executor
         orchestration_factory = (
             orchestration_service_factory
-            or default_orchestration_service_factory(
+            or factories.default_orchestration_service_factory(
                 stage_plan_executor=self.stage_plan_executor,
                 artifact_service=self.artifact_service,
             )
         )
-        orchestration_coordinator = OrchestrationCoordinator(
-            stage_plan_executor=self.stage_plan_executor,
-            artifact_service=self.artifact_service,
-        )
-        self.orchestration_service = orchestration_factory(
-            orchestration_coordinator
-        )
+        self.orchestration_service = orchestration_factory(self)
 
         self.validation_service = None
         if validation_service_factory is not None:
