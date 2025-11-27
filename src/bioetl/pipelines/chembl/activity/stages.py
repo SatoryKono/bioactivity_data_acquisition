@@ -51,6 +51,16 @@ class ActivityExtractor:
         *,
         batch_size: int | None = None,
     ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        """Execute the extraction stage for activity data.
+
+        Args:
+            config: Pipeline configuration.
+            descriptor: ChEMBL extraction descriptor.
+            batch_size: Optional batch size override.
+
+        Returns:
+            Tuple of (extracted dataframe, metadata dictionary).
+        """
         effective_batch_size = batch_size or (
             descriptor.batch_plan.batch_size
             if descriptor.batch_plan
@@ -89,14 +99,18 @@ class ActivityExtractor:
                 iterator: Any = payload
                 if isinstance(iterator, Mapping):
                     iterator = iterator.values()
-                frames = [self.parser.parse(raw) for raw in iterator]
+                frames = []
+                for raw in iterator:
+                    if isinstance(raw, Mapping) and "results" not in raw:
+                        raw = {"results": [raw]}
+                    frames.append(self.parser.parse(raw))
                 df = (
                     pd.concat(frames, ignore_index=True)
                     if frames
                     else pd.DataFrame()
                 )
                 return df, {"api_calls": 1}
-            except Exception as exc:  # pragma: no cover - defensive
+            except Exception as exc:  # pragma: no cover; noqa: BLE001
                 fallback = self._fallback_rows(list(batch), exc)
                 return fallback, {"fallback": len(fallback), "api_calls": 1}
 
@@ -140,6 +154,16 @@ class ActivityTransformer:
     normalizer: ActivityNormalizer = field(default_factory=ActivityNormalizer)
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Execute the transformation stage.
+
+        Enriches data with domain-specific fields and normalizes columns.
+
+        Args:
+            df: Input dataframe from extraction.
+
+        Returns:
+            Transformed and normalized dataframe.
+        """
         enriched = self._domain_enrich(df)
         return self.normalizer.normalize(enriched)
 
@@ -168,6 +192,19 @@ class ActivityWriter:
         run_stem: str,
         output_dir: Path,
     ) -> WriteResult:
+        """Execute the write stage.
+
+        Writes the dataframe to storage and emits QC artifacts.
+
+        Args:
+            df: Dataframe to write.
+            artifacts: Artifacts container to populate.
+            run_stem: Stem for run-specific filenames.
+            output_dir: Target directory for output.
+
+        Returns:
+            Result of the write operation.
+        """
         logger = UnifiedLogger.get(self.__class__.__name__).bind(
             run_id=self.run_id
         )

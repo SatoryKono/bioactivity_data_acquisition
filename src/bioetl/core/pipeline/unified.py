@@ -250,6 +250,7 @@ class ChemblPipelineBase(UnifiedPipelineBase):
 
     def _init_extraction_service(self) -> None:
         """Initialize extraction service based on config."""
+        # pylint: disable=import-outside-toplevel
         from bioetl.pipelines.chembl.common import chembl_extraction_service
 
         extraction_service = (

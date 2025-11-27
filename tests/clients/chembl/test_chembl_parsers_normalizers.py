@@ -1,3 +1,5 @@
+"""Tests for ChEMBL parsers and normalizers."""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -14,6 +16,7 @@ from bioetl.core.schemas.activity_schema import ActivityColumns, ActivitySchema
 
 
 def test_activity_parser_extracts_columns():
+    """Test that ActivityParser correctly extracts and renames columns."""
     payload = {
         "results": [
             {
@@ -45,6 +48,7 @@ def test_activity_parser_extracts_columns():
 
 
 def test_activity_normalizer_coerces_types():
+    """Test that ActivityNormalizer correctly coerces column types."""
     raw_df = pd.DataFrame(
         {
             "activity_id": ["1"],
@@ -64,6 +68,7 @@ def test_activity_normalizer_coerces_types():
 
 
 def test_build_records_from_payload_respects_mappings():
+    """Test that payload builder respects column mappings and fallbacks."""
     payload = {
         "results": [
             {"primary_id": "A1", "fallback_id": "B1", "name": "first"},
@@ -85,6 +90,7 @@ def test_build_records_from_payload_respects_mappings():
 
 
 def test_base_normalizer_applies_defaults_and_types():
+    """Test that BaseChemblNormalizer applies defaults and type coercion."""
     df_raw = pd.DataFrame(
         {
             "activity_id": ["10"],

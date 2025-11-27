@@ -1,11 +1,14 @@
+"""Module for ChEMBL data normalization and standardization."""
+
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 from typing import Any, Callable, Sequence
 
 import pandas as pd
-import hashlib
-import json
+
 
 @dataclass(frozen=True)
 class ColumnMapping:
@@ -75,10 +78,10 @@ class BaseChemblNormalizer:
 
             if spec.transformer:
                 df[spec.name] = spec.transformer(df[spec.name])
-            
+
             # Simple dtype casting fallback
             if spec.dtype == "string":
-                df[spec.name] = df[spec.name].astype(str)
+                df[spec.name] = df[spec.name].astype("string")
             elif spec.dtype == "float":
                 df[spec.name] = pd.to_numeric(df[spec.name], errors="coerce")
             # Add more types as needed
@@ -88,6 +91,19 @@ class BaseChemblNormalizer:
             df["business_key"] = df[self.business_key_column].astype(str)
         else:
             df["business_key"] = pd.NA
+
+        # 2.1 Business Key Hash
+        def _hash_bk(val: Any) -> str | Any:
+            if pd.isna(val):
+                return pd.NA
+            return hashlib.blake2b(
+                str(val).encode(), digest_size=16
+            ).hexdigest()
+
+        if not df.empty:
+            df["business_key_hash"] = df["business_key"].apply(_hash_bk)
+        else:
+            df["business_key_hash"] = pd.Series(dtype="string")
 
         # 3. Row Hash (Simple implementation for now)
         def _hash_row(row: pd.Series) -> str:
@@ -108,4 +124,3 @@ class BaseChemblNormalizer:
             df["row_hash"] = pd.Series(dtype="string")
 
         return df
-
