@@ -4,7 +4,10 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.sources.chembl.common import ColumnMapping, build_records_from_payload
+from bioetl.infrastructure.sources.chembl.common import (
+    ColumnMapping,
+    build_records_from_payload,
+)
 
 
 _DOCUMENT_MAPPINGS = [
