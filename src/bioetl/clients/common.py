@@ -21,6 +21,13 @@ from bioetl.core.http.pagination import (
     PageParamPagination,
     PaginationStrategy,
 )
+from bioetl.core.http.pagination_helpers import (
+    DEFAULT_NEXT_KEY,
+    DEFAULT_PAGE_KEY,
+    DEFAULT_PAGE_PARAM,
+    iter_ids,
+    warn_fetch_all,
+)
 from bioetl.core.http.types import (
     JSONPage,
     JSONPayload,
@@ -29,13 +36,6 @@ from bioetl.core.http.types import (
     Normalizer,
     WrapCallable,
     WrapIterator,
-)
-from bioetl.clients.utils.pagination import (
-    DEFAULT_NEXT_KEY,
-    DEFAULT_PAGE_KEY,
-    DEFAULT_PAGE_PARAM,
-    iter_ids,
-    warn_fetch_all,
 )
 
 # Warning must come before usage of deprecated imports

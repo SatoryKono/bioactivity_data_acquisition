@@ -26,10 +26,6 @@ from bioetl.clients.factories import (
     make_chembl_client,
     default_chembl_factory,
 )
-from bioetl.clients.transports import (
-    AioHttpTransport,
-    RequestsTransport,
-)
 
 __all__ = [
     "ConnectionError",
@@ -50,6 +46,4 @@ __all__ = [
     "ChemblEntityClientFactory",
     "make_chembl_client",
     "default_chembl_factory",
-    "RequestsTransport",
-    "AioHttpTransport",
 ]
