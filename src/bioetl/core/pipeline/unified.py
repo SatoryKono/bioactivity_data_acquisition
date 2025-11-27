@@ -210,7 +210,7 @@ class UnifiedPipelineBase(PipelineBase):
 ChemblPipelineT = TypeVar("ChemblPipelineT", bound="ChemblPipelineBase")
 
 
-class ChemblExtractionDescriptor(Generic[ChemblPipelineT]):
+class ChemblExtractionServiceDescriptor(Generic[ChemblPipelineT]):
     """Описание извлечения сущности ChEMBL."""
 
     def __init__(
@@ -255,7 +255,10 @@ class ChemblPipelineBase(UnifiedPipelineBase):
     @staticmethod
     def _resolve_extraction_service(
         extraction_service: "ChemblExtractionService" | None,
-        extraction_service_factory: Callable[[], "ChemblExtractionService"] | None,
+        extraction_service_factory: Callable[
+            [], "ChemblExtractionService"
+        ]
+        | None,
     ) -> "ChemblExtractionService":
         if extraction_service and extraction_service_factory:
             msg = (
@@ -296,7 +299,7 @@ class ChemblPipelineBase(UnifiedPipelineBase):
 
     def run_descriptor_extraction(
         self,
-        descriptor: ChemblExtractionDescriptor[ChemblPipelineT],
+        descriptor: ChemblExtractionServiceDescriptor[ChemblPipelineT],
         ids: Sequence[str] | None,
         *,
         summary_event: str,

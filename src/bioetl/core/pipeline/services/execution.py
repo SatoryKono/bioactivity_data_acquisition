@@ -98,6 +98,7 @@ class StagePlanExecutor:
                     if isinstance(artifacts, WriteArtifacts):
                         context.artifact_store.set(artifacts)
             except Exception as exc:  # noqa: BLE001
+                # pylint: disable=broad-except
                 # pylint: disable=broad-exception-caught
                 error = str(exc)
                 if logger:

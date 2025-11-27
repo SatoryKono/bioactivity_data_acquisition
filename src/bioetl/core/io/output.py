@@ -78,12 +78,16 @@ class AtomicWriter:
             self.commit()
 
 
-def _enforce_column_order(df: pd.DataFrame, schema_entry: SchemaRegistryEntry) -> pd.DataFrame:
+def _enforce_column_order(
+    df: pd.DataFrame, schema_entry: SchemaRegistryEntry
+) -> pd.DataFrame:
     if not schema_entry.schema.ordered:
         return df
     if not schema_entry.column_order:
         return df
-    missing = [col for col in schema_entry.column_order if col not in df.columns]
+    missing = [
+        col for col in schema_entry.column_order if col not in df.columns
+    ]
     if missing:
         raise pa.errors.SchemaError(
             schema=schema_entry.schema,
@@ -93,9 +97,13 @@ def _enforce_column_order(df: pd.DataFrame, schema_entry: SchemaRegistryEntry) -
     return df.loc[:, list(schema_entry.column_order)]
 
 
-def _align_for_validation(df: pd.DataFrame, schema_entry: SchemaRegistryEntry) -> pd.DataFrame:
+def _align_for_validation(
+    df: pd.DataFrame, schema_entry: SchemaRegistryEntry
+) -> pd.DataFrame:
     if schema_entry.schema.ordered and schema_entry.column_order:
-        existing = [col for col in schema_entry.column_order if col in df.columns]
+        existing = [
+            col for col in schema_entry.column_order if col in df.columns
+        ]
         return df.loc[:, existing]
     return df
 
@@ -245,12 +253,20 @@ class UnifiedOutputWriter:
     @property
     def _chembl_release(self) -> str | None:
         metadata = getattr(self.config, "metadata", None) or {}
-        return metadata.get("chembl_release") if isinstance(metadata, Mapping) else None
+        return (
+            metadata.get("chembl_release")
+            if isinstance(metadata, Mapping)
+            else None
+        )
 
     @property
     def _pipeline_version(self) -> str | None:
         metadata = getattr(self.config, "metadata", None) or {}
-        return metadata.get("pipeline_version") if isinstance(metadata, Mapping) else None
+        return (
+            metadata.get("pipeline_version")
+            if isinstance(metadata, Mapping)
+            else None
+        )
 
     @property
     def _determinism_sort_by(self) -> tuple[str, ...] | None:
@@ -271,6 +287,7 @@ class UnifiedOutputWriter:
         artifacts: RunArtifacts,
         *,
         format: Literal["csv", "parquet"] = "csv",
+        output_format: Literal["csv", "parquet"] | None = None,
         encoding: str = "utf-8",
         index: bool = False,
     ) -> WriteResult:
@@ -294,7 +311,8 @@ class UnifiedOutputWriter:
         df_sorted = _sort_dataframe(df_ordered, determinism)
 
         write_artifacts = artifacts.write_artifacts or WriteArtifacts()
-        extension = ".csv" if format == "csv" else ".parquet"
+        fmt = output_format or format
+        extension = ".csv" if fmt == "csv" else ".parquet"
         data_path = (
             write_artifacts.data_path
             or self.output_dir / f"{self.run_stem}{extension}"
@@ -310,7 +328,7 @@ class UnifiedOutputWriter:
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         with AtomicWriter(data_path) as writer:
-            if format == "csv":
+            if fmt == "csv":
                 df_sorted.to_csv(
                     writer.temp_path,
                     index=index,
@@ -344,7 +362,7 @@ class UnifiedOutputWriter:
             "artifacts": {
                 "dataset": {
                     "path": data_path.name,
-                    "format": format,
+                    "format": fmt,
                     "hash": data_hash,
                     "rows": int(len(df_sorted)),
                     "business_key_hash": business_key_hash,

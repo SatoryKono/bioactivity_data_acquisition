@@ -35,7 +35,9 @@ class StageFactory:
         """Build a stage plan from descriptors."""
 
         descriptors = tuple(descriptors)
-        descriptor_map = {descriptor.id: descriptor for descriptor in descriptors}
+        descriptor_map = {
+            descriptor.id: descriptor for descriptor in descriptors
+        }
         selected: list[StageDescriptor]
         if stages is None:
             selected = list(descriptors)

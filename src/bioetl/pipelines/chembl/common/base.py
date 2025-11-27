@@ -147,7 +147,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
     def extract(
         self,
-        descriptor: ChemblExtractionDescriptor | None,
+        descriptor: ChemblExtractionServiceDescriptor | None,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         if options.dry_run and self.validation_service:

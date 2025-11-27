@@ -84,4 +84,3 @@ class WriteService(Protocol):
             df: The DataFrame associated with the artifacts (optional).
             dry_run: Whether to perform a dry run.
         """
-        """"""

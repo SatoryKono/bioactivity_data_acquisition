@@ -1,7 +1,7 @@
 """BioETL Clients and Integrations."""
 
 from bioetl.clients.exceptions import (
-    ConnectionError,  # noqa: A004
+    ConnectionError,  # noqa: A004, pylint: disable=redefined-builtin
     HTTPError,
     RequestException,
     Timeout,

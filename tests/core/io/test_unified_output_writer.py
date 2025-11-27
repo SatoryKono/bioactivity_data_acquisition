@@ -1,3 +1,4 @@
+"""Tests for UnifiedOutputWriter."""
 from __future__ import annotations
 
 import json
@@ -43,6 +44,7 @@ def _build_registry(sort_by: tuple[str, ...] | None = None) -> SchemaRegistry:
 
 
 def test_write_dataset_atomic_preserves_column_order_and_sort(tmp_path: Path):
+    """Test atomic write preserves column order and sort."""
     registry = _build_registry(sort_by=("b",))
     config = PipelineConfig(
         name="test.pipeline",
@@ -62,14 +64,15 @@ def test_write_dataset_atomic_preserves_column_order_and_sort(tmp_path: Path):
         logs_directory=tmp_path / "logs",
     )
 
-    result = writer.write_dataset_atomic(df, artifacts, format="csv")
+    result = writer.write_dataset_atomic(df, artifacts, output_format="csv")
 
     written = pd.read_csv(result.artifacts.data_path)
     assert list(written.columns) == ["a", "b"]
     assert written.to_dict(orient="list") == {"a": [20, 10], "b": [1, 2]}
 
 
-def test_validate_with_schema_fail_and_allow_modes(tmp_path: Path):
+def test_validate_with_schema_fail_and_allow_modes():
+    """Test validation with fail and allow modes."""
     registry = _build_registry()
     entry = registry.get("test.pipeline")
     df = pd.DataFrame({"a": ["oops"], "b": [1]})
@@ -93,6 +96,7 @@ def test_validate_with_schema_fail_and_allow_modes(tmp_path: Path):
 
 
 def test_write_dataset_atomic_generates_meta_and_manifest(tmp_path: Path):
+    """Test atomic write generates meta and manifest."""
     registry = _build_registry(sort_by=("b",))
     config = PipelineConfig(
         name="test.pipeline",
@@ -116,7 +120,7 @@ def test_write_dataset_atomic_generates_meta_and_manifest(tmp_path: Path):
         logs_directory=tmp_path / "logs",
     )
 
-    result = writer.write_dataset_atomic(df, artifacts, format="csv")
+    result = writer.write_dataset_atomic(df, artifacts, output_format="csv")
 
     meta_path = tmp_path / "meta.yaml"
     manifest_path = tmp_path / "run_manifest.json"
