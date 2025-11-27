@@ -21,7 +21,11 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
     required_sort_fields = ("assay_chembl_id",)
 
     def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
-        super().__init__(config, run_id=run_id)
+        super().__init__(
+            config,
+            run_id=run_id,
+            descriptor_type="service",  # используем стандартный паттерн
+        )
         self.validator = AssaySchema
         self.validation_service = DefaultValidationService(self.validator)
 
@@ -31,8 +35,8 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
     # ------------------------------------------------------------------
     # Stage hooks
     # ------------------------------------------------------------------
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        df = super().transform(df, options)
+    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().pre_transform(df)
         df = self._normalize_nested_parameters(df)
         df = self._ensure_assay_class_mapping(df)
         df = self._ensure_target_integrity(df)

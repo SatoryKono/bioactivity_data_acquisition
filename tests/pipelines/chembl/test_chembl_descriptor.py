@@ -6,7 +6,7 @@ import pandera as pa
 from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.pipeline.unified import (
     BatchExtractionStats,
-    ChemblExtractionDescriptor,
+    ChemblExtractionServiceDescriptor,
     ChemblPipelineBase,
     RunResult,
     UnifiedPipelineBase,
@@ -90,7 +90,7 @@ def test_run_descriptor_extraction_stats_and_data():
     def finalizer_factory(_context):
         return lambda df: df.assign(processed=True)
 
-    descriptor = ChemblExtractionDescriptor[
+    descriptor = ChemblExtractionServiceDescriptor[
         DummyChemblPipeline
     ](
         build_context=build_context,
@@ -132,7 +132,7 @@ def test_run_descriptor_extraction_handles_circuit_breaker():
     def finalizer_factory(_context):
         return lambda df: df.assign(processed=True)
 
-    descriptor = ChemblExtractionDescriptor[
+    descriptor = ChemblExtractionServiceDescriptor[
         DummyChemblPipeline
     ](
         build_context=build_context,

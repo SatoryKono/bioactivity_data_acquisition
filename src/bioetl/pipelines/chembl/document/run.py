@@ -19,7 +19,11 @@ class ChemblDocumentPipeline(ChemblCommonPipeline):
     required_sort_fields = ("document_chembl_id",)
 
     def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
-        super().__init__(config, run_id=run_id)
+        super().__init__(
+            config,
+            run_id=run_id,
+            descriptor_type="service",
+        )
         self.validator = DocumentSchema
         self.validation_service = DefaultValidationService(self.validator)
         self.mode = self._resolve_mode(config)
@@ -32,8 +36,8 @@ class ChemblDocumentPipeline(ChemblCommonPipeline):
     # ------------------------------------------------------------------
     # Stage hooks
     # ------------------------------------------------------------------
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        df = super().transform(df, options)
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().domain_enrich(df)
         if df.empty:
             return df
         df = self._apply_enrichment_chain(df)

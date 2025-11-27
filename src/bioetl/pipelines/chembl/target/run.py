@@ -19,7 +19,11 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
     required_sort_fields = ("target_chembl_id",)
 
     def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
-        super().__init__(config, run_id=run_id)
+        super().__init__(
+            config,
+            run_id=run_id,
+            descriptor_type="service",
+        )
         self.validator = TargetSchema
         self.validation_service = DefaultValidationService(self.validator)
 
@@ -29,8 +33,8 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
     # ------------------------------------------------------------------
     # Stage hooks
     # ------------------------------------------------------------------
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        df = super().transform(df, options)
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().domain_enrich(df)
         return self._merge_enrichment(df)
 
     def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:

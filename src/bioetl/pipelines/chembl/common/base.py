@@ -13,7 +13,7 @@ from bioetl.core.pipeline.services import default_write_service_factory
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor, ChemblPipelineBase
 from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
-from bioetl.pipelines.chembl.common.descriptor import ConfigValidationError
+from bioetl.pipelines.chembl.common.descriptor import ConfigValidationError, ChemblExtractionDescriptor
 
 
 class ChemblWriteService:
@@ -104,6 +104,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         extraction_service_factory: (
             Callable[[], ChemblExtractionService] | None
         ) = None,
+        custom_artifact_planner_factory: Callable[[], ArtifactPlanner] | None = None,
+        schema_registry_factory: Callable[[], SchemaRegistry] | None = None,
+        descriptor_type: str = "service",
     ) -> None:
         super().__init__(
             config,
@@ -114,6 +117,10 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         )
         self._validate_common_config()
         self.write_service = ChemblWriteService(self)
+        # Store optional custom factories
+        self._custom_artifact_planner_factory = custom_artifact_planner_factory
+        self._schema_registry_factory = schema_registry_factory
+        self._descriptor_type = descriptor_type
 
     def _validate_common_config(self) -> None:
         batch_size = self._get_config_value("sources.chembl.batch_size")
@@ -147,23 +154,38 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
     def extract(
         self,
-        descriptor: ChemblExtractionServiceDescriptor | None,
+        descriptor: ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor | None,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         if options.dry_run and self.validation_service:
             return self.validation_service.empty_frame()
 
         ids = self.config.get("ids") if isinstance(self.config, Mapping) else None
+        
+        # Handle different descriptor types
+        if self._descriptor_type == "dataclass":
+            # Use dataclass descriptor pattern (like Activity pipeline)
+            descriptor = descriptor or self.build_descriptor()
+            if isinstance(descriptor, ChemblExtractionDescriptor):
+                return self._extract_with_dataclass_descriptor(descriptor, options)
+        
+        # Default to service descriptor pattern
         descriptor = descriptor or self.build_descriptor()
-        frame, _stats = self.run_descriptor_extraction(
-            descriptor,
-            ids if isinstance(ids, Sequence) else None,
-            summary_event=f"{self.entity_name}_summary",
-            batch_size=int(self._get_config_value("sources.chembl.batch_size")),
-        )
-        return frame
+        if isinstance(descriptor, ChemblExtractionServiceDescriptor):
+            frame, _stats = self.run_descriptor_extraction(
+                descriptor,
+                ids if isinstance(ids, Sequence) else None,
+                summary_event=f"{self.entity_name}_summary",
+                batch_size=int(self._get_config_value("sources.chembl.batch_size")),
+            )
+            return frame
+        
+        # Fallback for backward compatibility
+        return pd.DataFrame()
 
     def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+        df = self.pre_transform(df)
+        df = self.domain_enrich(df)
         return df
 
     def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
@@ -199,7 +221,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
             for chembl_id in ids
         ]
 
-    def _build_generic_descriptor(self) -> ChemblExtractionDescriptor:
+    def _build_generic_descriptor(self) -> ChemblExtractionServiceDescriptor:
         def build_context(_pipeline: ChemblCommonPipeline) -> Mapping[str, Any]:
             chembl_ctx = self.config.get("sources", {}).get("chembl", {}) if isinstance(self.config, Mapping) else {}
             return {
@@ -243,14 +265,28 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
             return finalize
 
-        return ChemblExtractionDescriptor(
+        return ChemblExtractionServiceDescriptor(
             build_context=build_context,
             fetcher_factory=fetcher_factory,
             finalizer_factory=finalizer_factory,
         )
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor:  # pragma: no cover - должен быть переопределён
+    def build_descriptor(self) -> ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor:  # pragma: no cover - должен быть переопределён
         raise NotImplementedError
+
+    def _extract_with_dataclass_descriptor(
+        self, 
+        descriptor: ChemblExtractionDescriptor, 
+        options: StageExecutionOptions
+    ) -> pd.DataFrame:
+        """Extract data using dataclass descriptor pattern (for Activity pipeline)."""
+        # This method should be overridden by pipelines using dataclass descriptors
+        # Default implementation returns empty DataFrame
+        if options.dry_run:
+            return pd.DataFrame()
+        
+        # Default fallback - can be overridden by specific pipelines
+        return pd.DataFrame()
 
 
 __all__ = ["ChemblCommonPipeline", "ChemblWriteService", "ConfigValidationError"]

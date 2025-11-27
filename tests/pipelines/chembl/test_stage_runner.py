@@ -10,7 +10,7 @@ from bioetl.core.pipeline.types import (
     WriteResult,
 )
 from bioetl.core.pipeline.unified import UnifiedPipelineBase
-from bioetl.application.pipelines.chembl.stage_runner import run_chembl_stage
+from bioetl.pipelines.chembl.runner import run_chembl_stage
 
 
 class DummyPipeline(UnifiedPipelineBase):

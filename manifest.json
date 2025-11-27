@@ -1,0 +1,5 @@
+artifacts:
+  dataset: test.csv
+  meta: meta.yaml
+  quality_report: quality.csv
+run_id: run-123

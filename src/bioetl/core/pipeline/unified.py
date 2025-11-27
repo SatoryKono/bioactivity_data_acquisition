@@ -192,19 +192,19 @@ class PipelineBase(PipelineRuntimeBase):
     ) -> None:
         """Вызывается после завершения write."""
 
-
-class UnifiedPipelineBase(PipelineBase):
-    """Базовая реализация общего жизненного цикла ETL."""
-
     def build_stage_plan(
         self, context: StageContext, options: StageExecutionOptions
     ) -> tuple[StageDescriptor, ...]:
+        """Build the default stage plan for the pipeline."""
         metadata = StagePlanMetadata(
             dry_run=options.dry_run,
             has_validator=self.validator is not None,
             extended=options.extended,
         )
         return tuple(build_default_stage_plan(context.descriptor, metadata))
+
+
+UnifiedPipelineBase = PipelineBase
 
 
 ChemblPipelineT = TypeVar("ChemblPipelineT", bound="ChemblPipelineBase")
@@ -231,7 +231,7 @@ class ChemblExtractionServiceDescriptor(Generic[ChemblPipelineT]):
         self.finalizer_factory = finalizer_factory
 
 
-class ChemblPipelineBase(UnifiedPipelineBase):
+class ChemblPipelineBase(PipelineBase):
     """Базовый пайплайн для ChEMBL с делегированием доменной логики сервису."""
 
     def __init__(
@@ -296,6 +296,22 @@ class ChemblPipelineBase(UnifiedPipelineBase):
     ) -> str:
         """Resolve the ChEMBL release version using the client."""
         return self.extraction_service.resolve_chembl_release(chembl_client)
+
+    def get_release(self) -> str | None:
+        """Return the ChEMBL release version (alias for property)."""
+        return self.chembl_release
+
+    def build_descriptor(self) -> Any:
+        """Build the extraction descriptor."""
+        raise NotImplementedError
+
+    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Hook for pre-transformation logic (e.g. cleanup)."""
+        return df
+
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Hook for domain enrichment logic (e.g. external sources)."""
+        return df
 
     def run_descriptor_extraction(
         self,

@@ -19,19 +19,26 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
     required_sort_fields = ("test_item_id",)
 
     def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
-        super().__init__(config, run_id=run_id)
+        super().__init__(
+            config,
+            run_id=run_id,
+            descriptor_type="service",
+        )
         self.validator = TestItemSchema
         self.validation_service = DefaultValidationService(self.validator)
 
     def build_descriptor(self):  # pragma: no cover
         return self._build_generic_descriptor()
 
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
-        df = super().transform(df, options)
+    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().pre_transform(df)
         df = self._canonicalize_inchikey(df)
-        df = self._enrich_pubchem(df)
         df = self._normalize_molecule_properties(df)
         return df
+
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = super().domain_enrich(df)
+        return self._enrich_pubchem(df)
 
     def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         df = super().validate(df, options)

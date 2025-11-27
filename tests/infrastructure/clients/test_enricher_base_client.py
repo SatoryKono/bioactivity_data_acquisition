@@ -6,7 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 
-from bioetl.clients import client_exceptions
+from bioetl.clients import exceptions as client_exceptions
 from bioetl.clients.enrichers._base import _BaseEnricherClient
 
 

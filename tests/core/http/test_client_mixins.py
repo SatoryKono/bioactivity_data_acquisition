@@ -9,11 +9,11 @@ import pytest
 import structlog
 from structlog.testing import capture_logs
 
-from bioetl.clients import client_exceptions
+from bioetl.clients import exceptions as client_exceptions
 from bioetl.clients.chembl import BaseChemblClient, ChemblEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.clients.enrichers._base import _BaseEnricherClient
-from bioetl.clients.entities._base import _BaseEntityClient
+from bioetl.core.http.api_entity_client import BaseApiEntityClient as _BaseEntityClient
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 
@@ -37,7 +37,11 @@ def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
         ],
     ]
 
-    client = _BaseEntityClient(transport=transport, entity="targets")
+    client = _BaseEntityClient(
+        transport=transport,
+        pagination=MagicMock(),
+        entity="targets",
+    )
     client._logger = MagicMock()
 
     result = list(client.fetch_by_ids(["10", "11"]))
@@ -48,8 +52,8 @@ def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
         {"id": "12", "value": 3},
     ]
     assert transport.request.call_args_list == [
-        call("GET", "/targets/10", headers=None, params=None, json=None),
-        call("GET", "/targets/11", headers=None, params=None, json=None),
+        call("GET", "/targets/10"),
+        call("GET", "/targets/11"),
     ]
     assert client._logger.info.call_args_list == [
         call("api_call", entity="targets", entity_id="10"),
@@ -95,8 +99,8 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
 
     client = _BaseEntityClient(
         transport=transport,
+        pagination=pagination,
         entity="targets",
-        pagination_strategy=pagination,
     )
     client._logger = MagicMock()
 
@@ -126,8 +130,6 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
         "GET",
         "/targets",
         params={"limit": 2, "foo": "bar"},
-        headers=None,
-        json=None,
     )
 
 
@@ -185,8 +187,8 @@ def test_entity_client_fetch_all_wraps_errors() -> None:
 
     client = _BaseEntityClient(
         transport=transport,
+        pagination=pagination,
         entity="targets",
-        pagination_strategy=pagination,
     )
     client._logger = MagicMock()
 

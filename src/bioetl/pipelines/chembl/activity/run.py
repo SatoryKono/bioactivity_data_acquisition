@@ -42,13 +42,14 @@ from bioetl.core.pipeline.types import (
     StageRuntimeContext,
     WriteResult,
 )
-from bioetl.core.pipeline.unified import UnifiedPipelineBase
+from bioetl.core.pipeline.unified import ChemblPipelineBase
 from bioetl.pipelines.chembl.common import (
     BatchPlan,
     ChemblExtractionDescriptor,
     ChemblPipelineContract,
     descriptor_from_options,
 )
+from bioetl.pipelines.chembl.common.base import ChemblCommonPipeline
 from bioetl.pipelines.chembl.runner import register_pipeline
 from bioetl.pipelines.chembl.activity.stages import (
     ActivityExtractor,
@@ -136,7 +137,7 @@ def activity_artifact_runtime_service_factory(
     )
 
 
-class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
+class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
     """Implements the activity_chembl pipeline contract."""
 
     id_column: str | None = "activity_id"
@@ -152,21 +153,20 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
         super().__init__(
             config,
             run_id=run_id,
-            artifact_runtime_service_factory=(
-                activity_artifact_runtime_service_factory
-            ),
+            custom_artifact_planner_factory=lambda: ActivityArtifactPlanner(self),
+            schema_registry_factory=self._build_schema_registry,
+            descriptor_type="dataclass",
         )
         self.client_factory = client_factory or default_activity_client_factory
         self.validator = ActivitySchema
         self.validation_service = DefaultValidationService(self.validator)
         self._descriptor: ChemblExtractionDescriptor | None = None
-        self._schema_registry = self._build_schema_registry()
         self._release: str | None = None
         self.extract_metadata: MutableMapping[str, Any] = {}
         self.extractor = ActivityExtractor(client_factory=self.client_factory)
         self.transformer = ActivityTransformer()
         self.writer = ActivityWriter(
-            schema_registry=self._schema_registry,
+            schema_registry=self._schema_registry_factory() if self._schema_registry_factory else self._build_schema_registry(),
             config=config,
             pipeline_code=self.pipeline_code,
             run_id=self.run_id,
@@ -247,28 +247,30 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
                 except (TypeError, ValueError):
                     pass  # Config is frozen/immutable
 
-    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Pre-transform hook."""
-        return df
-
-    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrich data with domain-specific fields."""
-        return df
-
     # Stage implementations -----------------------------------------------
+    def _extract_with_dataclass_descriptor(
+        self, 
+        descriptor: ChemblExtractionDescriptor, 
+        options: StageExecutionOptions
+    ) -> pd.DataFrame:
+        """Extract data using dataclass descriptor pattern."""
+        if options.dry_run:
+            return pd.DataFrame(columns=list(ActivityColumns))
+
+        df, meta = self.run_descriptor_extraction(descriptor)
+        self.extract_metadata.update(meta)
+        return df
+
     def extract(
         self,
         descriptor: ChemblExtractionDescriptor | None,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         """Extract data based on descriptor."""
-        if options.dry_run:
-            return pd.DataFrame(columns=list(ActivityColumns))
-
-        descriptor = self._descriptor or self.build_descriptor()
-        df, meta = self.run_descriptor_extraction(descriptor)
-        self.extract_metadata.update(meta)
-        return df
+        return self._extract_with_dataclass_descriptor(
+            descriptor or self.build_descriptor(), 
+            options
+        )
 
     def transform(
         self,
