@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from unittest.mock import MagicMock
 
-from bioetl.clients.chembl import BaseChemblClient
-from bioetl.clients.entities import ChemblEntityClient
-from bioetl.clients.pagination import PaginationRegistry
+from bioetl.clients.chembl import BaseChemblClient, ChemblEntityClient
+
+PaginationFactoryMap = dict[str, Callable[..., object]]
 
 
 class _DummyPaginationStrategy:
@@ -30,9 +30,9 @@ class _IteratorPaginationStrategy:
 
 
 def test_chembl_client_uses_registry_strategy_by_name():
-    registry = PaginationRegistry()
+    factories: PaginationFactoryMap = {}
     expected_strategy = _DummyPaginationStrategy()
-    registry.register("dummy", lambda **_: expected_strategy)
+    factories["dummy"] = lambda **_: expected_strategy
 
     transport = MagicMock()
 
@@ -40,23 +40,23 @@ def test_chembl_client_uses_registry_strategy_by_name():
         transport,
         "assay",
         pagination_strategy_name="dummy",
-        pagination_registry=registry,
+        pagination_factories=factories,
     )
 
     assert client.pagination_strategy is expected_strategy
 
 
 def test_base_chembl_client_uses_page_param_by_name():
-    registry = PaginationRegistry()
+    factories: PaginationFactoryMap = {}
     page_param_strategy = _DummyPaginationStrategy()
-    registry.register("page_param", lambda **_: page_param_strategy)
+    factories["page_param"] = lambda **_: page_param_strategy
 
     transport = MagicMock()
 
     client = BaseChemblClient(
         transport,
-        pagination_registry=registry,
         pagination_strategy_name="page_param",
+        pagination_factories=factories,
     )
 
     assert client.pagination_strategy is page_param_strategy
@@ -69,14 +69,13 @@ def test_iterate_records_prefers_fetcher_and_respects_ids_and_pagination():
         {"results": [{"id": 3}]},
     ]
     pagination = _IteratorPaginationStrategy(pages)
-    registry = PaginationRegistry()
-    registry.register("dummy", lambda **_: pagination)
+    factories: PaginationFactoryMap = {"dummy": lambda **_: pagination}
 
     client = ChemblEntityClient(
         transport,
         "assay",
         pagination_strategy_name="dummy",
-        pagination_registry=registry,
+        pagination_factories=factories,
     )
 
     fetch_calls: list[list[str] | None] = []

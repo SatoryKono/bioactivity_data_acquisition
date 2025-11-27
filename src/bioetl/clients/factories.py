@@ -1,7 +1,7 @@
 """Factory functions for creating ChEMBL clients."""
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from bioetl.clients.chembl.entities import (
@@ -18,13 +18,10 @@ from bioetl.core.http import (
 from bioetl.core.http.api_client import APIConfig
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
+from bioetl.clients.pagination import PaginationFactory, create_pagination_strategy
 from bioetl.core.http.pagination import (
     DefaultPaginationStrategy,
     PaginationStrategy,
-)
-from bioetl.clients.pagination import (
-    PaginationRegistry,
-    get_default_pagination_registry,
 )
 
 
@@ -70,16 +67,18 @@ def default_chembl_factory(
     config: PipelineConfig,
     transport_factory: Callable[[], ApiTransportProtocol] | None = None,
     *,
-    pagination_registry: PaginationRegistry | None = None,
     pagination_strategy_name: str | None = None,
+    pagination_factories: Mapping[str, PaginationFactory] | None = None,
 ) -> dict[str, Callable[[], EntityClientProtocol] | ChemblEntityClientFactory]:
     """Построить фабрику клиентов ChEMBL на основе конфигурации."""
 
     api_config = _resolve_api_config(config)
-    registry = pagination_registry or get_default_pagination_registry()
     pagination_strategy: PaginationStrategy | None = None
     if pagination_strategy_name:
-        pagination_strategy = registry.create(pagination_strategy_name)
+        pagination_strategy = create_pagination_strategy(
+            pagination_strategy_name,
+            factories=pagination_factories,
+        )
 
     def _build_transport() -> ApiTransportProtocol:
         if transport_factory is not None:
@@ -99,9 +98,9 @@ def default_chembl_factory(
 
     entity_factory = ChemblEntityClientFactory(
         _build_transport,
-        pagination_registry=registry,
         pagination_strategy=pagination_strategy,
         pagination_strategy_name=pagination_strategy_name,
+        pagination_factories=pagination_factories,
     )
 
     return {
@@ -120,7 +119,7 @@ def make_chembl_client(
     *,
     pagination_strategy: PaginationStrategy | None = None,
     pagination_strategy_name: str | None = None,
-    pagination_registry: PaginationRegistry | None = None,
+    pagination_factories: Mapping[str, PaginationFactory] | None = None,
 ):
     """Построить клиента ChEMBL для разрешённой сущности.
 
@@ -135,7 +134,7 @@ def make_chembl_client(
         lambda: transport,
         pagination_strategy=pagination_strategy,
         pagination_strategy_name=pagination_strategy_name,
-        pagination_registry=pagination_registry,
+        pagination_factories=pagination_factories,
     )
     return factory.create(entity)
 
@@ -144,16 +143,16 @@ def default_activity_client_factory(
     config: PipelineConfig,
     transport_factory: Callable[[], ApiTransportProtocol] | None = None,
     *,
-    pagination_registry: PaginationRegistry | None = None,
     pagination_strategy_name: str | None = None,
+    pagination_factories: Mapping[str, PaginationFactory] | None = None,
 ) -> ChemblActivityClient:
     """Построить клиент ChEMBL Activity с настройками по умолчанию."""
 
     factory = default_chembl_factory(
         config,
         transport_factory=transport_factory,
-        pagination_registry=pagination_registry,
         pagination_strategy_name=pagination_strategy_name,
+        pagination_factories=pagination_factories,
     )
     builder = factory.get("activity")
     if builder is None:  # pragma: no cover - защитная проверка
