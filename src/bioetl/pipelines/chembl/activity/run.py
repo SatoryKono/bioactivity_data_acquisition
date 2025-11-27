@@ -151,6 +151,10 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         *,
         client_factory: Callable[[Any], ChemblActivityClient] | None = None,
     ) -> None:
+        print(
+            "DEBUG: ChemblActivityPipeline.__init__ called with "
+            f"run_id={run_id}"
+        )
         super().__init__(
             config,
             run_id=run_id,
@@ -275,10 +279,14 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         """Extract data based on descriptor."""
-        return self._extract_with_dataclass_descriptor(
-            descriptor or self.build_descriptor(), 
+        df = self._extract_with_dataclass_descriptor(
+            descriptor or self.build_descriptor(),
             options
         )
+        # Apply CLI limit if specified
+        if options.limit is not None and not df.empty:
+            df = df.head(options.limit)
+        return df
 
     def transform(
         self,
@@ -314,6 +322,10 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         """Execute the activity pipeline with custom descriptor handling."""
         # Use the original activity pipeline execution flow
         # to avoid StageDescriptor wrapping issues
+        print(
+            "DEBUG: Starting pipeline run with "
+            f"output_dir={output_dir}, limit={limit}"
+        )
         options = StageExecutionOptions(
             run_tag=run_tag,
             mode=mode,
@@ -324,28 +336,36 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
             include_qc_metrics=include_qc_metrics,
             fail_on_schema_drift=fail_on_schema_drift,
         )
-        
+
         self.prepare_run(options)
-        
+        print("DEBUG: Prepared run")
+
         # Extract using activity-specific descriptor
         descriptor = self.build_descriptor()
+        print(f"DEBUG: Built descriptor: {descriptor}")
         df = self.extract(descriptor, options)
-        
+        print(f"DEBUG: Extracted data with shape: {df.shape}")
+
         # Transform, validate, save
         df = self.transform(df, options)
+        print(f"DEBUG: Transformed data with shape: {df.shape}")
         df = self.validate(df, options)
-        
+        print(f"DEBUG: Validated data with shape: {df.shape}")
+
         # Plan artifacts and save results
         artifacts = self.plan_run_artifacts(output_dir, run_tag, mode)[1]
+        print(f"DEBUG: Planned artifacts: {artifacts}")
+        print("DEBUG: About to call save_results")
         self.save_results(df, artifacts, options)
-        
+        print("DEBUG: save_results completed")
+
         # Generate QC reports
         if self.qc_orchestrator and not options.dry_run:
             try:
                 # Add DataFrame to data bucket for QC processing
                 data_bucket = DataBucket()
                 data_bucket.set(df)
-                
+
                 qc_context = self.context_builder.build(
                     execution=DefaultExecutionContext(
                         logger=UnifiedLogger.get(self.__class__.__name__).bind(
@@ -366,15 +386,14 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
                         artifact_store=ArtifactStore(artifacts),
                     ),
                 )
-                qc_path, qc_error = self.qc_orchestrator.run(qc_context, options)
+                _, qc_error = self.qc_orchestrator.run(qc_context, options)
                 if qc_error:
                     logger = UnifiedLogger.get(self.__class__.__name__)
                     logger.error("QC generation failed", error=qc_error)
             except Exception as exc:
-                # QC generation failures shouldn't break the pipeline
                 logger = UnifiedLogger.get(self.__class__.__name__)
                 logger.error("QC generation exception", error=str(exc))
-        
+
         return RunResult(
             success=True,
             rows=len(df),
@@ -404,11 +423,20 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
 
         output_service = PipelineOutputService(self.config)
         try:
-            return output_service.save(df, artifacts, options)
-        except ValueError:
-            pass
-        except Exception:  # pragma: no cover - защита от опциональных интеграций
-            pass
+            print(
+                f"DEBUG: Attempting PipelineOutputService.save with df shape {df.shape}"
+            )
+            result = output_service.save(df, artifacts, options)
+            print("DEBUG: PipelineOutputService.save succeeded")
+            return result
+        except ValueError as e:
+            print(
+                f"DEBUG: PipelineOutputService.save raised ValueError: {e}"
+            )
+            # Fall through to write_service
+        except Exception as e:  # pragma: no cover - защита от опциональных интеграций
+            print(f"DEBUG: PipelineOutputService.save raised Exception: {e}")
+            # Fall through to write_service
 
         output_dir = (
             artifacts.data_path.parent
@@ -442,13 +470,17 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
             options=options,
         )
 
-        return self.write_service.save(
-            df,
-            artifacts,
-            options,
-            context=stage_context,
-            runtime=runtime_context,
-        )
+        try:
+            return self.write_service.save(
+                df,
+                artifacts,
+                options,
+                context=stage_context,
+                runtime=runtime_context,
+            )
+        except Exception as e:
+            print(f"DEBUG: write_service.save raised Exception: {e}")
+            raise
 
     def build_pipeline_metadata(
         self, context: StageContextProtocol | None = None
@@ -494,6 +526,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
 
 
 def _registered_pipeline_factory() -> ChemblActivityPipeline:
+    print("DEBUG: _registered_pipeline_factory called")
     materialization = MaterializationConfig(
         root=Path("/tmp/chembl_activity"),
     )
@@ -501,7 +534,9 @@ def _registered_pipeline_factory() -> ChemblActivityPipeline:
         pipeline=PipelineInfo(name="activity_chembl"),
         materialization=materialization,
     )
-    return ChemblActivityPipeline(config, run_id="dev")
+    pipeline = ChemblActivityPipeline(config, run_id="dev")
+    print(f"DEBUG: Created pipeline of type: {type(pipeline)}")
+    return pipeline
 
 
 register_pipeline("activity", _registered_pipeline_factory)

@@ -1,0 +1,41 @@
+pipeline:
+  name: assay_chembl
+  version: 1.0.0
+
+metadata:
+  chembl_release: "30"
+  batch_size: 25
+  chunk_size: 25
+  pagination:
+    limit: 1000
+    offset: 0
+  chembl_api:
+    default_headers:
+      Accept: "application/json"
+  ids:
+    - "CHEMBL663853"
+    - "CHEMBL872937"
+    - "CHEMBL693237"
+    - "CHEMBL693238"
+    - "CHEMBL693239"
+
+sources:
+  chembl:
+    batch_size: 25
+    max_url_length: 2000
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    timeout: 30
+    retry_attempts: 3
+
+cache:
+  namespace: "chembl_assay"
+
+output:
+  format: csv
+  compression: none
+  
+determinism:
+  sort:
+    by: 
+      - assay_id
+      - assay_type

@@ -35,8 +35,12 @@ app.add_typer(config_app, name="config")
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
     """Базовый callback для Typer-приложения."""
+    print(f"DEBUG: main callback, invoked_subcommand={ctx.invoked_subcommand}")
     if ctx.invoked_subcommand is None:
+        print("DEBUG: No subcommand, showing help")
         typer.echo(ctx.get_help())
+    else:
+        print(f"DEBUG: Subcommand {ctx.invoked_subcommand} will execute")
 
 
 @config_app.command("inspect")
@@ -84,9 +88,16 @@ def inspect_config(
 @app.command("list")
 def list_pipelines() -> None:
     """Выводит зарегистрированные пайплайны."""
+    print(
+        "DEBUG: list_pipelines called, registry size: "
+        f"{len(PIPELINE_REGISTRY)}"
+    )
+    print(f"DEBUG: registry id: {id(PIPELINE_REGISTRY)}")
     if not PIPELINE_REGISTRY:
+        print("DEBUG: Registry is empty")
         typer.echo("No pipelines registered")
         return
+    print(f"DEBUG: Registry contains: {list(PIPELINE_REGISTRY.keys())}")
     for name in sorted(PIPELINE_REGISTRY):
         typer.echo(name)
 
@@ -178,3 +189,7 @@ def run_chembl_all(
 
 for pipeline_name, factory in PIPELINE_REGISTRY.items():
     app.command(pipeline_name)(create_pipeline_command(pipeline_name, factory))
+
+
+if __name__ == "__main__":
+    app()

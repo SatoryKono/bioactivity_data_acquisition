@@ -1,0 +1,62 @@
+{
+  "row_count": {
+    "name": "row_count",
+    "metric_type": "row_count",
+    "value": 5,
+    "threshold": null,
+    "status": "PASS",
+    "details": null,
+    "message": null
+  },
+  "null_percentage": {
+    "name": "null_percentage",
+    "metric_type": "null_percentage",
+    "value": 0.2,
+    "threshold": null,
+    "status": "PASS",
+    "details": [
+      {
+        "column": "activity_id",
+        "null_ratio": 0.0
+      },
+      {
+        "column": "assay_id",
+        "null_ratio": 0.0
+      },
+      {
+        "column": "business_key",
+        "null_ratio": 0.0
+      },
+      {
+        "column": "business_key_hash",
+        "null_ratio": 0.0
+      },
+      {
+        "column": "row_hash",
+        "null_ratio": 0.0
+      },
+      {
+        "column": "target_id",
+        "null_ratio": 0.0
+      },
+      {
+        "column": "unit",
+        "null_ratio": 0.0
+      },
+      {
+        "column": "value",
+        "null_ratio": 0.2
+      }
+    ],
+    "message": null
+  },
+  "unique_key_count": {
+    "name": "unique_key_count",
+    "metric_type": "unique_count",
+    "value": 0,
+    "threshold": null,
+    "status": "PASS",
+    "details": null,
+    "message": "column 'id' not present"
+  }
+}

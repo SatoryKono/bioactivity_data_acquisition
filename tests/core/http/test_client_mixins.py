@@ -13,7 +13,9 @@ from bioetl.clients import exceptions as client_exceptions
 from bioetl.clients.chembl import BaseChemblClient, ChemblEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.clients.enrichers._base import _BaseEnricherClient
-from bioetl.core.http.api_entity_client import BaseApiEntityClient as _BaseEntityClient
+from bioetl.core.http.api_entity_client import (
+    BaseApiEntityClient as _BaseEntityClient
+)
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 

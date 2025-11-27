@@ -26,7 +26,9 @@ def _wrap_pipeline_factory(pipeline_cls: type[Any]) -> PipelineFactory:
         config: PipelineConfig, run_id: str | None = None
     ) -> PipelineBaseProtocol:
         payload = (
-            config.model_dump() if hasattr(config, "model_dump") else dict(config)
+            config.model_dump()
+            if hasattr(config, "model_dump")
+            else dict(config)
         )
         return cast(
             PipelineBaseProtocol, pipeline_cls(payload, run_id=run_id)
@@ -36,8 +38,10 @@ def _wrap_pipeline_factory(pipeline_cls: type[Any]) -> PipelineFactory:
 
 
 def _register_default_pipelines() -> None:
+    print("DEBUG: _register_default_pipelines starting")
     try:
         from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+        print("DEBUG: Successfully imported ChemblActivityPipeline")
         from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
         from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
         from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
@@ -48,11 +52,19 @@ def _register_default_pipelines() -> None:
             ChemblTargetThinPipeline,
             ChemblTestItemThinPipeline,
         )
-    except ImportError:  # pragma: no cover - optional dependency loading
+        print("DEBUG: Successfully imported all pipeline modules")
+    except ImportError as e:  # pragma: no cover - optional dependency loading
+        print(f"DEBUG: ImportError in _register_default_pipelines: {e}")
+        return
+    except Exception as e:
+        print(f"DEBUG: Other exception in _register_default_pipelines: {e}")
         return
 
     register_pipeline(
         "activity_chembl", _wrap_pipeline_factory(ChemblActivityPipeline)
+    )
+    print(
+        f"DEBUG: Registered activity_chembl, registry size: {len(PIPELINE_REGISTRY)}"
     )
     register_pipeline(
         "assay_chembl", _wrap_pipeline_factory(ChemblAssayPipeline)
@@ -80,6 +92,13 @@ def _register_default_pipelines() -> None:
     register_pipeline(
         "testitem_chembl_thin",
         _wrap_pipeline_factory(ChemblTestItemThinPipeline),
+    )
+    print(
+        "DEBUG: Completed registration, final registry size: "
+        f"{len(PIPELINE_REGISTRY)}"
+    )
+    print(
+        f"DEBUG: Registry keys: {list(PIPELINE_REGISTRY.keys())}"
     )
 
 

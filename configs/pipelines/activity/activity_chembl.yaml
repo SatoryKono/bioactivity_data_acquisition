@@ -1,0 +1,42 @@
+pipeline:
+  name: activity_chembl
+  version: 1.0.0
+
+metadata:
+  chembl_release: "30"
+  batch_size: 25
+  chunk_size: 25
+  pagination:
+    limit: 1000
+    offset: 0
+  chembl_api:
+    default_headers:
+      Accept: "application/json"
+  ids:
+    - "31863"
+    - "31864"
+    - "31865"
+    - "31866"
+    - "31867"
+
+sources:
+  chembl:
+    batch_size: 25
+    max_url_length: 2000
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    timeout: 30
+    retry_attempts: 3
+
+cache:
+  namespace: "chembl_activity"
+
+output:
+  format: csv
+  compression: none
+  
+determinism:
+  sort:
+    by: 
+      - activity_id
+      - standard_type
+      - standard_value
