@@ -5,9 +5,10 @@
 - `EntityClientProtocol` описывает операции над сущностью (`get`, `list`/`fetch_all`, `fetch_by_ids`, `search`, `close`).
 - Доменный слой работает только с этими протоколами и не зависит от конкретных реализаций транспорта или HTTP-библиотек.
 
-## Транспортные реализации
-- `clients/transports.py` содержит пример синхронного транспорта на базе `requests` и асинхронного — на базе `aiohttp`.
-- `BaseChemblClient` остаётся чистым транспортом: он адаптирует любой `ApiTransportProtocol`, добавляя обёртку для логирования и единый интерфейс `request`.
+## Рекомендованный транспорт
+- Базовый стек строится на `UnifiedAPIClient` с адаптерами (`ChemblTransportAdapter`) и фабрикой устойчивых запросов (`ResilientRequestExecutorFactory`).
+- Дополнительные кастомные транспорты (`RequestsTransport`, `AioHttpTransport`) удалены; вместо них используйте адаптеры `ApiTransportProtocol` поверх `UnifiedAPIClient`.
+- `BaseChemblClient` остаётся чистым транспортом: он принимает любой `ApiTransportProtocol`, добавляя обёртку для логирования и единый интерфейс `request`.
 
 ## Клиенты сущностей
 - `_BaseEntityClient` и `ChemblEntityClient` строят endpoints сами, принимая транспорт в конструктор и не наследуя сетевые клиенты.
@@ -17,6 +18,6 @@
 - `cache_entity_client` декорирует любой `EntityClientProtocol`, добавляя кэширование вызовов `get`/`fetch_by_ids` без изменения остальных методов.
 
 ## Быстрый старт
-1. Соберите транспорт (`RequestsTransport`, `AioHttpTransport` или `BaseChemblClient` поверх `UnifiedAPIClient`).
-2. Передайте фабрику транспорта в `ChemblEntityClientFactory` и создайте нужный entity-клиент.
+1. Соберите `UnifiedAPIClient` через `default_chembl_factory` или вручную, используя `ResilientRequestExecutorFactory` и `ChemblTransportAdapter` для получения совместимого `ApiTransportProtocol`.
+2. Передайте фабрику транспорта в `ChemblEntityClientFactory` (или используйте словарь, возвращаемый `default_chembl_factory`) и создайте нужный entity-клиент.
 3. При необходимости оберните клиент через `cache_entity_client` для мемоизации идентификаторов.
