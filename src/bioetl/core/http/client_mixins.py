@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import structlog
+from bioetl.core.http.pagination_helpers import normalize_payload
 
 if TYPE_CHECKING:
     from bioetl.core.http.interfaces import (
@@ -55,29 +56,7 @@ class ApiClientMixin:
             if page_key is not None
             else getattr(self, "_page_key_override", "results")
         )
-        if isinstance(payload, Mapping):
-            results = payload.get(effective_page_key)
-            if isinstance(results, Iterable) and not isinstance(
-                results, (str, bytes, bytearray)
-            ):
-                for item in results:
-                    if isinstance(item, Mapping):
-                        yield dict(item)
-                return
-
-            yield dict(payload)
-            return
-
-        if isinstance(payload, Iterable) and not isinstance(
-            payload, (str, bytes, bytearray)
-        ):
-            for item in payload:
-                if isinstance(item, Mapping):
-                    yield dict(item)
-            return
-
-        if payload is not None:
-            yield {"result": payload}
+        yield from normalize_payload(payload, page_key=effective_page_key)
 
     def _wrap_callable(
         self,

@@ -240,7 +240,10 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         *,
         run_id: str | None = None,
         extraction_service: "ChemblExtractionService" | None = None,
-        extraction_service_factory: Callable[[], "ChemblExtractionService"] | None = None,
+        extraction_service_factory: Callable[
+            [], "ChemblExtractionService"
+        ]
+        | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(config, run_id=run_id, **kwargs)
@@ -265,7 +268,8 @@ class ChemblPipelineBase(UnifiedPipelineBase):
             return extraction_service
 
         if extraction_service_factory is None:
-            # Default behavior: import and instantiate standard ChemblExtractionService
+            # Default behavior: import and instantiate standard
+            # ChemblExtractionService
             # pylint: disable=import-outside-toplevel
             from bioetl.pipelines.chembl.common import (
                 chembl_extraction_service,

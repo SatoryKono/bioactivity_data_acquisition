@@ -20,7 +20,6 @@ class ValidationService(Protocol):
 
     def empty_frame(self) -> pd.DataFrame:
         """Return an empty DataFrame with the correct schema."""
-        pass
 
     def validate(
         self,
@@ -40,7 +39,6 @@ class ValidationService(Protocol):
         Returns:
             The validated (and potentially sorted/coerced) DataFrame.
         """
-        pass
 
 
 class WriteService(Protocol):
@@ -68,7 +66,6 @@ class WriteService(Protocol):
         Returns:
             The result of the write operation.
         """
-        pass
 
     def write_metadata(
         self,
@@ -87,4 +84,4 @@ class WriteService(Protocol):
             df: The DataFrame associated with the artifacts (optional).
             dry_run: Whether to perform a dry run.
         """
-        pass
+        """"""

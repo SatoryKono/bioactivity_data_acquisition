@@ -270,7 +270,7 @@ class UnifiedOutputWriter:
         df: pd.DataFrame,
         artifacts: RunArtifacts,
         *,
-        file_format: Literal["csv", "parquet"] = "csv",
+        format: Literal["csv", "parquet"] = "csv",
         encoding: str = "utf-8",
         index: bool = False,
     ) -> WriteResult:
@@ -294,7 +294,7 @@ class UnifiedOutputWriter:
         df_sorted = _sort_dataframe(df_ordered, determinism)
 
         write_artifacts = artifacts.write_artifacts or WriteArtifacts()
-        extension = ".csv" if file_format == "csv" else ".parquet"
+        extension = ".csv" if format == "csv" else ".parquet"
         data_path = (
             write_artifacts.data_path
             or self.output_dir / f"{self.run_stem}{extension}"
@@ -310,9 +310,11 @@ class UnifiedOutputWriter:
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
         with AtomicWriter(data_path) as writer:
-            if file_format == "csv":
+            if format == "csv":
                 df_sorted.to_csv(
-                    writer.temp_path, index=index, encoding=encoding
+                    writer.temp_path,
+                    index=index,
+                    encoding=encoding,
                 )
             else:
                 df_sorted.to_parquet(writer.temp_path, index=index)
@@ -342,7 +344,7 @@ class UnifiedOutputWriter:
             "artifacts": {
                 "dataset": {
                     "path": data_path.name,
-                    "format": file_format,
+                    "format": format,
                     "hash": data_hash,
                     "rows": int(len(df_sorted)),
                     "business_key_hash": business_key_hash,

@@ -12,7 +12,6 @@ from bioetl.core.pipeline.types import (
     StageFactoryContext,
     StageResult,
     StageRuntimeContext,
-    WriteArtifacts,
     WriteResult,
 )
 
@@ -20,14 +19,17 @@ from bioetl.core.pipeline.types import (
 class StageFactory:
     """Factory that builds a sequence of :class:`StageCommand` objects."""
 
-    def __init__(self, pipeline: PipelineStagesProtocol | PipelineBaseProtocol) -> None:
+    def __init__(
+        self,
+        pipeline: PipelineStagesProtocol | PipelineBaseProtocol,
+    ) -> None:
         self.pipeline = pipeline
 
     def build(
         self,
         descriptors: Iterable[StageDescriptor],
-        context: StageFactoryContext,
-        options: StageExecutionOptions,
+        _context: StageFactoryContext,
+        _options: StageExecutionOptions,
         stages: Sequence[str] | None = None,
     ) -> tuple[StageCommand, ...]:
         """Build a stage plan from descriptors."""
@@ -49,9 +51,15 @@ class StageFactory:
         return tuple(self._build_stage(descriptor) for descriptor in selected)
 
     def _build_stage(self, descriptor: StageDescriptor) -> StageCommand:
+        def _handler(
+            ctx: StageFactoryContext,
+            runtime: StageRuntimeContext,
+        ) -> StageResult:
+            return self._execute_descriptor(ctx, runtime, descriptor)
+
         return StageCommand(
             name=descriptor.id,
-            handler=lambda ctx, runtime, d=descriptor: self._execute_descriptor(ctx, runtime, d),
+            handler=_handler,
             description=descriptor.kind,
         )
 
@@ -84,7 +92,11 @@ class StageFactory:
         if kind == "save_results":
             frame = context.data_bucket.require(stage=kind)
             artifacts = context.artifact_store.get()
-            result = self.pipeline.save_results(frame, artifacts, runtime.options)
+            result = self.pipeline.save_results(
+                frame,
+                artifacts,
+                runtime.options,
+            )
             if isinstance(result, WriteResult):
                 context.artifact_store.set(result.artifacts)
             return StageResult(name=descriptor.id, output=result)

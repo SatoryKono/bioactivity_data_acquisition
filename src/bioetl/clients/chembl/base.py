@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
-from bioetl.core.http.entity_helpers import (
+from bioetl.core.http.pagination_helpers import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,

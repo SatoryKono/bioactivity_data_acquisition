@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Protocol, cast
+from typing import Any, Callable, Iterable, Mapping, cast
 
 import pandas as pd
 
@@ -16,14 +16,11 @@ from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline import factories
 from bioetl.core.pipeline.factory import StageFactory
 from bioetl.core.pipeline.services import (
-    ArtifactPlanner,
     ArtifactRuntimeService,
     ContextBuilder,
     MetadataRuntimeService,
-    MetadataService,
     OrchestrationService,
     QCService,
-    RunMetadataBuilder,
     StagePlanExecutor,
     ValidationService,
     WriteService,
@@ -50,13 +47,10 @@ from bioetl.core.pipeline.artifact_runtime_builder import (
     ArtifactRuntimeBuilder,
     ArtifactRuntimeBuilderProtocol,
 )
-from bioetl.core.pipeline.metadata_runtime_builder import MetadataRuntimeBuilder
-from bioetl.core.runtime import (
-    LifecycleCoordinator,
-    MetadataCoordinator,
-    OrchestrationCoordinator,
-    QCCoordinator,
+from bioetl.core.pipeline.metadata_runtime_builder import (
+    MetadataRuntimeBuilder,
 )
+from bioetl.core.runtime import LifecycleCoordinator, OrchestrationCoordinator
 from bioetl.core.pipeline.qc_runtime_builder import QCRuntimeBuilder
 
 
@@ -91,7 +85,10 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         | None = None,
         artifact_runtime_service: ArtifactRuntimeService | None = None,
         artifact_runtime_builder: ArtifactRuntimeBuilderProtocol | None = None,
-        qc_runtime_service_factory: Callable[["PipelineRuntimeBase"], Any] | None = None,
+        qc_runtime_service_factory: Callable[
+            ["PipelineRuntimeBase"], Any
+        ]
+        | None = None,
         qc_runtime_builder: QCRuntimeBuilder | None = None,
         metadata_runtime_service_factory: Callable[
             ["PipelineRuntimeBase"], MetadataRuntimeService
@@ -122,19 +119,25 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
         )
         self.dry_run = False
 
-        artifact_runtime_factory = artifact_runtime_service_factory or factories.default_artifact_runtime_service_factory(
-            artifact_runtime_builder=artifact_runtime_builder,
-            artifact_runtime_service=artifact_runtime_service,
+        artifact_runtime_factory = (
+            artifact_runtime_service_factory
+            or factories.default_artifact_runtime_service_factory(
+                artifact_runtime_builder=artifact_runtime_builder,
+                artifact_runtime_service=artifact_runtime_service,
+            )
         )
-        self.artifact_runtime_service = artifact_runtime_service or artifact_runtime_factory(
-            self
+        self.artifact_runtime_service = (
+            artifact_runtime_service or artifact_runtime_factory(self)
         )
         self.artifact_planner = self.artifact_runtime_service.artifact_planner
         self.artifact_service = self.artifact_runtime_service.artifact_service
 
-        qc_runtime_factory = qc_runtime_service_factory or factories.default_qc_runtime_service_factory(
-            stage_plan_executor=stage_plan_executor,
-            qc_runtime_builder=qc_runtime_builder,
+        qc_runtime_factory = (
+            qc_runtime_service_factory
+            or factories.default_qc_runtime_service_factory(
+                stage_plan_executor=stage_plan_executor,
+                qc_runtime_builder=qc_runtime_builder,
+            )
         )
         self.qc_runtime_service, self.qc_coordinator = qc_runtime_factory(self)
         metadata_runtime_factory = (
@@ -146,9 +149,10 @@ class PipelineRuntimeBase(ABC, PipelineBaseProtocol):
                 metadata_runtime_builder=metadata_runtime_builder,
             )
         )
-        self.metadata_runtime_service, self.metadata_coordinator = metadata_runtime_factory(
-            self
-        )
+        (
+            self.metadata_runtime_service,
+            self.metadata_coordinator,
+        ) = metadata_runtime_factory(self)
         self.metadata_service = self.metadata_coordinator.metadata_service
         self.run_metadata_builder = getattr(
             self.metadata_service,
