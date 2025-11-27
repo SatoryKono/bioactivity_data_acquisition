@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
-from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor
+from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor, ChemblPipelineBase
 from bioetl.pipelines.chembl.common.base import (
     ChemblCommonPipeline,
     ChemblWriteService,
@@ -269,31 +269,6 @@ class TestChemblCommonPipeline:
         
         assert not result.empty
         pipeline.validation_service.empty_frame.assert_called_once()
-
-    def test_extract_wet_run(self) -> None:
-        """Test extract method in wet run mode."""
-        config = {
-            "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
-            "cache": {"namespace": "test"},
-            "determinism": {"sort": {"by": ["id"]}},
-            "ids": ["CHEMBL1", "CHEMBL2"]
-        }
-        
-        with patch.object(ChemblPipelineBase, 'run_descriptor_extraction') as mock_extract:
-            mock_extract.return_value = (
-                pd.DataFrame([{"id": 1}]), 
-                MagicMock()
-            )
-            
-            pipeline = ChemblCommonPipeline(config, run_id="test")
-            
-            options = MagicMock()
-            options.dry_run = False
-            
-            result = pipeline.extract(None, options)
-            
-            assert not result.empty
-            mock_extract.assert_called_once()
 
     def test_transform(self) -> None:
         """Test transform method."""

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -66,7 +68,7 @@ class FailingChemblClient(DummyChemblClient):
         return data
 
 
-class DummyConfig(PipelineConfig):
+class DummyConfig(PipelineConfig, Mapping):
     """Minimal pipeline config for activity_chembl tests."""
 
     metadata: dict
@@ -82,6 +84,40 @@ class DummyConfig(PipelineConfig):
             materialization=MaterializationConfig(root=root),
         )
         self.metadata = {"ids": ids or ["1", "2", "3", "4", "5"]}
+        # Add required ChEMBL configuration
+        self._config = {
+            "sources": {
+                "chembl": {
+                    "batch_size": 10,
+                    "max_url_length": 1000
+                }
+            },
+            "cache": {"namespace": "test"},
+            "determinism": {"sort": {"by": ["activity_id"]}},
+            "ids": ids or ["1", "2", "3", "4", "5"],
+            "metadata": self.metadata  # Add metadata to config dict
+        }
+
+    def __getitem__(self, key: str) -> Any:
+        # Support nested key access with dot notation for config validation
+        if "." in key:
+            current = self._config
+            for part in key.split("."):
+                if isinstance(current, dict) and part in current:
+                    current = current[part]
+                else:
+                    raise KeyError(f"Missing configuration key: {key}")
+            return current
+        return self._config[key]
+
+    def __iter__(self):
+        return iter(self._config)
+
+    def __len__(self) -> int:
+        return len(self._config)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._config.get(key, default)
 
 
 def test_run_smoke(tmp_path: Path) -> None:

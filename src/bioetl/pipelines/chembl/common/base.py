@@ -9,11 +9,15 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 import pandas as pd
 import yaml
 
-from bioetl.core.pipeline.services import default_write_service_factory
+from bioetl.core.pipeline.services import (
+    default_write_service_factory,
+    ArtifactPlanner,
+)
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor, ChemblPipelineBase
 from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
 from bioetl.pipelines.chembl.common.descriptor import ConfigValidationError, ChemblExtractionDescriptor
+from bioetl.core.io.artifacts import SchemaRegistry
 
 
 class ChemblWriteService:
@@ -104,6 +108,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         extraction_service_factory: (
             Callable[[], ChemblExtractionService] | None
         ) = None,
+        artifact_runtime_service_factory: Callable[[Any], Any] | None = None,
         custom_artifact_planner_factory: Callable[[], ArtifactPlanner] | None = None,
         schema_registry_factory: Callable[[], SchemaRegistry] | None = None,
         descriptor_type: str = "service",
@@ -113,6 +118,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
             run_id=run_id,
             extraction_service=extraction_service,
             extraction_service_factory=extraction_service_factory,
+            artifact_runtime_service_factory=artifact_runtime_service_factory,
             write_service_factory=default_write_service_factory,
         )
         self._validate_common_config()
@@ -196,6 +202,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
     def save_results(
         self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
     ) -> WriteResult:
+        """Save results using default implementation."""
         return super().save_results(df, artifacts, options)
 
     def _write_quality_report(self, df: pd.DataFrame, output_path: Path) -> None:
@@ -241,7 +248,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                         result = fetcher(batch)
                     else:
                         result = [{"chembl_id": chembl_id} for chembl_id in batch]
-                except Exception as exc:  # pragma: no cover
+                except Exception as exc:  
                     fallback_rows = self._fallback_rows(batch, exc)
                     meta["fallback"] = len(fallback_rows)
                     return fallback_rows, meta

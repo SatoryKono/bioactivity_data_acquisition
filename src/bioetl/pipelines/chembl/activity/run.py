@@ -37,12 +37,13 @@ from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
+    RunResult,
+    RunArtifacts,
     StageContextProtocol,
     StageExecutionOptions,
     StageRuntimeContext,
     WriteResult,
 )
-from bioetl.core.pipeline.unified import ChemblPipelineBase
 from bioetl.pipelines.chembl.common import (
     BatchPlan,
     ChemblExtractionDescriptor,
@@ -153,7 +154,12 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         super().__init__(
             config,
             run_id=run_id,
-            custom_artifact_planner_factory=lambda: ActivityArtifactPlanner(self),
+            artifact_runtime_service_factory=(
+                activity_artifact_runtime_service_factory
+            ),
+            custom_artifact_planner_factory=(
+                lambda: ActivityArtifactPlanner(self)
+            ),
             schema_registry_factory=self._build_schema_registry,
             descriptor_type="dataclass",
         )
@@ -216,14 +222,13 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         self._descriptor = descriptor
         return descriptor
 
-    def resolve_chembl_release(
-        self, config: Mapping[str, Any] | None
-    ) -> tuple[str | None, dict]:  # type: ignore[override]
+    def resolve_chembl_release(self, config: Any) -> str:
         metadata = self._get_config_metadata(config)
         if isinstance(metadata, Mapping) and metadata.get("chembl_release"):
-            return metadata.get("chembl_release"), {"source": "config"}
+            return metadata.get("chembl_release")
         if self._release:
-            return self._release, {"source": "cached"}
+            return self._release
+        return None
         return None, {"source": "unknown"}
 
     # Orchestration hooks --------------------------------------------------
@@ -249,8 +254,8 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
 
     # Stage implementations -----------------------------------------------
     def _extract_with_dataclass_descriptor(
-        self, 
-        descriptor: ChemblExtractionDescriptor, 
+        self,
+        descriptor: ChemblExtractionDescriptor,
         options: StageExecutionOptions
     ) -> pd.DataFrame:
         """Extract data using dataclass descriptor pattern."""
@@ -289,6 +294,91 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
     ) -> pd.DataFrame:
         """Validate transformed data."""
         return df
+
+    def run(
+        self,
+        output_dir: Path,
+        *,
+        run_tag: str | None = None,
+        mode: str | None = None,
+        extended: bool = False,
+        dry_run: bool | None = None,
+        sample: int | None = None,
+        limit: int | None = None,
+        include_qc_metrics: bool = False,
+        fail_on_schema_drift: bool = True,
+    ) -> RunResult:
+        """Execute the activity pipeline with custom descriptor handling."""
+        # Use the original activity pipeline execution flow
+        # to avoid StageDescriptor wrapping issues
+        options = StageExecutionOptions(
+            run_tag=run_tag,
+            mode=mode,
+            extended=extended,
+            dry_run=dry_run,
+            sample=sample,
+            limit=limit,
+            include_qc_metrics=include_qc_metrics,
+            fail_on_schema_drift=fail_on_schema_drift,
+        )
+        
+        self.prepare_run(options)
+        
+        # Extract using activity-specific descriptor
+        descriptor = self.build_descriptor()
+        df = self.extract(descriptor, options)
+        
+        # Transform, validate, save
+        df = self.transform(df, options)
+        df = self.validate(df, options)
+        
+        # Plan artifacts and save results
+        artifacts = self.plan_run_artifacts(output_dir, run_tag, mode)[1]
+        result = self.save_results(df, artifacts, options)
+        
+        # Generate QC reports
+        if self.qc_orchestrator and not options.dry_run:
+            try:
+                qc_context = self.context_builder.build(
+                    execution=DefaultExecutionContext(
+                        logger=UnifiedLogger.get(self.__class__.__name__).bind(
+                            run_id=self.run_id,
+                            pipeline=self.pipeline_code,
+                        ),
+                        request_id=self.run_id,
+                        trace_id=self.run_id,
+                    ),
+                    domain=DefaultDomainContext(pipeline=self),
+                    infrastructure=DefaultInfrastructureContext(
+                        output_dir=output_dir,
+                        metadata_service=self.metadata_service,
+                        qc_orchestrator=self.qc_orchestrator,
+                    ),
+                    artifacts=DefaultArtifactContext(
+                        data_bucket=DataBucket(),
+                        artifact_store=ArtifactStore(artifacts),
+                    ),
+                )
+                qc_path, qc_error = self.qc_orchestrator.run(qc_context, options)
+                if qc_error:
+                    logger = UnifiedLogger.get(self.__class__.__name__)
+                    logger.error("QC generation failed", error=qc_error)
+            except Exception as exc:
+                # QC generation failures shouldn't break the pipeline
+                logger = UnifiedLogger.get(self.__class__.__name__)
+                logger.error("QC generation exception", error=str(exc))
+        
+        return RunResult(
+            success=True,
+            rows=len(df),
+            artifacts=RunArtifacts(
+                output_dir=output_dir,
+                logs_directory=output_dir / "logs",
+                write_artifacts=artifacts,
+            ),
+            duration_ms={},
+            metadata=self.build_pipeline_metadata(),
+        )
 
     def save_results(
         self,
