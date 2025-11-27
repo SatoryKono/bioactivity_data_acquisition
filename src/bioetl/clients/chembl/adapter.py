@@ -11,13 +11,16 @@ from typing import Any
 
 import structlog
 
+from bioetl.clients.pagination import (
+    PaginationFactory,
+    PaginationRegistry,
+    create_pagination_strategy,
+    get_default_pagination_registry,
+)
 from bioetl.core.http import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
-from bioetl.clients.pagination import (
-    PaginationRegistry,
-    get_default_pagination_registry,
-)
+from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
 
 
 class ChemblTransportAdapter(
@@ -31,18 +34,13 @@ class ChemblTransportAdapter(
         *,
         pagination_strategy: PaginationStrategy | None = None,
         pagination_strategy_name: str | None = None,
-        pagination_registry: PaginationRegistry | None = None,
+        pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
         self._base_transport = transport
         self.transport = transport
-        self.pagination_registry = (
-            pagination_registry or get_default_pagination_registry()
-        )
-        self.pagination_strategy = (
-            pagination_strategy
-            or self.pagination_registry.create(
-                pagination_strategy_name or "next_link"
-            )
+        self.pagination_strategy = pagination_strategy or create_pagination_strategy(
+            pagination_strategy_name,
+            factories=pagination_factories,
         )
         self._metadata: dict[str, Any] = {}
         self._logger = structlog.get_logger(__name__).bind(

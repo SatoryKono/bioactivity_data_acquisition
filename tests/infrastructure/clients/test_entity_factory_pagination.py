@@ -16,7 +16,6 @@ from bioetl.clients.chembl.entities import (
 )
 from bioetl.clients.factories import default_chembl_factory
 from bioetl.core.config.models import PipelineConfig
-from bioetl.clients.pagination import PaginationRegistry
 
 
 class _ScriptedTransport(ApiTransportProtocol):
@@ -89,10 +88,7 @@ def test_entity_factory_passes_explicit_strategy_instance() -> None:
 
 def test_default_factory_resolves_named_strategy_for_pagination() -> None:
     """Test that default factory resolves named pagination strategy."""
-    registry = PaginationRegistry()
-    registry.register(
-        "page_param", lambda **_: PageParamPagination()
-    )
+    pagination_factories = {"page_param": lambda **_: PageParamPagination()}
 
     transport = _ScriptedTransport(
         [
@@ -105,8 +101,8 @@ def test_default_factory_resolves_named_strategy_for_pagination() -> None:
     factory = default_chembl_factory(
         PipelineConfig(),
         transport_factory=lambda: transport,
-        pagination_registry=registry,
         pagination_strategy_name="page_param",
+        pagination_factories=pagination_factories,
     )
 
     client = factory["activity"]()
