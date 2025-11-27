@@ -1,0 +1,51 @@
+meta:
+  source_urls:
+    - "https://chemrxiv.org/engage/api-gateway/chemrxiv/assets/orp/resource/item/68bb1ba6a94eede154e9e76f/original/enhancing-bioassay-annotations-in-ch-embl-with-artificial-intelligence.pdf"
+    - "https://chembl.blogspot.com/2023/12/in-search-of-perfect-assay-description.html"
+  chembl_release: "36 (2025-09)"
+  updated_at: "2025-11-07"
+values:
+  -
+    id: "B"
+    aliases:
+      - "Binding"
+    description: "Binding assay"
+    status: "active"
+    notes: ""
+  -
+    id: "F"
+    aliases:
+      - "Functional"
+    description: "Functional assay"
+    status: "active"
+    notes: ""
+  -
+    id: "A"
+    aliases:
+      - "ADME"
+    description: "ADME assay"
+    status: "active"
+    notes: "Toxicity (T) separated out from A starting from ChEMBL 18."
+  -
+    id: "T"
+    aliases:
+      - "Toxicity"
+    description: "Toxicity assay"
+    status: "active"
+    notes: "Introduced as separate type from A in ChEMBL 18."
+  -
+    id: "P"
+    aliases:
+      - "Physicochemical"
+    description: "Physicochemical property assay"
+    status: "active"
+    notes: ""
+  -
+    id: "U"
+    aliases:
+      - "Unclassified"
+    description: "Unclassified/unspecified assay"
+    status: "active"
+    notes: ""
+rules:
+  normalization: "strip; uppercase single-letter codes; map long labels to codes"

@@ -1,0 +1,33 @@
+meta:
+  chembl_release: ChEMBL 36
+  source_urls:
+  - https://www.ebi.ac.uk/chembl/api/data/docs
+  - https://chembl.blogspot.com/2025/09/chembl-36-is-out.html
+  - https://chembl.blogspot.com/2020/10/data-checks.html
+  - https://github.com/chembl/GLaDOS-docs/blob/master/frequently-asked-questions/chembl-data-questions.md
+  updated_at: '2025-11-07'
+values:
+- id: nM
+  aliases:
+  - NM
+  - nm
+  - nanoM
+  - nanomolar
+  - NANOMOLAR
+  status: active
+- id: uM
+  aliases:
+  - UM
+  - µM
+  - μM
+  status: deprecated
+- id: pM
+  aliases:
+  - PM
+  status: deprecated
+- id: mM
+  aliases:
+  - MM
+  status: deprecated
+rules:
+  normalization: trim|upper|map_aliases_to_id

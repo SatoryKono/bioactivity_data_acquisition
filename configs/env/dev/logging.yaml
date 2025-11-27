@@ -1,0 +1,5 @@
+# Development environment logging configuration
+logging:
+  level: DEBUG
+  format: json
+  with_timestamps: true

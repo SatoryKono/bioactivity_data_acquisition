@@ -1,0 +1,15 @@
+# configs/defaults/output.yaml
+#
+# Настройки вывода и материализации, переиспользуемые всеми пайплайнами.
+
+io:
+  output:
+    format: parquet
+    partition_by: []
+    overwrite: true
+    path: null
+
+materialization:
+  root: data/output
+  default_format: parquet
+

@@ -1,0 +1,57 @@
+meta:
+  source_urls:
+    - "https://github.com/chembl/GLaDOS-docs/blob/master/frequently-asked-questions/target-questions.md"
+    - "https://www.ebi.ac.uk/chembl/visualise/"
+  chembl_release: "36 (2025-09)"
+  updated_at: "2025-11-07"
+values:
+  -
+    id: "SINGLE PROTEIN"
+    aliases:
+      - "PROTEIN"
+    description: "Single molecular protein target"
+    status: "active"
+  -
+    id: "PROTEIN FAMILY"
+    aliases:
+
+    description: "Family of related proteins"
+    status: "active"
+  -
+    id: "PROTEIN COMPLEX"
+    aliases:
+
+    description: "Complex of multiple proteins"
+    status: "active"
+  -
+    id: "CELL-LINE"
+    aliases:
+      - "CELL LINE"
+    description: "Cell line target"
+    status: "active"
+  -
+    id: "TISSUE"
+    aliases:
+
+    description: "Tissue-level target"
+    status: "active"
+  -
+    id: "ORGANISM"
+    aliases:
+
+    description: "Whole organism target"
+    status: "active"
+  -
+    id: "PROTEIN COMPLEX GROUP"
+    aliases:
+
+    description: "Grouping of protein complexes"
+    status: "active"
+  -
+    id: "PROTEIN FAMILY GROUP"
+    aliases:
+
+    description: "Grouping of protein families"
+    status: "active"
+rules:
+  normalization: "strip; collapse whitespace; uppercase; map hyphen variants"

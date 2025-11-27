@@ -13,10 +13,22 @@ from bioetl.core.pipeline.services import (
     default_write_service_factory,
     ArtifactPlanner,
 )
-from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
-from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor, ChemblPipelineBase
-from bioetl.pipelines.chembl.common.chembl_extraction_service import ChemblExtractionService
-from bioetl.pipelines.chembl.common.descriptor import ConfigValidationError, ChemblExtractionDescriptor
+from bioetl.core.pipeline.types import (
+    StageExecutionOptions,
+    WriteArtifacts,
+    WriteResult,
+)
+from bioetl.core.pipeline.unified import (
+    ChemblExtractionServiceDescriptor,
+    ChemblPipelineBase,
+)
+from bioetl.pipelines.chembl.common.chembl_extraction_service import (
+    ChemblExtractionService,
+)
+from bioetl.pipelines.chembl.common.descriptor import (
+    ConfigValidationError,
+    ChemblExtractionDescriptor,
+)
 from bioetl.core.io.artifacts import SchemaRegistry
 
 
@@ -39,12 +51,24 @@ class ChemblWriteService:
         date_suffix = datetime.utcnow().date().isoformat()
         stem = f"{self.pipeline.entity_name}_chembl"
         dataset_path = artifacts.data_path or artifacts.extra.get("dataset")
-        output_dir = (dataset_path.parent if dataset_path else context.output_dir).resolve()
+        # Determine output directory first
+        if dataset_path:
+            output_dir = dataset_path.parent.resolve()
+        else:
+            output_dir = context.output_dir.resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
-        dataset_path = dataset_path or output_dir / f"{stem}_all_{date_suffix}.csv"
-        quality_report_path = artifacts.quality_report_path or output_dir / f"{stem}_quality_report.csv"
+        dataset_path = (
+            dataset_path or output_dir / f"{stem}_all_{date_suffix}.csv"
+        )
+        quality_report_path = (
+            artifacts.quality_report_path
+            or output_dir / f"{stem}_quality_report.csv"
+        )
         meta_path = artifacts.meta_path or output_dir / f"{stem}_meta.yaml"
-        manifest_path = artifacts.manifest_path or output_dir / f"{stem}_run_manifest.json"
+        manifest_path = (
+            artifacts.manifest_path
+            or output_dir / f"{stem}_run_manifest.json"
+        )
 
         artifacts.data_path = dataset_path
         artifacts.quality_report_path = quality_report_path
@@ -87,7 +111,14 @@ class ChemblWriteService:
                 metadata_writer(output_dir, df)
         return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)
 
-    def write_metadata(self, output_dir: Path, artifacts: WriteArtifacts, df: pd.DataFrame | None, *, dry_run: bool) -> None:  # noqa: D401
+    def write_metadata(
+        self,
+        output_dir: Path,
+        artifacts: WriteArtifacts,
+        df: pd.DataFrame | None,
+        *,
+        dry_run: bool,
+    ) -> None:  # noqa: D401
         """Совместимость с интерфейсом WriteService (метаданные пишутся в save)."""
         _ = (output_dir, artifacts, df, dry_run)
         return None
@@ -130,37 +161,61 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
     def _validate_common_config(self) -> None:
         batch_size = self._get_config_value("sources.chembl.batch_size")
-        if not isinstance(batch_size, int) or batch_size <= 0 or batch_size > 25:
-            raise ConfigValidationError("sources.chembl.batch_size must be integer within (0,25]")
+        if (
+            not isinstance(batch_size, int)
+            or batch_size <= 0
+            or batch_size > 25
+        ):
+            raise ConfigValidationError(
+                "sources.chembl.batch_size must be integer within (0,25]"
+            )
 
         max_url_length = self._get_config_value("sources.chembl.max_url_length")
-        if not isinstance(max_url_length, int) or max_url_length <= 0 or max_url_length > 2000:
-            raise ConfigValidationError("sources.chembl.max_url_length must be integer within (0,2000]")
+        if (
+            not isinstance(max_url_length, int)
+            or max_url_length <= 0
+            or max_url_length > 2000
+        ):
+            raise ConfigValidationError(
+                "sources.chembl.max_url_length must be integer within (0,2000]"
+            )
 
         namespace = self._get_config_value("cache.namespace")
         if not isinstance(namespace, str) or not namespace.strip():
             raise ConfigValidationError("cache.namespace must be non-empty string")
 
         sort_by = self._get_config_value("determinism.sort.by")
-        if not isinstance(sort_by, list) or not all(isinstance(x, str) for x in sort_by):
-            raise ConfigValidationError("determinism.sort.by must be a list of strings")
-        missing = [field for field in self.required_sort_fields if field not in sort_by]
+        if (
+            not isinstance(sort_by, list)
+            or not all(isinstance(x, str) for x in sort_by)
+        ):
+            raise ConfigValidationError(
+                "determinism.sort.by must be a list of strings"
+            )
+        missing = [
+            field for field in self.required_sort_fields if field not in sort_by
+        ]
         if missing:
             raise ConfigValidationError(
-                f"determinism.sort.by is missing required fields for {self.entity_name}: {missing}"
+                f"determinism.sort.by is missing required fields for "
+                f"{self.entity_name}: {missing}"
             )
 
     def _get_config_value(self, dotted_path: str) -> Any:
         current: Any = self.config
         for part in dotted_path.split("."):
             if not isinstance(current, Mapping) or part not in current:
-                raise ConfigValidationError(f"Missing configuration key: {dotted_path}")
+                raise ConfigValidationError(
+                    f"Missing configuration key: {dotted_path}"
+                )
             current = current[part]
         return current
 
     def extract(
         self,
-        descriptor: ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor | None,
+        descriptor: (
+            ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor | None
+        ),
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         if options.dry_run and self.validation_service:
@@ -184,9 +239,16 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 summary_event=f"{self.entity_name}_summary",
                 batch_size=int(self._get_config_value("sources.chembl.batch_size")),
             )
+            # Return schema-compliant empty dataframe if extraction returned
+            # empty
+            if frame.empty and self.validation_service:
+                return self.validation_service.empty_frame()
             return frame
         
-        # Fallback for backward compatibility
+        # Fallback for backward compatibility - return schema-compliant empty
+        # frame
+        if self.validation_service:
+            return self.validation_service.empty_frame()
         return pd.DataFrame()
 
     def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
@@ -200,7 +262,10 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         return df
 
     def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
     ) -> WriteResult:
         """Save results using default implementation."""
         return super().save_results(df, artifacts, options)
@@ -209,7 +274,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         summary = {
             "rows": int(df.shape[0]),
             "columns": len(df.columns),
-            "missing_values": int(df.isna().sum().sum()) if not df.empty else 0,
+            "missing_values": int(df.isna().sum().sum())
+            if not df.empty
+            else 0,
         }
         pd.DataFrame([summary]).to_csv(output_path, index=False)
 
@@ -230,7 +297,11 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
     def _build_generic_descriptor(self) -> ChemblExtractionServiceDescriptor:
         def build_context(_pipeline: ChemblCommonPipeline) -> Mapping[str, Any]:
-            chembl_ctx = self.config.get("sources", {}).get("chembl", {}) if isinstance(self.config, Mapping) else {}
+            chembl_ctx = (
+                self.config.get("sources", {}).get("chembl", {})
+                if isinstance(self.config, Mapping)
+                else {}
+            )
             return {
                 "chembl_client": chembl_ctx.get("client"),
                 "entity_fetcher": chembl_ctx.get(f"{self.entity_name}_fetcher"),
@@ -248,14 +319,16 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                         result = fetcher(batch)
                     else:
                         result = [{"chembl_id": chembl_id} for chembl_id in batch]
-                except Exception as exc:  
+                except Exception as exc:
                     fallback_rows = self._fallback_rows(batch, exc)
                     meta["fallback"] = len(fallback_rows)
                     return fallback_rows, meta
 
                 if isinstance(result, tuple) and len(result) == 2:
                     rows, extra = result
-                    meta.update({k: v for k, v in extra.items() if k not in meta})
+                    meta.update(
+                        {k: v for k, v in extra.items() if k not in meta}
+                    )
                     return rows, meta
                 return result, meta
 
@@ -267,8 +340,16 @@ class ChemblCommonPipeline(ChemblPipelineBase):
             def finalize(df: pd.DataFrame) -> pd.DataFrame:
                 if release and "chembl_release" not in df.columns:
                     df = df.assign(chembl_release=release)
-                sort_columns = list(self.required_sort_fields) if self.required_sort_fields else list(df.columns)
-                return df.sort_values(by=sort_columns, ignore_index=True) if not df.empty else df
+                sort_columns = (
+                    list(self.required_sort_fields)
+                    if self.required_sort_fields
+                    else list(df.columns)
+                )
+                return (
+                    df.sort_values(by=sort_columns, ignore_index=True)
+                    if not df.empty
+                    else df
+                )
 
             return finalize
 
@@ -278,17 +359,19 @@ class ChemblCommonPipeline(ChemblPipelineBase):
             finalizer_factory=finalizer_factory,
         )
 
-    def build_descriptor(self) -> ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor:  # pragma: no cover - должен быть переопределён
+    def build_descriptor(
+        self,
+    ) -> ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor:  # pragma: no cover - должен быть переопределён
         raise NotImplementedError
 
     def _extract_with_dataclass_descriptor(
-        self, 
-        descriptor: ChemblExtractionDescriptor, 
-        options: StageExecutionOptions
+        self,
+        descriptor: ChemblExtractionDescriptor,
+        options: StageExecutionOptions,
     ) -> pd.DataFrame:
         """Extract data using dataclass descriptor pattern (for Activity pipeline)."""
-        # This method should be overridden by pipelines using dataclass descriptors
-        # Default implementation returns empty DataFrame
+        # This method should be overridden by pipelines using dataclass
+        # descriptors. Default implementation returns empty DataFrame
         if options.dry_run:
             return pd.DataFrame()
         

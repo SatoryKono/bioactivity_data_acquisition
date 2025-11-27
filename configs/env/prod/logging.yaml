@@ -1,0 +1,5 @@
+# Production environment logging configuration
+logging:
+  level: INFO
+  format: json
+  with_timestamps: true

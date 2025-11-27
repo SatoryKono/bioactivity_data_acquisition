@@ -1,0 +1,47 @@
+# Controlled vocabulary: Organism / taxon normalization (for assays/targets)
+# Notes:
+# - Normalize textual organism fields to a canonical scientific name (upper-cased ID) and NCBI Taxon ID.
+# - Maintain both assay organism and target organism when they differ.
+meta:
+  source_urls:
+    - https://www.ebi.ac.uk/chembl/api/data/docs          # ChEMBL API live docs (organism fields on assays/targets)
+    - https://www.ebi.ac.uk/ols4/ontologies/uberon        # OLS (context for anatomy; organism mapping is external to UBERON)
+    - https://www.ncbi.nlm.nih.gov/taxonomy               # NCBI Taxonomy (authoritative identifiers)
+  chembl_release: "latest"
+  updated_at: "2025-11-07"
+values:
+  - id: "HOMO SAPIENS"
+    scientific_name: "Homo sapiens"
+    ncbi_taxon_id: 9606
+    rank: "species"
+    aliases: ["Human", "H. sapiens"]
+    status: "active"
+  - id: "MUS MUSCULUS"
+    scientific_name: "Mus musculus"
+    ncbi_taxon_id: 10090
+    rank: "species"
+    aliases: ["Mouse", "M. musculus"]
+    status: "active"
+  - id: "RATTUS NORVEGICUS"
+    scientific_name: "Rattus norvegicus"
+    ncbi_taxon_id: 10116
+    rank: "species"
+    aliases: ["Rat", "R. norvegicus"]
+    status: "active"
+  - id: "ESCHERICHIA COLI"
+    scientific_name: "Escherichia coli"
+    ncbi_taxon_id: 562
+    rank: "species"
+    aliases: ["E. coli"]
+    status: "active"
+  - id: "SACCHAROMYCES CEREVISIAE"
+    scientific_name: "Saccharomyces cerevisiae"
+    ncbi_taxon_id: 4932
+    rank: "species"
+    aliases: ["S. cerevisiae", "Yeast"]
+    status: "active"
+rules:
+  normalization: "upper; trim; map aliases→id"
+  validation:
+    require_ncbi_taxon_id: true
+  notes: "Extend with additional taxa encountered in dumps; prefer scientific names + NCBI IDs."

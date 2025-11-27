@@ -1,0 +1,12 @@
+# configs/defaults/logging.yaml
+#
+# Общий профиль логирования для пайплайнов BioETL.
+
+logging:
+  level: INFO
+  format: json
+  with_timestamps: true
+  context_fields:
+    - pipeline
+    - run_id
+
