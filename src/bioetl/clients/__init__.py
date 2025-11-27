@@ -1,7 +1,14 @@
-"""HTTP-клиенты BioETL."""
+"""Backward-compat shim for bioetl.clients -> bioetl.infrastructure.clients"""
 
-from bioetl.clients.client_exceptions import ConnectionError, HTTPError, RequestException, Timeout
-from bioetl.clients.common import (
+from __future__ import annotations
+
+from bioetl.infrastructure.clients.client_exceptions import (
+    ConnectionError,
+    HTTPError,
+    RequestException,
+    Timeout,
+)
+from bioetl.infrastructure.clients.common import (
     ApiTransportProtocol,
     EntityClientProtocol,
     NextLinkPagination,
@@ -9,18 +16,36 @@ from bioetl.clients.common import (
     PaginationStrategy,
     cache_entity_client,
 )
-from bioetl.clients.chembl import (
+from bioetl.infrastructure.clients.chembl import (
     ChemblActivityClient,
     ChemblAssayClient,
     ChemblDocumentClient,
     ChemblTargetClient,
     ChemblTestItemClient,
 )
-from bioetl.clients.entities import ChemblEntityClientFactory
-from bioetl.clients.entities.common import CHEMBL_ALLOWED_ENTITIES
-from bioetl.clients.transports import AioHttpTransport, RequestsTransport
-from bioetl.clients.factories import default_chembl_factory
+from bioetl.infrastructure.clients.entities.common import (
+    CHEMBL_ALLOWED_ENTITIES,
+)
+from bioetl.infrastructure.clients.entities import (
+    ChemblEntityClientFactory,
+)
+from bioetl.infrastructure.clients.transports import (
+    AioHttpTransport,
+    RequestsTransport,
+)
+from bioetl.infrastructure.clients.factories import (
+    default_chembl_factory,
+)
 from bioetl.infra import PaginationRegistry
+import warnings
+
+# Issue deprecation warning on first import
+warnings.warn(
+    "Importing from 'bioetl.clients' is deprecated; "
+    "use 'bioetl.infrastructure.clients' instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def make_chembl_client(
@@ -47,6 +72,7 @@ def make_chembl_client(
         pagination_registry=pagination_registry,
     )
     return factory.create(entity)
+
 
 __all__ = [
     "ConnectionError",

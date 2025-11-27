@@ -11,7 +11,7 @@ from bioetl.core.io.artifacts import RunArtifacts
 from bioetl.core.pipeline.services import DefaultValidationService
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.pipelines.chembl.common import ChemblCommonPipeline
-from bioetl.schemas import TargetSchema
+from bioetl.core.schemas import TargetSchema
 
 if TYPE_CHECKING:  # pragma: no cover
     from bioetl.core.io.output import UnifiedOutputWriter

@@ -1,1 +1,0 @@
-from .testitem_normalizer import normalize_testitem

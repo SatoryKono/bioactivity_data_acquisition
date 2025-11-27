@@ -89,8 +89,7 @@ class PipelineBase(PipelineRuntimeBase):
                 write_service_factory
                 or default_write_service_factory
             ),
-            artifact_runtime_service_factory=
-            artifact_runtime_service_factory,
+            artifact_runtime_service_factory=artifact_runtime_service_factory,
         )
 
     @abstractmethod
@@ -117,8 +116,13 @@ class PipelineBase(PipelineRuntimeBase):
         if not options.enable_validation:
             return df
 
-        if self.validator is not None and self.validation_service is not None:
-            return self.validation_service.validate(df, pipeline=self, options=options)
+        if (
+            self.validator is not None
+            and self.validation_service is not None
+        ):
+            return self.validation_service.validate(
+                df, pipeline=self, options=options
+            )
 
         return df
 
@@ -137,9 +141,17 @@ class PipelineBase(PipelineRuntimeBase):
             raise NotImplementedError(msg)
 
         from bioetl.core.logging import UnifiedLogger
-        from bioetl.core.pipeline.types import ArtifactStore, DataBucket, StageRuntimeContext
+        from bioetl.core.pipeline.types import (
+            ArtifactStore,
+            DataBucket,
+            StageRuntimeContext,
+        )
 
-        output_dir = artifacts.data_path.parent if artifacts.data_path else self.output_root
+        output_dir = (
+            artifacts.data_path.parent
+            if artifacts.data_path
+            else self.output_root
+        )
         stage_context = self.context_builder.build(
             logger=UnifiedLogger.get(self.__class__.__name__).bind(
                 run_id=self.run_id,
@@ -151,7 +163,10 @@ class PipelineBase(PipelineRuntimeBase):
             metadata_service=self.metadata_service,
             qc_orchestrator=self.qc_orchestrator,
         )
-        runtime_context = StageRuntimeContext(context=stage_context, options=options)
+        runtime_context = StageRuntimeContext(
+            context=stage_context,
+            options=options,
+        )
 
         return self.write_service.save(
             df,
@@ -227,16 +242,22 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         config: Mapping[str, Any],
         *,
         run_id: str | None = None,
+        # noqa: ARG002 - unused parameter for interface compatibility
         extraction_service: "ChemblExtractionService" | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(config, run_id=run_id, **kwargs)
-        if extraction_service is None:
-            from bioetl.pipelines.chembl.common import (
-                chembl_extraction_service as ces,
-            )
+        self._init_extraction_service(config)
 
-            extraction_service = ces.ChemblExtractionService()
+    def _init_extraction_service(
+        self, config: Mapping[str, Any]  # noqa: ARG002
+    ) -> None:
+        """Initialize extraction service based on config."""
+        from bioetl.pipelines.chembl.common import chembl_extraction_service
+
+        extraction_service = (
+            chembl_extraction_service.ChemblExtractionService()
+        )
         self.extraction_service = extraction_service
 
     @property
@@ -244,7 +265,9 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         """Return the ChEMBL release version."""
         return self.extraction_service.chembl_release
 
-    def resolve_chembl_release(self, chembl_client: Any) -> str:
+    def resolve_chembl_release(
+        self, chembl_client: Any  # noqa: ARG002
+    ) -> str:
         """Resolve the ChEMBL release version using the client."""
         return self.extraction_service.resolve_chembl_release(chembl_client)
 
@@ -258,6 +281,7 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         fetch_mode: str = "default",
         **batch_kwargs: Any,
     ) -> tuple[pd.DataFrame, BatchExtractionStats]:
+        """Run descriptor extraction with proper logging and error handling."""
         return self.extraction_service.run_descriptor_extraction(
             self,
             descriptor,

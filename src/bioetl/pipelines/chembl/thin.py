@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from bioetl.pipelines.chembl.base import ChemblPipeline
-from bioetl.schemas.activity_schema import ActivitySchema
-from bioetl.schemas.assay_schema import AssaySchema
-from bioetl.schemas.document_schema import DocumentSchema
-from bioetl.schemas.target_schema import TargetSchema
-from bioetl.schemas.testitem_schema import TestItemSchema
+from bioetl.core.schemas.activity_schema import ActivitySchema
+from bioetl.core.schemas.assay_schema import AssaySchema
+from bioetl.core.schemas.document_schema import DocumentSchema
+from bioetl.core.schemas.target_schema import TargetSchema
+from bioetl.core.schemas.testitem_schema import TestItemSchema
 
 
 class ChemblActivityThinPipeline(ChemblPipeline):

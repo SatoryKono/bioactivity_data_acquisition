@@ -11,7 +11,7 @@ import pandas as pd
 import pandera as pa
 import yaml
 
-from bioetl.config.models import PipelineConfig
+from bioetl.core.config.models import PipelineConfig
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import WriteResult
 from bioetl.core.io.artifacts import (

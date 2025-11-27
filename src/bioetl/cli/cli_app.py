@@ -14,7 +14,7 @@ from bioetl.cli.cli_command import (
     create_pipeline_command,
 )
 from bioetl.cli.cli_registry import PIPELINE_REGISTRY
-from bioetl.config.loader import load_config
+from bioetl.core.config.loader import load_config
 
 
 def _secret_str_representer(

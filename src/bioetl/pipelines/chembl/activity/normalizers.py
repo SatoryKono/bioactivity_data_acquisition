@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.schemas.activity_schema import ActivityColumns, ActivitySchema
-from bioetl.sources.chembl.common import BaseChemblNormalizer, ColumnNormalizationSpec
+from bioetl.core.schemas.activity_schema import ActivityColumns, ActivitySchema
+from bioetl.infrastructure.sources.chembl.common import (
+    BaseChemblNormalizer,
+    ColumnNormalizationSpec,
+)
 
 
 _ACTIVITY_NORMALIZER = BaseChemblNormalizer(

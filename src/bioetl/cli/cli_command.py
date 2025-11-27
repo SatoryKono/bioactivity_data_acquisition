@@ -9,7 +9,7 @@ import yaml
 from pydantic import ValidationError
 from rich.progress import Progress
 
-from bioetl.config import PipelineConfig, load_config
+from bioetl.core.config import PipelineConfig, load_config
 from bioetl.core.pipeline.types import PipelineBaseProtocol
 
 PipelineFactory = Callable[[PipelineConfig, str | None], PipelineBaseProtocol]

@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, cast
 
-from bioetl.config import PipelineConfig
+from bioetl.core.config import PipelineConfig
 from bioetl.core.pipeline.types import PipelineBaseProtocol
 
 PipelineFactory = Callable[[PipelineConfig, str | None], PipelineBaseProtocol]
