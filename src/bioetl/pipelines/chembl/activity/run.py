@@ -12,6 +12,7 @@ from bioetl.clients.chembl.entities import ChemblActivityClient
 from bioetl.clients.factories import (
     default_activity_client_factory,
 )
+from bioetl.core.io import PipelineOutputService
 from bioetl.core.io.artifacts import (
     SchemaRegistry,
     SchemaRegistryEntry,
@@ -301,6 +302,14 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
                 options.mode,
             )
             artifacts.data_path = planned_artifacts.data_path
+
+        output_service = PipelineOutputService(self.config)
+        try:
+            return output_service.save(df, artifacts, options)
+        except ValueError:
+            pass
+        except Exception:  # pragma: no cover - защита от опциональных интеграций
+            pass
 
         output_dir = (
             artifacts.data_path.parent

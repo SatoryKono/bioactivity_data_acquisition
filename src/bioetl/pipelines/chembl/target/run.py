@@ -2,20 +2,15 @@ from __future__ import annotations
 
 """Запуск ChEMBL Target pipeline."""
 
-from pathlib import Path
-from typing import Any, Mapping, TYPE_CHECKING
+from typing import Any, Mapping
 
 import pandas as pd
 
-from bioetl.core.io.artifacts import RunArtifacts
+from bioetl.core.io import PipelineOutputService
 from bioetl.core.pipeline.services import DefaultValidationService
 from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
 from bioetl.pipelines.chembl.common import ChemblCommonPipeline
 from bioetl.core.schemas import TargetSchema
-
-if TYPE_CHECKING:  # pragma: no cover
-    from bioetl.core.io.output import UnifiedOutputWriter
-
 
 class ChemblTargetPipeline(ChemblCommonPipeline):
     """Каркас пайплайна для ChEMBL Target с обогащением UniProt/IUPHAR."""
@@ -47,26 +42,13 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
     def save_results(
         self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
     ) -> WriteResult:
-        output_dir = artifacts.data_path.parent if artifacts.data_path else Path.cwd()
-        writer = self._resolve_unified_writer(output_dir)
-        if writer:
-            run_artifacts = RunArtifacts(
-                output_dir=output_dir,
-                logs_directory=output_dir / "logs",
-                write_artifacts=artifacts,
-            )
-            try:
-                result = writer.write_dataset_atomic(df, run_artifacts, format="csv")
-            except Exception:  # pragma: no cover
-                return super().save_results(df, artifacts, options)
-            try:  # pragma: no cover
-                from bioetl.core.io.output import emit_qc_artifact
-
-                emit_qc_artifact(df, run_artifacts)
-            except Exception:
-                pass
-            return result
-        return super().save_results(df, artifacts, options)
+        output_service = PipelineOutputService(self.config)
+        try:
+            return output_service.save(df, artifacts, options)
+        except ValueError:
+            return super().save_results(df, artifacts, options)
+        except Exception:  # pragma: no cover - совместимость с legacy
+            return super().save_results(df, artifacts, options)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -92,16 +74,6 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
         client = self.config.get("enrichers", {}).get("iuphar_client") if isinstance(self.config, Mapping) else None
         if callable(getattr(client, "fetch", None)) and pd.notna(iuphar_id):
             return client.fetch(iuphar_id)
-        return None
-
-    def _resolve_unified_writer(self, output_dir):
-        io_cfg = self.config.get("io") if isinstance(self.config, Mapping) else None
-        if isinstance(io_cfg, Mapping):
-            writer = io_cfg.get("writer")
-            if writer is not None:
-                if hasattr(writer, "output_dir"):
-                    writer.output_dir = output_dir
-                return writer
         return None
 
 

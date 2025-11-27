@@ -38,6 +38,7 @@ __all__ = [
     "WriteArtifacts",
     "compute_file_hash",
     "hash_business_key",
+    "PipelineOutputService",
     "hash_row",
 ]
 
@@ -46,6 +47,7 @@ def __getattr__(name: str):  # pragma: no cover - thin lazy loader
     if name in {
         "ArtifactWriter",
         "AtomicWriter",
+        "PipelineOutputService",
         "UnifiedOutputWriter",
         "build_meta_yaml",
         "emit_qc_artifact",
@@ -53,7 +55,13 @@ def __getattr__(name: str):  # pragma: no cover - thin lazy loader
         "write_json_atomic",
         "write_yaml_atomic",
     }:
-        module_name = "bioetl.core.io.writer" if name == "ArtifactWriter" else "bioetl.core.io.output"
+        module_name = "bioetl.core.io.writer"
+        if name != "ArtifactWriter":
+            module_name = (
+                "bioetl.core.io.output_service"
+                if name == "PipelineOutputService"
+                else "bioetl.core.io.output"
+            )
         module = import_module(module_name)
         return getattr(module, name)
     raise AttributeError(name)
