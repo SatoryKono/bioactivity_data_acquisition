@@ -4,15 +4,31 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Mapping
 
 import structlog
+import requests
 from structlog.typing import FilteringBoundLogger
 
 if TYPE_CHECKING:
-    from bioetl.core.http.api_client import APIConfig
+    from bioetl.core.http.config import APIConfig
 from bioetl.core.http.request_builder import RequestBuilder
-from bioetl.core.http.cache import CacheStrategy, TTLCache, TTLCacheConfig
-from bioetl.core.http.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerStrategy
-from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
-from bioetl.core.http.rate_limiter import RateLimiter, TokenBucketConfig, TokenBucketRateLimiter
+from bioetl.core.http.cache import (
+    CacheStrategy,
+    TTLCache,
+    TTLCacheConfig,
+)
+from bioetl.core.http.circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitBreakerStrategy,
+)
+from bioetl.core.http.pagination import (
+    DefaultPaginationStrategy,
+    PaginationStrategy,
+)
+from bioetl.core.http.rate_limiter import (
+    RateLimiter,
+    TokenBucketConfig,
+    TokenBucketRateLimiter,
+)
 from bioetl.core.http.request_executor import _ResilientRequestExecutor
 from bioetl.core.http.retry import RetryPolicy, RetryStrategy
 
@@ -29,11 +45,17 @@ class ResilienceComponents:
 
 
 class ResilientRequestExecutorFactory:
-    """Строит набор зависимостей для ``UnifiedAPIClient`` на основе конфигурации."""
+    """
+    Строит набор зависимостей для ``UnifiedAPIClient`` на основе конфигурации.
+    """
 
-    def __init__(self, config: APIConfig, *, logger: FilteringBoundLogger | None = None) -> None:
+    def __init__(
+        self, config: APIConfig, *, logger: FilteringBoundLogger | None = None
+    ) -> None:
         self._config = config
-        self._logger = logger or structlog.get_logger(__name__).bind(api_base=config.base_url)
+        self._logger = logger or structlog.get_logger(__name__).bind(
+            api_base=config.base_url
+        )
 
     def create(
         self,
@@ -67,7 +89,9 @@ class ResilientRequestExecutorFactory:
         )
         prepared_cache = cache
         if prepared_cache is None and self._config.cache_enabled:
-            prepared_cache = TTLCache(TTLCacheConfig(ttl_seconds=self._config.cache_ttl_sec))
+            prepared_cache = TTLCache(
+                TTLCacheConfig(ttl_seconds=self._config.cache_ttl_sec)
+            )
         prepared_breaker = circuit_breaker or CircuitBreaker(
             CircuitBreakerConfig(
                 failure_threshold=self._config.circuit_breaker_fail_max,

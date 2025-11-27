@@ -1,3 +1,5 @@
+"""Tests for UnifiedAPIClient and APIConfig."""
+
 from __future__ import annotations
 
 import time
@@ -7,7 +9,7 @@ from typing import Any, Iterator
 import pytest
 import responses
 
-from bioetl.core.http.api_client import (
+from bioetl.core.http import (
     APIConfig,
     UnifiedAPIClient,
 )

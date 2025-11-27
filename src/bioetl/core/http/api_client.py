@@ -1,7 +1,7 @@
 """Unified HTTP client for BioETL pipeline components."""
 
 from __future__ import annotations
-from dataclasses import dataclass, field
+
 from typing import Any, Dict, Iterator, Mapping
 
 import requests
@@ -9,6 +9,7 @@ import structlog
 
 from bioetl.core.http.cache import CacheStrategy
 from bioetl.core.http.circuit_breaker import CircuitBreakerStrategy
+from bioetl.core.http.config import APIConfig
 from bioetl.core.http.pagination import (
     DefaultPaginationStrategy,
     PaginationStrategy,
@@ -22,25 +23,6 @@ from bioetl.core.http.request_executor import (
 )
 from bioetl.core.http.resilience import ResilientRequestExecutorFactory
 from bioetl.core.http.retry import RetryStrategy
-
-
-@dataclass
-class APIConfig:
-    """Configuration for the UnifiedAPIClient."""
-
-    base_url: str
-    timeout_sec: float
-    max_retries: int
-    backoff_factor: float
-    max_backoff_sec: float
-    rate_limit_calls: int
-    rate_limit_period_sec: float
-    cache_enabled: bool
-    cache_ttl_sec: int
-    circuit_breaker_fail_max: int
-    circuit_breaker_reset_sec: int
-    default_headers: dict[str, str] = field(default_factory=dict)
-    user_agent: str = "bioetl-http-client"
 
 
 class UnifiedAPIClient:

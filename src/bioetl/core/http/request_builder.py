@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 import requests
 
 if TYPE_CHECKING:
-    from bioetl.core.http.api_client import APIConfig
+    from bioetl.core.http.config import APIConfig
 
 
 class RequestBuilder:
@@ -22,7 +22,9 @@ class RequestBuilder:
     ) -> None:
         self._config = config
         self._session = session or requests.Session()
-        self._prepare_session(verify_ssl=verify_ssl, default_headers=default_headers)
+        self._prepare_session(
+            verify_ssl=verify_ssl, default_headers=default_headers
+        )
 
     @property
     def session(self) -> requests.Session:
@@ -34,13 +36,21 @@ class RequestBuilder:
     def build_url(self, path: str) -> str:
         if path.startswith("http://") or path.startswith("https://"):
             return path
-        return urljoin(self._config.base_url.rstrip("/") + "/", path.lstrip("/"))
+        base = self._config.base_url.rstrip("/") + "/"
+        return urljoin(base, path.lstrip("/"))
 
-    def merge_headers(self, headers: Mapping[str, str] | None = None) -> Mapping[str, str]:
-        return {**self._session.headers, **(headers or {})}
+    def merge_headers(
+        self, headers: Mapping[str, str] | None = None
+    ) -> Mapping[str, str]:
+        return {**dict(self._session.headers), **(headers or {})}
 
-    def _prepare_session(self, *, verify_ssl: bool, default_headers: Mapping[str, str] | None) -> None:
-        headers = {"User-Agent": self._config.user_agent, **self._config.default_headers}
+    def _prepare_session(
+        self, *, verify_ssl: bool, default_headers: Mapping[str, str] | None
+    ) -> None:
+        headers = {
+            "User-Agent": self._config.user_agent,
+            **self._config.default_headers,
+        }
         if default_headers:
             headers.update(default_headers)
         self._session.headers.update(headers)
