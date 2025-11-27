@@ -7,6 +7,9 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
+from bioetl.core.pipeline.artifact_runtime_builder import ArtifactRuntimeBuilder
+from bioetl.core.pipeline.metadata_runtime_builder import MetadataRuntimeBuilder
+from bioetl.core.pipeline.qc_runtime_builder import QCRuntimeBuilder
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase, StagePlanExecutor
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
@@ -328,9 +331,18 @@ def test_runtime_uses_injected_services(tmp_path: Path) -> None:
     metadata_runtime_service = StubMetadataRuntimeService(tmp_path / "logs")
 
     runtime = ServiceRuntime(
-        artifact_runtime_service=artifact_runtime_service,
-        qc_runtime_service=qc_runtime_service,
-        metadata_runtime_service=metadata_runtime_service,
+        artifact_runtime_builder=ArtifactRuntimeBuilder(
+            runtime_service=artifact_runtime_service
+        ),
+        qc_runtime_builder=QCRuntimeBuilder(
+            qc_runtime_service=qc_runtime_service
+        ),
+        metadata_runtime_builder=MetadataRuntimeBuilder(
+            config={},
+            pipeline_code="ServiceRuntime",
+            metadata_runtime_service=metadata_runtime_service,
+            logs_directory_resolver=lambda output_dir: output_dir / "logs",
+        ),
     )
 
     result = runtime.run(tmp_path, include_qc_metrics=True)
