@@ -60,7 +60,7 @@ ChEMBLActivitySchema = pa.DataFrameSchema(
     {
         "activity_id": pa.Column(pa.String, nullable=False),
         "row_subtype": pa.Column(pa.String, nullable=True),
-        "row_index": pa.Column(pa.Int, nullable=True),
+        "row_index": pa.Column(pa.Int64, nullable=True),
         "assay_chembl_id": pa.Column(pa.String, nullable=False),
         "assay_type": pa.Column(pa.String, nullable=True),
         "assay_description": pa.Column(pa.String, nullable=True),
