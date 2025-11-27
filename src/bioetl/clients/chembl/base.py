@@ -11,8 +11,8 @@ from bioetl.core.http.entity_helpers import (
 )
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
-from bioetl.infrastructure.chembl.transport_adapter import ChemblTransportAdapter
-from bioetl.infra import PaginationRegistry
+from bioetl.clients.chembl.adapter import ChemblTransportAdapter
+from bioetl.clients.pagination import PaginationRegistry
 
 
 class BaseChemblClient(ChemblTransportAdapter):

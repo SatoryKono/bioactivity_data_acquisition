@@ -8,8 +8,8 @@ from typing import Any, Callable, Mapping, MutableMapping, cast
 import pandas as pd
 
 from bioetl.core.config.models import ChemblPipelineMetadata
-from bioetl.infrastructure.clients.entities.common import ChemblActivityClient
-from bioetl.infrastructure.clients.factories import (
+from bioetl.clients.chembl.entities import ChemblActivityClient
+from bioetl.clients.factories import (
     default_activity_client_factory,
 )
 from bioetl.core.io.artifacts import (
@@ -48,7 +48,7 @@ from bioetl.pipelines.chembl.common import (
     ChemblPipelineContract,
     descriptor_from_options,
 )
-from bioetl.application.pipelines.chembl.stage_runner import register_pipeline
+from bioetl.pipelines.chembl.runner import register_pipeline
 from bioetl.pipelines.chembl.activity.stages import (
     ActivityExtractor,
     ActivityTransformer,

@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from structlog.testing import capture_logs
 
-from bioetl.infrastructure.clients import RequestException
+from bioetl.clients import RequestException
 from bioetl.core.http import (
     ApiClientMixin,
     NextLinkPagination,

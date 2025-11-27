@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from bioetl.infrastructure.chembl import ChemblEntityClient
+from bioetl.clients.chembl.base import ChemblEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
-from bioetl.infra import PaginationRegistry
+from bioetl.clients.pagination import PaginationRegistry
 
 
 class _BaseEntityClient(ChemblEntityClient):

@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from unittest.mock import MagicMock
 
-from bioetl.infrastructure.chembl import BaseChemblClient
-from bioetl.infrastructure.clients.entities import ChemblEntityClient
-from bioetl.infra import PaginationRegistry
+from bioetl.clients.chembl import BaseChemblClient
+from bioetl.clients.entities import ChemblEntityClient
+from bioetl.clients.pagination import PaginationRegistry
 
 
 class _DummyPaginationStrategy:

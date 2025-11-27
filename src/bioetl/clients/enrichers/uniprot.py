@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Any
 
-from bioetl.infrastructure.clients.enrichers._base import _BaseEnricherClient
+from bioetl.clients.enrichers._base import _BaseEnricherClient
 from bioetl.core.http.interfaces import BaseApiClient
 
 

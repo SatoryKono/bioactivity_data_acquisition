@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bioetl.infrastructure.clients.entities import (
+from bioetl.clients.entities import (
     ChemblActivityClient,
     ChemblAssayClient,
     ChemblDocumentClient,
@@ -14,7 +14,7 @@ from bioetl.infrastructure.clients.entities import (
     ChemblTestItemClient,
 )
 from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.infrastructure.chembl import BaseChemblClient
+from bioetl.clients.chembl import BaseChemblClient
 
 
 class _DummyTransport(ApiTransportProtocol):

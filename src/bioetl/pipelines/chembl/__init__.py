@@ -1,6 +1,6 @@
 """ChEMBL stage helpers and thin wrappers."""
 
-from bioetl.application.pipelines.chembl.stage_runner import run_chembl_stage
+from bioetl.pipelines.chembl.runner import run_chembl_stage
 try:  # pragma: no cover - optional heavy dependencies
     from .activity import ChemblActivityPipeline
     from .assay import ChemblAssayPipeline

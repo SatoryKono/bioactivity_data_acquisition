@@ -6,8 +6,8 @@ from collections.abc import Iterator
 
 import pytest
 
-from bioetl.infrastructure.clients import client_exceptions
-from bioetl.infrastructure.clients.enrichers._base import _BaseEnricherClient
+from bioetl.clients import client_exceptions
+from bioetl.clients.enrichers._base import _BaseEnricherClient
 
 
 class _DummyApiClient:

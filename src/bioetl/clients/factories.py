@@ -4,11 +4,12 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from bioetl.infrastructure.clients.entities.common import (
+from bioetl.clients.chembl.entities import (
     ChemblActivityClient,
     ChemblEntityClientFactory,
+    CHEMBL_ALLOWED_ENTITIES,
 )
-from bioetl.infrastructure.chembl import ChemblTransportAdapter
+from bioetl.clients.chembl.adapter import ChemblTransportAdapter
 from bioetl.core.config.models import PipelineConfig
 from bioetl.core.http import (
     ResilientRequestExecutorFactory,
@@ -21,7 +22,7 @@ from bioetl.core.http.pagination import (
     DefaultPaginationStrategy,
     PaginationStrategy,
 )
-from bioetl.infra import (
+from bioetl.clients.pagination import (
     PaginationRegistry,
     get_default_pagination_registry,
 )
@@ -113,6 +114,32 @@ def default_chembl_factory(
     }
 
 
+def make_chembl_client(
+    entity: str,
+    transport: ApiTransportProtocol,
+    *,
+    pagination_strategy: PaginationStrategy | None = None,
+    pagination_strategy_name: str | None = None,
+    pagination_registry: PaginationRegistry | None = None,
+):
+    """Построить клиента ChEMBL для разрешённой сущности.
+
+    Поддерживает явную валидацию сущностей через ``CHEMBL_ALLOWED_ENTITIES``.
+    """
+
+    if entity not in CHEMBL_ALLOWED_ENTITIES:
+        msg = f"Unsupported ChEMBL entity: {entity}"
+        raise ValueError(msg)
+
+    factory = ChemblEntityClientFactory(
+        lambda: transport,
+        pagination_strategy=pagination_strategy,
+        pagination_strategy_name=pagination_strategy_name,
+        pagination_registry=pagination_registry,
+    )
+    return factory.create(entity)
+
+
 def default_activity_client_factory(
     config: PipelineConfig,
     transport_factory: Callable[[], ApiTransportProtocol] | None = None,
@@ -143,4 +170,4 @@ def default_activity_client_factory(
     return client
 
 
-__all__ = ["default_chembl_factory", "default_activity_client_factory"]
+__all__ = ["default_chembl_factory", "default_activity_client_factory", "make_chembl_client"]

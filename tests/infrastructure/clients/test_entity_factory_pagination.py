@@ -5,18 +5,18 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from typing import Any
 
-from bioetl.infrastructure.clients import (
+from bioetl.clients.common import (
     NextLinkPagination,
     PageParamPagination,
     PaginationStrategy,
 )
 from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.infrastructure.clients.entities.common import (
+from bioetl.clients.chembl.entities import (
     ChemblEntityClientFactory,
 )
-from bioetl.infrastructure.clients.factories import default_chembl_factory
+from bioetl.clients.factories import default_chembl_factory
 from bioetl.core.config.models import PipelineConfig
-from bioetl.infra import PaginationRegistry
+from bioetl.clients.pagination import PaginationRegistry
 
 
 class _ScriptedTransport(ApiTransportProtocol):

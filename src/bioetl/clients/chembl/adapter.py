@@ -9,7 +9,7 @@ from bioetl.core.http import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.pipeline.unified import ChemblExtractionDescriptor
-from bioetl.infra import PaginationRegistry, get_default_pagination_registry
+from bioetl.clients.pagination import PaginationRegistry, get_default_pagination_registry
 
 
 class ChemblTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtocol):

@@ -30,7 +30,7 @@ from bioetl.core.http.types import (
     WrapCallable,
     WrapIterator,
 )
-from bioetl.infrastructure.clients.utils.pagination import (
+from bioetl.clients.utils.pagination import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,

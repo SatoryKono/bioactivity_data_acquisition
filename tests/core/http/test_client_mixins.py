@@ -9,11 +9,11 @@ import pytest
 import structlog
 from structlog.testing import capture_logs
 
-from bioetl.infrastructure.clients import client_exceptions
-from bioetl.infrastructure.chembl import BaseChemblClient, ChemblEntityClient
+from bioetl.clients import client_exceptions
+from bioetl.clients.chembl import BaseChemblClient, ChemblEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.infrastructure.clients.enrichers._base import _BaseEnricherClient
-from bioetl.infrastructure.clients.entities._base import _BaseEntityClient
+from bioetl.clients.enrichers._base import _BaseEnricherClient
+from bioetl.clients.entities._base import _BaseEntityClient
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 
 

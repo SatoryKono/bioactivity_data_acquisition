@@ -4,11 +4,11 @@ from __future__ import annotations
 from enum import Enum
 from typing import Callable, Type
 
-from bioetl.infrastructure.chembl import ChemblEntityClient
+from bioetl.clients.chembl.base import ChemblEntityClient
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
-from bioetl.infra import PaginationRegistry, get_default_pagination_registry
+from bioetl.clients.pagination import PaginationRegistry, get_default_pagination_registry
 
 
 class ChemblEntity(str, Enum):
