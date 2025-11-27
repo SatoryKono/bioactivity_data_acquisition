@@ -345,6 +345,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase, ChemblPipelineContract):
     def build_pipeline_metadata(
         self, context: StageContextProtocol | None = None
     ) -> Mapping[str, Any]:
+        """Construct metadata for the executed pipeline run."""
         del context
         metadata: dict[str, Any] = {}
         metadata["extract_metadata"] = dict(self.extract_metadata)

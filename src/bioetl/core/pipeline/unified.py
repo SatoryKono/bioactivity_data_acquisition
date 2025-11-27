@@ -15,6 +15,7 @@ from typing import (
 
 import pandas as pd
 import pandera as pa
+from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.services import (
@@ -29,10 +30,13 @@ from bioetl.core.pipeline.stage_plan import (
     build_default_stage_plan,
 )
 from bioetl.core.pipeline.types import (
+    ArtifactStore,
+    DataBucket,
     RunResult,
     StageContext,
     StageDescriptor,
     StageExecutionOptions,
+    StageRuntimeContext,
     WriteArtifacts,
     WriteResult,
 )
@@ -140,13 +144,6 @@ class PipelineBase(PipelineRuntimeBase):
             )
             raise NotImplementedError(msg)
 
-        from bioetl.core.logging import UnifiedLogger
-        from bioetl.core.pipeline.types import (
-            ArtifactStore,
-            DataBucket,
-            StageRuntimeContext,
-        )
-
         output_dir = (
             artifacts.data_path.parent
             if artifacts.data_path
@@ -242,16 +239,16 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         config: Mapping[str, Any],
         *,
         run_id: str | None = None,
-        # noqa: ARG002 - unused parameter for interface compatibility
         extraction_service: "ChemblExtractionService" | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(config, run_id=run_id, **kwargs)
-        self._init_extraction_service(config)
+        if extraction_service:
+            self.extraction_service = extraction_service
+        else:
+            self._init_extraction_service()
 
-    def _init_extraction_service(
-        self, config: Mapping[str, Any]  # noqa: ARG002
-    ) -> None:
+    def _init_extraction_service(self) -> None:
         """Initialize extraction service based on config."""
         from bioetl.pipelines.chembl.common import chembl_extraction_service
 

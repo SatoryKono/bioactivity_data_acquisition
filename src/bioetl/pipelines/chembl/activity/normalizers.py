@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 
 from bioetl.core.schemas.activity_schema import ActivityColumns, ActivitySchema
-from bioetl.infrastructure.sources.chembl.common import (
+from bioetl.clients.chembl import (
     BaseChemblNormalizer,
     ColumnNormalizationSpec,
 )

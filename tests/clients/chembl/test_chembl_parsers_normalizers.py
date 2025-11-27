@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.infrastructure.sources.chembl.activity.normalizer import normalize_activity
-from bioetl.infrastructure.sources.chembl.activity.parser import parse_activity_payload
-from bioetl.infrastructure.sources.chembl.common import (
+from bioetl.pipelines.chembl.activity.normalizers import ActivityNormalizer
+from bioetl.pipelines.chembl.activity.parsers import ActivityParser
+from bioetl.clients.chembl.normalization import (
     BaseChemblNormalizer,
     ColumnMapping,
     ColumnNormalizationSpec,
@@ -26,7 +26,7 @@ def test_activity_parser_extracts_columns():
         ]
     }
 
-    df = parse_activity_payload(payload)
+    df = ActivityParser().parse(payload)
 
     assert list(df.columns) == [
         "activity_id",
@@ -55,7 +55,7 @@ def test_activity_normalizer_coerces_types():
         }
     )
 
-    normalized = normalize_activity(raw_df)
+    normalized = ActivityNormalizer().normalize(raw_df)
 
     assert normalized["value"].dtype.kind == "f"
     assert normalized.loc[0, "value"] == 1.5

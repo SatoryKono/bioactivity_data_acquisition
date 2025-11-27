@@ -6,7 +6,7 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.infrastructure.sources.chembl.common import (
+from bioetl.clients.chembl import (
     ColumnMapping,
     build_records_from_payload,
 )

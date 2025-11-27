@@ -1,7 +1,7 @@
 """BioETL Clients and Integrations."""
 
 from bioetl.clients.exceptions import (
-    ConnectionError,
+    ConnectionError,  # noqa: A004
     HTTPError,
     RequestException,
     Timeout,

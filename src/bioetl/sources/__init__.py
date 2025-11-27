@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bioetl.infrastructure.sources.chembl.common import (
+from bioetl.clients.chembl import (
     BaseChemblNormalizer,
     ColumnMapping,
     ColumnNormalizationSpec,

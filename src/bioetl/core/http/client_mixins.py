@@ -98,7 +98,7 @@ class ApiClientMixin:
             client_exceptions.HTTPError: Passed through unchanged.
             client_exceptions.RequestException: Wraps other exceptions.
         """
-        from bioetl.clients import client_exceptions
+        from bioetl.clients import exceptions as client_exceptions
 
         try:
             return func()
@@ -130,7 +130,7 @@ class ApiClientMixin:
             client_exceptions.HTTPError: Passed through.
             client_exceptions.RequestException: Wraps other errors.
         """
-        from bioetl.clients import client_exceptions
+        from bioetl.clients import exceptions as client_exceptions
 
         try:
             yield from func()

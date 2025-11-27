@@ -18,6 +18,12 @@ from bioetl.clients.chembl.entities import (
     ChemblEntityClientFactory,
     CHEMBL_ALLOWED_ENTITIES,
 )
+from bioetl.clients.chembl.normalization import (
+    BaseChemblNormalizer,
+    ColumnMapping,
+    ColumnNormalizationSpec,
+    build_records_from_payload,
+)
 
 __all__ = [
     "BaseChemblClient",
@@ -34,4 +40,8 @@ __all__ = [
     "ChemblTestItemClient",
     "ChemblEntityClientFactory",
     "CHEMBL_ALLOWED_ENTITIES",
+    "BaseChemblNormalizer",
+    "ColumnMapping",
+    "ColumnNormalizationSpec",
+    "build_records_from_payload",
 ]
