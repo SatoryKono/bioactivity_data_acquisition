@@ -2,6 +2,13 @@ pipeline:
   name: assay_chembl
   version: 1.0.0
 
+ids:
+  - "CHEMBL663853"
+  - "CHEMBL872937"
+  - "CHEMBL693237"
+  - "CHEMBL693238"
+  - "CHEMBL693239"
+
 metadata:
   chembl_release: "30"
   batch_size: 25
@@ -12,12 +19,6 @@ metadata:
   chembl_api:
     default_headers:
       Accept: "application/json"
-  ids:
-    - "CHEMBL663853"
-    - "CHEMBL872937"
-    - "CHEMBL693237"
-    - "CHEMBL693238"
-    - "CHEMBL693239"
 
 sources:
   chembl:
@@ -37,5 +38,5 @@ output:
 determinism:
   sort:
     by: 
-      - assay_id
+      - assay_chembl_id
       - assay_type
