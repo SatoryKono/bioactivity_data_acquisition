@@ -38,7 +38,10 @@ def build_records_from_payload(
                 if source in item:
                     value = item[source]
                     break
-            record[mapping.column] = value
+            # Only include field if value was found, omit to allow
+            # normalizer defaults
+            if value is not None:
+                record[mapping.column] = value
         records.append(record)
     return records
 
@@ -84,6 +87,8 @@ class BaseChemblNormalizer:
                 df[spec.name] = df[spec.name].astype("string")
             elif spec.dtype == "float":
                 df[spec.name] = pd.to_numeric(df[spec.name], errors="coerce")
+            elif spec.dtype == "Int64":
+                df[spec.name] = df[spec.name].astype("Int64")
             # Add more types as needed
 
         # 2. Business Key

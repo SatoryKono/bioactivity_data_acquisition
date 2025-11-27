@@ -1,4 +1,16 @@
-"""ChEMBL activity pipeline scaffold with descriptor-driven extraction."""
+"""ChEMBL activity pipeline scaffold with descriptor-driven extraction.
+
+LEGACY CODE: This module contains the original ChemblActivityPipeline
+implementation maintained for backward compatibility with existing tests.
+
+TODO: Migrate test_run_smoke.py to use ChemblCommonPipeline instead of this
+legacy code. Method signature mismatches and general exception handling are
+intentional for legacy compatibility and should not be modified without
+understanding the full inheritance hierarchy.
+
+New code should use ChemblCommonPipeline from
+bioetl.pipelines.chembl.common.base.
+"""
 
 from __future__ import annotations
 
@@ -59,8 +71,13 @@ from bioetl.pipelines.chembl.activity.stages import (
 )
 from bioetl.schemas.chembl_activity_schema import (
     ChEMBLActivityColumns,
-    ChEMBLActivitySchema,
 )
+import importlib
+
+# Force reload schema to get latest changes
+import bioetl.schemas.chembl_activity_schema
+importlib.reload(bioetl.schemas.chembl_activity_schema)
+ChEMBLActivitySchema = bioetl.schemas.chembl_activity_schema.ChEMBLActivitySchema
 
 print("DEBUG: activity/run.py module loaded - checking entry point")
 
@@ -517,6 +534,8 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
     # Schema registry ------------------------------------------------------
     def _build_schema_registry(self) -> SchemaRegistry:
         registry = SchemaRegistry()
+        # Debug: Check actual schema dtype before registration
+        print(f"DEBUG: row_index dtype in schema: {ChEMBLActivitySchema.columns['row_index'].dtype}")
         registry.register(
             SchemaRegistryEntry(
                 identifier=self.pipeline_code,
