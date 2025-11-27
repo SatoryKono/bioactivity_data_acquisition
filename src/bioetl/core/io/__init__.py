@@ -29,9 +29,15 @@ except Exception:  # pragma: no cover - заглушки для ленивой �
     write_json_atomic = None
     write_yaml_atomic = None
 
+try:
+    from bioetl.core.io.output_service import PipelineOutputService
+except Exception:
+    PipelineOutputService = None
+
 __all__ = [
     "ArtifactWriter",
     "DeterminismSettings",
+    "PipelineOutputService",
     "RunArtifacts",
     "SchemaRegistry",
     "SchemaRegistryEntry",
@@ -52,8 +58,14 @@ def __getattr__(name: str):  # pragma: no cover - thin lazy loader
         "validate_with_schema",
         "write_json_atomic",
         "write_yaml_atomic",
+        "PipelineOutputService",
     }:
-        module_name = "bioetl.core.io.writer" if name == "ArtifactWriter" else "bioetl.core.io.output"
+        if name == "PipelineOutputService":
+            module_name = "bioetl.core.io.output_service"
+        elif name == "ArtifactWriter":
+            module_name = "bioetl.core.io.writer"
+        else:
+            module_name = "bioetl.core.io.output"
         module = import_module(module_name)
         return getattr(module, name)
     raise AttributeError(name)
