@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from bioetl.clients.chembl.adapter import ChemblTransportAdapter
+from bioetl.clients.pagination import PaginationFactory
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
 from bioetl.core.http.entity_helpers import (
     DEFAULT_NEXT_KEY,
@@ -11,8 +13,6 @@ from bioetl.core.http.entity_helpers import (
 )
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
-from bioetl.clients.chembl.adapter import ChemblTransportAdapter
-from bioetl.clients.pagination import PaginationRegistry
 
 
 class BaseChemblClient(ChemblTransportAdapter):
@@ -27,13 +27,13 @@ class ChemblEntityClient(BaseApiEntityClient):
         *,
         pagination_strategy: PaginationStrategy | None = None,
         pagination_strategy_name: str | None = None,
-        pagination_registry: PaginationRegistry | None = None,
+        pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
         adapter = ChemblTransportAdapter(
             transport,
             pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
-            pagination_registry=pagination_registry,
+            pagination_factories=pagination_factories,
         )
         super().__init__(adapter, adapter.pagination_strategy, entity=entity)
 

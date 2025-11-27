@@ -1,14 +1,15 @@
 """Base classes and factories for ChEMBL entity clients."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import Enum
 from typing import Callable, Type
 
 from bioetl.clients.chembl.base import ChemblEntityClient
+from bioetl.clients.pagination import PaginationFactory
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
-from bioetl.clients.pagination import PaginationRegistry, get_default_pagination_registry
 
 
 class ChemblEntity(str, Enum):
@@ -51,16 +52,14 @@ class ChemblEntityClientFactory:
         self,
         transport_factory: Callable[[], ApiTransportProtocol],
         *,
-        pagination_registry: PaginationRegistry | None = None,
         pagination_strategy_name: str | None = None,
         pagination_strategy: PaginationStrategy | None = None,
+        pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ):
         self._transport_factory = transport_factory
-        self._pagination_registry = (
-            pagination_registry or get_default_pagination_registry()
-        )
         self._pagination_strategy_name = pagination_strategy_name
         self._pagination_strategy = pagination_strategy
+        self._pagination_factories = pagination_factories
 
     def create(self, entity: ChemblEntity | str) -> EntityClientProtocol:
         """Create a client for the specified entity."""
@@ -73,8 +72,8 @@ class ChemblEntityClientFactory:
             self._transport_factory(),
             entity_name,
             pagination_strategy=self._pagination_strategy,
-            pagination_registry=self._pagination_registry,
             pagination_strategy_name=self._pagination_strategy_name,
+            pagination_factories=self._pagination_factories,
         )
 
     def _create_specific(
@@ -85,8 +84,8 @@ class ChemblEntityClientFactory:
         return client_cls(  # type: ignore[call-arg]
             self._transport_factory(),
             pagination_strategy=self._pagination_strategy,
-            pagination_registry=self._pagination_registry,
             pagination_strategy_name=self._pagination_strategy_name,
+            pagination_factories=self._pagination_factories,
         )
 
     def activity(self) -> EntityClientProtocol:

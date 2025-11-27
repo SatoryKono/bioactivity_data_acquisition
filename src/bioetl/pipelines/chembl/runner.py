@@ -1,4 +1,8 @@
-"""Adapters for running ChEMBL pipeline stages via the unified runner."""
+"""Adapters for running ChEMBL pipeline stages via the unified runner.
+
+Этот раннер помечен кандидатом на удаление после подтверждения, что
+пайплайны вызываются только через Typer и классы ``run.py``.
+"""
 
 from __future__ import annotations
 

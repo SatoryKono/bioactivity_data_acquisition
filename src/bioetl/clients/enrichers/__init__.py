@@ -1,4 +1,8 @@
-"""Клиенты для внешних источников обогащения."""
+"""Клиенты для внешних источников обогащения.
+
+Модуль помечен кандидатом на удаление после проверки отсутствия
+динамических загрузок; оставить под наблюдением до подтверждения.
+"""
 
 from bioetl.clients.enrichers.crossref import CrossrefClient
 from bioetl.clients.enrichers.openalex import OpenAlexClient
