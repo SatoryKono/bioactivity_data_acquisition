@@ -19,166 +19,119 @@ io:
 sources:
   chembl:
     batch_size: 20
+    max_url_length: 2000
     parameters:
       base_url: https://www.ebi.ac.uk/chembl/api/data
-      max_url_length: 2000
       select_fields:
-        - activity_id
-        - assay_chembl_id
-        - testitem_chembl_id
-        - molecule_chembl_id
-        - target_chembl_id
-        - document_chembl_id
-        - type
-        - relation
-        - value
-        - units
-        - standard_type
-        - standard_relation
-        - standard_value
-        - standard_units
-        - standard_text_value
-        - standard_flag
-        - upper_value
-        - lower_value
-        - pchembl_value
         - activity_comment
+        - activity_id
+        - activity_properties
+        - assay_chembl_id
+        - assay_description
+        - assay_type
         - bao_endpoint
         - bao_format
         - bao_label
         - canonical_smiles
-        - ligand_efficiency
-        - target_organism
-        - target_tax_id
         - data_validity_comment
-        - potential_duplicate
-        - activity_properties
-        - assay_type
-        - assay_description
-        - assay_organism
-        - assay_tax_id
-        - parent_molecule_chembl_id
+        - data_validity_description
+        - document_chembl_id
+        - document_journal
+        - document_year
+        - ligand_efficiency
+        - molecule_chembl_id
         - molecule_pref_name
-        - record_id
-        - src_id
-        - target_pref_name
-        - text_value
-        - standard_upper_value
-        - uo_units
+        - parent_molecule_chembl_id
+        - pchembl_value
+        - potential_duplicate
         - qudt_units
-        - curated_by
+        - record_id
+        - relation
+        - src_id
+        - standard_flag
+        - standard_relation
+        - standard_text_value
+        - standard_type
+        - standard_units
+        - standard_upper_value
+        - standard_value
+        - target_chembl_id
+        - target_organism
+        - target_pref_name
+        - target_tax_id
+        - text_value
+        - toid
+        - type
+        - units
+        - uo_units
+        - upper_value
+        - value
 
 cli:
   input_file: data/input/activity.csv
+
+cache:
+  namespace: "chembl_activity"
 
 determinism:
   sort:
     by:
       - assay_chembl_id
       - molecule_chembl_id
-      - activity_id
     ascending:
-      - true
       - true
       - true
     na_position: last
   column_order:
-    - activity_id
-    - row_subtype
-    - row_index
-    - assay_chembl_id
-    - assay_type
-    - assay_description
-    - assay_organism
-    - assay_tax_id
-    - testitem_chembl_id
-    - molecule_chembl_id
-    - parent_molecule_chembl_id
-    - molecule_pref_name
-    - target_chembl_id
-    - target_pref_name
-    - document_chembl_id
-    - record_id
-    - src_id
-    - type
-    - relation
-    - value
-    - units
-    - standard_type
-    - standard_relation
-    - standard_value
-    - standard_units
-    - standard_flag
-    - pchembl_value
-    - uo_units
-    - qudt_units
     - activity_comment
+    - activity_id
+    - activity_properties
+    - assay_chembl_id
+    - assay_description
+    - assay_type
     - bao_endpoint
     - bao_format
     - bao_label
     - canonical_smiles
-    - ligand_efficiency
-    - target_organism
-    - target_tax_id
     - data_validity_comment
     - data_validity_description
+    - document_chembl_id
+    - document_journal
+    - document_year
+    - ligand_efficiency
+    - molecule_chembl_id
+    - molecule_pref_name
+    - parent_molecule_chembl_id
+    - pchembl_value
     - potential_duplicate
-    - activity_properties
-    - compound_key
-    - compound_name
-    - curated
-    - removed
+    - qudt_units
+    - record_id
+    - relation
+    - src_id
+    - standard_flag
+    - standard_relation
+    - standard_text_value
+    - standard_type
+    - standard_units
+    - standard_upper_value
+    - standard_value
+    - target_chembl_id
+    - target_organism
+    - target_pref_name
+    - target_tax_id
+    - text_value
+    - toid
+    - type
+    - units
+    - uo_units
+    - upper_value
+    - value
+
   hashing:
     business_key_fields:
       - activity_id
       - row_subtype
       - row_index
 
-chembl:
-  activity:
-    enrich:
-      compound_record:
-        enabled: true
-        fields:
-          - molecule_chembl_id
-          - document_chembl_id
-          - compound_name
-          - compound_key
-          - curated
-        page_limit: 100
-        batch_size: 25
-        request_timeout: 60
-        max_retries: 3
-        retry_backoff: 1.5
-      assay:
-        enabled: true
-        fields:
-          - assay_chembl_id
-          - assay_organism
-          - assay_tax_id
-        page_limit: 100
-        request_timeout: 60
-        max_retries: 3
-        retry_backoff: 1.5
-      molecule:
-        enabled: true
-        fields:
-          - molecule_chembl_id
-          - pref_name
-          - molecule_synonyms
-        page_limit: 1000
-        request_timeout: 60
-        max_retries: 3
-        retry_backoff: 1.5
-      data_validity:
-        enabled: true
-        fields:
-          - data_validity_comment
-          - description
-        page_limit: 100
-        request_timeout: 60
-        max_retries: 3
-        retry_backoff: 1.5
-
 validation:
-  schema_out: bioetl.schemas.chembl_activity_schema.ActivitySchema
+  schema_out: bioetl.schemas.chembl_activity_schema.ChEMBLActivitySchema

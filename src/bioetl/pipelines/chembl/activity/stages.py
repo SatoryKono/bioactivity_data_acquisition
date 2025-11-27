@@ -110,7 +110,7 @@ class ActivityExtractor:
                     else pd.DataFrame()
                 )
                 return df, {"api_calls": 1}
-            except Exception as exc:  # pragma: no cover; noqa: BLE001
+            except RuntimeError as exc:  # pragma: no cover; noqa: BLE001
                 fallback = self._fallback_rows(list(batch), exc)
                 return fallback, {"fallback": len(fallback), "api_calls": 1}
 

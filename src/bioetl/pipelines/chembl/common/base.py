@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Общий каркас для пайплайнов ChEMBL на новом рантайме."""
+"""Common framework for ChEMBL pipelines on new runtime."""
 
 from datetime import datetime
 from pathlib import Path
@@ -119,7 +119,10 @@ class ChemblWriteService:
         *,
         dry_run: bool,
     ) -> None:  # noqa: D401
-        """Совместимость с интерфейсом WriteService (метаданные пишутся в save)."""
+        """Compatibility with WriteService interface.
+
+        Metadata is written in save method.
+        """
         _ = (output_dir, artifacts, df, dry_run)
         return None
 
@@ -139,8 +142,12 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         extraction_service_factory: (
             Callable[[], ChemblExtractionService] | None
         ) = None,
-        artifact_runtime_service_factory: Callable[[Any], Any] | None = None,
-        custom_artifact_planner_factory: Callable[[], ArtifactPlanner] | None = None,
+        artifact_runtime_service_factory: (
+            Callable[[Any], Any] | None
+        ) = None,
+        custom_artifact_planner_factory: (
+            Callable[[], ArtifactPlanner] | None
+        ) = None,
         schema_registry_factory: Callable[[], SchemaRegistry] | None = None,
         descriptor_type: str = "service",
     ) -> None:
@@ -170,7 +177,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 "sources.chembl.batch_size must be integer within (0,25]"
             )
 
-        max_url_length = self._get_config_value("sources.chembl.max_url_length")
+        max_url_length = self._get_config_value(
+            "sources.chembl.max_url_length"
+        )
         if (
             not isinstance(max_url_length, int)
             or max_url_length <= 0
@@ -182,7 +191,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
         namespace = self._get_config_value("cache.namespace")
         if not isinstance(namespace, str) or not namespace.strip():
-            raise ConfigValidationError("cache.namespace must be non-empty string")
+            raise ConfigValidationError(
+                "cache.namespace must be non-empty string"
+            )
 
         sort_by = self._get_config_value("determinism.sort.by")
         if (
@@ -193,7 +204,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 "determinism.sort.by must be a list of strings"
             )
         missing = [
-            field for field in self.required_sort_fields if field not in sort_by
+            field
+            for field in self.required_sort_fields
+            if field not in sort_by
         ]
         if missing:
             raise ConfigValidationError(
@@ -214,21 +227,29 @@ class ChemblCommonPipeline(ChemblPipelineBase):
     def extract(
         self,
         descriptor: (
-            ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor | None
+            ChemblExtractionServiceDescriptor
+            | ChemblExtractionDescriptor
+            | None
         ),
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         if options.dry_run and self.validation_service:
             return self.validation_service.empty_frame()
 
-        ids = self.config.get("ids") if isinstance(self.config, Mapping) else None
+        ids = (
+            self.config.get("ids")
+            if isinstance(self.config, Mapping)
+            else None
+        )
         
         # Handle different descriptor types
         if self._descriptor_type == "dataclass":
             # Use dataclass descriptor pattern (like Activity pipeline)
             descriptor = descriptor or self.build_descriptor()
             if isinstance(descriptor, ChemblExtractionDescriptor):
-                return self._extract_with_dataclass_descriptor(descriptor, options)
+                return self._extract_with_dataclass_descriptor(
+                    descriptor, options
+                )
         
         # Default to service descriptor pattern
         descriptor = descriptor or self.build_descriptor()
@@ -237,28 +258,36 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 descriptor,
                 ids if isinstance(ids, Sequence) else None,
                 summary_event=f"{self.entity_name}_summary",
-                batch_size=int(self._get_config_value("sources.chembl.batch_size")),
+                batch_size=int(
+                    self._get_config_value("sources.chembl.batch_size")
+                ),
             )
             # Return schema-compliant empty dataframe if extraction returned
             # empty
             if frame.empty and self.validation_service:
                 return self.validation_service.empty_frame()
             return frame
-        
+
         # Fallback for backward compatibility - return schema-compliant empty
         # frame
         if self.validation_service:
             return self.validation_service.empty_frame()
         return pd.DataFrame()
 
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def transform(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         df = self.pre_transform(df)
         df = self.domain_enrich(df)
         return df
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def validate(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         if self.validation_service:
-            return self.validation_service.validate(df, pipeline=self, options=options)
+            return self.validation_service.validate(
+                df, pipeline=self, options=options
+            )
         return df
 
     def save_results(
@@ -270,17 +299,21 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         """Save results using default implementation."""
         return super().save_results(df, artifacts, options)
 
-    def _write_quality_report(self, df: pd.DataFrame, output_path: Path) -> None:
+    def _write_quality_report(
+        self, df: pd.DataFrame, output_path: Path
+    ) -> None:
         summary = {
             "rows": int(df.shape[0]),
             "columns": len(df.columns),
-            "missing_values": int(df.isna().sum().sum())
-            if not df.empty
-            else 0,
+            "missing_values": (
+                int(df.isna().sum().sum()) if not df.empty else 0
+            ),
         }
         pd.DataFrame([summary]).to_csv(output_path, index=False)
 
-    def _fallback_rows(self, ids: Iterable[str], exc: Exception) -> list[dict[str, Any]]:
+    def _fallback_rows(
+        self, ids: Iterable[str], exc: Exception
+    ) -> list[dict[str, Any]]:
         timestamp = datetime.utcnow().isoformat()
         return [
             {
@@ -295,8 +328,12 @@ class ChemblCommonPipeline(ChemblPipelineBase):
             for chembl_id in ids
         ]
 
-    def _build_generic_descriptor(self) -> ChemblExtractionServiceDescriptor:
-        def build_context(_pipeline: ChemblCommonPipeline) -> Mapping[str, Any]:
+    def _build_generic_descriptor(
+        self,
+    ) -> ChemblExtractionServiceDescriptor:
+        def build_context(
+            _pipeline: ChemblCommonPipeline
+        ) -> Mapping[str, Any]:
             chembl_ctx = (
                 self.config.get("sources", {}).get("chembl", {})
                 if isinstance(self.config, Mapping)
@@ -304,7 +341,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
             )
             return {
                 "chembl_client": chembl_ctx.get("client"),
-                "entity_fetcher": chembl_ctx.get(f"{self.entity_name}_fetcher"),
+                "entity_fetcher": chembl_ctx.get(
+                    f"{self.entity_name}_fetcher"
+                ),
             }
 
         def fetcher_factory(context: Mapping[str, Any]):
@@ -318,7 +357,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                     if callable(fetcher):
                         result = fetcher(batch)
                     else:
-                        result = [{"chembl_id": chembl_id} for chembl_id in batch]
+                        result = [
+                            {"chembl_id": chembl_id} for chembl_id in batch
+                        ]
                 except Exception as exc:
                     fallback_rows = self._fallback_rows(batch, exc)
                     meta["fallback"] = len(fallback_rows)
@@ -361,7 +402,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
     def build_descriptor(
         self,
-    ) -> ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor:  # pragma: no cover - должен быть переопределён
+    ) -> ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor:
+        """Build extraction descriptor - must be overridden."""
+        # pragma: no cover - should be overridden
         raise NotImplementedError
 
     def _extract_with_dataclass_descriptor(
@@ -369,14 +412,21 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         descriptor: ChemblExtractionDescriptor,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
-        """Extract data using dataclass descriptor pattern (for Activity pipeline)."""
+        """Extract data using dataclass descriptor pattern.
+
+        For Activity pipeline.
+        """
         # This method should be overridden by pipelines using dataclass
         # descriptors. Default implementation returns empty DataFrame
         if options.dry_run:
             return pd.DataFrame()
-        
+
         # Default fallback - can be overridden by specific pipelines
         return pd.DataFrame()
 
 
-__all__ = ["ChemblCommonPipeline", "ChemblWriteService", "ConfigValidationError"]
+__all__ = [
+    "ChemblCommonPipeline",
+    "ChemblWriteService",
+    "ConfigValidationError",
+]

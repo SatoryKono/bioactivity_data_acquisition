@@ -12,39 +12,72 @@ from bioetl.clients.chembl.normalization import (
     ColumnNormalizationSpec,
     build_records_from_payload,
 )
-from bioetl.core.schemas.activity_schema import ActivityColumns, ActivitySchema
+from bioetl.schemas.chembl_activity_schema import (
+    ChEMBLActivityColumns,
+    ChEMBLActivitySchema,
+)
 
 
 def test_activity_parser_extracts_columns():
-    """Test that ActivityParser correctly extracts and renames columns."""
+    """Test that ActivityParser correctly extracts full ChEMBL schema
+    columns."""
+    # Mock payload with representative fields from the full ChEMBL
+    # schema
     payload = {
         "results": [
             {
                 "activity_id": "ACT1",
                 "assay_chembl_id": "ASSAY1",
                 "target_chembl_id": "TGT1",
+                "molecule_chembl_id": "MOL1",
+                "document_chembl_id": "DOC1",
                 "standard_value": "5.0",
                 "standard_units": "nM",
+                "standard_type": "IC50",
+                "pchembl_value": "7.3",
+                "standard_relation": "=",
+                "canonical_smiles": "CCO",
+                "target_organism": "Homo sapiens",
+                "activity_comment": "Test comment",
             }
         ]
     }
 
     df = ActivityParser().parse(payload)
 
-    assert list(df.columns) == [
+    # Verify key columns from the full schema are present and correctly mapped
+    expected_columns = [
         "activity_id",
-        "assay_id",
-        "target_id",
-        "value",
-        "unit",
+        "assay_chembl_id",
+        "target_chembl_id",
+        "molecule_chembl_id",
+        "document_chembl_id",
+        "standard_value",
+        "standard_units",
+        "standard_type",
+        "pchembl_value",
+        "standard_relation",
+        "canonical_smiles",
+        "target_organism",
+        "activity_comment",
     ]
-    assert df.iloc[0].to_dict() == {
-        "activity_id": "ACT1",
-        "assay_id": "ASSAY1",
-        "target_id": "TGT1",
-        "value": "5.0",
-        "unit": "nM",
-    }
+
+    # Check that all expected columns exist in the DataFrame
+    for col in expected_columns:
+        assert col in df.columns, f"Missing column: {col}"
+
+    # Verify the first row has correct values
+    assert df.iloc[0]["activity_id"] == "ACT1"
+    assert df.iloc[0]["assay_chembl_id"] == "ASSAY1"
+    assert df.iloc[0]["target_chembl_id"] == "TGT1"
+    assert df.iloc[0]["molecule_chembl_id"] == "MOL1"
+    assert df.iloc[0]["standard_value"] == "5.0"
+    assert df.iloc[0]["standard_units"] == "nM"
+    assert df.iloc[0]["standard_type"] == "IC50"
+    assert df.iloc[0]["pchembl_value"] == "7.3"
+
+    # Verify DataFrame has all columns from the full ChEMBL schema
+    assert len(df.columns) > 40, f"Expected 40+ columns, got {len(df.columns)}"
 
 
 def test_activity_normalizer_coerces_types():
@@ -100,8 +133,8 @@ def test_base_normalizer_applies_defaults_and_types():
     )
     normalizer = BaseChemblNormalizer(
         business_key_column="activity_id",
-        schema=ActivitySchema,
-        columns=ActivityColumns,
+        schema=ChEMBLActivitySchema,
+        columns=ChEMBLActivityColumns,
         column_specs=[
             ColumnNormalizationSpec("activity_id", dtype="string"),
             ColumnNormalizationSpec("assay_id", dtype="string"),

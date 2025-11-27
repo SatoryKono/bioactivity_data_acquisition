@@ -57,7 +57,12 @@ from bioetl.pipelines.chembl.activity.stages import (
     ActivityTransformer,
     ActivityWriter,
 )
-from bioetl.core.schemas.activity_schema import ActivityColumns, ActivitySchema
+from bioetl.schemas.chembl_activity_schema import (
+    ChEMBLActivityColumns,
+    ChEMBLActivitySchema,
+)
+
+print("DEBUG: activity/run.py module loaded - checking entry point")
 
 
 class ActivityWriteService(WriteService):
@@ -152,8 +157,8 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         client_factory: Callable[[Any], ChemblActivityClient] | None = None,
     ) -> None:
         print(
-            "DEBUG: ChemblActivityPipeline.__init__ called with "
-            f"run_id={run_id}"
+            "DEBUG: ChemblActivityPipeline.__init__ called "
+            "with updated schema"
         )
         super().__init__(
             config,
@@ -168,7 +173,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
             descriptor_type="dataclass",
         )
         self.client_factory = client_factory or default_activity_client_factory
-        self.validator = ActivitySchema
+        self.validator = ChEMBLActivitySchema
         self.validation_service = DefaultValidationService(self.validator)
         self._descriptor: ChemblExtractionDescriptor | None = None
         self._release: str | None = None
@@ -241,7 +246,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
     # Orchestration hooks --------------------------------------------------
     def prepare_run(self, options: StageExecutionOptions) -> None:
         self._descriptor = self._descriptor or self.build_descriptor()
-        determinism = {"sort": {"by": list(ActivityColumns)}}
+        determinism = {"sort": {"by": list(ChEMBLActivityColumns)}}
         metadata = self._get_config_metadata()
 
         if isinstance(metadata, dict):
@@ -267,7 +272,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
     ) -> pd.DataFrame:
         """Extract data using dataclass descriptor pattern."""
         if options.dry_run:
-            return pd.DataFrame(columns=list(ActivityColumns))
+            return pd.DataFrame(columns=list(ChEMBLActivityColumns))
 
         df, meta = self.run_descriptor_extraction(descriptor)
         self.extract_metadata.update(meta)
@@ -424,7 +429,8 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         output_service = PipelineOutputService(self.config)
         try:
             print(
-                f"DEBUG: Attempting PipelineOutputService.save with df shape {df.shape}"
+                "DEBUG: Attempting PipelineOutputService.save "
+                f"with df shape {df.shape}"
             )
             result = output_service.save(df, artifacts, options)
             print("DEBUG: PipelineOutputService.save succeeded")
@@ -434,7 +440,8 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
                 f"DEBUG: PipelineOutputService.save raised ValueError: {e}"
             )
             # Fall through to write_service
-        except Exception as e:  # pragma: no cover - защита от опциональных интеграций
+        except Exception as e:  # pragma: no cover
+            # защита от опциональных интеграций
             print(f"DEBUG: PipelineOutputService.save raised Exception: {e}")
             # Fall through to write_service
 
@@ -513,13 +520,13 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         registry.register(
             SchemaRegistryEntry(
                 identifier=self.pipeline_code,
-                schema=ActivitySchema,
+                schema=ChEMBLActivitySchema,
                 version="1.0.0",
-                column_order=ActivityColumns,
+                column_order=ChEMBLActivityColumns,
                 determinism=None,
                 business_key_fields=("activity_id",),
-                row_hash_fields=ActivityColumns,
-                required_fields=ActivityColumns,
+                row_hash_fields=ChEMBLActivityColumns,
+                required_fields=ChEMBLActivityColumns,
             )
         )
         return registry

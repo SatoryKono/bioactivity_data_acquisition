@@ -1,8 +1,0 @@
-artifact_checksums:
-  activity__ChemblActivityPipeline.csv: 3e067aabec93238c3836f5efb8ea97a01256273eb2d9d912892ed0ecdd6af43b
-chembl_release: null
-config_hash: 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a
-created_at: '2025-11-27T17:48:00.853210+00:00'
-pipeline_code: ChemblActivityPipeline
-pipeline_version: null
-rows: 5
