@@ -1,15 +1,14 @@
+"""Resilience factory and components for the UnifiedAPIClient."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Mapping
 
-import structlog
 import requests
+import structlog
 from structlog.typing import FilteringBoundLogger
 
-if TYPE_CHECKING:
-    from bioetl.core.http.config import APIConfig
-from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.cache import (
     CacheStrategy,
     TTLCache,
@@ -29,12 +28,23 @@ from bioetl.core.http.rate_limiter import (
     TokenBucketConfig,
     TokenBucketRateLimiter,
 )
+from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.request_executor import _ResilientRequestExecutor
 from bioetl.core.http.retry import RetryPolicy, RetryStrategy
+
+if TYPE_CHECKING:
+    from bioetl.core.http.config import APIConfig
 
 
 @dataclass
 class ResilienceComponents:
+    """
+    Container for all strategies and components used by the UnifiedAPIClient.
+
+    Holds the configured request executor and individual strategies (retry,
+    rate limiting, caching, etc.) so they can be passed to the client.
+    """
+
     request_builder: RequestBuilder
     executor: _ResilientRequestExecutor
     pagination_strategy: PaginationStrategy
@@ -46,7 +56,11 @@ class ResilienceComponents:
 
 class ResilientRequestExecutorFactory:
     """
-    Строит набор зависимостей для ``UnifiedAPIClient`` на основе конфигурации.
+    Builder factory for creating a configured _ResilientRequestExecutor.
+
+    Constructs the executor and all its dependency strategies (retry, rate
+    limiter, circuit breaker, cache) based on the provided APIConfig or
+    explicit overrides.
     """
 
     def __init__(
@@ -70,6 +84,24 @@ class ResilientRequestExecutorFactory:
         verify_ssl: bool = True,
         default_headers: Mapping[str, str] | None = None,
     ) -> ResilienceComponents:
+        """
+        Create all resilience components and the executor.
+
+        Args:
+            request_builder: Optional custom RequestBuilder.
+            session: Optional custom requests.Session.
+            retry_strategy: Optional custom retry strategy.
+            rate_limiter: Optional custom rate limiter.
+            cache: Optional custom cache strategy.
+            circuit_breaker: Optional custom circuit breaker strategy.
+            pagination_strategy: Optional custom pagination strategy.
+            verify_ssl: Whether to verify SSL certificates (default: True).
+            default_headers: Optional default headers to include in requests.
+
+        Returns:
+            ResilienceComponents containing the configured executor and
+            strategies.
+        """
         builder = request_builder or RequestBuilder(
             self._config,
             session=session,

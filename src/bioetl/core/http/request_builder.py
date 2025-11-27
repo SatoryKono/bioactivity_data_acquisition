@@ -1,6 +1,8 @@
+"""Request builder module for constructing HTTP requests."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Mapping
+from typing import TYPE_CHECKING, Mapping, cast
 from urllib.parse import urljoin
 
 import requests
@@ -10,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class RequestBuilder:
-    """Создает и конфигурирует ``requests.Session`` и собирает конечные URL."""
+    """Create and configure ``requests.Session`` and build final URLs."""
 
     def __init__(
         self,
@@ -28,12 +30,23 @@ class RequestBuilder:
 
     @property
     def session(self) -> requests.Session:
+        """Return the underlying requests.Session."""
         return self._session
 
     def close(self) -> None:
+        """Close the underlying session."""
         self._session.close()
 
     def build_url(self, path: str) -> str:
+        """
+        Build an absolute URL from a path.
+
+        Args:
+            path: Relative path or absolute URL.
+
+        Returns:
+            Absolute URL joined with base_url if path is relative.
+        """
         if path.startswith("http://") or path.startswith("https://"):
             return path
         base = self._config.base_url.rstrip("/") + "/"
@@ -42,7 +55,17 @@ class RequestBuilder:
     def merge_headers(
         self, headers: Mapping[str, str] | None = None
     ) -> Mapping[str, str]:
-        return {**dict(self._session.headers), **(headers or {})}
+        """
+        Merge session headers with request-specific headers.
+
+        Args:
+            headers: Request-specific headers to override session defaults.
+
+        Returns:
+            Merged headers dictionary.
+        """
+        session_headers = cast(Mapping[str, str], self._session.headers)
+        return {**dict(session_headers), **(headers or {})}
 
     def _prepare_session(
         self, *, verify_ssl: bool, default_headers: Mapping[str, str] | None

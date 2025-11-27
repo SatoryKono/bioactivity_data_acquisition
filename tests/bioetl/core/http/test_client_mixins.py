@@ -1,6 +1,7 @@
 # pylint: disable=protected-access
 # pyright: reportPrivateUsage=false
 # ruff: noqa: SLF001
+"""Tests for ApiClientMixin and ClosableMixin."""
 from unittest.mock import ANY, MagicMock, call
 
 import pytest
@@ -16,6 +17,8 @@ from bioetl.core.http import ApiClientMixin, ClosableMixin
 
 
 class _DummyApiClient(ApiClientMixin, ClosableMixin):
+    """Dummy client for testing mixins."""
+
     def __init__(self) -> None:
         self.transport = MagicMock(spec=ApiTransportProtocol)
         self.entity = "dummy"
@@ -23,6 +26,7 @@ class _DummyApiClient(ApiClientMixin, ClosableMixin):
 
 
 def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
+    """Test that fetch_by_ids normalizes payloads and logs calls."""
     transport = MagicMock(spec=ApiTransportProtocol)
     transport.request.side_effect = [
         {"id": "10", "value": 1},
@@ -43,8 +47,8 @@ def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
         {"id": "12", "value": 3},
     ]
     assert transport.request.call_args_list == [
-        call("GET", "/targets/10"),
-        call("GET", "/targets/11"),
+        call("GET", "/targets/10", headers=None, params=None, json=None),
+        call("GET", "/targets/11", headers=None, params=None, json=None),
     ]
     assert client._logger.info.call_args_list == [
         call("api_call", entity="targets", entity_id="10"),
@@ -53,6 +57,7 @@ def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
 
 
 def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
+    """Test that ChemblEntityClient uses the shared fetch_by_ids logic."""
     transport = MagicMock(spec=ApiTransportProtocol)
     transport.request.side_effect = [
         {"chembl_id": "CHEMBL1"},
@@ -62,15 +67,15 @@ def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
     client = ChemblEntityClient(transport=transport, entity="molecule")
     client._logger = MagicMock()
 
-    result = list(client.fetch_by_ids([1, 2]))
+    result = list(client.fetch_by_ids(["1", "2"]))
 
     assert result == [
         {"chembl_id": "CHEMBL1"},
         {"chembl_id": "CHEMBL2"},
     ]
     assert transport.request.call_args_list == [
-        call("GET", "/molecule/1"),
-        call("GET", "/molecule/2"),
+        call("GET", "/molecule/1", headers=None, params=None, json=None),
+        call("GET", "/molecule/2", headers=None, params=None, json=None),
     ]
     assert client._logger.info.call_args_list == [
         call("api_call", entity="molecule", entity_id="1"),
@@ -79,6 +84,7 @@ def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
 
 
 def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
+    """Test that fetch_all propagates arguments to pagination strategy."""
     transport = MagicMock(spec=ApiTransportProtocol)
     transport.request.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
@@ -106,7 +112,7 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
     assert result == [{"id": 1}, {"id": 2}]
     pagination.iter_pages.assert_called_once_with(
         {"items": [{"id": 1}]},
-        transport,
+        client.transport,
         endpoint="/targets",
         params={"limit": 2, "foo": "bar"},
         logger=client._logger,
@@ -119,10 +125,13 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
         "GET",
         "/targets",
         params={"limit": 2, "foo": "bar"},
+        headers=None,
+        json=None,
     )
 
 
 def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
+    """Test that ChemblEntityClient propagates pagination arguments."""
     transport = MagicMock(spec=ApiTransportProtocol)
     transport.request.return_value = {"items": [{"id": 1}]}
     pagination = MagicMock()
@@ -148,7 +157,7 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
     assert result == [{"id": 1}]
     pagination.iter_pages.assert_called_once_with(
         {"items": [{"id": 1}]},
-        transport,
+        ANY,
         endpoint="/molecule",
         params={"limit": 10, "offset": 5},
         logger=client._logger,
@@ -161,10 +170,13 @@ def test_chembl_client_fetch_all_propagates_pagination_arguments() -> None:
         "GET",
         "/molecule",
         params={"limit": 10, "offset": 5},
+        headers=None,
+        json=None,
     )
 
 
 def test_entity_client_fetch_all_wraps_errors() -> None:
+    """Test that fetch_all wraps runtime errors in RequestException."""
     transport = MagicMock(spec=ApiTransportProtocol)
     pagination = MagicMock()
     pagination.iter_pages.side_effect = RuntimeError("boom")
@@ -182,6 +194,7 @@ def test_entity_client_fetch_all_wraps_errors() -> None:
 
 
 def test_chembl_client_fetch_all_wraps_errors() -> None:
+    """Test that ChemblEntityClient wraps errors in fetch_all."""
     transport = MagicMock(spec=ApiTransportProtocol)
     pagination = MagicMock()
     pagination.iter_pages.side_effect = RuntimeError("boom")
@@ -199,6 +212,7 @@ def test_chembl_client_fetch_all_wraps_errors() -> None:
 
 
 def test_normalize_payload_extracts_results_key() -> None:
+    """Test payload normalization with a results key."""
     client = _DummyApiClient()
     payload = {"results": [{"a": 1}, {"a": 2}], "next": None}
 
@@ -206,6 +220,7 @@ def test_normalize_payload_extracts_results_key() -> None:
 
 
 def test_normalize_payload_processes_iterable_of_mappings() -> None:
+    """Test payload normalization with a list of mappings."""
     client = _DummyApiClient()
     payload = [{"id": 1}, {"id": 2}]
 
@@ -213,6 +228,7 @@ def test_normalize_payload_processes_iterable_of_mappings() -> None:
 
 
 def test_wrap_callable_converts_errors() -> None:
+    """Test that _wrap_callable converts exceptions and logs them."""
     client = _DummyApiClient()
 
     with pytest.raises(client_exceptions.RequestException):
@@ -227,7 +243,10 @@ def test_wrap_callable_converts_errors() -> None:
 
 
 def test_wrap_callable_preserves_bound_logger_context() -> None:
+    """Test that _wrap_callable preserves the logger context."""
     class _StructuredClient(ApiClientMixin, ClosableMixin):
+        """Structured client with bound logger."""
+
         def __init__(self) -> None:
             self.transport = MagicMock(spec=ApiTransportProtocol)
             self._logger = structlog.get_logger(__name__).bind(
@@ -257,6 +276,7 @@ def test_wrap_callable_preserves_bound_logger_context() -> None:
     ],
 )
 def test_mixins_are_not_duplicated_in_mro(cls: type) -> None:
+    """Test that mixins are not duplicated in the MRO."""
     mro = cls.mro()
 
     assert issubclass(cls, ApiClientMixin)

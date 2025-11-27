@@ -1,8 +1,4 @@
-from .api_client import (
-    HTTPClientError,
-    ResilientRequestExecutorFactory,
-    UnifiedAPIClient,
-)
+from .api_client import UnifiedAPIClient
 from .api_entity_client import BaseApiEntityClient, EntityClientProtocol
 from .client_mixins import ApiClientMixin, ClosableMixin
 from .config import APIConfig
@@ -33,6 +29,8 @@ from .types import (
     WrapIterator,
 )
 from .request_builder import RequestBuilder
+from .request_executor import HTTPClientError
+from .resilience import ResilientRequestExecutorFactory
 from .rate_limiter import (
     RateLimiter,
     TokenBucketConfig,
