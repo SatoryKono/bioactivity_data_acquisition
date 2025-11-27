@@ -11,6 +11,9 @@ from bioetl.core.pipeline.unified import (
     RunResult,
     UnifiedPipelineBase,
 )
+from bioetl.pipelines.chembl.common.chembl_extraction_service import (
+    ChemblExtractionService,
+)
 
 
 class DummyChemblClient:
@@ -95,7 +98,9 @@ def test_run_descriptor_extraction_stats_and_data():
         finalizer_factory=finalizer_factory,
     )
 
-    pipeline = DummyChemblPipeline(config={})
+    pipeline = DummyChemblPipeline(
+        config={}, extraction_service=ChemblExtractionService()
+    )
     df, stats = pipeline.run_descriptor_extraction(
         descriptor,
         ["A", "B", "C"],
@@ -135,7 +140,9 @@ def test_run_descriptor_extraction_handles_circuit_breaker():
         finalizer_factory=finalizer_factory,
     )
 
-    pipeline = DummyChemblPipeline(config={})
+    pipeline = DummyChemblPipeline(
+        config={}, extraction_service=ChemblExtractionService()
+    )
     df, stats = pipeline.run_descriptor_extraction(
         descriptor,
         ["X"],
