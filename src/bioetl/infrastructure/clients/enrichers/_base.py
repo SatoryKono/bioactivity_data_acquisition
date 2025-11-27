@@ -20,7 +20,8 @@ class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
     ) -> JSONRecordStream:
         def iterator() -> Iterator[dict[str, Any]]:
             payload = self._wrap_callable(
-                lambda: self.api_client.get_json(path, params=params), log_context={"path": path}
+                lambda: self.api_client.get_json(path, params=params),
+                log_context={"path": path},
             )
             self._logger.info("api_call", path=path)
 
@@ -33,7 +34,9 @@ class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
                 yield {"result": payload}
 
         try:
-            yield from self._wrap_iterator(iterator, log_context={"path": path})
+            yield from self._wrap_iterator(
+                iterator, log_context={"path": path}
+            )
         except Exception:
             self.close()
             raise
