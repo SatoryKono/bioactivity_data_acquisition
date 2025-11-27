@@ -1,59 +1,67 @@
+"""EOL shim for pagination helpers.
+
+This module will be removed; import helpers from
+``bioetl.core.http.pagination_helpers`` instead.
+"""
+
 from __future__ import annotations
 
 import warnings
 
-from bioetl.core.http.pagination_helpers import *  # noqa: F401,F403
+from bioetl.core.http import pagination_helpers as _pagination_helpers
+
+DEPRECATION_MESSAGE = (
+    "bioetl.clients.utils.pagination is deprecated and will be removed; "
+    "import from bioetl.core.http.pagination_helpers instead."
+)
+
+__all__ = list(_pagination_helpers.__all__)
+
+DEFAULT_NEXT_KEY = _pagination_helpers.DEFAULT_NEXT_KEY
+DEFAULT_PAGE_KEY = _pagination_helpers.DEFAULT_PAGE_KEY
+DEFAULT_PAGE_PARAM = _pagination_helpers.DEFAULT_PAGE_PARAM
+PaginationStrategy = _pagination_helpers.PaginationStrategy
 
 
 def _warn_deprecated() -> None:
-    warnings.warn(
-        "bioetl.clients.utils.pagination is deprecated; import from "
-        "bioetl.core.http.pagination_helpers instead.",
-        DeprecationWarning,
-        stacklevel=3,
-    )
+    warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=3)
 
 
 def normalize_payload(*args, **kwargs):  # type: ignore[override]
     _warn_deprecated()
-    from bioetl.core.http.pagination_helpers import normalize_payload as _normalize_payload
-
-    return _normalize_payload(*args, **kwargs)
+    return _pagination_helpers.normalize_payload(*args, **kwargs)
 
 
 def iter_pages(*args, **kwargs):  # type: ignore[override]
     _warn_deprecated()
-    from bioetl.core.http.pagination_helpers import iter_pages as _iter_pages
-
-    return _iter_pages(*args, **kwargs)
+    return _pagination_helpers.iter_pages(*args, **kwargs)
 
 
 def iter_ids(*args, **kwargs):  # type: ignore[override]
     _warn_deprecated()
-    from bioetl.core.http.pagination_helpers import iter_ids as _iter_ids
-
-    return _iter_ids(*args, **kwargs)
+    return _pagination_helpers.iter_ids(*args, **kwargs)
 
 
 def iterate_records(*args, **kwargs):  # type: ignore[override]
     _warn_deprecated()
-    from bioetl.core.http.pagination_helpers import iterate_records as _iterate_records
+    return _pagination_helpers.iterate_records(*args, **kwargs)
 
-    return _iterate_records(*args, **kwargs)
+
+def iterate_entity_records(*args, **kwargs):  # type: ignore[override]
+    _warn_deprecated()
+    return _pagination_helpers.iterate_entity_records(*args, **kwargs)
 
 
 def list_entities(*args, **kwargs):  # type: ignore[override]
     _warn_deprecated()
-    from bioetl.core.http.pagination_helpers import list_entities as _list_entities
-
-    return _list_entities(*args, **kwargs)
+    return _pagination_helpers.list_entities(*args, **kwargs)
 
 
 def warn_fetch_all(*args, **kwargs):  # type: ignore[override]
     _warn_deprecated()
-    from bioetl.core.http.pagination_helpers import warn_fetch_all as _warn_fetch_all
-
-    return _warn_fetch_all(*args, **kwargs)
+    return _pagination_helpers.warn_fetch_all(*args, **kwargs)
 
 
-from bioetl.core.http.pagination_helpers import __all__  # noqa: F401  E402
+def fetch_all_entities(*args, **kwargs):  # type: ignore[override]
+    _warn_deprecated()
+    return _pagination_helpers.fetch_all_entities(*args, **kwargs)
