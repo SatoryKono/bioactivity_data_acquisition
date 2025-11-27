@@ -240,23 +240,44 @@ class ChemblPipelineBase(UnifiedPipelineBase):
         *,
         run_id: str | None = None,
         extraction_service: "ChemblExtractionService" | None = None,
+        extraction_service_factory: Callable[[], "ChemblExtractionService"] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(config, run_id=run_id, **kwargs)
-        if extraction_service:
-            self.extraction_service = extraction_service
-        else:
-            self._init_extraction_service()
-
-    def _init_extraction_service(self) -> None:
-        """Initialize extraction service based on config."""
-        # pylint: disable=import-outside-toplevel
-        from bioetl.pipelines.chembl.common import chembl_extraction_service
-
-        extraction_service = (
-            chembl_extraction_service.ChemblExtractionService()
+        self.extraction_service = self._resolve_extraction_service(
+            extraction_service,
+            extraction_service_factory,
         )
-        self.extraction_service = extraction_service
+
+    @staticmethod
+    def _resolve_extraction_service(
+        extraction_service: "ChemblExtractionService" | None,
+        extraction_service_factory: Callable[[], "ChemblExtractionService"] | None,
+    ) -> "ChemblExtractionService":
+        if extraction_service and extraction_service_factory:
+            msg = (
+                "Provide either extraction_service or "
+                "extraction_service_factory, not both"
+            )
+            raise ValueError(msg)
+
+        if extraction_service is not None:
+            return extraction_service
+
+        if extraction_service_factory is None:
+            # Default behavior: import and instantiate standard ChemblExtractionService
+            # pylint: disable=import-outside-toplevel
+            from bioetl.pipelines.chembl.common import (
+                chembl_extraction_service,
+            )
+
+            return chembl_extraction_service.ChemblExtractionService()
+
+        service = extraction_service_factory()
+        if service is None:
+            msg = "extraction_service_factory returned None"
+            raise ValueError(msg)
+        return service
 
     @property
     def chembl_release(self) -> str | None:

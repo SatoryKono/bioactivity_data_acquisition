@@ -34,6 +34,11 @@ try:
 except Exception:
     PipelineOutputService = None
 
+try:
+    from bioetl.core.io.writer import ArtifactWriter
+except Exception:
+    ArtifactWriter = None
+
 __all__ = [
     "ArtifactWriter",
     "DeterminismSettings",
@@ -52,13 +57,13 @@ def __getattr__(name: str):  # pragma: no cover - thin lazy loader
     if name in {
         "ArtifactWriter",
         "AtomicWriter",
+        "PipelineOutputService",
         "UnifiedOutputWriter",
         "build_meta_yaml",
         "emit_qc_artifact",
         "validate_with_schema",
         "write_json_atomic",
         "write_yaml_atomic",
-        "PipelineOutputService",
     }:
         if name == "PipelineOutputService":
             module_name = "bioetl.core.io.output_service"

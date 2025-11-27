@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import pandas as pd
 import yaml
@@ -101,11 +101,15 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         *,
         run_id: str | None = None,
         extraction_service: ChemblExtractionService | None = None,
+        extraction_service_factory: (
+            Callable[[], ChemblExtractionService] | None
+        ) = None,
     ) -> None:
         super().__init__(
             config,
             run_id=run_id,
             extraction_service=extraction_service,
+            extraction_service_factory=extraction_service_factory,
             write_service_factory=default_write_service_factory,
         )
         self._validate_common_config()
