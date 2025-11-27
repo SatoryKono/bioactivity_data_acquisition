@@ -22,6 +22,8 @@ from bioetl.core.http.pagination_helpers import (
     warn_fetch_all,
 )
 
+import structlog
+
 
 class EntityClientProtocol(Protocol):
     """Protocol for entity clients."""
@@ -226,6 +228,18 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
+        """Fetch all entities.
+
+        Args:
+            page_size: The page size.
+            params: The request parameters.
+            page_key: The page key.
+            next_key: The next key.
+            page_param: The page parameter.
+
+        Returns:
+            An iterator over entity data.
+        """
         return warn_fetch_all(
             list_entities_fn=lambda: self.list(
                 page_size=page_size,
@@ -238,6 +252,14 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         )
 
     def search(self, params: Mapping[str, Any]) -> Iterator[dict[str, Any]]:
+        """Search for entities.
+
+        Args:
+            params: The search parameters.
+
+        Returns:
+            An iterator over entity data.
+        """
         return self.list(params=params)
 
 

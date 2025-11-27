@@ -19,7 +19,9 @@ _PAGINATION_FACTORIES: dict[str, PaginationFactory] = {
 }
 
 
-def register_pagination_strategy(name: str, factory: PaginationFactory) -> None:
+def register_pagination_strategy(
+    name: str, factory: PaginationFactory
+) -> None:
     """Register a pagination strategy factory by name."""
 
     _PAGINATION_FACTORIES[name] = factory
