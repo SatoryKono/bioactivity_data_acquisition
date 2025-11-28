@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Mapping, Protocol
 
+from bioetl.clients.base import ClientFactory
 from bioetl.clients.enrichers.providers import (
     CrossrefClient,
     OpenAlexClient,
@@ -38,7 +39,7 @@ class EnricherApiFactory(Protocol):
         ...
 
 
-class EnricherClientFactory:
+class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
     """Factory for creating enricher clients with shared HTTP settings.
 
     Note:
@@ -110,8 +111,9 @@ class EnricherClientFactory:
         return replace(self._options, **overrides) if overrides else self._options
 
     def create(
-        self, source: EnricherEntity | str, **overrides: object
+        self, source: EnricherEntity | str, mode: str | None = None, **overrides: object
     ) -> EnricherClientProtocol:
+        _ = mode
         entity = EnricherEntity(source)
         factory = getattr(self, entity.value, None)
         if callable(factory):

@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Callable, Sequence
 
+from bioetl.clients.base import ClientFactory
 from bioetl.clients.chembl.entities import ChemblEntityClientFactory
 from bioetl.clients.chembl.factories import default_chembl_factory
 from bioetl.pipelines.chembl.common.descriptor_factory import (
@@ -25,7 +26,7 @@ def _resolve_chembl_context(config: Mapping[str, Any] | Any) -> Mapping[str, Any
 
 
 @dataclass
-class ChemblClientFactory:
+class ChemblClientFactory(ClientFactory[ChemblDescriptorFactory]):
     """Создаёт :class:`ChemblDescriptorFactory` с готовым контекстом."""
 
     config: Mapping[str, Any] | Any
@@ -103,7 +104,8 @@ class ChemblClientFactory:
             client_factory=client_factory,
         )
 
-    def create(self, entity: str) -> ChemblDescriptorFactory:
+    def create(self, entity: str, mode: str | None = None) -> ChemblDescriptorFactory:
+        _ = mode
         chembl_ctx = _resolve_chembl_context(self.config)
         context_facade = self._build_context_facade(chembl_ctx)
         fetchers = self._build_fetcher_strategies(entity, chembl_ctx)
