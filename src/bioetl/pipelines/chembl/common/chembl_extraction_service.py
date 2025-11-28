@@ -3,6 +3,7 @@ from __future__ import annotations
 """Сервис, инкапсулирующий общие шаги извлечения ChEMBL."""
 
 import time
+import warnings
 from collections.abc import Iterable
 from typing import Any, Callable, Mapping, Sequence
 
@@ -68,11 +69,61 @@ class ChemblExtractionService:
             return page_size
         return default
 
-    def _build_client_fetcher(self, chembl_client: Any, *, page_size: int) -> Callable[[Sequence[str] | None], Any]:
+    def _resolve_client_settings(
+        self, context: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
+        """Resolve optional client kwargs passed through the context."""
+
+        settings = context.get("chembl_client_settings") or context.get("client_settings")
+        if isinstance(settings, Mapping):
+            return dict(settings)
+        return {}
+
+    def _build_client_fetcher(
+        self,
+        chembl_client: Any,
+        *,
+        page_size: int,
+        client_settings: Mapping[str, Any] | None = None,
+    ) -> Callable[[Sequence[str] | None], Any]:
         def fetch(batch: Sequence[str] | None):
+            settings = dict(client_settings or {})
             if batch:
-                return chembl_client.fetch_by_ids(batch)
-            result = chembl_client.fetch_page(page_size=page_size)
+                fetch_batch = getattr(chembl_client, "fetch_batch", None)
+                if callable(fetch_batch):
+                    return fetch_batch(batch, **settings)
+
+                legacy_batch = getattr(chembl_client, "fetch_by_ids", None)
+                if callable(legacy_batch):
+                    warnings.warn(
+                        "chembl_client.fetch_by_ids is deprecated; use fetch_batch instead",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+                    return legacy_batch(batch, **settings)
+
+                fetch_one = getattr(chembl_client, "fetch_one", None)
+                if callable(fetch_one):
+                    return [fetch_one(identifier, **settings) for identifier in batch]
+
+                raise RuntimeError("chembl_client does not support batch fetching")
+
+            fetch_page = getattr(chembl_client, "fetch_page", None)
+            if callable(fetch_page):
+                warnings.warn(
+                    "chembl_client.fetch_page is deprecated; use list or fetch_batch",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                result = fetch_page(page_size=page_size, **settings)
+            else:
+                list_entities = getattr(chembl_client, "list", None)
+                if not callable(list_entities):
+                    raise RuntimeError(
+                        "chembl_client must implement fetch_batch/list to build a fetcher"
+                    )
+                result = list_entities(page_size=page_size, **settings)
+
             return list(result) if isinstance(result, Iterable) else result
 
         return fetch
@@ -83,6 +134,7 @@ class ChemblExtractionService:
         context: Mapping[str, Any],
         *,
         page_size: int,
+        client_settings: Mapping[str, Any] | None = None,
     ) -> Callable[[Sequence[str] | None], Any]:
         factory = getattr(descriptor, "fetcher_factory", None)
         if callable(factory):
@@ -93,7 +145,9 @@ class ChemblExtractionService:
         chembl_client = context.get("chembl_client")
         if chembl_client is None:
             raise RuntimeError("chembl_client is required to build a fetcher")
-        return self._build_client_fetcher(chembl_client, page_size=page_size)
+        return self._build_client_fetcher(
+            chembl_client, page_size=page_size, client_settings=client_settings
+        )
 
     def finalize_dataframe(
         self,
@@ -137,7 +191,13 @@ class ChemblExtractionService:
 
         ids_to_fetch = self._normalize_ids(ids, context)
         page_size = self._resolve_page_size(context)
-        fetcher = self._resolve_fetcher(descriptor, context, page_size=page_size)
+        client_settings = self._resolve_client_settings(context)
+        fetcher = self._resolve_fetcher(
+            descriptor,
+            context,
+            page_size=page_size,
+            client_settings=client_settings,
+        )
         finalizer = descriptor.finalizer_factory(context)
 
         dataframe, stats = execute_chembl_batches(

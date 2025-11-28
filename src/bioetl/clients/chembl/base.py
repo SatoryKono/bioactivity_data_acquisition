@@ -65,6 +65,14 @@ class ChemblClientProtocol(Protocol):
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         """Fetch entities by their identifiers."""
 
+    def fetch_batch(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
+        """Fetch a batch of entities by their identifiers."""
+
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Fetch a single entity by its identifier."""
+
     def iterate_records(
         self,
         *,
@@ -148,6 +156,13 @@ class BaseChemblClient(BaseApiEntityClient, ChemblClientProtocol):
             next_key=next_key,
             page_param=page_param,
         )
+
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Fetch a single entity by ID."""
+
+        return super().fetch_one(entity_id, params=params)
 
     @property
     def metadata(self) -> Mapping[str, Any]:
