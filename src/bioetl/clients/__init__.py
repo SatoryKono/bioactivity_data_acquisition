@@ -21,6 +21,9 @@ from bioetl.clients.chembl import (
     ChemblTargetClient,
     ChemblTestItemClient,
     ChemblEntityClientFactory,
+    ChemblEntityClientFactoryConfig,
+    ChemblEntityClientFactoryProtocol,
+    ChemblEntityClientProtocol,
 )
 from bioetl.clients.factories import (
     make_chembl_client,
@@ -44,6 +47,9 @@ __all__ = [
     "ChemblTargetClient",
     "ChemblTestItemClient",
     "ChemblEntityClientFactory",
+    "ChemblEntityClientFactoryConfig",
+    "ChemblEntityClientFactoryProtocol",
+    "ChemblEntityClientProtocol",
     "make_chembl_client",
     "default_chembl_factory",
 ]

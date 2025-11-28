@@ -2,6 +2,10 @@
 
 from .base import BaseEnricherClient, RouteConfig, RouteEnricherMixin
 from bioetl.clients.enrichers.crossref import CrossrefClient
+from bioetl.clients.enrichers.factory import (
+    EnricherClientFactory,
+    EnricherClientOptions,
+)
 from bioetl.clients.enrichers.openalex import OpenAlexClient
 from bioetl.clients.enrichers.pubchem import PubChemClient
 from bioetl.clients.enrichers.pubmed import PubmedClient
@@ -13,6 +17,8 @@ __all__ = [
     "RouteConfig",
     "RouteEnricherMixin",
     "CrossrefClient",
+    "EnricherClientFactory",
+    "EnricherClientOptions",
     "OpenAlexClient",
     "PubChemClient",
     "PubmedClient",
