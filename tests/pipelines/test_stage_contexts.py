@@ -5,6 +5,8 @@ from unittest.mock import MagicMock
 
 from bioetl.core.pipeline.runtime import StagePlanExecutor
 from bioetl.core.pipeline.types import (
+    ChemblEntity,
+    ClientNamespace,
     PipelineStageCommand,
     StageExecutionOptions,
 )
@@ -17,13 +19,20 @@ def test_stage_context_uses_expected_client(
     client_primary = MagicMock()
     client_secondary = MagicMock()
     context = stage_context_factory(
-        clients={"primary": client_primary, "secondary": client_secondary}
+        clients={
+            ClientNamespace.CHEMBL: {
+                ChemblEntity.ACTIVITY: client_primary,
+                ChemblEntity.ASSAY: client_secondary,
+            }
+        }
     )
     runtime = runtime_context_factory(attributes={"payload": 5})
 
     command = PipelineStageCommand(
         "custom",
-        lambda ctx, rt: ctx.get_client("primary").process(
+        lambda ctx, rt: ctx.get_client(
+            ClientNamespace.CHEMBL, ChemblEntity.ACTIVITY
+        ).process(
             rt.attributes["payload"]
         ),
     )
