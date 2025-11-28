@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any, Protocol
+import warnings
 
 import structlog
 
@@ -21,8 +22,6 @@ from bioetl.core.http.pagination_helpers import (
     list_entities,
     warn_fetch_all,
 )
-
-import structlog
 
 
 class EntityClientProtocol(Protocol):
@@ -50,6 +49,16 @@ class EntityClientProtocol(Protocol):
         self, ids: Sequence[str]
     ) -> Iterator[Mapping[str, Any]]:
         """Retrieve entities by IDs."""
+
+    def fetch_batch(
+        self, ids: Sequence[str]
+    ) -> Iterator[Mapping[str, Any]]:
+        """Retrieve a batch of entities by IDs."""
+
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Retrieve a single entity by ID."""
 
     def search(
         self, params: Mapping[str, Any]
@@ -143,6 +152,26 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         """Retrieve entities by IDs.
 
+        Deprecated:
+            This alias is kept for backwards compatibility; prefer
+            :meth:`fetch_batch` instead.
+
+        Args:
+            ids: The entity IDs.
+
+        Returns:
+            An iterator over entity data.
+        """
+        warnings.warn(
+            "fetch_by_ids is deprecated; use fetch_batch instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(ids)
+
+    def fetch_batch(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
+        """Retrieve a batch of entities by IDs.
+
         Args:
             ids: The entity IDs.
 
@@ -150,6 +179,20 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             An iterator over entity data.
         """
         return self.iter_ids(ids)
+
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Retrieve a single entity by ID.
+
+        Args:
+            entity_id: The entity ID.
+            params: Optional request parameters.
+
+        Returns:
+            The entity payload.
+        """
+        return self.get(entity_id, params=params)
 
     def iterate_records(
         self,
