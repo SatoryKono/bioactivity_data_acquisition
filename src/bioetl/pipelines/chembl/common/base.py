@@ -9,11 +9,6 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 import pandas as pd
 import yaml
 
-from bioetl.clients.enrichers.facade import (
-    EnricherFacade,
-    NullEnricherFacade,
-    build_enricher_facade,
-)
 from bioetl.clients.enrichers.factory import EnricherClientFactory
 from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
 from bioetl.core.pipeline.services import (
@@ -21,6 +16,10 @@ from bioetl.core.pipeline.services import (
     ArtifactPlanner,
 )
 from bioetl.core.io.artifacts import WriteArtifacts
+from bioetl.core.pipeline.services.enrichment import (
+    SeriesEnricher,
+    build_series_enricher,
+)
 from bioetl.core.pipeline.types import (
     StageExecutionOptions,
     WriteResult,
@@ -191,6 +190,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         self._descriptor_factory = (
             descriptor_factory or self._create_descriptor_factory()
         )
+        self.enrichers = self._init_enrichers(config)
 
     def _create_descriptor_factory(self) -> ChemblDescriptorFactory:
         sort_fields = {self.entity_name: self.required_sort_fields}
@@ -254,13 +254,11 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 f"{self.entity_name}: {missing}"
             )
 
-    def _init_enrichers(
-        self, config: Mapping[str, Any]
-    ) -> EnricherFacade | NullEnricherFacade:
+    def _init_enrichers(self, config: Mapping[str, Any]) -> SeriesEnricher:
         enricher_cfg = config.get("enrichers") if isinstance(config, Mapping) else None
         factory = EnricherClientFactory.from_config(enricher_cfg)
         strategies = StrategyRegistry.from_config(enricher_cfg)
-        return build_enricher_facade(factory, strategies)
+        return build_series_enricher(factory, strategies)
 
     def _get_config_value(self, dotted_path: str) -> Any:
         current: Any = self.config
