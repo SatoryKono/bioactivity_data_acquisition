@@ -1,4 +1,8 @@
-"""Клиенты для внешних источников обогащения."""
+"""Клиенты для внешних источников обогащения.
+
+Приватный алиас ``_BaseEnricherClient`` удалён; используйте ``BaseEnricherClient``
+напрямую.
+"""
 
 from .base import BaseEnricherClient, RouteConfig, RouteEnricherMixin
 from bioetl.clients.enrichers.crossref import CrossrefClient
