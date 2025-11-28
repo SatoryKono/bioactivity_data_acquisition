@@ -12,33 +12,8 @@ import warnings
 from types import ModuleType
 from typing import Any
 
-from bioetl.core.http.pagination_helpers import (
-    DEFAULT_NEXT_KEY,
-    DEFAULT_PAGE_KEY,
-    DEFAULT_PAGE_PARAM,
-    fetch_all_entities,
-    iter_ids,
-    iter_pages,
-    iterate_entity_records,
-    iterate_records,
-    list_entities,
-    normalize_payload,
-    warn_fetch_all,
-)
-
-__all__ = [
-    "DEFAULT_NEXT_KEY",
-    "DEFAULT_PAGE_KEY",
-    "DEFAULT_PAGE_PARAM",
-    "fetch_all_entities",
-    "iter_ids",
-    "iter_pages",
-    "iterate_entity_records",
-    "iterate_records",
-    "list_entities",
-    "normalize_payload",
-    "warn_fetch_all",
-]
+from bioetl.core.http import pagination_helpers
+from bioetl.core.http.pagination_helpers import *  # noqa: F401,F403
 
 _DEPRECATED_HTTP_EXPORTS: dict[str, tuple[str, str]] = {
     "ApiTransportProtocol": ("bioetl.core.http", "ApiTransportProtocol"),
@@ -52,6 +27,17 @@ _DEPRECATED_HTTP_EXPORTS: dict[str, tuple[str, str]] = {
     "NextLinkPagination": ("bioetl.core.http", "NextLinkPagination"),
     "PageParamPagination": ("bioetl.core.http", "PageParamPagination"),
 }
+
+warnings.warn(
+    (
+        "bioetl.clients.common устарел и будет удалён; "
+        "используйте bioetl.core.http.pagination_helpers."
+    ),
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+__all__ = [*pagination_helpers.__all__, *_DEPRECATED_HTTP_EXPORTS.keys()]
 
 
 def __getattr__(name: str) -> Any:
