@@ -154,10 +154,8 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             normalize=self._normalize_payload,
             wrap_callable=cast(
                 WrapCallable, self._wrap_callable
-            ),
-            # type: ignore[arg-type]
-            wrap_iterator=cast(WrapIterator, self._wrap_iterator),
-            # type: ignore[arg-type]
+            ),  # type: ignore[arg-type]
+            wrap_iterator=cast(WrapIterator, self._wrap_iterator),  # type: ignore
             logger=self._logger,
             path_template=path_template,
             params=params,
@@ -263,8 +261,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             fetch_by_ids=self.fetch_batch,
             list_entities=lambda: self.fetch_many(page_size=page_size or 1000),
             normalize_payload=self._normalize_payload,
-            wrap_iterator=cast(WrapIterator, self._wrap_iterator),
-            # type: ignore[arg-type]
+            wrap_iterator=cast(WrapIterator, self._wrap_iterator),  # type: ignore
         )
 
     def list(
@@ -321,10 +318,8 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             pagination_strategy=pagination_strategy,
             wrap_callable=cast(
                 WrapCallable, self._wrap_callable
-            ),
-            # type: ignore[arg-type]
-            wrap_iterator=cast(WrapIterator, self._wrap_iterator),
-            # type: ignore[arg-type]
+            ),  # type: ignore[arg-type]
+            wrap_iterator=cast(WrapIterator, self._wrap_iterator),  # type: ignore
             normalize_payload=lambda payload: self._normalize_payload(
                 payload, page_key=page_key
             ),
@@ -368,8 +363,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
                 next_key=next_key,
                 page_param=page_param,
             ),
-            wrap_iterator=cast(WrapIterator, self._wrap_iterator),
-            # type: ignore[arg-type]
+            wrap_iterator=cast(WrapIterator, self._wrap_iterator),  # type: ignore
         )
 
     def search(self, params: Mapping[str, Any]) -> Iterator[dict[str, Any]]:

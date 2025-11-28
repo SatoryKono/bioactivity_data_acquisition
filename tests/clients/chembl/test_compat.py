@@ -78,9 +78,9 @@ def test_list_warns_and_delegates() -> None:
         {
             "page_size": 5,
             "params": None,
-            "page_key": "page",
+            "page_key": "results",
             "next_key": "next",
-            "page_param": "page_param",
+            "page_param": "page",
         }
     ]
 
@@ -95,8 +95,8 @@ def test_fetch_all_warns_and_delegates() -> None:
         {
             "page_size": 1000,
             "params": {"limit": 3},
-            "page_key": "page",
+            "page_key": "results",
             "next_key": "next",
-            "page_param": "page_param",
+            "page_param": "page",
         }
     ]

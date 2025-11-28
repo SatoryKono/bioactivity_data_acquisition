@@ -23,9 +23,6 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
     api_config: APIConfig
     request_executor: Any
     request_builder: Any
-    pagination_strategy: Any
-    default_timeout_sec: float
-    default_max_retries: int
 
     def __init__(
         self,

@@ -42,6 +42,7 @@ class _PagingApiClient:
         endpoint: str,
         *,
         params=None,
+        headers=None,
         timeout_sec=None,
         max_retries=None,
     ):
@@ -49,6 +50,7 @@ class _PagingApiClient:
             {
                 "endpoint": endpoint,
                 "params": params,
+                "headers": headers,
                 "timeout_sec": timeout_sec,
                 "max_retries": max_retries,
             }
@@ -60,6 +62,7 @@ class _PagingApiClient:
         endpoint: str,
         *,
         params=None,
+        headers=None,
         page_key="results",
         next_key="next",
         page_param="page",
@@ -70,6 +73,7 @@ class _PagingApiClient:
             {
                 "endpoint": endpoint,
                 "params": params,
+                "headers": headers,
                 "page_key": page_key,
                 "next_key": next_key,
                 "page_param": page_param,
@@ -78,6 +82,9 @@ class _PagingApiClient:
             }
         )
         return iter(self.pages)
+
+    def close(self) -> None:
+        """Mock close method for testing."""
 
 
 def test_fetch_one_falls_back_to_payload_when_page_empty():
@@ -92,6 +99,7 @@ def test_fetch_one_falls_back_to_payload_when_page_empty():
         {
             "endpoint": "/path",
             "params": None,
+            "headers": None,
             "timeout_sec": None,
             "max_retries": None,
         }
@@ -117,6 +125,7 @@ def test_fetch_batch_uses_effective_options_for_pagination():
         {
             "endpoint": "/entities",
             "params": {"q": "x"},
+            "headers": None,
             "page_key": "items",
             "next_key": "cursor",
             "page_param": "cursor_param",
@@ -146,6 +155,7 @@ def test_fetch_batch_allows_per_call_overrides():
         {
             "endpoint": "/entities",
             "params": None,
+            "headers": None,
             "page_key": "alt",
             "next_key": "alt_next",
             "page_param": "alt_page",

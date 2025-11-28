@@ -2,6 +2,7 @@ import importlib.util
 import sys
 import types
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -74,29 +75,35 @@ class DummyApiClient:
         self,
         path: str,
         *,
-        params: dict | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
         timeout_sec: float | None = None,
         max_retries: int | None = None,
-    ) -> dict:
-        self.calls.append(("fetch_one", path, params or {}, timeout_sec, max_retries))
+    ) -> dict[str, Any]:
+        self.calls.append((
+            "fetch_one", path, params or {}, headers,
+            timeout_sec, max_retries
+        ))
         return {"results": [{"path": path, "params": params}]}
 
     def fetch_batch(
         self,
         path: str,
         *,
-        params: dict | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, Any] | None = None,
         page_key: str | None = None,
         next_key: str | None = None,
         page_param: str | None = None,
         timeout_sec: float | None = None,
         max_retries: int | None = None,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         self.calls.append(
             (
                 "fetch_batch",
                 path,
                 params or {},
+                headers,
                 page_key,
                 next_key,
                 page_param,
@@ -159,10 +166,12 @@ def test_route_provider_builds_paths_and_params(
 
     assert fetch_call[1] == expected_fetch_path
     assert fetch_call[2] == {"foo": "bar"}
+    assert fetch_call[3] is None  # headers
 
     assert search_call[1] == expected_search_path
     assert search_call[2] == {query_param: search_value, "page": "2"}
-    assert search_call[3] == "results"
+    assert search_call[3] is None  # headers
+    assert search_call[4] == "results"
 
 
 @pytest.mark.parametrize(

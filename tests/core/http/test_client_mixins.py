@@ -98,6 +98,7 @@ def test_entity_client_fetch_all_propagates_pagination_arguments() -> None:
     pagination.iter_pages.return_value = iter(
         [{"items": [{"id": 1}, {"id": 2}]}]
     )
+    transport.pagination_strategy = pagination
 
     client = _BaseEntityClient(
         transport=transport,

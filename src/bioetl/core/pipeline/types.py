@@ -20,8 +20,12 @@ import pandas as pd
 
 if TYPE_CHECKING:
     from bioetl.clients.base import ClientFactory
-    from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
+    from bioetl.core.io.artifacts import RunArtifacts
     from bioetl.core.logging import UnifiedLogger
+
+# Runtime import for WriteArtifacts needed in DefaultArtifactContext
+from bioetl.core.io.artifacts import WriteArtifacts
+
 
 def _get_default_validators() -> Mapping[ClientNamespace, Type[Enum]]:
     # Lazy imports to avoid circular dependency

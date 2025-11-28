@@ -82,9 +82,11 @@ class _DummyEntityClient(BaseApiEntityClient):
         payloads: list[Mapping[str, Any]],
     ) -> None:
         self._payloads = payloads
+        pagination = _DummyPagination(payloads)
+        api_client.pagination_strategy = pagination
         super().__init__(
             api_client,
-            _DummyPagination(payloads),
+            pagination,
             entity="dummy",
         )
 
