@@ -14,6 +14,8 @@ from bioetl.clients.enrichers.facade import (
     NullEnricherFacade,
     build_enricher_facade,
 )
+from bioetl.clients.enrichers.factory import EnricherClientFactory
+from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
 from bioetl.core.pipeline.services import (
     default_write_service_factory,
     ArtifactPlanner,
@@ -34,19 +36,13 @@ from bioetl.pipelines.chembl.common.descriptor import (
     ConfigValidationError,
     ChemblExtractionDescriptor,
 )
-from bioetl.pipelines.chembl.common.descriptor_factory import (
-    ChemblContextFacade,
-    ChemblDescriptorFactory,
-    FetcherStrategy,
-)
+from bioetl.pipelines.chembl.common.descriptor_factory import ChemblDescriptorFactory
 from bioetl.core.io.artifacts import SchemaRegistry
 from bioetl.pipelines.chembl.common.strategies import (
     ExtractionStrategyFactory,
 )
-from bioetl.clients.chembl import (
-    ChemblEntityClientFactory,
-    default_chembl_factory,
-)
+from bioetl.clients.chembl.factory import ChemblClientFactory
+from bioetl.pipelines.client_registry import ClientFactoryRegistry, build_client_registry
 
 
 class ChemblWriteService:
@@ -160,6 +156,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
             Callable[[], ChemblExtractionService] | None
         ) = None,
         descriptor_factory: ChemblDescriptorFactory | None = None,
+        client_registry: ClientFactoryRegistry | None = None,
         artifact_runtime_service_factory: (
             Callable[[Any], Any] | None
         ) = None,
@@ -188,83 +185,24 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         self._extraction_strategy_factory = (
             extraction_strategy_factory or ExtractionStrategyFactory()
         )
+        self._client_registry = client_registry
         self._descriptor_factory = (
             descriptor_factory or self._create_descriptor_factory()
         )
 
     def _create_descriptor_factory(self) -> ChemblDescriptorFactory:
-        chembl_ctx = (
-            self.config.get("sources", {}).get("chembl", {})
-            if isinstance(self.config, Mapping)
-            else {}
-        )
-        chembl_client = chembl_ctx.get("client")
-        pagination_strategy = chembl_ctx.get("pagination_strategy")
-        pagination_strategy_name = chembl_ctx.get("pagination_strategy_name")
-        pagination_factories = chembl_ctx.get("pagination_factories")
-        transport_factory = chembl_ctx.get("transport_factory")
-        chembl_release = chembl_ctx.get("chembl_release")
-
-        client_factory: ChemblEntityClientFactory | None = chembl_ctx.get(
-            "client_factory"
-        )
-        if client_factory is None and chembl_client is None:
-            client_factory = default_chembl_factory(
+        sort_fields = {self.entity_name: self.required_sort_fields}
+        if self._client_registry is None:
+            chembl_factory = ChemblClientFactory(
                 self.config,
-                pagination_strategy=pagination_strategy,
-                pagination_strategy_name=pagination_strategy_name,
-                pagination_factories=pagination_factories,
-                transport_factory=transport_factory,
+                fallback_rows=self._fallback_rows,
+                sort_fields=sort_fields,
             )
-            transport_factory = client_factory.config.transport_factory
-            pagination_strategy_name = (
-                pagination_strategy_name
-                or client_factory.config.pagination_strategy_name
-            )
-            pagination_strategy = (
-                pagination_strategy or client_factory.config.pagination_strategy
-            )
-            pagination_factories = (
-                pagination_factories
-                or client_factory.config.pagination_factories
+            self._client_registry = build_client_registry(
+                self.config, chembl_factory=chembl_factory
             )
 
-        context_facade = ChemblContextFacade(
-            transport_factory=transport_factory,
-            pagination_strategy=pagination_strategy,
-            pagination_strategy_name=pagination_strategy_name,
-            pagination_factories=pagination_factories,
-            chembl_release=chembl_release,
-            chembl_client=chembl_client,
-            client_factory=client_factory,
-        )
-
-        fetcher_key = f"{self.entity_name}_fetcher"
-        fetcher_strategies: dict[str, FetcherStrategy] = {}
-        if fetcher_key in chembl_ctx:
-            fetcher = chembl_ctx[fetcher_key]
-
-            def strategy(_context: Mapping[str, Any], _plan: Any, _fetcher=fetcher):
-                if callable(_fetcher):
-                    return _fetcher
-                if _fetcher is None:
-                    return None
-
-                def noop(batch: Sequence[str] | None):
-                    if batch is None:
-                        return []
-                    return [{"chembl_id": chembl_id} for chembl_id in batch]
-
-                return noop
-
-            fetcher_strategies[self.entity_name] = strategy
-
-        return ChemblDescriptorFactory(
-            context_facade,
-            fetcher_strategies=fetcher_strategies,
-            fallback_rows=self._fallback_rows,
-            sort_fields={self.entity_name: self.required_sort_fields},
-        )
+        return self._client_registry.get("chembl").create(self.entity_name)
 
     def _validate_common_config(self) -> None:
         batch_size = self._get_config_value("sources.chembl.batch_size")
@@ -317,10 +255,10 @@ class ChemblCommonPipeline(ChemblPipelineBase):
     def _init_enrichers(
         self, config: Mapping[str, Any]
     ) -> EnricherFacade | NullEnricherFacade:
-        facade = build_enricher_facade(config.get("enrichers")) if isinstance(
-            config, Mapping
-        ) else None
-        return facade or NullEnricherFacade()
+        enricher_cfg = config.get("enrichers") if isinstance(config, Mapping) else None
+        factory = EnricherClientFactory.from_config(enricher_cfg)
+        strategies = StrategyRegistry.from_config(enricher_cfg)
+        return build_enricher_facade(factory, strategies)
 
     def _get_config_value(self, dotted_path: str) -> Any:
         current: Any = self.config

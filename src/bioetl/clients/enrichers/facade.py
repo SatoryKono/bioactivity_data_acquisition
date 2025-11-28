@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import pandas as pd
 import structlog
 
-from bioetl.clients.enrichers.factory import EnricherClientFactory
-from bioetl.core.http.interfaces import BaseApiClient
+from bioetl.clients.enrichers.factory import (
+    EnricherClientFactory,
+    NULL_ENRICHER_FACTORY,
+)
+
+if TYPE_CHECKING:
+    from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
 
 
 class EnrichmentStrategy(Protocol):
@@ -16,27 +21,6 @@ class EnrichmentStrategy(Protocol):
 
     def enrich(self, value: Any, factory: EnricherClientFactory) -> Any:
         ...
-
-
-class _NullApiClient(BaseApiClient):
-    """Заглушка API-клиента для конфигураций без сетевого клиента."""
-
-    def get_json(self, *args, **kwargs):  # pragma: no cover - defensive stub
-        raise RuntimeError("Null API client cannot perform requests")
-
-    def paginate_json(self, *args, **kwargs):  # pragma: no cover - defensive stub
-        raise RuntimeError("Null API client cannot paginate requests")
-
-    def iterate_records(self, *args, **kwargs):  # pragma: no cover - defensive stub
-        raise RuntimeError("Null API client cannot iterate records")
-
-    def close(self) -> None:  # pragma: no cover - defensive stub
-        return None
-
-
-NULL_ENRICHER_FACTORY = EnricherClientFactory(lambda *_: _NullApiClient())
-
-
 @dataclass
 class ClientMethodStrategy:
     """Базовая стратегия вызова метода клиента.
@@ -131,62 +115,20 @@ class NullEnricherFacade:
         return pd.Series([None] * len(series), index=series.index, dtype=object)
 
 
-def build_enricher_facade(enrichers_cfg: Any) -> EnricherFacade | None:
-    """Собрать ``EnricherFacade`` из конфигурации.
+def build_enricher_facade(
+    enricher_factory: EnricherClientFactory | None,
+    strategies: Mapping[str, EnrichmentStrategy] | "StrategyRegistry" | None,
+) -> EnricherFacade | NullEnricherFacade:
+    """Собрать ``EnricherFacade`` из фабрики и реестра стратегий."""
 
-    Поддерживаются два варианта:
-    * уже созданный ``EnricherFacade``;
-    * словарь с ключами ``factory`` и ``strategies`` либо с готовыми клиентами
-      ``*_client`` (pubchem/uniprot/iuphar).
-    """
+    if not isinstance(enricher_factory, EnricherClientFactory):
+        return NullEnricherFacade()
 
-    if isinstance(enrichers_cfg, EnricherFacade):
-        return enrichers_cfg
+    strategies_map = dict(strategies or {}) if isinstance(strategies, Mapping) else {}
+    if not strategies_map:
+        return NullEnricherFacade()
 
-    if not isinstance(enrichers_cfg, Mapping):
-        return None
-
-    factory = enrichers_cfg.get("factory")
-    strategies_cfg = enrichers_cfg.get("strategies")
-
-    if isinstance(factory, EnricherClientFactory) and isinstance(
-        strategies_cfg, Mapping
-    ):
-        return EnricherFacade(factory, strategies_cfg)
-
-    derived = _derive_default_strategies(enrichers_cfg)
-    if not derived:
-        return None
-
-    enricher_factory = (
-        factory if isinstance(factory, EnricherClientFactory) else NULL_ENRICHER_FACTORY
-    )
-    return EnricherFacade(enricher_factory, derived)
-
-
-def _derive_default_strategies(
-    enrichers_cfg: Mapping[str, Any]
-) -> dict[str, EnrichmentStrategy]:
-    default_methods: Mapping[str, str] = {
-        "pubchem_client": "lookup",
-        "uniprot_client": "fetch",
-        "iuphar_client": "fetch",
-    }
-    strategies: dict[str, EnrichmentStrategy] = {}
-
-    for key, method_name in default_methods.items():
-        client = enrichers_cfg.get(key)
-        if client is None:
-            continue
-        if not callable(getattr(client, method_name, None)):
-            continue
-
-        strategies[key.removesuffix("_client")] = ClientMethodStrategy(
-            lambda _factory, client=client: client,
-            method_name,
-        )
-
-    return strategies
+    return EnricherFacade(enricher_factory, strategies_map)
 
 
 __all__ = [
