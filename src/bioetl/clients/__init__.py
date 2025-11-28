@@ -22,7 +22,7 @@ from bioetl.clients.chembl import (
     ChemblTestItemClient,
     ChemblEntityClientFactory,
 )
-from bioetl.clients.factories import (
+from bioetl.clients.chembl.factories import (
     make_chembl_client,
     default_chembl_factory,
 )
