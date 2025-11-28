@@ -60,6 +60,8 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         *,
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
         """Fetch a single resource from ``endpoint`` and return decoded JSON.
         """
@@ -68,7 +70,12 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         return cast(
             Mapping[str, Any] | list[Mapping[str, Any]],
             self.request_executor.request(
-                "GET", url, params=params, headers=merged_headers
+                "GET",
+                url,
+                params=params,
+                headers=merged_headers,
+                timeout_sec=timeout_sec,
+                max_retries=max_retries,
             ),
         )
 
@@ -81,13 +88,20 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         page_key: str = "results",
         next_key: str = "next",
         page_param: str | None = "page",
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
         """Iterate over paginated JSON resources for the given ``endpoint``."""
         # Fetch first page to bootstrap pagination strategy
         url = self.request_builder.build_url(endpoint)
         merged_headers = self.request_builder.merge_headers(headers)
         initial_response = self.request_executor.request(
-            "GET", url, params=params, headers=merged_headers
+            "GET",
+            url,
+            params=params,
+            headers=merged_headers,
+            timeout_sec=timeout_sec,
+            max_retries=max_retries,
         )
 
         def _normalize(p: Any) -> Iterator[dict[str, Any]]:
@@ -107,6 +121,46 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
 
         for page in pages:
             yield from _normalize(page)
+
+    def fetch_one(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
+        return self.get_json(
+            endpoint,
+            params=params,
+            headers=headers,
+            timeout_sec=timeout_sec,
+            max_retries=max_retries,
+        )
+
+    def fetch_batch(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        return self.paginate_json(
+            endpoint,
+            params=params,
+            headers=headers,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+            timeout_sec=timeout_sec,
+            max_retries=max_retries,
+        )
 
     def iterate_records(
         self,
