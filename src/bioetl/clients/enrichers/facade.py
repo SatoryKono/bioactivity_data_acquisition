@@ -1,10 +1,8 @@
 from __future__ import annotations
-
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
-import pandas as pd
 import structlog
 
 from bioetl.clients.enrichers.factory import (
@@ -62,7 +60,7 @@ class ClientMethodStrategy:
 
 
 class EnricherFacade:
-    """Фасад для единообразного обогащения колонок DataFrame."""
+    """Фасад для вызова стратегий обогащения без зависимостей от pandas."""
 
     def __init__(
         self,
@@ -73,46 +71,29 @@ class EnricherFacade:
         self._strategies = dict(strategies)
         self._logger = structlog.get_logger(__name__)
 
-    def enrich(self, column: pd.Series, client_name: str) -> pd.Series:
-        """Обогатить серию, обрабатывая пустые значения и ошибки.
-
-        Возвращает новую серию с результатами обогащения; пустые значения и
-        исключения приводят к ``None`` в результирующей колонке.
-        """
-
-        series = column if isinstance(column, pd.Series) else pd.Series(column)
-
-        if series.empty:
-            return pd.Series([None] * len(series), index=series.index, dtype=object)
+    def enrich(self, value: Any, client_name: str) -> Any:
+        """Обогатить единичное значение через выбранную стратегию."""
 
         strategy = self._strategies.get(client_name)
         if strategy is None:
+            self._logger.warning("enrichment_strategy_missing", client=client_name)
+            return None
+
+        try:
+            return strategy.enrich(value, self._factory)
+        except Exception as exc:  # pragma: no cover - safety net
             self._logger.warning(
-                "enrichment_strategy_missing", client=client_name
+                "enrichment_failed", client=client_name, error=str(exc)
             )
-            return pd.Series([None] * len(series), index=series.index, dtype=object)
-
-        def apply(value: Any) -> Any:
-            if pd.isna(value):
-                return None
-            try:
-                return strategy.enrich(value, self._factory)
-            except Exception as exc:  # pragma: no cover - safety net
-                self._logger.warning(
-                    "enrichment_failed", client=client_name, error=str(exc)
-                )
-                return None
-
-        return series.apply(apply)
+            return None
 
 
 class NullEnricherFacade:
     """Заглушка фасада: всегда возвращает ``None`` для обогащения."""
 
-    def enrich(self, column: pd.Series, client_name: str) -> pd.Series:  # noqa: D401
-        _ = client_name
-        series = column if isinstance(column, pd.Series) else pd.Series(column)
-        return pd.Series([None] * len(series), index=series.index, dtype=object)
+    def enrich(self, value: Any, client_name: str) -> Any:  # noqa: D401
+        _ = (client_name, value)
+        return None
 
 
 def build_enricher_facade(
