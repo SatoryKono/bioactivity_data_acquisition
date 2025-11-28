@@ -12,44 +12,38 @@
 <!-- src.bioetl.clients.enrichers -->
 <g id="node1" class="node">
 <title>src.bioetl.clients.enrichers</title>
-<polygon fill="none" stroke="black" points="211.5,-360 50.5,-360 50.5,-324 211.5,-324 211.5,-360"/>
-<text text-anchor="middle" x="131" y="-338.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers</text>
+<polygon fill="none" stroke="black" points="211.5,-306 50.5,-306 50.5,-270 211.5,-270 211.5,-306"/>
+<text text-anchor="middle" x="131" y="-284.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers</text>
 </g>
 <!-- src.bioetl.clients.enrichers.base -->
-<g id="node3" class="node">
+<g id="node2" class="node">
 <title>src.bioetl.clients.enrichers.base</title>
-<polygon fill="none" stroke="black" points="489,-198 298,-198 298,-162 489,-162 489,-198"/>
-<text text-anchor="middle" x="393.5" y="-176.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers.base</text>
+<polygon fill="none" stroke="black" points="489,-171 298,-171 298,-135 489,-135 489,-171"/>
+<text text-anchor="middle" x="393.5" y="-149.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers.base</text>
 </g>
 <!-- src.bioetl.clients.enrichers&#45;&gt;src.bioetl.clients.enrichers.base -->
 <g id="edge1" class="edge">
 <title>src.bioetl.clients.enrichers&#45;&gt;src.bioetl.clients.enrichers.base</title>
-<path fill="none" stroke="black" d="M211.67,-333.26C228.96,-329.27 246.66,-323.45 262,-315 310.54,-288.26 352.17,-237.49 374.65,-206.41"/>
-<polygon fill="black" stroke="black" points="380.48,-198.2 378.36,-208.96 377.58,-202.28 374.69,-206.35 374.69,-206.35 374.69,-206.35 377.58,-202.28 371.02,-203.75 380.48,-198.2 380.48,-198.2"/>
-</g>
-<!-- src.bioetl.clients.enrichers._base -->
-<g id="node2" class="node">
-<title>src.bioetl.clients.enrichers._base</title>
-<polygon fill="none" stroke="black" points="230,-306 32,-306 32,-270 230,-270 230,-306"/>
-<text text-anchor="middle" x="131" y="-284.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers._base</text>
-</g>
-<!-- src.bioetl.clients.enrichers._base&#45;&gt;src.bioetl.clients.enrichers.base -->
-<g id="edge2" class="edge">
-<title>src.bioetl.clients.enrichers._base&#45;&gt;src.bioetl.clients.enrichers.base</title>
-<path fill="none" stroke="black" d="M230,-271.53C240.96,-268.55 251.83,-265.06 262,-261 298.04,-246.6 335.28,-222.39 360.71,-204.18"/>
-<polygon fill="black" stroke="black" points="368.86,-198.26 363.42,-207.78 364.82,-201.2 360.77,-204.14 360.77,-204.14 360.77,-204.14 364.82,-201.2 358.13,-200.5 368.86,-198.26 368.86,-198.26"/>
+<path fill="none" stroke="black" d="M211.7,-277.83C228.81,-273.91 246.42,-268.49 262,-261 304.52,-240.56 344.99,-203.34 369.29,-178.38"/>
+<polygon fill="black" stroke="black" points="376.29,-171.06 372.63,-181.4 372.83,-174.68 369.38,-178.29 369.38,-178.29 369.38,-178.29 372.83,-174.68 366.12,-175.18 376.29,-171.06 376.29,-171.06"/>
 </g>
 <!-- src.bioetl.clients.enrichers.crossref -->
-<g id="node4" class="node">
+<g id="node3" class="node">
 <title>src.bioetl.clients.enrichers.crossref</title>
 <polygon fill="none" stroke="black" points="236.5,-252 25.5,-252 25.5,-216 236.5,-216 236.5,-252"/>
 <text text-anchor="middle" x="131" y="-230.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers.crossref</text>
 </g>
 <!-- src.bioetl.clients.enrichers.crossref&#45;&gt;src.bioetl.clients.enrichers.base -->
-<g id="edge3" class="edge">
+<g id="edge2" class="edge">
 <title>src.bioetl.clients.enrichers.crossref&#45;&gt;src.bioetl.clients.enrichers.base</title>
-<path fill="none" stroke="black" d="M219.1,-215.94C243.65,-210.86 270.51,-205.29 295.59,-200.09"/>
-<polygon fill="black" stroke="black" points="305.48,-198.04 296.6,-204.48 300.58,-199.05 295.69,-200.07 295.69,-200.07 295.69,-200.07 300.58,-199.05 294.77,-195.66 305.48,-198.04 305.48,-198.04"/>
+<path fill="none" stroke="black" d="M229.06,-215.94C240.25,-213.24 251.42,-210.25 262,-207 290.14,-198.34 320.59,-185.93 344.99,-175.18"/>
+<polygon fill="black" stroke="black" points="354.37,-171.01 347.06,-179.19 349.8,-173.04 345.23,-175.07 345.23,-175.07 345.23,-175.07 349.8,-173.04 343.4,-170.96 354.37,-171.01 354.37,-171.01"/>
+</g>
+<!-- src.bioetl.clients.enrichers.facade -->
+<g id="node4" class="node">
+<title>src.bioetl.clients.enrichers.facade</title>
+<polygon fill="none" stroke="black" points="232,-360 30,-360 30,-324 232,-324 232,-360"/>
+<text text-anchor="middle" x="131" y="-338.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers.facade</text>
 </g>
 <!-- src.bioetl.clients.enrichers.factory -->
 <g id="node5" class="node">
@@ -64,10 +58,10 @@
 <text text-anchor="middle" x="131" y="-176.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers.openalex</text>
 </g>
 <!-- src.bioetl.clients.enrichers.openalex&#45;&gt;src.bioetl.clients.enrichers.base -->
-<g id="edge4" class="edge">
+<g id="edge3" class="edge">
 <title>src.bioetl.clients.enrichers.openalex&#45;&gt;src.bioetl.clients.enrichers.base</title>
-<path fill="none" stroke="black" d="M238.71,-180C254.73,-180 271.24,-180 287.23,-180"/>
-<polygon fill="black" stroke="black" points="297.65,-180 287.65,-184.5 292.65,-180 287.65,-180 287.65,-180 287.65,-180 292.65,-180 287.65,-175.5 297.65,-180 297.65,-180"/>
+<path fill="none" stroke="black" d="M238.71,-168.94C254.88,-167.26 271.56,-165.54 287.69,-163.86"/>
+<polygon fill="black" stroke="black" points="297.65,-162.83 288.17,-168.34 292.68,-163.35 287.71,-163.86 287.71,-163.86 287.71,-163.86 292.68,-163.35 287.24,-159.39 297.65,-162.83 297.65,-162.83"/>
 </g>
 <!-- src.bioetl.clients.enrichers.pubchem -->
 <g id="node7" class="node">
@@ -76,10 +70,10 @@
 <text text-anchor="middle" x="131" y="-122.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers.pubchem</text>
 </g>
 <!-- src.bioetl.clients.enrichers.pubchem&#45;&gt;src.bioetl.clients.enrichers.base -->
-<g id="edge5" class="edge">
+<g id="edge4" class="edge">
 <title>src.bioetl.clients.enrichers.pubchem&#45;&gt;src.bioetl.clients.enrichers.base</title>
-<path fill="none" stroke="black" d="M219.1,-144.06C243.65,-149.14 270.51,-154.71 295.59,-159.91"/>
-<polygon fill="black" stroke="black" points="305.48,-161.96 294.77,-164.34 300.58,-160.95 295.69,-159.93 295.69,-159.93 295.69,-159.93 300.58,-160.95 296.6,-155.52 305.48,-161.96 305.48,-161.96"/>
+<path fill="none" stroke="black" d="M239.84,-137.18C255.57,-138.81 271.75,-140.48 287.42,-142.11"/>
+<polygon fill="black" stroke="black" points="297.64,-143.17 287.23,-146.61 292.66,-142.65 287.69,-142.14 287.69,-142.14 287.69,-142.14 292.66,-142.65 288.16,-137.66 297.64,-143.17 297.64,-143.17"/>
 </g>
 <!-- src.bioetl.clients.enrichers.pubmed -->
 <g id="node8" class="node">
@@ -88,10 +82,10 @@
 <text text-anchor="middle" x="131" y="-68.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers.pubmed</text>
 </g>
 <!-- src.bioetl.clients.enrichers.pubmed&#45;&gt;src.bioetl.clients.enrichers.base -->
-<g id="edge6" class="edge">
+<g id="edge5" class="edge">
 <title>src.bioetl.clients.enrichers.pubmed&#45;&gt;src.bioetl.clients.enrichers.base</title>
-<path fill="none" stroke="black" d="M235.53,-90.02C244.6,-92.64 253.54,-95.62 262,-99 298.04,-113.4 335.28,-137.61 360.71,-155.82"/>
-<polygon fill="black" stroke="black" points="368.86,-161.74 358.13,-159.5 364.82,-158.8 360.77,-155.86 360.77,-155.86 360.77,-155.86 364.82,-158.8 363.42,-152.22 368.86,-161.74 368.86,-161.74"/>
+<path fill="none" stroke="black" d="M229.06,-90.06C240.25,-92.76 251.42,-95.75 262,-99 290.14,-107.66 320.59,-120.07 344.99,-130.82"/>
+<polygon fill="black" stroke="black" points="354.37,-134.99 343.4,-135.04 349.8,-132.96 345.23,-130.93 345.23,-130.93 345.23,-130.93 349.8,-132.96 347.06,-126.81 354.37,-134.99 354.37,-134.99"/>
 </g>
 <!-- src.bioetl.clients.enrichers.semantic_scholar -->
 <g id="node9" class="node">
@@ -100,10 +94,10 @@
 <text text-anchor="middle" x="131" y="-14.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers.semantic_scholar</text>
 </g>
 <!-- src.bioetl.clients.enrichers.semantic_scholar&#45;&gt;src.bioetl.clients.enrichers.base -->
-<g id="edge7" class="edge">
+<g id="edge6" class="edge">
 <title>src.bioetl.clients.enrichers.semantic_scholar&#45;&gt;src.bioetl.clients.enrichers.base</title>
-<path fill="none" stroke="black" d="M242.57,-36.04C249.31,-38.64 255.84,-41.61 262,-45 310.54,-71.74 352.17,-122.51 374.65,-153.59"/>
-<polygon fill="black" stroke="black" points="380.48,-161.8 371.02,-156.25 377.58,-157.72 374.69,-153.65 374.69,-153.65 374.69,-153.65 377.58,-157.72 378.36,-151.04 380.48,-161.8 380.48,-161.8"/>
+<path fill="none" stroke="black" d="M239.79,-36.04C247.46,-38.64 254.94,-41.6 262,-45 304.52,-65.44 344.99,-102.66 369.29,-127.62"/>
+<polygon fill="black" stroke="black" points="376.29,-134.94 366.12,-130.82 372.83,-131.32 369.38,-127.71 369.38,-127.71 369.38,-127.71 372.83,-131.32 372.63,-124.6 376.29,-134.94 376.29,-134.94"/>
 </g>
 <!-- src.bioetl.clients.enrichers.uniprot -->
 <g id="node10" class="node">
