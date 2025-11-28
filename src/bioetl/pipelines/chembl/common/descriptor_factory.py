@@ -9,6 +9,7 @@ from bioetl.clients.chembl import (
     ChemblEntityClientFactory,
     ChemblEntityClientFactoryConfig,
 )
+from bioetl.clients.chembl.registry import ChemblClientFactoryRegistry
 from bioetl.clients.chembl.pagination import PaginationFactory, PaginationStrategy
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor
@@ -33,6 +34,7 @@ class ChemblContextFacade:
     chembl_release: str | None = None
     chembl_client: Any | None = None
     client_factory: ChemblEntityClientFactory | None = None
+    client_registry: ChemblClientFactoryRegistry | None = None
     _built_factory: ChemblEntityClientFactory | None = field(default=None, init=False)
 
     def _ensure_factory(self) -> ChemblEntityClientFactory:
@@ -56,6 +58,8 @@ class ChemblContextFacade:
 
         if self.chembl_client is not None:
             return self.chembl_client
+        if self.client_registry is not None:
+            return self.client_registry.create(entity_name)
         factory = self._ensure_factory()
         return factory.create(entity_name)
 

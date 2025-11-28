@@ -34,6 +34,8 @@ from bioetl.clients.chembl.factories import (
     make_chembl_client,
 )
 from bioetl.clients.chembl.factory import ChemblClientFactory
+from bioetl.clients.chembl.facade import ChemblClientFacade
+from bioetl.clients.chembl.registry import ChemblClientFactoryRegistry
 from bioetl.clients.chembl.normalization import (
     BaseChemblNormalizer,
     ColumnMapping,
@@ -79,6 +81,8 @@ __all__ = [
     "default_chembl_factory",
     "make_chembl_client",
     "ChemblClientFactory",
+    "ChemblClientFacade",
+    "ChemblClientFactoryRegistry",
 ]
 
 _DEPRECATED_EXPORTS: dict[str, tuple[str, str]] = {

@@ -9,6 +9,7 @@ from typing import Any, Callable, Sequence
 from bioetl.clients.base import ClientFactory
 from bioetl.clients.chembl.entities import ChemblEntityClientFactory
 from bioetl.clients.chembl.factories import default_chembl_factory
+from bioetl.clients.chembl.registry import ChemblClientFactoryRegistry
 from bioetl.pipelines.chembl.common.descriptor_factory import (
     ChemblContextFacade,
     ChemblDescriptorFactory,
@@ -71,6 +72,18 @@ class ChemblClientFactory(ClientFactory[ChemblDescriptorFactory]):
         pagination_factories = chembl_ctx.get("pagination_factories")
         transport_factory = chembl_ctx.get("transport_factory")
         chembl_release = chembl_ctx.get("chembl_release")
+        default_page_size = chembl_ctx.get("batch_size")
+        if not isinstance(default_page_size, int):
+            default_page_size = 1000
+        registry = ChemblClientFactoryRegistry.from_config(
+            self.config,
+            client_factory=client_factory,
+            pagination_strategy=pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_factories=pagination_factories,
+            transport_factory=transport_factory,
+            default_page_size=default_page_size,
+        )
 
         client_factory: ChemblEntityClientFactory | None = chembl_ctx.get(
             "client_factory"
@@ -102,6 +115,7 @@ class ChemblClientFactory(ClientFactory[ChemblDescriptorFactory]):
             chembl_release=chembl_release,
             chembl_client=chembl_client,
             client_factory=client_factory,
+            client_registry=registry,
         )
 
     def create(self, entity: str, mode: str | None = None) -> ChemblDescriptorFactory:
