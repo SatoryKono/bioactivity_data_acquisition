@@ -1,32 +1,24 @@
 from __future__ import annotations
 
-import warnings
+from ..base import RouteConfig, create_route_provider_class
+from .utils import warn_on_provider_module_move
 
-from ..base import DeprecatedAliasMixin, RouteConfig, RouteProviderMixin
+warn_on_provider_module_move(__name__)
 
-if __name__.startswith("bioetl.clients.enrichers.") and ".providers." not in __name__:
-    module = __name__.split(".")[-1]
-    warnings.warn(
-        (
-            f"Модуль 'bioetl.clients.enrichers.{module}' перемещён в "
-            f"'bioetl.clients.enrichers.providers.{module}'"
-        ),
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-
-class SemanticScholarClient(DeprecatedAliasMixin, RouteProviderMixin):
-    SOURCE = "semantic_scholar"
-    ROUTES = (
+SemanticScholarClient = create_route_provider_class(
+    name="SemanticScholarClient",
+    source="semantic_scholar",
+    routes=(
         RouteConfig(name="search", path="/paper/search", query_param="query"),
         RouteConfig(name="fetch", path="/paper/{value}"),
-    )
-    DEPRECATED_ALIASES = {
+    ),
+    deprecated_aliases={
         "fetch": "fetch_one",
         "search": "fetch_batch",
         "title_search": "fetch_batch",
-    }
+    },
+    module=__name__,
+)
 
 
 __all__ = ["SemanticScholarClient"]
