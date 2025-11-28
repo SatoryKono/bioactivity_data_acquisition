@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, ClassVar, Iterable, Protocol, runtime_checkable
+from typing import Any, ClassVar, Iterable, Mapping as TypingMapping, Protocol, runtime_checkable
 import warnings
 
 import structlog
@@ -250,10 +250,72 @@ class RouteEnricherMixin(BaseEnricherClient):
         return super().fetch_batch(path, params=params_with_value)
 
 
+class RouteProviderMixin(RouteEnricherMixin):
+    """Базовый миксин для провайдеров с маршрутизацией по ROUTES."""
+
+    ROUTES: ClassVar[Iterable[RouteConfig]]
+    SOURCE: ClassVar[str]
+
+    def fetch_one(
+        self,
+        value: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        route_name: str | None = None,
+        page_key: str | None = None,
+    ) -> JSONRecordStream:
+        return super().fetch_one(
+            value, params=params, route_name=route_name, page_key=page_key
+        )
+
+    def fetch_batch(
+        self,
+        value: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        route_name: str | None = None,
+        page_key: str | None = None,
+        next_key: str | None = None,
+        page_param: str | None = None,
+    ) -> JSONRecordStream:
+        return super().fetch_batch(
+            value,
+            params=params,
+            route_name=route_name,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+        )
+
+
+class DeprecatedAliasMixin:
+    """Автоматически проксирует устаревшие алиасы методов."""
+
+    DEPRECATED_ALIASES: ClassVar[TypingMapping[str, str]] = {}
+
+    def __getattr__(self, name: str) -> Any:  # pragma: no cover - wrapper path
+        alias_target = self.DEPRECATED_ALIASES.get(name)
+        if alias_target:
+            target = getattr(self, alias_target)
+
+            def _wrapper(*args: Any, **kwargs: Any) -> Any:
+                warnings.warn(
+                    f"{name} устарел; используйте {alias_target}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                return target(*args, **kwargs)
+
+            return _wrapper
+        raise AttributeError(f"{self.__class__.__name__!s} has no attribute {name!r}")
+
+
 __all__ = [
     "BaseEnricherClient",
     "EnricherClientOptions",
     "EnricherClientProtocol",
     "RouteConfig",
     "RouteEnricherMixin",
+    "RouteProviderMixin",
+    "DeprecatedAliasMixin",
 ]
