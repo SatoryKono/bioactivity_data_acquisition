@@ -7,31 +7,13 @@ HTTP transport to add logging, metadata capture, and pagination support.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import Any
 
-from bioetl.clients.chembl.pagination import (
-    PaginationFactory,
-    create_pagination_strategy,
-)
+from bioetl.clients.chembl.adapter_factory import resolve_pagination_strategy
+from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.core.http.adapter import LoggingTransportAdapter
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
-
-
-def _chembl_pagination_factory(
-    name: str | None,
-    factories: Mapping[str, Any] | None,
-) -> PaginationStrategy | None:
-    typed_factories = cast(
-        Mapping[str, PaginationFactory] | None,
-        factories,
-    )
-    return create_pagination_strategy(
-        name,
-        factories=typed_factories,
-        default=None,
-    )
-
 
 class ChemblTransportAdapter(LoggingTransportAdapter):
     """Обёртка над транспортом ChEMBL с логированием и сбором метаданных."""
@@ -44,11 +26,16 @@ class ChemblTransportAdapter(LoggingTransportAdapter):
         pagination_strategy_name: str | None = None,
         pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
-        super().__init__(
+        strategy = resolve_pagination_strategy(
             transport,
             pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
-            pagination_factory=_chembl_pagination_factory,
+            pagination_factories=pagination_factories,
+        )
+        super().__init__(
+            transport,
+            pagination_strategy=strategy,
+            pagination_strategy_name=pagination_strategy_name,
             pagination_factories=pagination_factories,
             client_name="chembl_transport",
         )

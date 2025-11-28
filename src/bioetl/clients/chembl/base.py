@@ -6,10 +6,11 @@ from typing import Any, Callable, Protocol
 import warnings
 
 from bioetl.clients.chembl.adapter import ChemblTransportAdapter
-from bioetl.clients.chembl.pagination import (
-    PaginationFactory,
-    create_pagination_strategy,
+from bioetl.clients.chembl.adapter_factory import (
+    BaseChemblAdapterFactory,
+    resolve_pagination_strategy,
 )
+from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
@@ -138,14 +139,12 @@ class BaseChemblClient(BaseApiEntityClient, ChemblClientProtocol):
         pagination_strategy_name: str | None = None,
         pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
-        strategy = pagination_strategy or getattr(transport, "pagination_strategy", None)
-        if strategy is None:
-            strategy = create_pagination_strategy(
-                pagination_strategy_name, factories=pagination_factories
-            )
-        if strategy is None:
-            msg = "Pagination strategy is required for BaseChemblClient"
-            raise ValueError(msg)
+        strategy = resolve_pagination_strategy(
+            transport,
+            pagination_strategy=pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_factories=pagination_factories,
+        )
         super().__init__(transport, strategy, entity=entity)
 
     def fetch_one(
@@ -273,16 +272,17 @@ class ChemblEntityClient(BaseChemblClient):
         pagination_strategy_name: str | None = None,
         pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
-        adapter = ChemblTransportAdapter(
-            transport,
+        adapter = BaseChemblAdapterFactory(
             pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
             pagination_factories=pagination_factories,
-        )
+        ).ensure_adapter(transport)
         super().__init__(
             adapter,
             entity,
             pagination_strategy=adapter.pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_factories=pagination_factories,
         )
 
 
