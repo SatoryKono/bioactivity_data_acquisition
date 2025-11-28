@@ -10,6 +10,7 @@ from typing import (
     Iterable,
     Mapping,
     Protocol,
+    TypedDict,
     runtime_checkable,
 )
 
@@ -17,6 +18,8 @@ import pandas as pd
 
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
+from bioetl.clients.chembl.entities import ChemblEntity, ChemblEntityClientFactory
+from bioetl.clients.enrichers.factory import EnricherClientFactory, EnricherEntity
 
 
 class PipelineExtractionMode(str, Enum):
@@ -292,10 +295,10 @@ class ConfigContext(Protocol):
 
 @runtime_checkable
 class ClientContext(Protocol):
-    """Lookup contract for external clients."""
+    """Lookup contract for external clients grouped by namespace."""
 
-    def get_client(self, name: str) -> Any:
-        """Retrieve a client instance by name."""
+    def get_client(self, namespace: str, entity: Any | None = None) -> Any:
+        """Retrieve a client instance by namespace and entity."""
 
 
 @runtime_checkable
@@ -403,27 +406,105 @@ class DefaultConfigContext(ConfigContext):
         return self.config_provider(key)
 
 
-@dataclass(slots=True)
-class DefaultClientContext(ClientContext):
-    """Simple registry-based client context."""
+class ClientNamespace(str, Enum):
+    """Supported client namespaces."""
 
-    clients: Mapping[str, Any] = field(default_factory=dict)
+    CHEMBL = "chembl"
+    ENRICHER = "enricher"
 
-    def get_client(self, name: str) -> Any:
-        if name in self.clients:
-            return self.clients[name]
 
+class ClientRegistryMap(TypedDict, total=False):
+    """Typed registry mapping namespaces to client factories."""
+
+    chembl: ChemblEntityClientFactory
+    enricher: EnricherClientFactory
+
+
+class ClientRegistry:
+    """Registry of client factories grouped by namespace."""
+
+    _entities: Mapping[ClientNamespace, type[Enum]] = {
+        ClientNamespace.CHEMBL: ChemblEntity,
+        ClientNamespace.ENRICHER: EnricherEntity,
+    }
+
+    def __init__(self, factories: ClientRegistryMap | Mapping[str, Any]):
+        self._factories: dict[ClientNamespace, Any] = {}
+        for namespace, factory in factories.items():
+            resolved = ClientNamespace(namespace)
+            self._factories[resolved] = factory
+
+    def _normalize_entity(
+        self, namespace: ClientNamespace, entity: Enum | str
+    ) -> Enum:
+        enum_cls = self._entities.get(namespace)
+        if enum_cls is None:
+            msg = f"Namespace '{namespace.value}' is not supported"
+            raise KeyError(msg)
+        try:
+            return enum_cls(entity)
+        except ValueError as exc:  # pragma: no cover - defensive
+            msg = (
+                f"Entity '{entity}' is not registered for namespace "
+                f"'{namespace.value}'"
+            )
+            raise KeyError(msg) from exc
+
+    def get(
+        self, namespace: ClientNamespace | str, entity: Enum | str
+    ) -> Any:
+        resolved_namespace = ClientNamespace(namespace)
+        factory = self._factories.get(resolved_namespace)
+        if factory is None:
+            msg = f"Client namespace '{resolved_namespace.value}' is not registered"
+            raise KeyError(msg)
+
+        normalized_entity = self._normalize_entity(resolved_namespace, entity)
+        creator = getattr(factory, "create", None)
+        if callable(creator):
+            return creator(normalized_entity)
+        msg = f"Factory for namespace '{resolved_namespace.value}' does not support creation"
+        raise TypeError(msg)
+
+
+class LegacyClientKeyAdapter:
+    """Adapter translating legacy client names into namespace/entity tuples."""
+
+    @staticmethod
+    def _split(value: str) -> tuple[str, str]:
         for separator in (":", "."):
-            if separator in name:
-                namespace, entity = name.split(separator, 1)
-                if namespace in self.clients:
-                    factory = self.clients[namespace]
-                    if hasattr(factory, "create"):
-                        return factory.create(entity)
-                    if callable(factory):
-                        return factory(entity)
-        msg = f"Client '{name}' is not registered"
+            if separator in value:
+                return tuple(value.split(separator, 1))  # type: ignore[return-value]
+        msg = (
+            "Legacy client name must contain a namespace separator ':' or '.' "
+            f"(received '{value}')"
+        )
         raise KeyError(msg)
+
+    def resolve(
+        self, namespace: ClientNamespace | str, entity: Enum | str | None
+    ) -> tuple[ClientNamespace, Enum | str]:
+        if entity is None:
+            if not isinstance(namespace, str):
+                msg = "Entity must be provided when namespace is not a string"
+                raise KeyError(msg)
+            namespace, entity_value = self._split(namespace)
+        else:
+            entity_value = entity
+        resolved_namespace = ClientNamespace(namespace)
+        return resolved_namespace, entity_value
+
+
+@dataclass(slots=True)
+class ClientRegistryContext(ClientContext):
+    """Client context backed by :class:`ClientRegistry`."""
+
+    registry: ClientRegistry = field(default_factory=lambda: ClientRegistry({}))
+    adapter: LegacyClientKeyAdapter = field(default_factory=LegacyClientKeyAdapter)
+
+    def get_client(self, namespace: str, entity: Any | None = None) -> Any:
+        resolved_namespace, resolved_entity = self.adapter.resolve(namespace, entity)
+        return self.registry.get(resolved_namespace, resolved_entity)
 
 
 @dataclass(slots=True)
@@ -574,12 +655,12 @@ class StageContextAdapter:
             raise KeyError(msg)
         return self.config.get_config(key)
 
-    def get_client(self, name: str) -> Any:
+    def get_client(self, namespace: str, entity: Any | None = None) -> Any:
         """Retrieve a client from the registry."""
         if self.clients is None:
             msg = "Client registry is not configured"
             raise KeyError(msg)
-        client = self.clients.get_client(name)
+        client = self.clients.get_client(namespace, entity)
         return client() if callable(client) else client
 
     def emit_metric(
@@ -605,13 +686,20 @@ class StageContext(StageContextAdapter):
         clients: ClientContext | None = None,
         metrics: MetricsContext | None = None,
         config_provider: Callable[[str], Any] | None = None,
-        client_registry: Mapping[str, Any] | None = None,
+        client_registry: (
+            ClientRegistry | ClientRegistryMap | Mapping[str, Any] | None
+        ) = None,
         metric_emitter: (
             Callable[[str, Any, Mapping[str, str] | None], None] | None
         ) = None,
     ) -> None:
         config_context = config or DefaultConfigContext(config_provider)
-        client_context = clients or DefaultClientContext(client_registry or {})
+        resolved_registry: ClientRegistry
+        if isinstance(client_registry, ClientRegistry):
+            resolved_registry = client_registry
+        else:
+            resolved_registry = ClientRegistry(client_registry or {})
+        client_context = clients or ClientRegistryContext(resolved_registry)
         metrics_context = metrics or DefaultMetricsContext(metric_emitter)
 
         StageContextAdapter.__init__(
@@ -654,6 +742,10 @@ __all__ = [
     "ExecutionContext",
     "ConfigContext",
     "ClientContext",
+    "ClientNamespace",
+    "ClientRegistry",
+    "ClientRegistryContext",
+    "ClientRegistryMap",
     "DataContext",
     "MetricsContext",
     "StageFactoryContext",
@@ -662,7 +754,7 @@ __all__ = [
     "ArtifactContext",
     "DefaultExecutionContext",
     "DefaultConfigContext",
-    "DefaultClientContext",
+    "LegacyClientKeyAdapter",
     "DefaultDataContext",
     "DefaultMetricsContext",
     "DefaultDomainContext",

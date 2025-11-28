@@ -12,7 +12,6 @@ from bioetl.clients.common import (
     NextLinkPagination,
     PageParamPagination,
     PaginationStrategy,
-    cache_entity_client,
 )
 from bioetl.clients.chembl import (
     ChemblActivityClient,
@@ -37,7 +36,6 @@ __all__ = [
     "Timeout",
     "ApiTransportProtocol",
     "EntityClientProtocol",
-    "cache_entity_client",
     "PaginationStrategy",
     "NextLinkPagination",
     "PageParamPagination",
