@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from typing import Any
 
-from ._base import _BaseEnricherClient
+from .base import BaseEnricherClient
 from bioetl.core.http.interfaces import BaseApiClient
 
 
-class PubmedClient(_BaseEnricherClient):
+class PubmedClient(BaseEnricherClient):
     def __init__(self, api_client: BaseApiClient) -> None:
         super().__init__(api_client, "pubmed")
 
