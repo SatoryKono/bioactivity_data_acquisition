@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from bioetl.clients.base import ClientFactory, register_domain_factories
-from bioetl.clients.chembl.factory import ChemblClientFactory
+from bioetl.pipelines.chembl.common.descriptor_factory_builder import (
+    build_pipeline_chembl_factory,
+)
 
 
 @dataclass
@@ -30,7 +32,7 @@ def build_client_registry(
     enricher_factory: ClientFactory[Any] | None = None,
 ) -> ClientFactoryRegistry:
     factories = register_domain_factories(
-        chembl_factory=chembl_factory or ChemblClientFactory(config),
+        chembl_factory=chembl_factory or build_pipeline_chembl_factory(config),
         enricher_factory=enricher_factory,
     )
     return ClientFactoryRegistry(dict(factories))
