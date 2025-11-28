@@ -1,5 +1,4 @@
 """Common base classes and utilities for ChEMBL pipelines."""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -8,17 +7,10 @@ from typing import Any, Callable, Iterable, Mapping, Sequence, cast
 
 import pandas as pd
 import yaml
-
-from bioetl.clients.enricher_factory import EnricherClientFactory
-from bioetl.clients.enricher_strategy_registry import StrategyRegistry
 from bioetl.core.io.artifacts import SchemaRegistry, WriteArtifacts
 from bioetl.core.pipeline.services import (
     ArtifactPlanner,
     default_write_service_factory,
-)
-from bioetl.core.pipeline.services.enrichment import (
-    SeriesEnricher,
-    build_series_enricher,
 )
 from bioetl.core.pipeline.types import (
     StageContextProtocol,
@@ -185,7 +177,6 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         )
         self._validate_common_config()
         self.write_service = ChemblWriteService(self)
-        self.enrichers = self._init_enrichers(config)
         # Store optional custom factories
         self._custom_artifact_planner_factory = custom_artifact_planner_factory
         self._schema_registry_factory = schema_registry_factory
@@ -197,7 +188,6 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         self._descriptor_factory = (
             descriptor_factory or self._create_descriptor_factory()
         )
-        self.enrichers = self._init_enrichers(config)
 
     def _create_descriptor_factory(self) -> ChemblDescriptorFactory:
         sort_fields = {self.entity_name: self.required_sort_fields}
@@ -262,14 +252,6 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 f"{self.entity_name}: {missing}"
             )
 
-    def _init_enrichers(self, config: Mapping[str, Any]) -> SeriesEnricher:
-        enricher_cfg = (
-            config.get("enrichers") if isinstance(config, Mapping) else None
-        )
-        factory = EnricherClientFactory.from_config(enricher_cfg)
-        strategies = StrategyRegistry.from_config(enricher_cfg)
-        return build_series_enricher(factory, strategies)
-
     def _get_config_value(self, dotted_path: str) -> Any:
         current: Any = self.config
         for part in dotted_path.split("."):
@@ -299,7 +281,6 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         self, df: pd.DataFrame, options: StageExecutionOptions
     ) -> pd.DataFrame:
         df = self.pre_transform(df)
-        df = self.domain_enrich(df)
         return df
 
     def validate(
