@@ -5,12 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.clients.chembl.entities import ChemblActivityClient
-from bioetl.clients.chembl.factories import default_activity_client_factory
+from bioetl.clients.chembl.facade import ChemblClientFacade
+from bioetl.clients.chembl.registry import ChemblClientFactoryRegistry
 from bioetl.core.io.artifacts import (
     RunArtifacts,
     SchemaRegistry,
@@ -36,9 +36,7 @@ from bioetl.pipelines.chembl.common import (
 class ActivityExtractor:
     """Извлечение активностей через клиент ChEMBL."""
 
-    client_factory: Callable[
-        [Any], ChemblActivityClient
-    ] = default_activity_client_factory
+    client_registry: ChemblClientFactoryRegistry | None = None
     parser: ActivityParser = field(default_factory=ActivityParser)
     release: str | None = None
 
@@ -71,7 +69,10 @@ class ActivityExtractor:
                 "batch_size must not exceed 25 for ChEMBL API"
             )
 
-        client = self.client_factory(config)
+        registry = self.client_registry or ChemblClientFactoryRegistry.from_config(
+            config
+        )
+        client: ChemblClientFacade = registry.create("activity")
         status = client.status()
         if isinstance(status, Mapping):
             self.release = (
@@ -92,8 +93,7 @@ class ActivityExtractor:
             if not batch:
                 return pd.DataFrame(), {"api_calls": 0}
             try:
-                payload = client.fetch_batch(batch)
-                # Handle both dict (legacy assumption?) and iterator
+                payload, payload_meta = client.fetch_batch(batch)
                 iterator: Any = payload
                 if isinstance(iterator, Mapping):
                     iterator = iterator.values()
@@ -107,7 +107,7 @@ class ActivityExtractor:
                     if frames
                     else pd.DataFrame()
                 )
-                return df, {"api_calls": 1}
+                return df, {"api_calls": payload_meta.get("api_calls", 1)}
             except RuntimeError as exc:  # pragma: no cover; noqa: BLE001
                 fallback = self._fallback_rows(list(batch), exc)
                 return fallback, {"fallback": len(fallback), "api_calls": 1}
