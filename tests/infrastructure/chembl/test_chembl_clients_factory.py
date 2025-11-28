@@ -10,6 +10,7 @@ from bioetl.clients.chembl.entities import (
     ChemblDocumentClient,
     ChemblEntity,
     ChemblEntityClientFactory,
+    ChemblEntityClientFactoryConfig,
     ChemblTargetClient,
     ChemblTestItemClient,
 )
@@ -122,3 +123,13 @@ def test_base_chembl_client_collects_metadata():
     assert response["page_meta"] == {"total": 2, "page": 1}
     assert client.metadata == {"total": 2, "page": 1}
     assert transport.calls == [("GET", "/activity")]
+
+
+def test_factory_accepts_config_and_supports_mapping_access():
+    transport = _DummyTransport()
+    config = ChemblEntityClientFactoryConfig(lambda: transport)
+
+    factory = ChemblEntityClientFactory(config)
+
+    assert factory.config is config
+    assert factory["document"]().entity == "document"

@@ -9,6 +9,7 @@ from bioetl.clients.chembl.entities import (
     ChemblActivityClient,
     ChemblEntity,
     ChemblEntityClientFactory,
+    ChemblEntityClientFactoryConfig,
 )
 from bioetl.clients.chembl.pagination import (
     DEFAULT_PAGINATION_STRATEGY,
@@ -96,6 +97,7 @@ def default_chembl_factory(
     pagination_strategy: PaginationStrategy | None = None,
     pagination_strategy_name: str | None = DEFAULT_PAGINATION_STRATEGY,
     pagination_factories: Mapping[str, PaginationFactory] | None = None,
+    transport_factory: Callable[[], ApiTransportProtocol] | None = None,
 ) -> ChemblEntityClientFactory:
     api_config = _build_api_config(config)
     strategy = pagination_strategy or create_pagination_strategy(
@@ -103,12 +105,14 @@ def default_chembl_factory(
         factories=pagination_factories,
         default=None,
     )
-    transport_factory = _transport_factory_builder(api_config)
+    resolved_transport_factory = transport_factory or _transport_factory_builder(api_config)
     return ChemblEntityClientFactory(
-        transport_factory,
-        pagination_strategy=strategy,
-        pagination_strategy_name=pagination_strategy_name,
-        pagination_factories=pagination_factories,
+        ChemblEntityClientFactoryConfig(
+            resolved_transport_factory,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_strategy=strategy,
+            pagination_factories=pagination_factories,
+        )
     )
 
 
