@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Callable, Mapping
+from typing import Any, Callable, Mapping
 from unittest.mock import MagicMock
 
 import pytest
@@ -22,6 +22,8 @@ from bioetl.core.pipeline.types import (
 
 @pytest.fixture
 def stage_context_factory() -> Callable[..., StageContext]:
+    """Fixture providing a factory for creating StageContext instances."""
+
     class _MappingClientContext:
         """Lightweight client context backed by a simple name mapping."""
 
@@ -31,6 +33,7 @@ def stage_context_factory() -> Callable[..., StageContext]:
         def get_client(
             self, name: str, entity: object | None = None
         ) -> object:
+            """Retrieve a client object by name."""
             obj = self._mapping[name]
             if entity is not None and isinstance(obj, Mapping):
                 return obj[entity]
@@ -39,10 +42,13 @@ def stage_context_factory() -> Callable[..., StageContext]:
     def _build(
         *,
         logger: MagicMock | None = None,
-        clients: Mapping[str | ClientNamespace, Mapping[object, object]] | None = None,
+        clients: (
+            Mapping[str | ClientNamespace, Mapping[object, object]] | None
+        ) = None,
         config: Mapping[str, object] | None = None,
         metric_emitter: Callable[..., None] | None = None,
     ) -> StageContext:
+        """Build a StageContext with provided dependencies."""
         cfg = config or {}
         execution = DefaultExecutionContext(
             logger=logger or MagicMock(),
@@ -66,25 +72,46 @@ def stage_context_factory() -> Callable[..., StageContext]:
         client_context = _MappingClientContext(client_mapping)
 
         class _ClientFactoryStub:
-            def __init__(self, mapping: Mapping[object, object], normalizer: Callable[[object], str]):
+            """Stub implementation of ClientFactory protocol."""
+
+            def __init__(
+                self,
+                mapping: Mapping[object, object],
+                normalizer: Callable[[Any], str],
+            ):
                 self._normalize = normalizer
-                self._mapping = {normalizer(key): value for key, value in mapping.items()}
+                self._mapping = {
+                    normalizer(key): value for key, value in mapping.items()
+                }
 
-            def create(self, entity: object) -> object:
-                return self._mapping[self._normalize(entity)]
+            def create(
+                self, entity: str, mode: str | None = None
+            ) -> object:
+                """Create a client for the entity."""
+                return self._mapping[entity]
 
-            def __getattr__(self, name: str) -> Callable[[], object]:  # pragma: no cover - passthrough
+            def __getattr__(
+                self, name: str
+            ) -> Callable[[], object]:  # pragma: no cover - passthrough
                 if name in self._mapping:
                     return lambda: self._mapping[name]
                 raise AttributeError(name)
 
-        factories: dict[str, object] = {}
+        factories: dict[str, Any] = {}
         for namespace, mapping in (clients or {}).items():
-            normalized_ns = namespace.value if isinstance(namespace, ClientNamespace) else str(namespace)
+            normalized_ns = (
+                namespace.value
+                if isinstance(namespace, ClientNamespace)
+                else str(namespace)
+            )
             if normalized_ns == ClientNamespace.CHEMBL.value:
-                factories[normalized_ns] = _ClientFactoryStub(mapping, lambda value: ChemblEntity(value).value)
+                factories[normalized_ns] = _ClientFactoryStub(
+                    mapping, lambda value: ChemblEntity(value).value
+                )
             elif normalized_ns == ClientNamespace.ENRICHER.value:
-                factories[normalized_ns] = _ClientFactoryStub(mapping, lambda value: EnricherEntity(value).value)
+                factories[normalized_ns] = _ClientFactoryStub(
+                    mapping, lambda value: EnricherEntity(value).value
+                )
             else:
                 msg = (
                     f"Unsupported namespace for stub factory: {normalized_ns}"
@@ -96,7 +123,7 @@ def stage_context_factory() -> Callable[..., StageContext]:
             domain=domain,
             infrastructure=infrastructure,
             artifacts=artifacts,
-            config_provider=lambda key, cfg=cfg: cfg[key],
+            config_provider=lambda key, _cfg=cfg: _cfg[key],
             clients=client_context,
             client_factories=factories,
             metric_emitter=metric_emitter,
