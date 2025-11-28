@@ -115,8 +115,8 @@ class ActivityExtractor:
                 )
                 return df, {"api_calls": payload_meta.get("api_calls", 1)}
             except RuntimeError as exc:  # pragma: no cover; noqa: BLE001
-                fallback = self._fallback_rows(list(batch), exc)
-                return fallback, {"fallback": len(fallback), "api_calls": 1}
+                # Return empty DataFrame for failed batch to exclude failed IDs
+                return pd.DataFrame(), {"fallback": len(list(batch)), "api_calls": 1}
 
         df, stats = execute_chembl_batches(
             fetch_batch, ids, batch_size=effective_batch_size

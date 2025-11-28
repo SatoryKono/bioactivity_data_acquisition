@@ -8,14 +8,16 @@ from bioetl.clients.enrichers.factory import (
     EnricherClientFactory,
     EnricherClientOptions,
 )
-from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.pagination import DefaultPaginationStrategy
 
 
-class _RecordingApiClient(BaseApiClient):
+class _RecordingApiClient:
+    """Test double that records API calls without inheriting from BaseApiClient."""
+
     def __init__(self, options: EnricherClientOptions) -> None:
         self.options = options
         self.calls: list[tuple[str, Mapping[str, Any] | None]] = []
+        self.closed = False
 
     def get_json(
         self,
@@ -23,12 +25,14 @@ class _RecordingApiClient(BaseApiClient):
         *,
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
-        del headers
+        del headers, timeout_sec, max_retries
         self.calls.append((endpoint, params))
         return {"results": [{"endpoint": endpoint, "params": params}]}
 
-    def paginate_json(
+        def paginate_json(
         self,
         endpoint: str,
         *,
@@ -37,9 +41,39 @@ class _RecordingApiClient(BaseApiClient):
         page_key: str = "results",
         next_key: str = "next",
         page_param: str | None = "page",
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> Sequence[Mapping[str, Any]]:
         del endpoint, params, headers, page_key, next_key, page_param
+        del timeout_sec, max_retries
         return []
+
+    def fetch_one(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> Any:
+        del endpoint, params, headers, timeout_sec, max_retries
+        return None
+
+    def fetch_batch(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str | None = "next",
+        page_param: str | None = "page",
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> Any:
+        del headers, page_key, next_key, page_param, timeout_sec, max_retries
+        return [{"endpoint": endpoint, "params": params}]
 
     def iterate_records(
         self,
@@ -47,19 +81,36 @@ class _RecordingApiClient(BaseApiClient):
         ids: Sequence[str] | None = None,
         page_size: int | None = None,
         fetcher: Any | None = None,
-    ):
+    ) -> Any:
         del ids, page_size, fetcher
         return iter(())
 
-    def close(self) -> None:  # pragma: no cover - noop
+    def close(self) -> None:
+        self.closed = True
+
+    # Required abstract attributes (duck-typed)
+    @property
+    def default_timeout_sec(self) -> float:
+        return 30.0
+
+    @property
+    def default_max_retries(self) -> int:
+        return 3
+
+    @property
+    def pagination_strategy(self) -> None:
         return None
 
 
-def test_enricher_factory_wraps_api_client_with_options():
+def test_enricher_factory_wraps_api_client_with_options() -> None:
+    """Test that factory correctly applies timeout and retry options."""
+
     def builder(options: EnricherClientOptions) -> _RecordingApiClient:
         return _RecordingApiClient(options)
 
-    factory = EnricherClientFactory(builder).with_options(timeout_sec=2.5, max_retries=2)
+    factory = EnricherClientFactory(builder).with_options(
+        timeout_sec=2.5, max_retries=2
+    )
     client = factory.crossref()
 
     records = list(client.fetch("10.1000/example"))
@@ -71,7 +122,8 @@ def test_enricher_factory_wraps_api_client_with_options():
     assert client.api_client._api_client.options.timeout_sec == 2.5
 
 
-def test_enricher_factory_from_config_accepts_api_client_instance():
+def test_enricher_factory_from_config_accepts_api_client_instance() -> None:
+    """Test that factory can accept a pre-configured API client instance."""
     api_client = _RecordingApiClient(EnricherClientOptions())
 
     factory = EnricherClientFactory.from_config(
@@ -83,7 +135,8 @@ def test_enricher_factory_from_config_accepts_api_client_instance():
     assert client.api_client.timeout_sec == 1.0
 
 
-def test_enricher_factory_preserves_api_pagination_config():
+def test_enricher_factory_preserves_api_pagination_config() -> None:
+    """Test that pagination config from API settings is preserved."""
     captured: dict[str, Any] = {}
 
     def builder(
@@ -105,7 +158,8 @@ def test_enricher_factory_preserves_api_pagination_config():
     assert captured["api_config"].pagination is pagination
 
 
-def test_enricher_factory_ignores_top_level_api_fields_without_warnings():
+def test_enricher_factory_ignores_top_level_api_fields_without_warnings() -> None:
+    """Test that top-level API fields are ignored without warnings."""
     captured: dict[str, Any] = {}
 
     def builder(

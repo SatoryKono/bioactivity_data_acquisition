@@ -135,7 +135,7 @@ def test_get_flattens_results_array_into_iterator() -> None:
     # Check that the internal api_client was called correctly
     # Access the underlying dummy client through the wrapper
     wrapper = client.api_client
-    dummy = cast(_DummyApiClient, wrapper._client)
+    dummy = cast(_DummyApiClient, wrapper._api_client)
     assert dummy.calls == [("/dummy", None)]
 
 

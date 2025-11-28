@@ -96,14 +96,15 @@ class DefaultPaginationStrategy(PaginationStrategy):
 
 
 class NextLinkPagination:
-    """Follow ChEMBL-style pagination using ``next`` links in responses."""
+    """Paginate using 'next' URL from response payload."""
 
     def __init__(
         self,
         *,
-        page_key: str = DEFAULT_PAGE_KEY,
+        page_key: str = DEFAULT_NEXT_KEY,
         next_key: str = DEFAULT_NEXT_KEY,
     ) -> None:
+        """Initialize pagination strategy."""
         self.page_key = page_key
         self.next_key = next_key
 
@@ -120,6 +121,7 @@ class NextLinkPagination:
         page_param: str | None = None,
         normalize: Any | None = None,
     ) -> Iterator[Mapping[str, Any] | Sequence[Mapping[str, Any]]]:
+        """Iterate through paginated responses using next links."""
         del page_param, normalize
 
         page_key = page_key or self.page_key
@@ -159,6 +161,7 @@ class PageParamPagination:
         page_key: str = DEFAULT_PAGE_KEY,
         next_key: str = DEFAULT_NEXT_KEY,
     ) -> None:
+        """Initialize page parameter pagination strategy."""
         self.page_param = page_param
         self.page_key = page_key
         self.next_key = next_key
@@ -176,6 +179,7 @@ class PageParamPagination:
         page_param: str | None = None,
         normalize: Any | None = None,
     ) -> Iterator[Mapping[str, Any] | Sequence[Mapping[str, Any]]]:
+        """Iterate through paginated responses using page parameters."""
         page_key = page_key or self.page_key
         next_key = next_key or self.next_key
         page_param = (
@@ -207,7 +211,11 @@ class PageParamPagination:
             if isinstance(response, Mapping) and next_key in response:
                 break
 
-            page_items = list(_iter_payload_items(response, page_key=page_key, normalize=normalize))
+            page_items = list(
+                _iter_payload_items(
+                    response, page_key=page_key, normalize=normalize
+                )
+            )
             if not page_items:
                 break
 

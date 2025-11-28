@@ -66,16 +66,21 @@ class FailingChemblClient(DummyChemblClient):
         """Return fake data with failures for specific IDs."""
         self.fetch_calls.append(list(ids))
         data = {}
+        failed_ids = []
         for identifier in ids:
             if identifier in self.fail_for:
-                raise RuntimeError("boom")
-            data[str(identifier)] = {
-                "activity_id": identifier,
-                "assay_id": f"ASSAY{identifier}",
-                "target_chembl_id": f"T{identifier}",
-                "standard_value": 1.0,
-                "standard_units": "nM",
-            }
+                failed_ids.append(identifier)
+            else:
+                data[str(identifier)] = {
+                    "activity_id": identifier,
+                    "assay_id": f"ASSAY{identifier}",
+                    "target_chembl_id": f"T{identifier}",
+                    "standard_value": 1.0,
+                    "standard_units": "nM",
+                }
+        # Raise exception if any IDs failed, but after processing successful ones
+        if failed_ids:
+            raise RuntimeError("boom")
         return data
 
 
