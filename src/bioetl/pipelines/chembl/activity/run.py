@@ -24,7 +24,7 @@ from bioetl.clients.chembl.entities import ChemblActivityClient
 from bioetl.clients.factories import (
     default_activity_client_factory,
 )
-from bioetl.core.io import PipelineOutputService
+from bioetl.core.io import UnifiedOutputWriter
 from bioetl.core.io.artifacts import (
     SchemaRegistry,
     SchemaRegistryEntry,
@@ -461,17 +461,23 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
             logs_directory=self.logs_directory,
             write_artifacts=artifacts,
         )
-        
+
         try:
             print(
                 "DEBUG: Attempting UnifiedOutputWriter.write_dataset_atomic "
                 f"with df shape {df.shape}"
             )
             result = writer.write_dataset_atomic(df, run_artifacts)
-            print("DEBUG: UnifiedOutputWriter.write_dataset_atomic succeeded")
+            print(
+                "DEBUG: UnifiedOutputWriter.write_dataset_atomic "
+                "succeeded"
+            )
             return result
         except Exception as e:
-            print(f"DEBUG: UnifiedOutputWriter.write_dataset_atomic failed: {e}")
+            print(
+                "DEBUG: UnifiedOutputWriter.write_dataset_atomic "
+                f"failed: {e}"
+            )
             # Fall through to legacy write_service
             return self.write_service.save(df, artifacts, options)
 
