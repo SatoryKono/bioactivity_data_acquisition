@@ -28,7 +28,7 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
         self.validation_service = DefaultValidationService(self.validator)
 
     def build_descriptor(self):  # pragma: no cover
-        return self._build_generic_descriptor()
+        return super().build_descriptor()
 
     # ------------------------------------------------------------------
     # Stage hooks
@@ -63,22 +63,14 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
 
         df = df.copy()
         if "uniprot_id" in df.columns:
-            df["uniprot_payload"] = df["uniprot_id"].apply(self._enrich_uniprot)
+            df["uniprot_payload"] = self.enrichers.enrich(
+                df["uniprot_id"], "uniprot"
+            )
         if "iuphar_id" in df.columns:
-            df["iuphar_payload"] = df["iuphar_id"].apply(self._enrich_iuphar)
+            df["iuphar_payload"] = self.enrichers.enrich(
+                df["iuphar_id"], "iuphar"
+            )
         return df
-
-    def _enrich_uniprot(self, uniprot_id: Any) -> Mapping[str, Any] | None:
-        client = self.config.get("enrichers", {}).get("uniprot_client") if isinstance(self.config, Mapping) else None
-        if callable(getattr(client, "fetch", None)) and pd.notna(uniprot_id):
-            return client.fetch(uniprot_id)
-        return None
-
-    def _enrich_iuphar(self, iuphar_id: Any) -> Mapping[str, Any] | None:
-        client = self.config.get("enrichers", {}).get("iuphar_client") if isinstance(self.config, Mapping) else None
-        if callable(getattr(client, "fetch", None)) and pd.notna(iuphar_id):
-            return client.fetch(iuphar_id)
-        return None
 
 
 __all__ = ["ChemblTargetPipeline"]

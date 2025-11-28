@@ -30,7 +30,7 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
         self.validation_service = DefaultValidationService(self.validator)
 
     def build_descriptor(self):  # pragma: no cover - тонкий слой
-        return self._build_generic_descriptor()
+        return super().build_descriptor()
 
     # ------------------------------------------------------------------
     # Stage hooks

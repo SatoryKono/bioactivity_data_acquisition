@@ -28,7 +28,7 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
         self.validation_service = DefaultValidationService(self.validator)
 
     def build_descriptor(self):  # pragma: no cover
-        return self._build_generic_descriptor()
+        return super().build_descriptor()
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         df = super().pre_transform(df)
@@ -68,14 +68,11 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
         return df
 
     def _enrich_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
-        client = self.config.get("enrichers", {}).get("pubchem_client") if isinstance(self.config, Mapping) else None
-        if df.empty or client is None:
-            return df
-        if not callable(getattr(client, "lookup", None)):
+        if df.empty or "inchi_key" not in df.columns:
             return df
         df = df.copy()
-        df["pubchem_enrichment"] = df["inchi_key"].apply(
-            lambda inchikey: client.lookup(inchikey) if pd.notna(inchikey) else None
+        df["pubchem_enrichment"] = self.enrichers.enrich(
+            df["inchi_key"], "pubchem"
         )
         return df
 

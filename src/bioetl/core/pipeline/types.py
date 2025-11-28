@@ -24,6 +24,8 @@ from bioetl.clients.enrichers.factory import (
 )
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
+from bioetl.clients.chembl.entities import ChemblEntity, ChemblEntityClientFactory
+from bioetl.clients.enrichers.factory import EnricherClientFactory, EnricherEntity
 
 
 class PipelineExtractionMode(str, Enum):
@@ -311,7 +313,7 @@ class ConfigContext(Protocol):
 
 @runtime_checkable
 class ClientContext(Protocol):
-    """Lookup contract for external clients."""
+    """Lookup contract for external clients grouped by namespace."""
 
     def get_client(self, namespace: "ClientNamespace | str", entity: Any) -> Any:
         ...
@@ -450,6 +452,31 @@ class LegacyClientLookupAdapter:
                     raise KeyError(msg) from err
         msg = f"Client '{name}' is not registered"
         raise KeyError(msg)
+
+    def resolve(
+        self, namespace: ClientNamespace | str, entity: Enum | str | None
+    ) -> tuple[ClientNamespace, Enum | str]:
+        if entity is None:
+            if not isinstance(namespace, str):
+                msg = "Entity must be provided when namespace is not a string"
+                raise KeyError(msg)
+            namespace, entity_value = self._split(namespace)
+        else:
+            entity_value = entity
+        resolved_namespace = ClientNamespace(namespace)
+        return resolved_namespace, entity_value
+
+
+@dataclass(slots=True)
+class ClientRegistryContext(ClientContext):
+    """Client context backed by :class:`ClientRegistry`."""
+
+    registry: ClientRegistry = field(default_factory=lambda: ClientRegistry({}))
+    adapter: LegacyClientKeyAdapter = field(default_factory=LegacyClientKeyAdapter)
+
+    def get_client(self, namespace: str, entity: Any | None = None) -> Any:
+        resolved_namespace, resolved_entity = self.adapter.resolve(namespace, entity)
+        return self.registry.get(resolved_namespace, resolved_entity)
 
 
 @dataclass(slots=True)
@@ -736,6 +763,10 @@ __all__ = [
     "ExecutionContext",
     "ConfigContext",
     "ClientContext",
+    "ClientNamespace",
+    "ClientRegistry",
+    "ClientRegistryContext",
+    "ClientRegistryMap",
     "DataContext",
     "MetricsContext",
     "StageFactoryContext",
