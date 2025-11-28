@@ -7,12 +7,30 @@ HTTP transport to add logging, metadata capture, and pagination support.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
-from bioetl.clients.chembl.pagination import PaginationFactory, create_pagination_strategy
+from bioetl.clients.chembl.pagination import (
+    PaginationFactory,
+    create_pagination_strategy,
+)
 from bioetl.core.http.adapter import LoggingTransportAdapter
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
+
+
+def _chembl_pagination_factory(
+    name: str | None,
+    factories: Mapping[str, Any] | None,
+) -> PaginationStrategy | None:
+    typed_factories = cast(
+        Mapping[str, PaginationFactory] | None,
+        factories,
+    )
+    return create_pagination_strategy(
+        name,
+        factories=typed_factories,
+        default=None,
+    )
 
 
 class ChemblTransportAdapter(LoggingTransportAdapter):
@@ -30,7 +48,7 @@ class ChemblTransportAdapter(LoggingTransportAdapter):
             transport,
             pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
-            pagination_factory=create_pagination_strategy,
+            pagination_factory=_chembl_pagination_factory,
             pagination_factories=pagination_factories,
             client_name="chembl_transport",
         )
