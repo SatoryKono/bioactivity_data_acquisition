@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Callable, Protocol
+from typing import Any, Callable, Mapping, Protocol
 
 from bioetl.clients.enrichers.crossref import CrossrefClient
 from bioetl.clients.enrichers.openalex import OpenAlexClient
@@ -57,6 +57,45 @@ class EnricherClientFactory:
             self._api_client_factory = lambda *_: api_client
         self._options = options or EnricherClientOptions()
 
+    @classmethod
+    def from_config(
+        cls, config: Mapping[str, Any] | None
+    ) -> "EnricherClientFactory | None":
+        """Построить фабрику из конфигурации ``enrichers``.
+
+        Поддерживаются варианты:
+
+        * уже созданная ``EnricherClientFactory`` в ключе ``factory``;
+        * ``api_client`` (готовый экземпляр ``BaseApiClient`` или билдер),
+          опционально с ``options`` (dict или ``EnricherClientOptions``).
+
+        Если конфигурация присутствует, но валидной фабрики нет, возвращается
+        ``NULL_ENRICHER_FACTORY`` для совместимости со стратегиями, которым
+        фабрика может не понадобиться.
+        """
+
+        if not isinstance(config, Mapping):
+            return None
+
+        factory = config.get("factory")
+        if isinstance(factory, cls):
+            return factory
+
+        api_client = config.get("api_client")
+        options_cfg = config.get("options")
+        options: EnricherClientOptions | None
+        if isinstance(options_cfg, EnricherClientOptions):
+            options = options_cfg
+        elif isinstance(options_cfg, Mapping):
+            options = EnricherClientOptions(**options_cfg)
+        else:
+            options = None
+
+        if isinstance(api_client, BaseApiClient) or callable(api_client):
+            return cls(api_client, options=options)
+
+        return NULL_ENRICHER_FACTORY if config else None
+
     def with_options(self, **overrides) -> "EnricherClientFactory":
         """Return a clone with updated default options."""
 
@@ -109,11 +148,31 @@ class EnricherClientFactory:
         return UniProtClient(api_client, options=options)
 
 
+class _NullApiClient(BaseApiClient):
+    """Заглушка API-клиента для конфигураций без сетевого клиента."""
+
+    def get_json(self, *args, **kwargs):  # pragma: no cover - defensive stub
+        raise RuntimeError("Null API client cannot perform requests")
+
+    def paginate_json(self, *args, **kwargs):  # pragma: no cover - defensive stub
+        raise RuntimeError("Null API client cannot paginate requests")
+
+    def iterate_records(self, *args, **kwargs):  # pragma: no cover - defensive stub
+        raise RuntimeError("Null API client cannot iterate records")
+
+    def close(self) -> None:  # pragma: no cover - defensive stub
+        return None
+
+
+NULL_ENRICHER_FACTORY = EnricherClientFactory(lambda *_: _NullApiClient())
+
+
 __all__ = [
     "EnricherEntity",
     "ENRICHER_ALLOWED_ENTITIES",
     "EnricherClientFactory",
     "EnricherClientOptions",
     "EnricherClientProtocol",
+    "NULL_ENRICHER_FACTORY",
 ]
 
