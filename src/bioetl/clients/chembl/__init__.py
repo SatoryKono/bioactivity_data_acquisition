@@ -33,6 +33,7 @@ from bioetl.clients.chembl.factories import (
     default_chembl_factory,
     make_chembl_client,
 )
+from bioetl.clients.chembl.factory import ChemblClientFactory
 from bioetl.clients.chembl.normalization import (
     BaseChemblNormalizer,
     ColumnMapping,
@@ -75,6 +76,7 @@ __all__ = [
     "default_activity_client_factory",
     "default_chembl_factory",
     "make_chembl_client",
+    "ChemblClientFactory",
     "PaginationStrategy",
     "PaginationFactory",
     "DEFAULT_PAGINATION_STRATEGY",

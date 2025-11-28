@@ -20,6 +20,7 @@ from bioetl.pipelines.chembl.common.chembl_extraction_service import (
     ChemblExtractionService,
 )
 from bioetl.pipelines.chembl.common.strategies import ExtractionStrategyFactory
+from bioetl.pipelines.client_registry import ClientFactoryRegistry
 
 
 class TestChemblWriteService:
@@ -446,11 +447,31 @@ class TestChemblCommonPipeline:
         pipeline = ChemblCommonPipeline(config, run_id="test")
 
         descriptor = pipeline.build_descriptor()
-        
+
         assert isinstance(descriptor, ChemblExtractionServiceDescriptor)
         assert callable(descriptor.build_context)
         assert callable(descriptor.fetcher_factory)
         assert callable(descriptor.finalizer_factory)
+
+    def test_descriptor_factory_uses_client_registry_when_provided(self) -> None:
+        config = {
+            "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
+            "cache": {"namespace": "test"},
+            "determinism": {"sort": {"by": ["id"]}},
+        }
+
+        descriptor_factory = MagicMock()
+        registry = ClientFactoryRegistry(
+            {"chembl": MagicMock(create=MagicMock(return_value=descriptor_factory))}
+        )
+
+        pipeline = ChemblCommonPipeline(
+            config,
+            run_id="test",
+            client_registry=registry,
+        )
+
+        assert pipeline._descriptor_factory is descriptor_factory
 
     def test_build_descriptor_service_path(self) -> None:
         """build_descriptor should use the service factory by default."""
