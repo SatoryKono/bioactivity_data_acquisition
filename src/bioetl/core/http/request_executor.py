@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 import json
 import time
 from datetime import datetime, timezone
@@ -162,6 +160,18 @@ class _ResilientRequestExecutor:
         data = json.loads(payload.decode("utf-8"))
         self._logger.info("api_call", cache_hit=True)
         return data
+
+    @property
+    def retry_strategy(self) -> RetryStrategy:
+        """Expose the configured retry strategy for type-aware callers."""
+
+        return self._retry_strategy
+
+    @property
+    def timeout_seconds(self) -> float:
+        """Return the request timeout configured on the executor."""
+
+        return self._timeout_sec
 
 
 __all__ = ["HTTPClientError", "_ResilientRequestExecutor"]

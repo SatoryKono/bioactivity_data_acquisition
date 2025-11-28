@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any, cast
 
+import warnings
+
 import structlog
 
 from bioetl.core.http.client_mixins import ClosableMixin
@@ -27,11 +29,15 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         request_executor: Any,
         request_builder: Any,
         pagination_strategy: Any,
+        retry_strategy: Any | None = None,
+        timeout_seconds: float | None = None,
     ) -> None:
         self.api_config = api_config
         self.request_executor = request_executor
         self.request_builder = request_builder
         self.pagination_strategy = pagination_strategy
+        self._retry_strategy = retry_strategy
+        self._timeout_seconds = timeout_seconds
         self._logger = structlog.get_logger(__name__)
 
     @classmethod
@@ -52,7 +58,31 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
             request_executor=components.executor,
             request_builder=components.request_builder,
             pagination_strategy=components.pagination_strategy,
+            retry_strategy=components.retry_strategy,
+            timeout_seconds=api_config.timeout_sec,
         )
+
+    def fetch_one(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> Mapping[str, Any]:
+        """Fetch and validate a single JSON object from ``endpoint``."""
+        url = self.request_builder.build_url(endpoint)
+        merged_headers = self.request_builder.merge_headers(headers)
+        payload = self.request_executor.request(
+            "GET", url, params=params, headers=merged_headers
+        )
+        if isinstance(payload, Mapping):
+            return cast(Mapping[str, Any], payload)
+
+        msg = (
+            "Expected mapping payload when fetching a single resource; "
+            f"got {type(payload).__name__}"
+        )
+        raise TypeError(msg)
 
     def get_json(
         self,
@@ -61,15 +91,21 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
-        """Fetch a single resource from ``endpoint`` and return decoded JSON.
+        """Compatibility alias for :meth:`fetch_one`.
+
+        A ``DeprecationWarning`` is emitted to encourage migration to
+        ``fetch_one`` while keeping legacy call sites working.
         """
-        url = self.request_builder.build_url(endpoint)
-        merged_headers = self.request_builder.merge_headers(headers)
-        return cast(
-            Mapping[str, Any] | list[Mapping[str, Any]],
-            self.request_executor.request(
-                "GET", url, params=params, headers=merged_headers
-            ),
+
+        warnings.warn(
+            "get_json is deprecated; use fetch_one for clarity.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_one(
+            endpoint,
+            params=params,
+            headers=headers,
         )
 
     def paginate_json(
@@ -108,6 +144,36 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         for page in pages:
             yield from _normalize(page)
 
+    def fetch_batch(
+        self,
+        *,
+        ids: Sequence[str],
+        page_size: int | None = None,
+        fetcher: Callable[[Sequence[str]], Any] | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Fetch a batch of resources using an optional ``fetcher`` callback."""
+
+        def iterator() -> Iterator[Mapping[str, Any]]:
+            if callable(fetcher):
+                result = fetcher(ids)
+                if isinstance(result, Iterator):
+                    yield from result
+                    return
+                if result is not None:
+                    yield from normalize_payload(result)
+                    return
+
+            if not ids:
+                return
+
+            # Delegate to ``iterate_records`` to preserve legacy behavior
+            # for consumers that implemented it.
+            yield from self.iterate_records(
+                ids=ids, page_size=page_size, fetcher=fetcher
+            )
+
+        yield from iterator()
+
     def iterate_records(
         self,
         *,
@@ -143,3 +209,19 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         close_fn = getattr(self.request_builder, "close", None)
         if callable(close_fn):
             close_fn()
+
+    @property
+    def retry_strategy(self) -> Any:
+        return (
+            getattr(self.request_executor, "retry_strategy", None)
+            or self._retry_strategy
+        )
+
+    @property
+    def timeout_seconds(self) -> float:
+        return cast(
+            float,
+            getattr(self.request_executor, "timeout_seconds", None)
+            or self._timeout_seconds
+            or self.api_config.timeout_sec,
+        )
