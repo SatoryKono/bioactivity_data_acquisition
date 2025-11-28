@@ -54,8 +54,7 @@ class PipelineOutputService:
                     writer.output_dir = output_dir
                 return writer  # type: ignore
         
-        # Create default writer when no config is provided
-        return UnifiedOutputWriterImpl(output_dir=output_dir)
+        return None
 
     def save(
         self,
