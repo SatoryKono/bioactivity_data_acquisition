@@ -1,8 +1,13 @@
 """Клиенты для внешних источников обогащения.
 
-Приватный алиас ``_BaseEnricherClient`` удалён; используйте ``BaseEnricherClient``
-напрямую.
+Алиас ``_BaseEnricherClient`` сохранён для обратной совместимости и выдаёт
+``DeprecationWarning`` при обращении; используйте ``BaseEnricherClient`` напрямую.
 """
+
+from __future__ import annotations
+
+import warnings
+from typing import Any
 
 from .base import BaseEnricherClient, RouteConfig, RouteEnricherMixin
 from bioetl.clients.enrichers.crossref import CrossrefClient
@@ -20,6 +25,7 @@ __all__ = [
     "BaseEnricherClient",
     "RouteConfig",
     "RouteEnricherMixin",
+    "_BaseEnricherClient",
     "CrossrefClient",
     "EnricherClientFactory",
     "EnricherClientOptions",
@@ -29,3 +35,14 @@ __all__ = [
     "SemanticScholarClient",
     "UniProtClient",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    if name == "_BaseEnricherClient":
+        warnings.warn(
+            "'_BaseEnricherClient' устарел; используйте 'BaseEnricherClient'",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return BaseEnricherClient
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
