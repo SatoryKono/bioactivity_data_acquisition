@@ -19,6 +19,18 @@ from bioetl.core.pipeline.types import (
 
 @pytest.fixture
 def stage_context_factory() -> Callable[..., StageContext]:
+    class _MappingClientContext:
+        """Lightweight client context backed by a simple name mapping."""
+
+        def __init__(self, mapping: Mapping[str, object]) -> None:
+            self._mapping = mapping
+
+        def get_client(
+            self, name: str, entity: object | None = None
+        ) -> object:
+            _ = entity
+            return self._mapping[name]
+
     def _build(
         *,
         logger: MagicMock | None = None,
@@ -37,12 +49,16 @@ def stage_context_factory() -> Callable[..., StageContext]:
         artifacts = DefaultArtifactContext()
 
         raw_clients = clients or {}
-        client_registry: dict[str, object] = {}
+        client_mapping: dict[str, object] = {}
         for name, client in raw_clients.items():
             if hasattr(client, "process"):
-                client_registry[name] = SimpleNamespace(process=client.process)
+                client_mapping[name] = SimpleNamespace(
+                    process=client.process
+                )
             else:
-                client_registry[name] = client
+                client_mapping[name] = client
+
+        client_context = _MappingClientContext(client_mapping)
 
         return StageContext(
             execution=execution,
@@ -50,7 +66,7 @@ def stage_context_factory() -> Callable[..., StageContext]:
             infrastructure=infrastructure,
             artifacts=artifacts,
             config_provider=lambda key, cfg=cfg: cfg[key],
-            client_registry=client_registry,
+            clients=client_context,
             metric_emitter=metric_emitter,
         )
 

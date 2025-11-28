@@ -6,10 +6,8 @@ from typing import Iterable, Protocol, TYPE_CHECKING
 
 import pandas as pd
 
-from bioetl.core.pipeline.unified import (
-    ChemblExtractionDescriptor,
-    ChemblExtractionServiceDescriptor,
-)
+from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor
+from bioetl.pipelines.chembl.common.descriptor import ChemblExtractionDescriptor
 
 if TYPE_CHECKING:  # pragma: no cover
     from bioetl.core.pipeline.types import StageExecutionOptions

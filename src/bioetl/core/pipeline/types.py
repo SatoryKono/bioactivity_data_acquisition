@@ -297,7 +297,11 @@ class ConfigContext(Protocol):
 class ClientContext(Protocol):
     """Lookup contract for external clients grouped by namespace."""
 
-    def get_client(self, namespace: str, entity: Any | None = None) -> Any:
+    def get_client(
+        self,
+        namespace: str,
+        entity: Any | None = None,
+    ) -> Any:
         """Retrieve a client instance by namespace and entity."""
 
 
@@ -502,7 +506,11 @@ class ClientRegistryContext(ClientContext):
     registry: ClientRegistry = field(default_factory=lambda: ClientRegistry({}))
     adapter: LegacyClientKeyAdapter = field(default_factory=LegacyClientKeyAdapter)
 
-    def get_client(self, namespace: str, entity: Any | None = None) -> Any:
+    def get_client(
+        self,
+        namespace: str,
+        entity: Any | None = None,
+    ) -> Any:
         resolved_namespace, resolved_entity = self.adapter.resolve(namespace, entity)
         return self.registry.get(resolved_namespace, resolved_entity)
 
@@ -655,7 +663,11 @@ class StageContextAdapter:
             raise KeyError(msg)
         return self.config.get_config(key)
 
-    def get_client(self, namespace: str, entity: Any | None = None) -> Any:
+    def get_client(
+        self,
+        namespace: str,
+        entity: Any | None = None,
+    ) -> Any:
         """Retrieve a client from the registry."""
         if self.clients is None:
             msg = "Client registry is not configured"
