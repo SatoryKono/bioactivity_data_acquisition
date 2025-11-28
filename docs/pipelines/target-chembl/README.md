@@ -27,3 +27,23 @@ Field-level descriptions for target-related tables are documented in
 Integration details with external protein or classification systems
 should be documented here once corresponding enrichment steps are
 implemented in the codebase.
+
+Автоматического enrichment нет. Пример ручного вызова клиента:
+
+```python
+from bioetl.clients import EnricherClientFactory
+
+# Получаем фабрику из config
+factory = EnricherClientFactory.from_config(config.get("clients", {}).get("enrichers"))
+pubchem = factory.create("pubchem")
+
+# Внутри pipeline stage (явно)
+def enrich_pubchem_column(df):
+    if df.empty or "inchi_key" not in df.columns:
+        return df
+    df = df.copy()
+    df["pubchem_enrichment"] = df["inchi_key"].apply(
+        lambda v: None if pd.isna(v) else pubchem.lookup(v)
+    )
+    return df
+```
