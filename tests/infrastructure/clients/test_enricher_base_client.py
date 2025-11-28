@@ -7,7 +7,7 @@ from collections.abc import Iterator
 import pytest
 
 from bioetl.clients import exceptions as client_exceptions
-from bioetl.clients.enrichers._base import _BaseEnricherClient
+from bioetl.clients.enrichers.base import BaseEnricherClient
 
 
 class _DummyApiClient:
@@ -31,7 +31,7 @@ class _DummyApiClient:
         self.closed = True
 
 
-class _DummyEnricher(_BaseEnricherClient):
+class _DummyEnricher(BaseEnricherClient):
     """Dummy enricher client for testing base functionality."""
     def fetch(
         self, path: str = "/dummy", params: dict | None = None

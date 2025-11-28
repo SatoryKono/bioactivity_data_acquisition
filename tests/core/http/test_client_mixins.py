@@ -11,8 +11,8 @@ from structlog.testing import capture_logs
 
 from bioetl.clients import exceptions as client_exceptions
 from bioetl.clients.chembl import BaseChemblClient, ChemblEntityClient
+from bioetl.clients.enrichers.base import BaseEnricherClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.clients.enrichers._base import _BaseEnricherClient
 from bioetl.core.http.api_entity_client import (
     BaseApiEntityClient as _BaseEntityClient
 )
@@ -278,7 +278,7 @@ def test_wrap_callable_preserves_bound_logger_context() -> None:
         _BaseEntityClient,
         ChemblEntityClient,
         BaseChemblClient,
-        _BaseEnricherClient,
+        BaseEnricherClient,
     ],
 )
 def test_mixins_are_not_duplicated_in_mro(cls: type) -> None:
