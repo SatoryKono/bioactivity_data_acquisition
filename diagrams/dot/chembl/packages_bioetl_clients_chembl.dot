@@ -4,6 +4,7 @@ charset="utf-8"
 "src.bioetl.clients.chembl" [color="black", label=<src.bioetl.clients.chembl>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.adapter" [color="black", label=<src.bioetl.clients.chembl.adapter>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.base" [color="black", label=<src.bioetl.clients.chembl.base>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.descriptor_factory" [color="black", label=<src.bioetl.clients.chembl.descriptor_factory>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.entities" [color="black", label=<src.bioetl.clients.chembl.entities>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.factories" [color="black", label=<src.bioetl.clients.chembl.factories>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.factory" [color="black", label=<src.bioetl.clients.chembl.factory>, shape="box", style="solid"];

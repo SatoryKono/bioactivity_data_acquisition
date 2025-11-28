@@ -2,9 +2,11 @@ digraph "packages_bioetl_clients" {
 rankdir=BT
 charset="utf-8"
 "src.bioetl.clients" [color="black", label=<src.bioetl.clients>, shape="box", style="solid"];
+"src.bioetl.clients.base" [color="black", label=<src.bioetl.clients.base>, shape="box", style="solid"];
 "src.bioetl.clients.chembl" [color="black", label=<src.bioetl.clients.chembl>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.adapter" [color="black", label=<src.bioetl.clients.chembl.adapter>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.base" [color="black", label=<src.bioetl.clients.chembl.base>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.descriptor_factory" [color="black", label=<src.bioetl.clients.chembl.descriptor_factory>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.entities" [color="black", label=<src.bioetl.clients.chembl.entities>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.factories" [color="black", label=<src.bioetl.clients.chembl.factories>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.factory" [color="black", label=<src.bioetl.clients.chembl.factory>, shape="box", style="solid"];
@@ -24,7 +26,7 @@ charset="utf-8"
 "src.bioetl.clients.enrichers.providers.uniprot" [color="black", label=<src.bioetl.clients.enrichers.providers.uniprot>, shape="box", style="solid"];
 "src.bioetl.clients.enrichers.strategy_registry" [color="black", label=<src.bioetl.clients.enrichers.strategy_registry>, shape="box", style="solid"];
 "src.bioetl.clients.exceptions" [color="black", label=<src.bioetl.clients.exceptions>, shape="box", style="solid"];
-"src.bioetl.clients.enrichers" -> "src.bioetl.clients.enrichers.base" [arrowhead="open", arrowtail="none"];
+"src.bioetl.clients.enrichers" -> "src.bioetl.clients.base" [arrowhead="open", arrowtail="none"];
 "src.bioetl.clients.enrichers.providers" -> "src.bioetl.clients.enrichers.providers.crossref" [arrowhead="open", arrowtail="none"];
 "src.bioetl.clients.enrichers.providers" -> "src.bioetl.clients.enrichers.providers.openalex" [arrowhead="open", arrowtail="none"];
 "src.bioetl.clients.enrichers.providers" -> "src.bioetl.clients.enrichers.providers.pubchem" [arrowhead="open", arrowtail="none"];

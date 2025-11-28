@@ -8,6 +8,7 @@ from typing import Any, Protocol
 
 import pandas as pd
 
+from bioetl.clients.chembl.descriptor_factory import BatchPlan
 from bioetl.core.pipeline.types import PipelineConfig, RunResult
 
 __all__ = [
@@ -22,14 +23,6 @@ __all__ = [
 
 class ConfigValidationError(ValueError):
     """Raised when user supplied configuration is invalid."""
-
-
-@dataclass(slots=True)
-class BatchPlan:
-    """Batch parameters used during extraction."""
-
-    batch_size: int | None = None
-    chunk_size: int | None = None
 
 
 @dataclass(slots=True)

@@ -53,12 +53,5 @@ class ChemblTransportAdapter(LoggingTransportAdapter):
             client_name="chembl_transport",
         )
 
-    def _capture_metadata(
-        self, payload: Mapping[str, Any] | Sequence[Mapping[str, Any]] | Any
-    ) -> None:
-        """Preserve base behavior while keeping override hook for ChEMBL specifics."""
-
-        super()._capture_metadata(payload)
-
 
 __all__ = ["ChemblTransportAdapter"]

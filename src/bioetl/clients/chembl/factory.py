@@ -9,14 +9,16 @@ from typing import Any, Callable, Sequence
 from bioetl.clients.base import ClientFactory
 from bioetl.clients.chembl.entities import ChemblEntityClientFactory
 from bioetl.clients.chembl.factories import default_chembl_factory
-from bioetl.pipelines.chembl.common.descriptor_factory import (
+from bioetl.clients.chembl.descriptor_factory import (
     ChemblContextFacade,
     ChemblDescriptorFactory,
     FetcherStrategy,
 )
 
 
-def _resolve_chembl_context(config: Mapping[str, Any] | Any) -> Mapping[str, Any]:
+def _resolve_chembl_context(
+    config: Mapping[str, Any] | Any,
+) -> Mapping[str, Any]:
     if isinstance(config, Mapping):
         return config.get("sources", {}).get("chembl", {})
     sources = getattr(config, "sources", None)
@@ -30,14 +32,18 @@ class ChemblClientFactory(ClientFactory[ChemblDescriptorFactory]):
     """Создаёт :class:`ChemblDescriptorFactory` с готовым контекстом."""
 
     config: Mapping[str, Any] | Any
-    fallback_rows: Callable[[Iterable[str], Exception], list[dict[str, Any]]] | None = None
+    fallback_rows: (
+        Callable[[Iterable[str], Exception], list[dict[str, Any]]] | None
+    ) = None
     sort_fields: Mapping[str, Sequence[str]] | None = None
     fetcher_strategies: Mapping[str, FetcherStrategy] | None = None
 
     def _build_fetcher_strategies(
         self, entity_name: str, chembl_ctx: Mapping[str, Any]
     ) -> dict[str, FetcherStrategy]:
-        strategies: dict[str, FetcherStrategy] = dict(self.fetcher_strategies or {})
+        strategies: dict[str, FetcherStrategy] = dict(
+            self.fetcher_strategies or {}
+        )
         fetcher_key = f"{entity_name}_fetcher"
         if fetcher_key not in chembl_ctx:
             return strategies
@@ -85,13 +91,16 @@ class ChemblClientFactory(ClientFactory[ChemblDescriptorFactory]):
             )
             transport_factory = client_factory.config.transport_factory
             pagination_strategy_name = (
-                pagination_strategy_name or client_factory.config.pagination_strategy_name
+                pagination_strategy_name
+                or client_factory.config.pagination_strategy_name
             )
             pagination_strategy = (
-                pagination_strategy or client_factory.config.pagination_strategy
+                pagination_strategy
+                or client_factory.config.pagination_strategy
             )
             pagination_factories = (
-                pagination_factories or client_factory.config.pagination_factories
+                pagination_factories
+                or client_factory.config.pagination_factories
             )
 
         return ChemblContextFacade(
@@ -104,7 +113,9 @@ class ChemblClientFactory(ClientFactory[ChemblDescriptorFactory]):
             client_factory=client_factory,
         )
 
-    def create(self, entity: str, mode: str | None = None) -> ChemblDescriptorFactory:
+    def create(
+        self, entity: str, mode: str | None = None
+    ) -> ChemblDescriptorFactory:
         _ = mode
         chembl_ctx = _resolve_chembl_context(self.config)
         context_facade = self._build_context_facade(chembl_ctx)
