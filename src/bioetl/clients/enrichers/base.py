@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, ClassVar, Iterable
+from typing import Any, ClassVar, Iterable, Protocol, runtime_checkable
 
 import structlog
 
@@ -11,9 +11,42 @@ from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.types import JSONRecordStream
 
 
+@dataclass
+class EnricherClientOptions:
+    timeout_sec: float | None = None
+    max_retries: int | None = None
+
+
+@runtime_checkable
+class EnricherClientProtocol(Protocol):
+    def fetch(
+        self, value: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        ...
+
+    def search(
+        self, value: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        ...
+
+    def call_route(
+        self, route_name: str, *, value: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        ...
+
+
 class BaseEnricherClient(ClosableMixin, ApiClientMixin):
-    def __init__(self, api_client: BaseApiClient, source: str) -> None:
+    def __init__(
+        self,
+        api_client: BaseApiClient,
+        source: str,
+        *,
+        options: EnricherClientOptions | None = None,
+    ) -> None:
         self.api_client = api_client
+        effective_options = options or EnricherClientOptions()
+        self.timeout_sec = effective_options.timeout_sec
+        self.max_retries = effective_options.max_retries
         self._logger = structlog.get_logger(__name__).bind(source=source)
 
     def _get(
@@ -54,8 +87,13 @@ class RouteEnricherMixin(BaseEnricherClient):
     SOURCE: ClassVar[str]
     ROUTES: ClassVar[Iterable[RouteConfig]]
 
-    def __init__(self, api_client: BaseApiClient) -> None:
-        super().__init__(api_client, self.SOURCE)
+    def __init__(
+        self,
+        api_client: BaseApiClient,
+        *,
+        options: EnricherClientOptions | None = None,
+    ) -> None:
+        super().__init__(api_client, self.SOURCE, options=options)
         self._route_map = {route.name: route for route in self.ROUTES}
 
     def _call_route(
@@ -69,5 +107,16 @@ class RouteEnricherMixin(BaseEnricherClient):
         path = route.path.format(value=value)
         return self._get(path, params=params_with_value)
 
+    def call_route(
+        self, route_name: str, *, value: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return self._call_route(route_name, value=value, params=params)
 
-__all__ = ["BaseEnricherClient", "RouteConfig", "RouteEnricherMixin"]
+
+__all__ = [
+    "BaseEnricherClient",
+    "EnricherClientOptions",
+    "EnricherClientProtocol",
+    "RouteConfig",
+    "RouteEnricherMixin",
+]
