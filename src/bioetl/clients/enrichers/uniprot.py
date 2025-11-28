@@ -3,25 +3,26 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from bioetl.clients.enrichers.base import BaseEnricherClient
-from bioetl.core.http.interfaces import BaseApiClient
+from bioetl.clients.enrichers.base import RouteConfig, RouteEnricherMixin
 from bioetl.core.http.types import JSONRecordStream
 
 
-class UniProtClient(BaseEnricherClient):
-    def __init__(self, api_client: BaseApiClient) -> None:
-        super().__init__(api_client, "uniprot")
+class UniProtClient(RouteEnricherMixin):
+    SOURCE = "uniprot"
+    ROUTES = (
+        RouteConfig(name="fetch", path="/uniprot/{value}"),
+        RouteConfig(name="search", path="/uniprot/search", query_param="query"),
+    )
 
     def fetch(
         self, uniprot_id: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._get(f"/uniprot/{uniprot_id}", params=params)
+        return self._call_route("fetch", value=uniprot_id, params=params)
 
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        merged_params = {"query": query, **(params or {})}
-        return self._get("/uniprot/search", params=merged_params)
+        return self._call_route("search", value=query, params=params)
 
 
 __all__ = ["UniProtClient"]
