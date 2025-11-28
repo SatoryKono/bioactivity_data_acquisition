@@ -123,8 +123,8 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         # not be fully implemented or rely on fetcher.
         # If this method is required by BaseApiClient, we should implement it.
         # However, typical use of iterate_records is in EntityClient which
-        # wraps this. For now, returning empty iterator or raising NotImplemented
-        # if not used. But BaseApiClient says it yields Mapping.
+        # wraps this. For now, returning empty iterator or raising
+        # NotImplemented if not used. But BaseApiClient says it yields Mapping.
         if fetcher:
             yield from fetcher(ids)
             return
