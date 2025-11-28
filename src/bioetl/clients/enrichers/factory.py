@@ -62,7 +62,12 @@ class _ConfiguredApiClient:
 
 
 class EnricherClientFactory:
-    """Factory for creating enricher clients with shared HTTP settings."""
+    """Factory for creating enricher clients with shared HTTP settings.
+
+    Note:
+        API находится в статусе экспериментального: интерфейс может меняться
+        по мере эволюции клиентов обогащения.
+    """
 
     def __init__(
         self,
