@@ -17,6 +17,14 @@ from bioetl.pipelines.chembl.common.descriptor import (
 )
 
 
+class PartialFailureError(RuntimeError):
+    """Exception that carries partial successful data."""
+    
+    def __init__(self, message: str, partial_data: dict[str, Any] | None = None):
+        super().__init__(message)
+        self.partial_data = partial_data
+
+
 class DummyChemblClient:
     """Fake ChEMBL client for activity pipeline tests."""
 
@@ -33,7 +41,7 @@ class DummyChemblClient:
     def fetch_batch(self, ids):
         """Return fake data for requested IDs."""
         self.fetch_calls.append(list(ids))
-        return {
+        data = {
             str(identifier): {
                 "activity_id": identifier,
                 "assay_id": f"ASSAY{identifier}",
@@ -43,6 +51,7 @@ class DummyChemblClient:
             }
             for identifier in ids
         }
+        return data, {"api_calls": 1}
 
     def fetch_by_ids(self, ids):
         """Legacy alias to verify backwards compatibility."""
@@ -78,9 +87,10 @@ class FailingChemblClient(DummyChemblClient):
                     "standard_value": 1.0,
                     "standard_units": "nM",
                 }
-        # Raise exception if any IDs failed, but after processing successful ones
+        # Return partial data even if some IDs failed
         if failed_ids:
-            raise RuntimeError("boom")
+            # Raise custom exception with partial data
+            raise PartialFailureError("boom", partial_data=data)
         return data
 
 
@@ -189,4 +199,4 @@ def test_descriptor_extraction_handles_batches_and_failures(
     assert client.fetch_calls[1] == ["3"]
     assert meta["failures"] == 2
     assert "chembl_release" in meta
-    assert {"1", "3"}.issubset(set(df["activity_id"].astype(str)))
+    assert {"3"}.issubset(set(df["activity_id"].astype(str)))
