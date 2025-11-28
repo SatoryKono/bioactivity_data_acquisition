@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Callable, Sequence, cast
 
 from bioetl.clients.chembl.entities import (
     ChemblEntityClientFactory,
@@ -106,7 +107,6 @@ class ChemblDescriptorFactory:
             except Exception as exc:  # pragma: no cover - defensive guard
                 if batch:
                     # MyPy: self._fallback_rows is not None due to outer check
-                    from typing import cast
                     fallback_fn = cast(
                         Callable[
                             [Iterable[str], Exception],

@@ -17,7 +17,6 @@ from typing import Any
 from bioetl.core.http import pagination_helpers
 # pylint: disable=line-too-long
 from bioetl.core.http.pagination_helpers import *  # noqa: F401,F403  # type: ignore[line-too-long]  # pylint: disable=wildcard-import,unused-wildcard-import
-
 _DEPRECATED_HTTP_EXPORTS: dict[str, tuple[str, str]] = {
     "ApiTransportProtocol": ("bioetl.core.http", "ApiTransportProtocol"),
     "BaseApiClient": ("bioetl.core.http", "BaseApiClient"),

@@ -23,11 +23,12 @@ if TYPE_CHECKING:
     from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
     from bioetl.core.logging import UnifiedLogger
 
+# Import these at module level to avoid "Import outside toplevel" warnings
+from bioetl.clients.chembl.entities import ChemblEntity
+from bioetl.clients.enrichers.factory import EnricherEntity
+
 
 def _get_default_validators() -> Mapping[ClientNamespace, Type[Enum]]:
-    from bioetl.clients.chembl.entities import ChemblEntity
-    from bioetl.clients.enrichers.factory import EnricherEntity
-
     return {
         ClientNamespace.CHEMBL: ChemblEntity,
         ClientNamespace.ENRICHER: EnricherEntity,
@@ -158,8 +159,6 @@ class ArtifactStore:
 
     def __init__(self, artifacts: WriteArtifacts | None = None) -> None:
         if artifacts is None:
-            from bioetl.core.io.artifacts import WriteArtifacts
-
             artifacts = WriteArtifacts()
         self._artifacts = artifacts
 

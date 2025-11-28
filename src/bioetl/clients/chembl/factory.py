@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, cast
 
 from bioetl.clients.base import ClientFactory
 from bioetl.clients.chembl.entities import ChemblEntityClientFactory
@@ -21,7 +21,6 @@ def _resolve_chembl_context(
     config: Mapping[str, Any] | Any,
 ) -> Mapping[str, Any]:
     if isinstance(config, Mapping):
-        from typing import cast
         return cast(
             Mapping[str, Any],
             config.get("sources", {}).get("chembl", {}),
@@ -61,7 +60,6 @@ class ChemblClientFactory(ClientFactory[ChemblDescriptorFactory]):
             _fetcher: Any = fetcher,
         ) -> Callable[[Sequence[str] | None], Any]:
             if callable(_fetcher):
-                from typing import cast
                 return cast(
                     Callable[[Sequence[str] | None], Any],
                     _fetcher,
