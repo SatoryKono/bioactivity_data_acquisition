@@ -58,6 +58,24 @@ class ApiClientMixin:
         )
         yield from normalize_payload(payload, page_key=effective_page_key)
 
+    @property
+    def pagination_strategy(self) -> Any | None:
+        """Expose pagination strategy if underlying transport provides it."""
+
+        return getattr(self._transport(), "pagination_strategy", None)
+
+    @property
+    def default_timeout_sec(self) -> float | None:
+        """Default timeout delegated to the configured transport."""
+
+        return getattr(self._transport(), "default_timeout_sec", None)
+
+    @property
+    def default_max_retries(self) -> int | None:
+        """Default retry count delegated to the configured transport."""
+
+        return getattr(self._transport(), "default_max_retries", None)
+
     def _wrap_callable(
         self,
         func: Callable[[], _T],

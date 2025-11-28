@@ -22,7 +22,11 @@ from bioetl.core.http.circuit_breaker import (
 )
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 from bioetl.core.http.config import APIConfig
-from bioetl.core.http.interfaces import ApiTransportProtocol, BaseApiClient
+from bioetl.core.http.interfaces import (
+    ApiTransportProtocol,
+    BaseApiClient,
+    ResilientApiClient,
+)
 from bioetl.core.http.pagination import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
@@ -59,6 +63,7 @@ __all__ = [
     "APIConfig",
     "ApiClientMixin",
     "BaseApiClient",
+    "ResilientApiClient",
     "ApiTransportProtocol",
     "BaseApiEntityClient",
     "CacheStrategy",

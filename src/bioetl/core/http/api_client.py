@@ -20,6 +20,13 @@ __all__ = ["APIConfig", "UnifiedAPIClient"]
 class UnifiedAPIClient(BaseApiClient, ClosableMixin):
     """Simple adapter bundling executor, builder, and pagination strategy."""
 
+    api_config: APIConfig
+    request_executor: Any
+    request_builder: Any
+    pagination_strategy: Any
+    default_timeout_sec: float
+    default_max_retries: int
+
     def __init__(
         self,
         api_config: APIConfig,
@@ -32,6 +39,8 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         self.request_executor = request_executor
         self.request_builder = request_builder
         self.pagination_strategy = pagination_strategy
+        self.default_timeout_sec = api_config.timeout_sec
+        self.default_max_retries = api_config.max_retries
         self._logger = structlog.get_logger(__name__)
 
     @classmethod
@@ -64,6 +73,9 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         max_retries: int | None = None,
     ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
         """Fetch a single resource from ``endpoint`` and return decoded JSON.
+
+        This method remains available for backwards compatibility. Prefer
+        :meth:`fetch_one` for clarity when consuming downstream.
         """
         url = self.request_builder.build_url(endpoint)
         merged_headers = self.request_builder.merge_headers(headers)
@@ -91,7 +103,7 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Iterate over paginated JSON resources for the given ``endpoint``."""
+        """Iterate over paginated JSON resources for the given ``endpoint"""
         # Fetch first page to bootstrap pagination strategy
         url = self.request_builder.build_url(endpoint)
         merged_headers = self.request_builder.merge_headers(headers)
@@ -131,6 +143,7 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
+        """Resilient wrapper around a single GET request."""
         return self.get_json(
             endpoint,
             params=params,
@@ -151,6 +164,7 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
+        """Resilient wrapper around paginated GET requests."""
         return self.paginate_json(
             endpoint,
             params=params,

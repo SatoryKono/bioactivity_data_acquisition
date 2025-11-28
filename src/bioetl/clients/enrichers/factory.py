@@ -220,6 +220,10 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
 class _NullApiClient(BaseApiClient):
     """Заглушка API-клиента для конфигураций без сетевого клиента."""
 
+    pagination_strategy = None
+    default_timeout_sec = None
+    default_max_retries = None
+
     def get_json(self, *args, **kwargs):  # pragma: no cover - defensive stub
         raise RuntimeError("Null API client cannot perform requests")
 
