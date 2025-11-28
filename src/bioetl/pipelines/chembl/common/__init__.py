@@ -13,6 +13,10 @@ from .descriptor_factory import (
     ChemblDescriptorFactory,
     FetcherStrategy,
 )
+from .descriptor_factory_builder import (
+    build_descriptor_factory,
+    build_pipeline_chembl_factory,
+)
 
 __all__ = [
     "BatchPlan",
@@ -27,4 +31,6 @@ __all__ = [
     "ChemblDescriptorFactory",
     "ChemblContextFacade",
     "FetcherStrategy",
+    "build_descriptor_factory",
+    "build_pipeline_chembl_factory",
 ]
