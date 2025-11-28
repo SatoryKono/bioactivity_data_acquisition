@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Callable, Protocol
+from typing import Protocol
 
 from bioetl.clients.enrichers.crossref import CrossrefClient
 from bioetl.clients.enrichers.openalex import OpenAlexClient
@@ -49,7 +49,12 @@ class _ConfiguredApiClient:
 
 
 class EnricherClientFactory:
-    """Factory for creating enricher clients with shared HTTP settings."""
+    """Factory for creating enricher clients with shared HTTP settings.
+
+    Note:
+        API находится в статусе экспериментального: интерфейс может меняться
+        по мере эволюции клиентов обогащения.
+    """
 
     def __init__(
         self,
