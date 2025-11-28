@@ -1,6 +1,8 @@
-"""Compatibility wrapper for API client configuration."""
+"""Compatibility wrapper"""Unified HTTP client for BioETL pipeline components."""
 
-from bioetl.core.http.config import APIConfig
+from __future__ import annotations
 
-__all__ = ["APIConfig"]
+from typing import Any, Dict, Iterator, Mapping
 
+import requests
+import structlog
