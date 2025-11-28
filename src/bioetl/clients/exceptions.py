@@ -1,21 +1,17 @@
-"""Публичные исключения HTTP-клиентов BioETL."""
+"""Совместимость: исключения перенесены в ``bioetl.clients.base.exceptions``."""
 
 from __future__ import annotations
 
-from requests.exceptions import ConnectionError as _RequestsConnectionError
-from requests.exceptions import HTTPError as _RequestsHTTPError
-from requests.exceptions import RequestException as _RequestsRequestException
-from requests.exceptions import Timeout as _RequestsTimeout
+import warnings
 
-__all__ = [
-    "RequestException",
-    "HTTPError",
-    "Timeout",
-    "ConnectionError",
-]
+from bioetl.clients.base import exceptions as _exceptions
 
-# Re-export requests exceptions while keeping the underlying types.
-RequestException = _RequestsRequestException
-HTTPError = _RequestsHTTPError
-Timeout = _RequestsTimeout
-ConnectionError = _RequestsConnectionError
+warnings.warn(
+    "bioetl.clients.exceptions перенесён в bioetl.clients.base.exceptions; обновите импорты.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from bioetl.clients.base.exceptions import *  # noqa: F401,F403,E402
+
+__all__ = _exceptions.__all__

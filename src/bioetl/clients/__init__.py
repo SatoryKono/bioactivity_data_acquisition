@@ -2,15 +2,32 @@
 
 from __future__ import annotations
 
-from bioetl.clients.base import (
+from bioetl.clients.base import (  # noqa: F401
     FACTORIES,
     ClientFactory,
     ClientProtocol,
+    ConfigurationError,
+    ConnectionError,
+    DataProviderProtocol,
+    HTTPError,
+    Page,
+    PageStream,
+    PaginationError,
+    PaginationParams,
+    ProviderError,
+    RecordStream,
+    RequestContext,
+    RequestException,
+    RetryOptions,
+    SupportsBatch,
+    SupportsSearch,
+    Timeout,
+    TransportOptions,
     get_factory,
     register_domain_factories,
     register_factory,
 )
-from bioetl.clients.chembl import (
+from bioetl.clients.chembl import (  # noqa: F401
     BaseChemblClient,
     ChemblActivityClient,
     ChemblAssayClient,
@@ -22,11 +39,35 @@ from bioetl.clients.chembl import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
-from bioetl.clients.chembl.factories import (
+from bioetl.clients.chembl.factories import (  # noqa: F401
     default_chembl_factory,
     make_chembl_client,
 )
-from bioetl.clients.enricher_base import (
+from bioetl.clients.factories import (  # noqa: F401
+    ENRICHER_ALLOWED_ENTITIES,
+    ClientMethodStrategy,
+    EnricherApiConfig,
+    EnricherApiFactory,
+    EnricherClientFactory,
+    EnricherEntity,
+    EnricherFacade,
+    EnrichmentStrategy,
+    NULL_ENRICHER_FACTORY,
+    NullEnricherFacade,
+    StrategyRegistry,
+    build_enricher_facade,
+)
+from bioetl.clients.providers import (  # noqa: F401
+    BaseDataProvider,
+    CrossrefClient,
+    OpenAlexClient,
+    PubChemClient,
+    PubmedClient,
+    SemanticScholarClient,
+    UniProtClient,
+    create_route_provider_class,
+)
+from bioetl.clients.providers.routes import (  # noqa: F401
     BaseEnricherClient,
     DeprecatedAliasMixin,
     EnricherClientOptions,
@@ -34,42 +75,16 @@ from bioetl.clients.enricher_base import (
     RouteConfig,
     RouteEnricherMixin,
     RouteProviderBase,
-    create_route_provider_class,
+    UnifiedProviderAdapter,
 )
-from bioetl.clients.enricher_facade import (
-    ClientMethodStrategy,
-    EnricherFacade,
-    EnrichmentStrategy,
-    NullEnricherFacade,
-    build_enricher_facade,
-)
-from bioetl.clients.enricher_factory import (
-    ENRICHER_ALLOWED_ENTITIES,
-    EnricherApiConfig,
-    EnricherApiFactory,
-    EnricherClientFactory,
-    EnricherEntity,
-    NULL_ENRICHER_FACTORY,
-)
-from bioetl.clients.enricher_strategy_registry import StrategyRegistry
-from bioetl.clients.exceptions import (
-    ConnectionError,  # noqa: A004, pylint: disable=redefined-builtin
-    HTTPError,
-    RequestException,
-    Timeout,
-)
-from bioetl.clients.providers import (
-    CrossrefClient,
-    OpenAlexClient,
-    PubChemClient,
-    PubmedClient,
-    SemanticScholarClient,
-    UniProtClient,
-)
+from bioetl.clients.utils.common import *  # noqa: F401,F403
 
 __all__ = [
     # Base client plumbing
     "ConnectionError",
+    "ProviderError",
+    "PaginationError",
+    "ConfigurationError",
     "HTTPError",
     "RequestException",
     "Timeout",
@@ -79,6 +94,17 @@ __all__ = [
     "register_factory",
     "register_domain_factories",
     "get_factory",
+    "BaseDataProvider",
+    "DataProviderProtocol",
+    "SupportsBatch",
+    "SupportsSearch",
+    "PaginationParams",
+    "RequestContext",
+    "RecordStream",
+    "Page",
+    "PageStream",
+    "TransportOptions",
+    "RetryOptions",
     # Chembl clients
     "BaseChemblClient",
     "ChemblActivityClient",
@@ -100,6 +126,7 @@ __all__ = [
     "RouteConfig",
     "RouteEnricherMixin",
     "RouteProviderBase",
+    "UnifiedProviderAdapter",
     "create_route_provider_class",
     # Enricher factory & facade
     "ClientMethodStrategy",

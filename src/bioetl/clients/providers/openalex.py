@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..enricher_base import RouteConfig, create_route_provider_class
+from .routes import RouteConfig, create_route_provider_class
 
 OpenAlexClient = create_route_provider_class(
     name="OpenAlexClient",
