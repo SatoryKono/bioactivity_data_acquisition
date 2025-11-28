@@ -26,15 +26,35 @@ class OpenAlexClient(RouteEnricherMixin):
         RouteConfig(name="search", path="/works", query_param="search"),
     )
 
+    def fetch_one(
+        self, oa_id: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_one(oa_id, params=params)
+
+    def fetch_batch(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_batch(query, params=params)
+
     def fetch(
         self, oa_id: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("fetch", value=oa_id, params=params)
+        warnings.warn(
+            "fetch устарел; используйте fetch_one",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_one(oa_id, params=params)
 
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("search", value=query, params=params)
+        warnings.warn(
+            "search устарел; используйте fetch_batch",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(query, params=params)
 
 
 __all__ = ["OpenAlexClient"]

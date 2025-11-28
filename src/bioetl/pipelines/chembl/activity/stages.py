@@ -92,7 +92,7 @@ class ActivityExtractor:
             if not batch:
                 return pd.DataFrame(), {"api_calls": 0}
             try:
-                payload = client.fetch_by_ids(batch)
+                payload = client.fetch_batch(batch)
                 # Handle both dict (legacy assumption?) and iterator
                 iterator: Any = payload
                 if isinstance(iterator, Mapping):

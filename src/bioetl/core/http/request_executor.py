@@ -68,6 +68,8 @@ class _ResilientRequestExecutor:
         headers: Mapping[str, str] | None = None,
         params: Mapping[str, Any] | None = None,
         json: Any | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> dict[str, Any]:
         cache_key = None
         if method.upper() == "GET" and self._cache:
@@ -83,8 +85,16 @@ class _ResilientRequestExecutor:
                 return self._deserialize(cached)
 
         attempt = 0
+        effective_max_retries = (
+            max_retries
+            if max_retries is not None
+            else self._retry_strategy.max_retries
+        )
+        effective_timeout = (
+            timeout_sec if timeout_sec is not None else self._timeout_sec
+        )
         last_error: Exception | None = None
-        while attempt <= self._retry_strategy.max_retries:
+        while attempt <= effective_max_retries:
             attempt += 1
             try:
                 if not self._rate_limiter.acquire():
@@ -97,13 +107,13 @@ class _ResilientRequestExecutor:
                         params=params,
                         json=json,
                         headers=headers,
-                        timeout=self._timeout_sec,
+                        timeout=effective_timeout,
                     )
                 )
                 latency_ms = (time.perf_counter() - start) * 1000
                 if response.status_code in _RETRYABLE_STATUS_CODES:
                     retry_after = self._parse_retry_after(response)
-                    if attempt > self._retry_strategy.max_retries:
+                    if attempt > effective_max_retries:
                         response.raise_for_status()
                     wait_for = self._retry_strategy.compute_backoff(attempt, retry_after=retry_after)
                     self._logger.warning(
@@ -135,7 +145,7 @@ class _ResilientRequestExecutor:
             except (RequestException, ValueError) as exc:
                 last_error = exc
                 self._breaker.record_failure()
-                if attempt > self._retry_strategy.max_retries:
+                if attempt > effective_max_retries:
                     raise HTTPClientError(str(exc)) from exc
                 wait_for = self._retry_strategy.compute_backoff(attempt)
                 self._logger.warning("api_retry", attempt=attempt, url=url, error=str(exc), wait_sec=wait_for)

@@ -26,15 +26,35 @@ class PubmedClient(RouteEnricherMixin):
         RouteConfig(name="fetch", path="/pubmed/{value}"),
     )
 
+    def fetch_one(
+        self, pmid: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_one(pmid, params=params)
+
+    def fetch_batch(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_batch(query, params=params, route_name="search")
+
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("search", value=query, params=params)
+        warnings.warn(
+            "search устарел; используйте fetch_batch",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(query, params=params)
 
     def fetch(
         self, pmid: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("fetch", value=pmid, params=params)
+        warnings.warn(
+            "fetch устарел; используйте fetch_one",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_one(pmid, params=params)
 
     def search_by_title(
         self, query: str, params: Mapping[str, Any] | None = None
@@ -46,7 +66,7 @@ class PubmedClient(RouteEnricherMixin):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.search(query, params=params)
+        return self.fetch_batch(query, params=params)
 
     def fetch_by_pmid(
         self, pmid: str, params: Mapping[str, Any] | None = None
@@ -58,7 +78,7 @@ class PubmedClient(RouteEnricherMixin):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.fetch(pmid, params=params)
+        return self.fetch_one(pmid, params=params)
 
 
 __all__ = ["PubmedClient"]

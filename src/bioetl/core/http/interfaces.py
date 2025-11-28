@@ -20,6 +20,8 @@ class BaseApiClient(Protocol):
         *,
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
         """Fetch a single resource from ``endpoint`` and return decoded JSON.
         """
@@ -33,9 +35,36 @@ class BaseApiClient(Protocol):
         page_key: str = "results",
         next_key: str = "next",
         page_param: str | None = "page",
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
         """Iterate over paginated JSON resources for the given ``endpoint``.
         """
+
+    def fetch_one(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
+        """Perform a single fetch request with optional resilience overrides."""
+
+    def fetch_batch(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Iterate over a batch request with optional pagination controls."""
 
     def iterate_records(
         self,
@@ -62,6 +91,8 @@ class ApiTransportProtocol(Protocol):
         headers: Mapping[str, str] | None = None,
         params: Mapping[str, Any] | None = None,
         json: Any | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
         """Perform a low-level HTTP request and return parsed JSON."""
 

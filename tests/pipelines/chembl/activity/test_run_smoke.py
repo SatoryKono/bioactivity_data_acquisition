@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+import warnings
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -29,7 +30,7 @@ class DummyChemblClient:
         self.status_calls += 1
         return {"chembl_release": self.releases[0]}
 
-    def fetch_by_ids(self, ids):
+    def fetch_batch(self, ids):
         """Return fake data for requested IDs."""
         self.fetch_calls.append(list(ids))
         return {
@@ -43,6 +44,16 @@ class DummyChemblClient:
             for identifier in ids
         }
 
+    def fetch_by_ids(self, ids):
+        """Legacy alias to verify backwards compatibility."""
+
+        warnings.warn(
+            "fetch_by_ids is deprecated; use fetch_batch",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(ids)
+
 
 class FailingChemblClient(DummyChemblClient):
     """Client that simulates failures for specific IDs."""
@@ -51,7 +62,7 @@ class FailingChemblClient(DummyChemblClient):
         super().__init__()
         self.fail_for: set[str] = {"2"}
 
-    def fetch_by_ids(self, ids):
+    def fetch_batch(self, ids):
         """Return fake data with failures for specific IDs."""
         self.fetch_calls.append(list(ids))
         data = {}

@@ -26,15 +26,35 @@ class CrossrefClient(RouteEnricherMixin):
         RouteConfig(name="search", path="/works", query_param="query"),
     )
 
+    def fetch_one(
+        self, doi: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_one(doi, params=params)
+
+    def fetch_batch(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_batch(query, params=params)
+
     def fetch(
         self, doi: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("fetch", value=doi, params=params)
+        warnings.warn(
+            "fetch устарел; используйте fetch_one",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_one(doi, params=params)
 
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("search", value=query, params=params)
+        warnings.warn(
+            "search устарел; используйте fetch_batch",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(query, params=params)
 
 
 __all__ = ["CrossrefClient"]

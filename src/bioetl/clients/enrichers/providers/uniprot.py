@@ -26,15 +26,35 @@ class UniProtClient(RouteEnricherMixin):
         RouteConfig(name="search", path="/uniprot/search", query_param="query"),
     )
 
+    def fetch_one(
+        self, uniprot_id: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_one(uniprot_id, params=params)
+
+    def fetch_batch(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_batch(query, params=params)
+
     def fetch(
         self, uniprot_id: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("fetch", value=uniprot_id, params=params)
+        warnings.warn(
+            "fetch устарел; используйте fetch_one",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_one(uniprot_id, params=params)
 
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("search", value=query, params=params)
+        warnings.warn(
+            "search устарел; используйте fetch_batch",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(query, params=params)
 
 
 __all__ = ["UniProtClient"]
