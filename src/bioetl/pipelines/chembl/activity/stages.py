@@ -100,10 +100,12 @@ class ActivityExtractor:
                 return pd.DataFrame(), {"api_calls": 0}
             try:
                 payload, payload_meta = client.fetch_batch(batch)
-                iterator: Any = payload
-                if isinstance(iterator, Mapping):
-                    iterator = iterator.values()
+                # Handle both dict-of-dicts and results-wrapped formats
+                if isinstance(payload, Mapping) and "results" not in payload:
+                    # Dict-of-dicts format - wrap in results structure
+                    payload = {"results": list(payload.values())}
                 frames = []
+                iterator = payload.values() if isinstance(payload, Mapping) else [payload]
                 for raw in iterator:
                     if isinstance(raw, Mapping) and "results" not in raw:
                         raw = {"results": [raw]}
@@ -114,29 +116,33 @@ class ActivityExtractor:
                     else pd.DataFrame()
                 )
                 return df, {"api_calls": payload_meta.get("api_calls", 1)}
-            except RuntimeError as exc:  # pragma: no cover; noqa: BLE001
-                # Try to get partial data from client before it failed
-                # The client may have processed some IDs successfully
-                try:
-                    # Access the client's partial data if available
-                    if hasattr(client, '_last_partial_data'):
-                        partial_payload = client._last_partial_data
-                        iterator = partial_payload.values() if isinstance(partial_payload, Mapping) else partial_payload
-                        frames = []
-                        for raw in iterator:
-                            if isinstance(raw, Mapping) and "results" not in raw:
-                                raw = {"results": [raw]}
-                            frames.append(self.parser.parse(raw))
-                        partial_df = (
-                            pd.concat(frames, ignore_index=True)
-                            if frames
-                            else pd.DataFrame()
-                        )
-                        return partial_df, {"fallback": len(list(batch)), "api_calls": 1}
-                except Exception:
-                    pass
-                # Return empty DataFrame for failed batch to exclude failed IDs
-                return pd.DataFrame(), {"fallback": len(list(batch)), "api_calls": 1}
+            except RuntimeError as exc:
+                # Try to get partial data from client if available
+                partial_data = getattr(client, "_partial_data", None)
+                print(f"DEBUG: Exception caught for batch {list(batch)}, partial_data keys: {list(partial_data.keys()) if partial_data else None}")
+                if partial_data:
+                    # Process the partial successful data
+                    payload = {"results": list(partial_data.values())}
+                    frames = []
+                    for raw in [payload]:
+                        if isinstance(raw, Mapping) and "results" not in raw:
+                            raw = {"results": [raw]}
+                        frames.append(self.parser.parse(raw))
+                    df = (
+                        pd.concat(frames, ignore_index=True)
+                        if frames
+                        else pd.DataFrame()
+                    )
+                    # Calculate actual failed IDs count
+                    failed_count = len(batch) - len(partial_data)
+                    print(f"DEBUG: len(batch)={len(batch)}, len(partial_data)={len(partial_data)}, failed_count={failed_count}")
+                    # Clear partial data to prevent accumulation
+                    if hasattr(client, "_partial_data"):
+                        delattr(client, "_partial_data")
+                    return df, {"fallback": failed_count, "api_calls": 1}
+                # No partial data available, return empty DataFrame
+                print(f"DEBUG: No partial data, returning fallback={len(batch)}")
+                return pd.DataFrame(), {"fallback": len(batch), "api_calls": 1}
 
         df, stats = execute_chembl_batches(
             fetch_batch, ids, batch_size=effective_batch_size
