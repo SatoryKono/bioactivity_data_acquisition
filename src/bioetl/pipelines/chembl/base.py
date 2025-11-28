@@ -70,7 +70,7 @@ class ChemblPipeline(ChemblCommonPipeline):
     def build_descriptor(self):
         """Использовать универсальное построение дескриптора ChEMBL."""
 
-        return self._build_generic_descriptor()
+        return self._descriptor_factory.build(self.entity_name)
 
     def get_release(self) -> str | None:
         """Вернуть текущий номер релиза ChEMBL."""

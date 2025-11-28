@@ -15,6 +15,20 @@ from bioetl.core.http.interfaces import BaseApiClient
 
 
 @dataclass(frozen=True)
+class EnricherEntity(str, Enum):
+    """Enumeration of supported enricher client targets."""
+
+    CROSSREF = "crossref"
+    OPENALEX = "openalex"
+    PUBCHEM = "pubchem"
+    PUBMED = "pubmed"
+    SEMANTIC_SCHOLAR = "semantic_scholar"
+    UNIPROT = "uniprot"
+
+
+ENRICHER_ALLOWED_ENTITIES: tuple[str, ...] = tuple(member.value for member in EnricherEntity)
+
+
 class EnricherClientOptions:
     """Lightweight options for enricher HTTP clients."""
 
@@ -121,6 +135,8 @@ class EnricherClientFactory:
 
 
 __all__ = [
+    "EnricherEntity",
+    "ENRICHER_ALLOWED_ENTITIES",
     "EnricherClientFactory",
     "EnricherClientOptions",
     "EnricherEntity",
