@@ -83,7 +83,9 @@ def stage_context_factory() -> Callable[..., StageContext]:
             elif normalized_ns == ClientNamespace.ENRICHER.value:
                 factories[normalized_ns] = _ClientFactoryStub(mapping, lambda value: EnricherEntity(value).value)
             else:
-                msg = f"Unsupported namespace for stub factory: {normalized_ns}"
+                msg = (
+                    f"Unsupported namespace for stub factory: {normalized_ns}"
+                )
                 raise ValueError(msg)
 
         return StageContext(

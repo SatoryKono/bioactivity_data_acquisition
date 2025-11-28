@@ -17,15 +17,16 @@ from typing import (
 
 import pandas as pd
 
-from bioetl.clients.chembl.entities import ChemblEntity, ChemblEntityClientFactory
+from bioetl.clients.chembl.entities import (
+    ChemblEntity,
+    ChemblEntityClientFactory,
+)
 from bioetl.clients.enrichers.factory import (
     EnricherClientFactory,
     EnricherEntity,
 )
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
-from bioetl.clients.chembl.entities import ChemblEntity, ChemblEntityClientFactory
-from bioetl.clients.enrichers.factory import EnricherClientFactory, EnricherEntity
 
 
 class PipelineExtractionMode(str, Enum):
@@ -305,12 +306,10 @@ class ClientContext(Protocol):
 
     def get_client(
         self,
-        namespace: str,
+        namespace: ClientNamespace | str,
         entity: Any | None = None,
     ) -> Any:
         """Retrieve a client instance by namespace and entity."""
-    def get_client(self, namespace: "ClientNamespace | str", entity: Any) -> Any:
-        ...
 
 
 @runtime_checkable
@@ -448,16 +447,25 @@ class LegacyClientLookupAdapter:
         raise KeyError(msg)
 
     def resolve(
-        self, namespace: ClientNamespace | str, entity: Enum | str | None
+        self,
+        namespace: ClientNamespace | str,
+        entity: Enum | str | None,
     ) -> tuple[ClientNamespace, Enum | str]:
+        """Resolve the namespace and entity from legacy or new arguments."""
         if entity is None:
             if not isinstance(namespace, str):
-                msg = "Entity must be provided when namespace is not a string"
+                msg = (
+                    "Entity must be provided when namespace is not a string"
+                )
                 raise KeyError(msg)
-            namespace, entity_value = self._split(namespace)
+            return self(namespace)
         else:
+            resolved_namespace = (
+                namespace
+                if isinstance(namespace, ClientNamespace)
+                else ClientNamespace(namespace)
+            )
             entity_value = entity
-        resolved_namespace = ClientNamespace(namespace)
         return resolved_namespace, entity_value
 
 
@@ -465,7 +473,9 @@ class LegacyClientLookupAdapter:
 class ClientRegistryContext(ClientContext):
     """Client context backed by :class:`ClientRegistry`."""
 
-    registry: ClientRegistry = field(default_factory=lambda: ClientRegistry({}))
+    registry: ClientRegistry = field(
+        default_factory=lambda: ClientRegistry({})
+    )
     adapter: LegacyClientLookupAdapter = field(
         default_factory=LegacyClientLookupAdapter
     )
@@ -475,7 +485,11 @@ class ClientRegistryContext(ClientContext):
         namespace: str,
         entity: Any | None = None,
     ) -> Any:
-        resolved_namespace, resolved_entity = self.adapter.resolve(namespace, entity)
+        """Retrieve a client instance by namespace and entity."""
+        resolved_namespace, resolved_entity = self.adapter.resolve(
+            namespace,
+            entity,
+        )
         return self.registry.get(resolved_namespace, resolved_entity)
 
 
@@ -492,39 +506,66 @@ class ClientRegistry(ClientContext):
         }
     )
 
-    def _normalize_namespace(self, namespace: ClientNamespace | str) -> ClientNamespace:
-        return namespace if isinstance(namespace, ClientNamespace) else ClientNamespace(namespace)
+    def _normalize_namespace(
+        self,
+        namespace: ClientNamespace | str,
+    ) -> ClientNamespace:
+        if isinstance(namespace, ClientNamespace):
+            return namespace
+        return ClientNamespace(namespace)
 
     def _normalize_entity(
-        self, namespace: ClientNamespace, entity: Enum | str
+        self,
+        namespace: ClientNamespace,
+        entity: Enum | str,
     ) -> tuple[str, Enum]:
         validator = self._entity_validators.get(namespace)
         if validator is None:
             msg = f"Namespace '{namespace.value}' is not registered"
             raise KeyError(msg)
-        value = validator(entity)
+        try:
+            value = validator(entity)
+        except ValueError as err:
+            msg = (
+                f"Entity '{entity}' is not valid "
+                f"for namespace '{namespace.value}'"
+            )
+            raise KeyError(msg) from err
         return value.value, value
 
-    def get_client(self, namespace: ClientNamespace | str, entity: Enum | str) -> Any:
+    def get(
+        self,
+        namespace: ClientNamespace | str,
+        entity: Any | None = None,
+    ) -> Any:
+        """Retrieve a client instance by namespace and entity."""
         normalized_namespace = self._normalize_namespace(namespace)
-        factory = self.factories.get(normalized_namespace.value)
-        if factory is None:
-            msg = f"Client namespace '{normalized_namespace.value}' is not registered"
+        if entity is None:
+            msg = "Client entity must be provided"
             raise KeyError(msg)
 
-        entity_name, normalized_entity = self._normalize_entity(
-            normalized_namespace, entity
+        factory = self.factories.get(normalized_namespace.value)
+        if factory is None:
+            msg = (
+                "Client namespace "
+                f"'{normalized_namespace.value}' is not registered"
+            )
+            raise KeyError(msg)
+
+        _, normalized_entity = self._normalize_entity(
+            normalized_namespace,
+            entity,
         )
 
-        if normalized_namespace is ClientNamespace.CHEMBL:
-            return factory.create(normalized_entity)
+        return factory.create(normalized_entity)
 
-        if normalized_namespace is ClientNamespace.ENRICHER:
-            creator = getattr(factory, entity_name)
-            return creator()
-
-        msg = f"Factory for namespace '{normalized_namespace.value}' is not supported"
-        raise KeyError(msg)
+    def get_client(
+        self,
+        namespace: ClientNamespace | str,
+        entity: Any | None = None,
+    ) -> Any:
+        """Retrieve a client instance by namespace and entity."""
+        return self.get(namespace, entity)
 
 
 @dataclass(slots=True)
@@ -678,7 +719,7 @@ class StageContextAdapter:
 
     def get_client(
         self,
-        namespace: str,
+        namespace: ClientNamespace | str,
         entity: Any | None = None,
     ) -> Any:
         """Retrieve a client from the registry."""
@@ -700,7 +741,10 @@ class StageContextAdapter:
             msg = "Client entity must be provided"
             raise KeyError(msg)
 
-        return self.clients.get_client(resolved_namespace, resolved_entity)
+        return self.clients.get_client(
+            resolved_namespace,
+            resolved_entity,
+        )
 
     def emit_metric(
         self, name: str, value: Any, tags: Mapping[str, str] | None = None
@@ -748,7 +792,9 @@ class StageContext(StageContextAdapter):
             config=config_context,
             clients=client_context,
             metrics=metrics_context,
-            legacy_client_adapter=legacy_client_adapter or LegacyClientLookupAdapter(),
+            legacy_client_adapter=(
+                legacy_client_adapter or LegacyClientLookupAdapter()
+            ),
         )
 
 
@@ -783,7 +829,6 @@ __all__ = [
     "ClientNamespace",
     "ClientRegistry",
     "ClientRegistryContext",
-    "ClientRegistryMap",
     "DataContext",
     "MetricsContext",
     "StageFactoryContext",

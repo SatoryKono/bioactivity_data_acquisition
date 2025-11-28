@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, ClassVar, Iterable, Protocol, runtime_checkable
+from typing import Any, Callable, ClassVar, Iterable, Protocol
+from typing import runtime_checkable
 
 import structlog
 
@@ -15,6 +16,63 @@ from bioetl.core.http.types import JSONRecordStream
 class EnricherClientOptions:
     timeout_sec: float | None = None
     max_retries: int | None = None
+
+
+class OptionsAwareApiClient:
+    def __init__(
+        self,
+        api_client: BaseApiClient,
+        options: EnricherClientOptions,
+    ) -> None:
+        self._api_client: BaseApiClient = api_client
+        self.timeout_sec: float | None = options.timeout_sec
+        self.max_retries: int | None = options.max_retries
+
+    def get_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
+        del headers
+        return self._api_client.get_json(endpoint, params=params)
+
+    def paginate_json(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+    ) -> Iterator[Mapping[str, Any]]:
+        result = self._api_client.paginate_json(
+            endpoint,
+            params=params,
+            headers=headers,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+        )
+        return iter(result)
+
+    def iterate_records(
+        self,
+        *,
+        ids: Sequence[str] | None = None,
+        page_size: int | None = None,
+        fetcher: Callable[[Sequence[str] | None], Any] | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        return self._api_client.iterate_records(
+            ids=ids,
+            page_size=page_size,
+            fetcher=fetcher,
+        )
+
+    def close(self) -> None:
+        self._api_client.close()
 
 
 @runtime_checkable
@@ -30,7 +88,11 @@ class EnricherClientProtocol(Protocol):
         ...
 
     def call_route(
-        self, route_name: str, *, value: str, params: Mapping[str, Any] | None = None
+        self,
+        route_name: str,
+        *,
+        value: str,
+        params: Mapping[str, Any] | None = None,
     ) -> JSONRecordStream:
         ...
 
@@ -43,8 +105,8 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         *,
         options: EnricherClientOptions | None = None,
     ) -> None:
-        self.api_client = api_client
         effective_options = options or EnricherClientOptions()
+        self.api_client = OptionsAwareApiClient(api_client, effective_options)
         self.timeout_sec = effective_options.timeout_sec
         self.max_retries = effective_options.max_retries
         self._logger = structlog.get_logger(__name__).bind(source=source)
@@ -97,7 +159,11 @@ class RouteEnricherMixin(BaseEnricherClient):
         self._route_map = {route.name: route for route in self.ROUTES}
 
     def _call_route(
-        self, route_name: str, *, value: str, params: Mapping[str, Any] | None = None
+        self,
+        route_name: str,
+        *,
+        value: str,
+        params: Mapping[str, Any] | None = None,
     ) -> JSONRecordStream:
         route = self._route_map[route_name]
         params_with_value = params

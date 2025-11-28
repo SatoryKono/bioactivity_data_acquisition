@@ -180,6 +180,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         )
         self._validate_common_config()
         self.write_service = ChemblWriteService(self)
+        self.enrichers = self._init_enrichers(config)
         # Store optional custom factories
         self._custom_artifact_planner_factory = custom_artifact_planner_factory
         self._schema_registry_factory = schema_registry_factory
