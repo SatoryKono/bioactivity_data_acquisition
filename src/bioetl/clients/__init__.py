@@ -10,6 +10,19 @@ from bioetl.clients.base import (
     register_domain_factories,
     register_factory,
 )
+from bioetl.clients.base_provider import BaseDataProvider
+from bioetl.clients.interfaces import (
+    DataProviderProtocol,
+    Page,
+    PageStream,
+    PaginationParams,
+    RecordStream,
+    RequestContext,
+    RetryOptions,
+    SupportsBatch,
+    SupportsSearch,
+    TransportOptions,
+)
 from bioetl.clients.chembl import (
     BaseChemblClient,
     ChemblActivityClient,
@@ -34,6 +47,7 @@ from bioetl.clients.enricher_base import (
     RouteConfig,
     RouteEnricherMixin,
     RouteProviderBase,
+    UnifiedProviderAdapter,
     create_route_provider_class,
 )
 from bioetl.clients.enricher_facade import (
@@ -55,6 +69,9 @@ from bioetl.clients.enricher_strategy_registry import StrategyRegistry
 from bioetl.clients.exceptions import (
     ConnectionError,  # noqa: A004, pylint: disable=redefined-builtin
     HTTPError,
+    ProviderError,
+    PaginationError,
+    ConfigurationError,
     RequestException,
     Timeout,
 )
@@ -70,6 +87,9 @@ from bioetl.clients.providers import (
 __all__ = [
     # Base client plumbing
     "ConnectionError",
+    "ProviderError",
+    "PaginationError",
+    "ConfigurationError",
     "HTTPError",
     "RequestException",
     "Timeout",
@@ -79,6 +99,17 @@ __all__ = [
     "register_factory",
     "register_domain_factories",
     "get_factory",
+    "BaseDataProvider",
+    "DataProviderProtocol",
+    "SupportsBatch",
+    "SupportsSearch",
+    "PaginationParams",
+    "RequestContext",
+    "RecordStream",
+    "Page",
+    "PageStream",
+    "TransportOptions",
+    "RetryOptions",
     # Chembl clients
     "BaseChemblClient",
     "ChemblActivityClient",
@@ -100,6 +131,7 @@ __all__ = [
     "RouteConfig",
     "RouteEnricherMixin",
     "RouteProviderBase",
+    "UnifiedProviderAdapter",
     "create_route_provider_class",
     # Enricher factory & facade
     "ClientMethodStrategy",

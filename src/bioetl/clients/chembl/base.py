@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, cast
 
 from bioetl.clients.chembl.adapter import ChemblTransportAdapter
 from bioetl.clients.chembl.compat import ChemblCompatibilityMixin
@@ -11,6 +11,14 @@ from bioetl.clients.chembl.pagination import (
 )
 from bioetl.clients.chembl.strategy_resolver import (
     PaginationStrategyResolverMixin,
+)
+from bioetl.clients.interfaces import (
+    DataProviderProtocol,
+    Page,
+    PageStream,
+    PaginationParams,
+    RecordStream,
+    RequestContext,
 )
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
@@ -122,6 +130,7 @@ class BaseChemblClient(
     ChemblCompatibilityMixin,
     BaseApiEntityClient,
     ChemblClientProtocol,
+    DataProviderProtocol[dict[str, Any]],
 ):
     """Base ChEMBL client implementing common operations and aliases."""
 
@@ -140,7 +149,24 @@ class BaseChemblClient(
             factories=pagination_factories,
             default=pagination_strategy,
         )
+        self._default_pagination = PaginationParams(
+            page_key=DEFAULT_PAGE_KEY,
+            next_key=DEFAULT_NEXT_KEY,
+            page_param=DEFAULT_PAGE_PARAM,
+        )
         super().__init__(transport, strategy, entity=entity)
+
+    def configure(
+        self,
+        *,
+        transport: Any | None = None,
+        pagination: PaginationParams | None = None,
+        retries: Any | None = None,
+    ) -> "BaseChemblClient":
+        _ = (transport, retries)
+        if pagination is not None:
+            self._default_pagination = pagination
+        return self
 
     def fetch_batch(
         self,
@@ -148,31 +174,116 @@ class BaseChemblClient(
         *,
         params: Mapping[str, Any] | None = None,
         path_template: str = "/{entity}/{id}",
-    ) -> Iterator[dict[str, Any]]:
+        context: RequestContext | None = None,
+    ) -> RecordStream:
         """Fetch multiple entities by IDs using the base implementation."""
 
+        _ = context
         return super().fetch_batch(
             ids, params=params, path_template=path_template
+        )
+
+    def _resolve_pagination(
+        self,
+        pagination: PaginationParams | None,
+        *,
+        fallback_page_size: int | None = None,
+        page_key: str = DEFAULT_PAGE_KEY,
+        next_key: str = DEFAULT_NEXT_KEY,
+        page_param: str | None = DEFAULT_PAGE_PARAM,
+    ) -> PaginationParams:
+        base_params = self._default_pagination.override(
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+            page_size=fallback_page_size,
+        )
+        return base_params.override(
+            page_key=pagination.page_key if pagination else None,
+            next_key=pagination.next_key if pagination else None,
+            page_param=pagination.page_param if pagination else None,
+            page_size=pagination.page_size if pagination else None,
         )
 
     def fetch_many(
         self,
         *,
-        page_size: int = 1000,
+        query: Mapping[str, Any] | None = None,
+        page_size: int | None = None,
+        pagination: PaginationParams | None = None,
+        context: RequestContext | None = None,
         params: Mapping[str, Any] | None = None,
         page_key: str = DEFAULT_PAGE_KEY,
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[dict[str, Any]]:
+    ) -> RecordStream:
         """Iterate over paginated entities via the base client."""
 
-        return super().fetch_many(
-            page_size=page_size,
-            params=params,
+        effective_pagination = self._resolve_pagination(
+            pagination,
+            fallback_page_size=page_size or 1000,
             page_key=page_key,
             next_key=next_key,
             page_param=page_param,
         )
+        merged_params: dict[str, Any] = {}
+        if query:
+            merged_params.update(query)
+        if params:
+            merged_params.update(params)
+        return super().fetch_many(
+            page_size=effective_pagination.page_size or 1000,
+            params=merged_params or None,
+            page_key=effective_pagination.page_key or DEFAULT_PAGE_KEY,
+            next_key=effective_pagination.next_key or DEFAULT_NEXT_KEY,
+            page_param=effective_pagination.page_param,
+        )
+
+    def iter_pages(
+        self,
+        *,
+        query: Mapping[str, Any] | None = None,
+        pagination: PaginationParams | None = None,
+        context: RequestContext | None = None,
+    ) -> PageStream:
+        effective_pagination = self._resolve_pagination(
+            pagination,
+            fallback_page_size=pagination.page_size if pagination else None,
+        )
+        params = dict(query or {})
+        if effective_pagination.page_size:
+            params.setdefault("limit", effective_pagination.page_size)
+
+        entity_path = self._entity_path()
+        log_context = {"path": entity_path}
+        if context:
+            log_context.update(context.extra)
+
+        first_payload = self._wrap_callable(
+            lambda: cast(ApiTransportProtocol, self._transport()).request(
+                "GET", entity_path, params=params
+            ),
+            log_context=log_context,
+        )
+        strategy = cast(PaginationStrategy, self.pagination_strategy)
+        page_key = effective_pagination.page_key or DEFAULT_PAGE_KEY
+        next_key = effective_pagination.next_key or DEFAULT_NEXT_KEY
+        page_param = effective_pagination.page_param
+
+        for raw_page in self.pagination_strategy.iter_pages(
+            first_payload,
+            cast(ApiTransportProtocol, self._transport()),
+            endpoint=entity_path,
+            params=params,
+            logger=self._logger,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+            normalize=self._normalize_payload,
+        ):
+            items = list(self._normalize_payload(raw_page, page_key=page_key))
+            next_cursor = raw_page.get(next_key) if isinstance(raw_page, Mapping) else None
+            yield Page(items=items, next_cursor=next_cursor, raw=raw_page if isinstance(raw_page, Mapping) else None)
 
     @property
     def metadata(self) -> Mapping[str, Any]:
@@ -195,6 +306,23 @@ class BaseChemblClient(
         if isinstance(result, Mapping):
             return result
         return {}
+
+    def fetch_one(
+        self,
+        ref: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        context: RequestContext | None = None,
+    ) -> RecordStream:
+        log_context = {"ref": ref}
+        if context:
+            log_context.update(context.extra)
+
+        def iterator() -> Iterator[dict[str, Any]]:
+            payload = self.get(ref, params=params)
+            yield from self._normalize_payload(payload, page_key=None)
+
+        return self._wrap_iterator(iterator, log_context=log_context)
 
 
 class ChemblEntityClient(BaseChemblClient):

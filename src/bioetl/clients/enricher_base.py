@@ -15,6 +15,14 @@ import warnings
 
 import structlog
 
+from bioetl.clients.interfaces import (
+    DataProviderProtocol,
+    Page,
+    PageStream,
+    PaginationParams,
+    RecordStream,
+    RequestContext,
+)
 from bioetl.core.http import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.types import JSONRecordStream
@@ -319,6 +327,132 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         )
 
 
+class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
+    """Обёртка, приводящая ``RouteProviderBase`` к DataProviderProtocol."""
+
+    def __init__(self, provider: "RouteProviderBase") -> None:
+        self._provider = provider
+        self._pagination = PaginationParams(
+            page_key=getattr(provider, "page_key", None),
+            next_key=getattr(provider, "next_key", None),
+            page_param=getattr(provider, "page_param", None),
+        )
+
+    def configure(
+        self,
+        *,
+        transport: Any | None = None,
+        pagination: PaginationParams | None = None,
+        retries: Any | None = None,
+    ) -> "UnifiedProviderAdapter":
+        _ = (transport, retries)
+        if pagination:
+            self._pagination = pagination
+        return self
+
+    def _resolve_pagination(
+        self, pagination: PaginationParams | None
+    ) -> PaginationParams:
+        return self._pagination.override(
+            page_key=pagination.page_key if pagination else None,
+            next_key=pagination.next_key if pagination else None,
+            page_param=pagination.page_param if pagination else None,
+            page_size=pagination.page_size if pagination else None,
+        )
+
+    def _extract_value(self, query: Mapping[str, Any] | None) -> tuple[str, dict[str, Any]]:
+        query_map = dict(query or {})
+        try:
+            value = query_map.pop("value")
+        except KeyError as exc:  # pragma: no cover - defensive branch
+            from bioetl.clients import exceptions
+
+            raise exceptions.ConfigurationError(
+                "query must contain 'value' for route providers"
+            ) from exc
+        return str(value), query_map
+
+    def fetch_one(
+        self,
+        ref: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        context: RequestContext | None = None,
+    ) -> RecordStream:
+        route_name = context.route if context else None
+        return self._provider.fetch_one(
+            ref, params=params, route_name=route_name, page_key=self._pagination.page_key
+        )
+
+    def iter_pages(
+        self,
+        *,
+        query: Mapping[str, Any] | None = None,
+        pagination: PaginationParams | None = None,
+        context: RequestContext | None = None,
+    ) -> PageStream:
+        route_name = context.route if context else None
+        value, remaining = self._extract_value(query)
+        effective = self._resolve_pagination(pagination)
+
+        path, params_with_value = self._provider._resolve_route(  # type: ignore[attr-defined]
+            route_name or self._provider.DEFAULT_SEARCH_ROUTE,
+            value=value,
+            params=remaining,
+        )
+        params_with_value = params_with_value or {}
+        if effective.page_size:
+            params_with_value.setdefault("limit", effective.page_size)
+
+        effective_next = effective.next_key or self._provider.next_key or "next"
+        pages = self._provider.api_client.paginate_json(
+            path,
+            params=params_with_value,
+            page_key=effective.page_key or self._provider.page_key or "results",
+            next_key=effective_next,
+            page_param=effective.page_param
+            if effective.page_param is not None
+            else self._provider.page_param,
+        )
+
+        for raw_page in pages:
+            items = list(
+                self._provider._normalize_payload(  # type: ignore[attr-defined]
+                    raw_page, page_key=effective.page_key
+                )
+            )
+            next_cursor = raw_page.get(effective_next) if isinstance(raw_page, Mapping) else None
+            yield Page(
+                items=items,
+                next_cursor=next_cursor,
+                raw=raw_page if isinstance(raw_page, Mapping) else None,
+            )
+
+    def fetch_many(
+        self,
+        *,
+        query: Mapping[str, Any] | None = None,
+        page_size: int | None = None,
+        pagination: PaginationParams | None = None,
+        context: RequestContext | None = None,
+    ) -> RecordStream:
+        effective_pagination = pagination
+        if page_size is not None:
+            base = pagination or self._pagination
+            effective_pagination = base.override(page_size=page_size)
+        for page in self.iter_pages(
+            query=query, pagination=effective_pagination, context=context
+        ):
+            yield from page.items
+
+    def metadata(self) -> Mapping[str, Any]:
+        meta = getattr(self._provider.api_client, "metadata", None)
+        return meta if isinstance(meta, Mapping) else {}
+
+    def close(self) -> None:
+        self._provider.close()
+
+
 @dataclass(frozen=True)
 class RouteConfig:
     name: str
@@ -527,5 +661,6 @@ __all__ = [
     "RouteProviderMixin",
     "DeprecatedAliasMixin",
     "RouteProviderBase",
+    "UnifiedProviderAdapter",
     "create_route_provider_class",
 ]
