@@ -9,6 +9,11 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 import pandas as pd
 import yaml
 
+from bioetl.clients.enrichers.facade import (
+    EnricherFacade,
+    NullEnricherFacade,
+    build_enricher_facade,
+)
 from bioetl.core.pipeline.services import (
     default_write_service_factory,
     ArtifactPlanner,
@@ -307,6 +312,14 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 f"determinism.sort.by is missing required fields for "
                 f"{self.entity_name}: {missing}"
             )
+
+    def _init_enrichers(
+        self, config: Mapping[str, Any]
+    ) -> EnricherFacade | NullEnricherFacade:
+        facade = build_enricher_facade(config.get("enrichers")) if isinstance(
+            config, Mapping
+        ) else None
+        return facade or NullEnricherFacade()
 
     def _get_config_value(self, dotted_path: str) -> Any:
         current: Any = self.config
