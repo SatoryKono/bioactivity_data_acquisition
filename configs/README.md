@@ -37,6 +37,29 @@ overrides.
 - New environment layers should mirror the defaults they override and stay
   minimal to simplify diffs.
 
+## Enricher clients
+
+Enrichment clients are defined under a single source of truth at
+`clients.enrichers` (or the root `clients` block when no other client types are
+present). This replaces any legacy top-level `enrichers` section.
+
+Example configuration:
+
+```yaml
+clients:
+  enrichers:
+    pubchem:
+      api_client:
+        base_url: https://pubchem.ncbi.nlm.nih.gov/rest
+        timeout_sec: 10
+    uniprot:
+      api_client:
+        base_url: https://rest.uniprot.org
+```
+
+Any pipeline that needs enrichment should read the `clients.enrichers` mapping
+from the merged configuration rather than duplicating settings elsewhere.
+
 ## Pipeline configuration registry
 
 The CLI registry at `src/bioetl/cli/cli_registry.py` defines the canonical
