@@ -8,7 +8,8 @@ import pandas as pd
 
 from bioetl.core.io import PipelineOutputService
 from bioetl.core.pipeline.services import DefaultValidationService
-from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
+from bioetl.core.io.artifacts import WriteArtifacts
+from bioetl.core.pipeline.types import StageExecutionOptions, WriteResult
 from bioetl.pipelines.chembl.common import ChemblCommonPipeline
 from bioetl.core.schemas import TargetSchema
 

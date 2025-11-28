@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 import structlog
 
-from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
+from bioetl.core.http.client_mixins import (
+    ApiClientMixin,
+    ClosableMixin,
+)
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import (
     DEFAULT_NEXT_KEY,
@@ -21,8 +24,7 @@ from bioetl.core.http.pagination_helpers import (
     list_entities,
     warn_fetch_all,
 )
-
-import structlog
+from bioetl.core.http.types import WrapCallable, WrapIterator
 
 
 class EntityClientProtocol(Protocol):
@@ -113,10 +115,12 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         return iter_ids(
             ids=ids,
             entity=self.entity,
-            transport=self._transport(),
+            transport=cast(ApiTransportProtocol, self._transport()),
             normalize=self._normalize_payload,
-            wrap_callable=self._wrap_callable,
-            wrap_iterator=self._wrap_iterator,
+            wrap_callable=cast(
+                WrapCallable, self._wrap_callable
+            ),
+            wrap_iterator=cast(WrapIterator, self._wrap_iterator),
             logger=self._logger,
             path_template=path_template,
         )
@@ -133,11 +137,14 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         Returns:
             The entity data.
         """
-        return self._wrap_callable(
-            lambda: self._transport().request(
-                "GET", self._entity_path(entity_id), params=params
-            ),
-            log_context={"path": self._entity_path(entity_id)},
+        return cast(
+            Mapping[str, Any],
+            self._wrap_callable(
+                lambda: cast(ApiTransportProtocol, self._transport()).request(
+                    "GET", self._entity_path(entity_id), params=params
+                ),
+                log_context={"path": self._entity_path(entity_id)},
+            )
         )
 
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
@@ -175,7 +182,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             fetch_by_ids=self.fetch_by_ids,
             list_entities=lambda: self.list(page_size=page_size or 1000),
             normalize_payload=self._normalize_payload,
-            wrap_iterator=self._wrap_iterator,
+            wrap_iterator=cast(WrapIterator, self._wrap_iterator),
         )
 
     def list(
@@ -199,12 +206,19 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         Returns:
             An iterator over entity data.
         """
+        pagination_strategy = cast(
+            PaginationStrategy,
+            self.pagination_strategy
+            or getattr(self.transport, "pagination_strategy", None)
+        )
         return list_entities(
-            transport=self._transport(),
+            transport=cast(ApiTransportProtocol, self._transport()),
             entity_path=self._entity_path(),
-            pagination_strategy=self.pagination_strategy,
-            wrap_callable=self._wrap_callable,
-            wrap_iterator=self._wrap_iterator,
+            pagination_strategy=pagination_strategy,
+            wrap_callable=cast(
+                WrapCallable, self._wrap_callable
+            ),
+            wrap_iterator=cast(WrapIterator, self._wrap_iterator),
             normalize_payload=lambda payload: self._normalize_payload(
                 payload, page_key=page_key
             ),
@@ -248,7 +262,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
                 next_key=next_key,
                 page_param=page_param,
             ),
-            wrap_iterator=self._wrap_iterator,
+            wrap_iterator=cast(WrapIterator, self._wrap_iterator),
         )
 
     def search(self, params: Mapping[str, Any]) -> Iterator[dict[str, Any]]:

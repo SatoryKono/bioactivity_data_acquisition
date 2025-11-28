@@ -8,7 +8,8 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from bioetl.core.pipeline.types import WriteArtifacts, WriteResult
+from bioetl.core.io.artifacts import WriteArtifacts
+from bioetl.core.pipeline.types import WriteResult
 
 
 def _sort_dataframe(df: pd.DataFrame) -> pd.DataFrame:

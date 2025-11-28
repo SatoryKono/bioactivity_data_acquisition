@@ -12,6 +12,7 @@ from bioetl.core.pipeline.stage_plan import (
     StagePlanMetadata,
     build_default_stage_plan,
 )
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     ArtifactStore,
     DefaultArtifactContext,
@@ -26,7 +27,6 @@ from bioetl.core.pipeline.types import (
     StageExecutionOptions,
     StageRuntimeContext,
     StageResult,
-    WriteArtifacts,
     WriteResult,
 )
 
@@ -40,15 +40,21 @@ class CommandSpyPipeline(UnifiedPipelineBase):
     def prepare_run(self, options: StageExecutionOptions) -> None:
         self.calls.append("prepare_run")
 
-    def extract(self, descriptor: object, options: StageExecutionOptions) -> pd.DataFrame:
+    def extract(
+        self, descriptor: object, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         self.calls.append("extract")
         return pd.DataFrame({"value": [1]})
 
-    def transform(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def transform(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         self.calls.append("transform")
         return df
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def validate(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         self.calls.append("validate")
         return df
 
@@ -77,8 +83,12 @@ def _stage_context(pipeline: UnifiedPipelineBase) -> StageContext:
     return StageContext(
         execution=DefaultExecutionContext(logger=logger, request_id="test"),
         domain=DefaultDomainContext(pipeline=pipeline),
-        infrastructure=DefaultInfrastructureContext(output_dir=Path("/tmp/out")),
-        artifacts=DefaultArtifactContext(artifact_store=ArtifactStore(WriteArtifacts())),
+        infrastructure=DefaultInfrastructureContext(
+            output_dir=Path("/tmp/out")
+        ),
+        artifacts=DefaultArtifactContext(
+            artifact_store=ArtifactStore(WriteArtifacts())
+        ),
     )
 
 
@@ -93,7 +103,10 @@ def test_stage_factory_executes_pipeline_methods() -> None:
     for stage in stages:
         stage.execute(runtime_context)
 
-    assert pipeline.calls == ["extract", "transform", "validate", "save_results"]
+    assert (
+        pipeline.calls
+        == ["extract", "transform", "validate", "save_results"]
+    )
 
 
 def test_stage_plan_respects_dry_run_without_validator() -> None:
@@ -113,8 +126,8 @@ class FakeStageFactory(StageFactory):
     def build(
         self,
         descriptors: Iterable[StageDescriptor],
-        context: StageContext,
-        options: StageExecutionOptions,
+        _context: StageContext,
+        _options: StageExecutionOptions,
         stages: list[str] | None = None,
     ):
         stages = []
@@ -129,13 +142,18 @@ class _StubStage:
         self.name = name
         self.executed = False
 
-    def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
+    def execute(
+        self, runtime_context: StageRuntimeContext
+    ) -> StageResult:
         self.executed = True
         if self.name == "extract":
-            runtime_context.context.data_bucket.set(pd.DataFrame({"value": [1]}))
+            runtime_context.context.data_bucket.set(
+                pd.DataFrame({"value": [1]})
+            )
         if self.name == "save_results":
             artifacts = (
-                runtime_context.context.artifact_store.get() or WriteArtifacts()
+                runtime_context.context.artifact_store.get()
+                or WriteArtifacts()
             )
             return StageResult(
                 name=self.name,
@@ -165,7 +183,9 @@ def test_pipeline_runtime_uses_stage_factory() -> None:
     factory: FakeStageFactory | None = None
 
     class _Pipeline(FactorySpyPipeline):
-        def __init__(self, cfg: PipelineConfig, rid: str) -> None:
+        def __init__(
+            self, cfg: PipelineConfig, rid: str
+        ) -> None:
             nonlocal factory
             factory = FakeStageFactory(self)
             super().__init__(cfg, rid, factory)

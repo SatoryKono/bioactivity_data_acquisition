@@ -1,18 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 import pandas as pd
 
-from bioetl.core.pipeline.types import (
-    PipelineBaseProtocol,
-    StageContextProtocol,
-    StageExecutionOptions,
-    StageRuntimeContext,
-    WriteArtifacts,
-    WriteResult,
-)
+if TYPE_CHECKING:
+    from bioetl.core.pipeline.types import (
+        PipelineBaseProtocol,
+        StageContextProtocol,
+        StageExecutionOptions,
+        StageRuntimeContext,
+        WriteArtifacts,
+        WriteResult,
+    )
 
 
 class ValidationService(Protocol):

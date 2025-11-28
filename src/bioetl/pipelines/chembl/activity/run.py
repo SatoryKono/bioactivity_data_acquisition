@@ -26,6 +26,7 @@ from bioetl.clients.chembl.factories import (
 )
 from bioetl.core.io import UnifiedOutputWriter
 from bioetl.core.io.artifacts import (
+    RunArtifacts,
     SchemaRegistry,
     SchemaRegistryEntry,
     WriteArtifacts,
@@ -50,13 +51,12 @@ from bioetl.core.pipeline.types import (
     PipelineConfig,
     PipelineInfo,
     RunResult,
-    RunArtifacts,
     StageContextProtocol,
     StageExecutionOptions,
     StageRuntimeContext,
     WriteResult,
 )
-from bioetl.pipelines.chembl.common import (
+from bioetl.pipelines.chembl.common.descriptor import (
     BatchPlan,
     ChemblExtractionDescriptor,
     ChemblPipelineContract,
@@ -77,7 +77,9 @@ import importlib
 # Force reload schema to get latest changes
 import bioetl.schemas.chembl_activity_schema
 importlib.reload(bioetl.schemas.chembl_activity_schema)
-ChEMBLActivitySchema = bioetl.schemas.chembl_activity_schema.ChEMBLActivitySchema
+ChEMBLActivitySchema = (
+    bioetl.schemas.chembl_activity_schema.ChEMBLActivitySchema
+)
 
 print("DEBUG: activity/run.py module loaded - checking entry point")
 
@@ -171,13 +173,13 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         config: Mapping[str, Any] | PipelineConfig,
         run_id: str,
         *,
-        client_factory: Callable[[Any], ChemblActivityClient] | None = None,
+        client_factory: Callable[[Any], ChemblActivityClient] | None = None,  # type: ignore[name-defined]
     ) -> None:
         print(
             "DEBUG: ChemblActivityPipeline.__init__ called "
             "with updated schema"
         )
-        super().__init__(
+        super().__init__(  # type: ignore[arg-type]
             config,
             run_id=run_id,
             artifact_runtime_service_factory=(
@@ -209,7 +211,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
             output_root=self.output_root,
             logs_directory=self.logs_directory,
         )
-        self.write_service = ActivityWriteService(self.writer)
+        self.write_service = ActivityWriteService(self.writer)  # type: ignore[arg-type]
 
     # Descriptor lifecycle -------------------------------------------------
     def _get_config_metadata(
@@ -252,13 +254,13 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         self._descriptor = descriptor
         return descriptor
 
-    def resolve_chembl_release(self, config: Any) -> str:
+    def resolve_chembl_release(self, config: Any) -> str:  # type: ignore[override]
         metadata = self._get_config_metadata(config)
         if isinstance(metadata, Mapping) and metadata.get("chembl_release"):
-            return metadata.get("chembl_release")
+            return metadata.get("chembl_release")  # type: ignore[return-value]
         if self._release:
             return self._release
-        return None
+        return None  # type: ignore[return-value]
 
     # Orchestration hooks --------------------------------------------------
     def prepare_run(self, options: StageExecutionOptions) -> None:
@@ -328,7 +330,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         """Validate transformed data."""
         return df
 
-    def run(
+    def run(  # type: ignore[override]
         self,
         output_dir: Path,
         *,
@@ -455,7 +457,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
             config=self.config,
             logger=logger,
         )
-        
+
         run_artifacts = RunArtifacts(
             output_dir=self.output_root,
             logs_directory=self.logs_directory,
@@ -492,13 +494,13 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         return metadata
 
     # Extraction helpers ---------------------------------------------------
-    def run_descriptor_extraction(
+    def run_descriptor_extraction(  # type: ignore[override]
         self,
         descriptor: ChemblExtractionDescriptor,
         *,
         batch_size: int | None = None,
-    ) -> tuple[pd.DataFrame, dict]:
-        df, meta = self.extractor.extract(
+    ) -> tuple[pd.DataFrame, dict]:  # type: ignore[type-arg]
+        df, meta = self.extractor.extract(  # type: ignore[arg-type]
             self.config,
             descriptor,
             batch_size=batch_size,
@@ -510,7 +512,10 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
     def _build_schema_registry(self) -> SchemaRegistry:
         registry = SchemaRegistry()
         # Debug: Check actual schema dtype before registration
-        print(f"DEBUG: row_index dtype in schema: {ChEMBLActivitySchema.columns['row_index'].dtype}")
+        print(
+            f"DEBUG: row_index dtype in schema: "
+            f"{ChEMBLActivitySchema.columns['row_index'].dtype}"
+        )
         registry.register(
             SchemaRegistryEntry(
                 identifier=self.pipeline_code,

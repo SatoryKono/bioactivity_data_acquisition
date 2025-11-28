@@ -101,7 +101,10 @@ class BaseChemblClient(BaseApiEntityClient, ChemblClientProtocol):
         pagination_strategy_name: str | None = None,
         pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
-        strategy = pagination_strategy or getattr(transport, "pagination_strategy", None)
+        strategy = (
+            pagination_strategy
+            or getattr(transport, "pagination_strategy", None)
+        )
         if strategy is None:
             strategy = create_pagination_strategy(
                 pagination_strategy_name, factories=pagination_factories

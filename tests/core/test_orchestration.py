@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from bioetl.core.pipeline.unified import UnifiedPipelineBase
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -14,7 +15,6 @@ from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     RunResult,
     StageExecutionOptions,
-    WriteArtifacts,
     WriteResult,
 )
 

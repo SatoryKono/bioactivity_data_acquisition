@@ -11,9 +11,9 @@ import pandas as pd
 import pandera as pa
 import pytest
 
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     StageExecutionOptions,
-    WriteArtifacts,
     WriteResult,
 )
 from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline

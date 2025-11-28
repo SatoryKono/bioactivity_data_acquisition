@@ -11,12 +11,12 @@ import pandera as pa
 
 from bioetl.core.io.writer import ArtifactWriter
 from bioetl.core.pipeline.services.base import ValidationService, WriteService
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
     StageContextProtocol,
     StageExecutionOptions,
     StageRuntimeContext,
-    WriteArtifacts,
     WriteResult,
 )
 

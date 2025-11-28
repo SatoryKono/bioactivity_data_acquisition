@@ -9,7 +9,8 @@ import pandas as pd
 import pytest
 import yaml
 
-from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
+from bioetl.core.io.artifacts import WriteArtifacts
+from bioetl.core.pipeline.types import StageExecutionOptions, WriteResult
 from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor, ChemblPipelineBase
 from bioetl.pipelines.chembl.common.base import (
     ChemblCommonPipeline,

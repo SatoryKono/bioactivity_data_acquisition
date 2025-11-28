@@ -100,12 +100,21 @@ class ChemblDescriptorFactory:
         if self._fallback_rows is None:
             return fetcher
 
-        def wrapped(batch: Sequence[str] | None):
+        def wrapped(batch: Sequence[str] | None) -> Any:
             try:
                 return fetcher(batch)
             except Exception as exc:  # pragma: no cover - defensive guard
                 if batch:
-                    rows = self._fallback_rows(batch, exc)
+                    # MyPy: self._fallback_rows is not None due to outer check
+                    from typing import cast
+                    fallback_fn = cast(
+                        Callable[
+                            [Iterable[str], Exception],
+                            list[dict[str, Any]],
+                        ],
+                        self._fallback_rows,
+                    )
+                    rows = fallback_fn(batch, exc)
                     return rows, {"fallback": len(rows)}
                 raise
 
@@ -117,7 +126,7 @@ class ChemblDescriptorFactory:
         *,
         mode: str = "chembl",
         batch_plan: BatchPlan | None = None,
-    ) -> ChemblExtractionServiceDescriptor:
+    ) -> ChemblExtractionServiceDescriptor[Any]:
         """Assemble a descriptor for the requested entity."""
 
         def build_context(_pipeline: Any) -> Mapping[str, Any]:
@@ -132,21 +141,26 @@ class ChemblDescriptorFactory:
                 context["chembl_release"] = self._context.chembl_release
             return context
 
-        def fetcher_factory(context: Mapping[str, Any]):
+        def fetcher_factory(
+            context: Mapping[str, Any],
+        ) -> Callable[[Sequence[str] | None], Any]:
             strategy = self._fetcher_strategies.get(entity_name)
             if callable(strategy):
                 fetcher = strategy(context, batch_plan)
                 if callable(fetcher):
                     return self._wrap_fetcher(fetcher)
-            return None
+            msg = f"No fetcher strategy for entity: {entity_name}"
+            raise ValueError(msg)
 
-        def finalizer_factory(context: Mapping[str, Any]):
+        def finalizer_factory(
+            context: Mapping[str, Any],
+        ) -> Callable[[Any], Any]:
             release = (
                 context.get("chembl_release") or self._context.chembl_release
             )
             sort_columns = self._sort_fields.get(entity_name)
 
-            def finalize(df):
+            def finalize(df: Any) -> Any:
                 nonlocal release
                 if release and "chembl_release" not in df.columns:
                     df = df.assign(chembl_release=release)
@@ -162,7 +176,7 @@ class ChemblDescriptorFactory:
 
             return finalize
 
-        return ChemblExtractionServiceDescriptor(
+        return ChemblExtractionServiceDescriptor[Any](
             build_context=build_context,
             fetcher_factory=fetcher_factory,
             finalizer_factory=finalizer_factory,

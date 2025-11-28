@@ -20,9 +20,9 @@ from bioetl.core.pipeline.services import (
     default_write_service_factory,
     ArtifactPlanner,
 )
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     StageExecutionOptions,
-    WriteArtifacts,
     WriteResult,
 )
 from bioetl.core.pipeline.unified import (

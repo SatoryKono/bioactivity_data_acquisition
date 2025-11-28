@@ -13,7 +13,8 @@ from types import ModuleType
 from typing import Any
 
 from bioetl.core.http import pagination_helpers
-from bioetl.core.http.pagination_helpers import *  # noqa: F401,F403
+# pylint: disable=line-too-long
+from bioetl.core.http.pagination_helpers import *  # noqa: F401,F403  # type: ignore[line-too-long]  # pylint: disable=wildcard-import,unused-wildcard-import
 
 _DEPRECATED_HTTP_EXPORTS: dict[str, tuple[str, str]] = {
     "ApiTransportProtocol": ("bioetl.core.http", "ApiTransportProtocol"),
@@ -37,7 +38,7 @@ warnings.warn(
     stacklevel=2,
 )
 
-__all__ = [*pagination_helpers.__all__, *_DEPRECATED_HTTP_EXPORTS.keys()]
+__all__ = [*pagination_helpers.__all__]
 
 
 def __getattr__(name: str) -> Any:
@@ -47,11 +48,8 @@ def __getattr__(name: str) -> Any:
     if target:
         module_name, attr_name = target
         warnings.warn(
-            (
-                "bioetl.clients.common.%s устарел; импортируйте ``%s`` из "
-                "``bioetl.core.http``."
-            )
-            % (name, attr_name),
+            f"bioetl.clients.common.{name} устарел; "
+            f"импортируйте ``{attr_name}`` из ``bioetl.core.http``.",
             DeprecationWarning,
             stacklevel=2,
         )

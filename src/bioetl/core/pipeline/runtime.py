@@ -41,8 +41,8 @@ from bioetl.core.pipeline.types import (
     StageDescriptor,
     StageExecutionOptions,
     StageProtocol,
-    WriteArtifacts,
 )
+from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
 from bioetl.core.pipeline.artifact_runtime_builder import (
     ArtifactRuntimeBuilder,
     ArtifactRuntimeBuilderProtocol,

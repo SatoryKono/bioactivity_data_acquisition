@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
-from bioetl.core.pipeline.types import PipelineBaseProtocol, WriteArtifacts
+from bioetl.core.io.artifacts import WriteArtifacts
+
+if TYPE_CHECKING:
+    from bioetl.core.pipeline.types import PipelineBaseProtocol
 
 
 class ArtifactPlanner:

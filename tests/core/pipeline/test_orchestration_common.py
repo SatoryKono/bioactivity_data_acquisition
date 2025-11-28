@@ -8,12 +8,12 @@ import pandas as pd
 
 from bioetl.core.pipeline.unified import UnifiedPipelineBase
 from bioetl.core.pipeline.services import QCService
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
     StageExecutionOptions,
-    WriteArtifacts,
     WriteResult,
 )
 
@@ -109,5 +109,4 @@ def test_pipeline_skips_qc_when_service_disabled(tmp_path: Path) -> None:
 
     assert result.success is True
     assert result.artifacts.qc_metrics_path is None
-    assert pipeline._finalized is True
-
+    assert pipeline._finalized is True  # noqa: SLF001

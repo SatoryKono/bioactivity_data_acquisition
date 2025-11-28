@@ -4,8 +4,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 from bioetl.core.pipeline.runtime import StagePlanExecutor
+from bioetl.clients.chembl.entities import ChemblEntity
 from bioetl.core.pipeline.types import (
-    ChemblEntity,
     ClientNamespace,
     PipelineStageCommand,
     StageExecutionOptions,

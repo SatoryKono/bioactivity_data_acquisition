@@ -10,6 +10,7 @@ from bioetl.clients.base import ClientFactory
 from bioetl.clients.chembl.entities import ChemblEntityClientFactory
 from bioetl.clients.chembl.factories import default_chembl_factory
 from bioetl.clients.chembl.descriptor_factory import (
+    BatchPlan,
     ChemblContextFacade,
     ChemblDescriptorFactory,
     FetcherStrategy,
@@ -20,7 +21,11 @@ def _resolve_chembl_context(
     config: Mapping[str, Any] | Any,
 ) -> Mapping[str, Any]:
     if isinstance(config, Mapping):
-        return config.get("sources", {}).get("chembl", {})
+        from typing import cast
+        return cast(
+            Mapping[str, Any],
+            config.get("sources", {}).get("chembl", {}),
+        )
     sources = getattr(config, "sources", None)
     if isinstance(sources, Mapping):
         return sources.get("chembl", {})
@@ -51,14 +56,21 @@ class ChemblClientFactory(ClientFactory[ChemblDescriptorFactory]):
         fetcher = chembl_ctx[fetcher_key]
 
         def strategy(
-            _context: Mapping[str, Any], _plan: Any, _fetcher=fetcher
-        ) -> Callable[[Sequence[str] | None], Any] | None:
+            _context: Mapping[str, Any],
+            _plan: BatchPlan | None,
+            _fetcher: Any = fetcher,
+        ) -> Callable[[Sequence[str] | None], Any]:
             if callable(_fetcher):
-                return _fetcher
+                from typing import cast
+                return cast(
+                    Callable[[Sequence[str] | None], Any],
+                    _fetcher,
+                )
             if _fetcher is None:
-                return None
+                msg = f"No fetcher configured for entity: {entity_name}"
+                raise ValueError(msg)
 
-            def noop(batch: Sequence[str] | None):
+            def noop(batch: Sequence[str] | None) -> list[dict[str, Any]]:
                 if batch is None:
                     return []
                 return [{"chembl_id": chembl_id} for chembl_id in batch]

@@ -29,6 +29,7 @@ from bioetl.core.pipeline.stage_plan import (
     StagePlanMetadata,
     build_default_stage_plan,
 )
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     ArtifactStore,
     DataBucket,
@@ -41,7 +42,6 @@ from bioetl.core.pipeline.types import (
     StageDescriptor,
     StageExecutionOptions,
     StageRuntimeContext,
-    WriteArtifacts,
     WriteResult,
 )
 

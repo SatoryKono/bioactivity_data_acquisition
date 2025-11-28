@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pandas as pd
 
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     StageExecutionOptions,
-    WriteArtifacts,
     WriteResult,
 )
 from bioetl.core.pipeline.unified import UnifiedPipelineBase

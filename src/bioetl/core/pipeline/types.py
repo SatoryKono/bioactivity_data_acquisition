@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Iterable,
@@ -17,9 +18,10 @@ from typing import (
 
 import pandas as pd
 
-from bioetl.clients.base import ClientFactory
-from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
-from bioetl.core.logging import UnifiedLogger
+if TYPE_CHECKING:
+    from bioetl.clients.base import ClientFactory
+    from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
+    from bioetl.core.logging import UnifiedLogger
 
 
 def _get_default_validators() -> Mapping[ClientNamespace, Type[Enum]]:
@@ -155,7 +157,11 @@ class ArtifactStore:
     """Container for WriteArtifacts shared across stages."""
 
     def __init__(self, artifacts: WriteArtifacts | None = None) -> None:
-        self._artifacts = artifacts or WriteArtifacts()
+        if artifacts is None:
+            from bioetl.core.io.artifacts import WriteArtifacts
+
+            artifacts = WriteArtifacts()
+        self._artifacts = artifacts
 
     def get(self) -> WriteArtifacts:
         """Retrieve the current artifacts."""
@@ -503,10 +509,7 @@ class ClientRegistry(ClientContext):
     factories: Mapping[str, ClientFactory[Any]] = field(default_factory=dict)
 
     _entity_validators: Mapping[ClientNamespace, Type[Enum]] = field(
-        default_factory=lambda: {
-            ClientNamespace.CHEMBL: ChemblEntity,
-            ClientNamespace.ENRICHER: EnricherEntity,
-        }
+        default_factory=_get_default_validators
     )
 
     def _normalize_namespace(
@@ -834,8 +837,6 @@ __all__ = [
     "ClientNamespace",
     "ClientRegistry",
     "ClientRegistryContext",
-    "ChemblEntity",
-    "EnricherEntity",
     "DataContext",
     "MetricsContext",
     "StageFactoryContext",

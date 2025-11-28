@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, cast
 
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     StageContextProtocol,
     StageExecutionOptions,
-    WriteArtifacts,
 )
 from bioetl.core.runtime.qc import (
     default_qc_runtime_service_factory,

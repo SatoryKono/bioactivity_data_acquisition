@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import cast
 
 from bioetl.core.logging import UnifiedLogger
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     ArtifactStore,
     DefaultArtifactContext,
@@ -19,7 +20,6 @@ from bioetl.core.pipeline.types import (
     StageResult,
     StageRuntimeContext,
     StageContextProtocol,
-    WriteArtifacts,
 )
 
 
@@ -43,7 +43,8 @@ def _build_stage_context(request_id: str) -> StageContext:
 
 
 def test_stage_command_implements_protocol_and_wraps_output() -> None:
-    """Ensure StageCommand satisfies the StageProtocol and wraps return values."""
+    """Ensure StageCommand satisfies the StageProtocol and wraps
+    return values."""
     context = _build_stage_context("t-1")
     runtime_context = StageRuntimeContext(
         context=cast(StageContextProtocol, context),

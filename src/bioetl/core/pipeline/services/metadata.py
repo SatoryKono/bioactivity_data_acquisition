@@ -9,14 +9,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, cast
 
+from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
 from bioetl.core.pipeline.types import (
     PipelineBaseProtocol,
-    RunArtifacts,
     RunResult,
     RunState,
     StageContextProtocol,
     StageProtocol,
-    WriteArtifacts,
 )
 from bioetl.core.runtime.metadata import MetadataCoordinator
 

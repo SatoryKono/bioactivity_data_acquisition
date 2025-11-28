@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Запуск ChEMBL Assay pipeline."""
+
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Mapping
@@ -10,8 +10,12 @@ import pandera as pa
 
 from bioetl.core.io import PipelineOutputService
 from bioetl.core.pipeline.services import DefaultValidationService
-from bioetl.core.pipeline.types import StageExecutionOptions, WriteArtifacts, WriteResult
-from bioetl.pipelines.chembl.common import ChemblCommonPipeline
+from bioetl.core.io.artifacts import WriteArtifacts
+from bioetl.core.pipeline.types import (
+    StageExecutionOptions,
+    WriteResult,
+)
+from bioetl.pipelines.chembl.common.base import ChemblCommonPipeline
 from bioetl.core.schemas import AssaySchema
 
 class ChemblAssayPipeline(ChemblCommonPipeline):
@@ -29,7 +33,7 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
         self.validator = AssaySchema
         self.validation_service = DefaultValidationService(self.validator)
 
-    def build_descriptor(self):  # pragma: no cover - тонкий слой
+    def build_descriptor(self) -> Any:  # pragma: no cover - тонкий слой
         return super().build_descriptor()
 
     # ------------------------------------------------------------------
@@ -42,9 +46,15 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
         df = self._ensure_target_integrity(df)
         return df
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def validate(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         df = super().validate(df, options)
-        id_column = "assay_chembl_id" if "assay_chembl_id" in df.columns else "assay_id"
+        id_column = (
+            "assay_chembl_id"
+            if "assay_chembl_id" in df.columns
+            else "assay_id"
+        )
         if id_column in df.columns:
             missing = df[id_column].isna().sum()
             if missing:
@@ -61,7 +71,9 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
         output_service = PipelineOutputService(self.config)
         try:
             output_dir = (
-                artifacts.data_path.parent if artifacts.data_path else Path.cwd()
+                artifacts.data_path.parent
+                if artifacts.data_path
+                else Path.cwd()
             )
             return output_service.save(df, artifacts, output_dir)
         except ValueError:
@@ -86,13 +98,21 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
 
         if serialization_mode == "json":
             df = df.copy()
-            df["assay_parameters"] = df["assay_parameters"].apply(lambda value: value if pd.isna(value) else str(value))
+            df["assay_parameters"] = df["assay_parameters"].apply(
+                lambda value: value if pd.isna(value) else str(value)
+            )
             return df
 
         if serialization_mode == "flatten":
-            expanded = df["assay_parameters"].apply(lambda val: val or {}).apply(pd.Series)
-            expanded.columns = [f"assay_param_{col}" for col in expanded.columns]
-            return pd.concat([df.drop(columns=["assay_parameters"]), expanded], axis=1)
+            expanded = df["assay_parameters"].apply(
+                lambda val: val or {}
+            ).apply(pd.Series)
+            expanded.columns = [
+                f"assay_param_{col}" for col in expanded.columns
+            ]
+            return pd.concat(
+                [df.drop(columns=["assay_parameters"]), expanded], axis=1
+            )
 
         return df
 
@@ -124,4 +144,3 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
 
 
 __all__ = ["ChemblAssayPipeline"]
-

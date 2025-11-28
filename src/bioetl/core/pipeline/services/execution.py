@@ -13,12 +13,12 @@ from bioetl.core.pipeline.services.artifacts import (
     ArtifactService,
     default_artifact_service_factory,
 )
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     StageCommand,
     StageContextProtocol,
     StageExecutionOptions,
     StageRuntimeContext,
-    WriteArtifacts,
 )
 from bioetl.core.runtime.lifecycle import OrchestrationCoordinatorProtocol
 from bioetl.core.runtime.qc import QCOrchestratorProtocol

@@ -7,18 +7,21 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from bioetl.core.pipeline.artifact_runtime_builder import ArtifactRuntimeBuilder
-from bioetl.core.pipeline.metadata_runtime_builder import MetadataRuntimeBuilder
+from bioetl.core.pipeline.artifact_runtime_builder import (
+    ArtifactRuntimeBuilder
+)
+from bioetl.core.pipeline.metadata_runtime_builder import (
+    MetadataRuntimeBuilder
+)
 from bioetl.core.pipeline.qc_runtime_builder import QCRuntimeBuilder
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase, StagePlanExecutor
+from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
 from bioetl.core.pipeline.types import (
     PipelineStageCommand,
-    RunArtifacts,
     RunResult,
     StageContext,
     StageExecutionOptions,
     StageRuntimeContext,
-    WriteArtifacts,
 )
 
 

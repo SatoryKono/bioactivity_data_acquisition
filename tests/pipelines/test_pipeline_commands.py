@@ -12,6 +12,7 @@ from bioetl.core.pipeline.stage_plan import (
     StagePlanMetadata,
     build_default_stage_plan,
 )
+from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.types import (
     DefaultArtifactContext,
     DefaultDomainContext,
@@ -24,7 +25,6 @@ from bioetl.core.pipeline.types import (
     StageDescriptor,
     StageExecutionOptions,
     StageRuntimeContext,
-    WriteArtifacts,
 )
 
 
@@ -110,7 +110,9 @@ def _contexts(
     context = StageContext(
         execution=DefaultExecutionContext(logger=logger, request_id="test"),
         domain=DefaultDomainContext(pipeline=pipeline),
-        infrastructure=DefaultInfrastructureContext(output_dir=Path("/tmp/out")),
+        infrastructure=DefaultInfrastructureContext(
+            output_dir=Path("/tmp/out")
+        ),
         artifacts=DefaultArtifactContext(),
         config_provider=lambda _k: {},
     )

@@ -1,3 +1,5 @@
+"""Test fixtures for pipeline tests."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -6,10 +8,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from bioetl.clients.chembl.entities import ChemblEntity
+from bioetl.clients.enrichers.factory import EnricherEntity
 from bioetl.core.pipeline.types import (
     ClientNamespace,
-    EnricherEntity,
-    ChemblEntity,
     DefaultArtifactContext,
     DefaultDomainContext,
     DefaultExecutionContext,
@@ -88,6 +90,7 @@ def stage_context_factory() -> Callable[..., StageContext]:
                 self, entity: str, mode: str | None = None
             ) -> object:
                 """Create a client for the entity."""
+                _ = mode
                 return self._mapping[entity]
 
             def __getattr__(
@@ -110,7 +113,8 @@ def stage_context_factory() -> Callable[..., StageContext]:
                 )
             elif normalized_ns == ClientNamespace.ENRICHER.value:
                 factories[normalized_ns] = _ClientFactoryStub(
-                    mapping, lambda value: EnricherEntity(value).value
+                    mapping,
+                    lambda value: EnricherEntity[value].value
                 )
             else:
                 msg = (
@@ -123,7 +127,9 @@ def stage_context_factory() -> Callable[..., StageContext]:
             domain=domain,
             infrastructure=infrastructure,
             artifacts=artifacts,
-            config_provider=lambda key, _cfg=cfg: _cfg[key],
+            config_provider=(
+                lambda key, _cfg=cfg: _cfg[key]  # type: ignore[misc]
+            ),
             clients=client_context,
             client_factories=factories,
             metric_emitter=metric_emitter,
@@ -134,6 +140,8 @@ def stage_context_factory() -> Callable[..., StageContext]:
 
 @pytest.fixture
 def runtime_context_factory() -> Callable[..., StageRuntimeContext]:
+    """Fixture for creating StageRuntimeContext instances."""
+
     def _build(
         *,
         options: StageExecutionOptions | None = None,
