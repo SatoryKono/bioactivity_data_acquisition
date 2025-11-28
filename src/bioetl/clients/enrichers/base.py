@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, ClassVar, Iterable, Protocol, runtime_checkable
+from typing import Any, Callable, ClassVar, Iterable, Mapping as TypingMapping, Protocol, runtime_checkable
 import warnings
 
 import structlog
@@ -88,50 +88,16 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         self.page_param = effective_options.page_param
         self._logger = structlog.get_logger(__name__).bind(source=source)
 
-    def fetch_one(
+    def _iterate_pages(
         self,
-        path: str,
         *,
-        params: Mapping[str, Any] | None = None,
-        page_key: str | None = None,
-    ) -> JSONRecordStream:
-        def iterator() -> Iterator[dict[str, Any]]:
-            payload = self._wrap_callable(
-                lambda: self.api_client.fetch_one(
-                    path,
-                    params=params,
-                    timeout_sec=self.timeout_sec,
-                    max_retries=self.max_retries,
-                ),
-                log_context={"path": path},
-            )
-            self._logger.info("api_call", path=path)
-
-            effective_page_key = page_key if page_key is not None else self.page_key
-            yielded = False
-            for item in self._normalize_payload(payload, page_key=effective_page_key):
-                yielded = True
-                yield item
-
-            if not yielded and payload is not None:
-                yield {"result": payload}
-
-        try:
-            yield from self._wrap_iterator(
-                iterator, log_context={"path": path}
-            )
-        except Exception:
-            self.close()
-            raise
-
-    def fetch_batch(
-        self,
         path: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        page_key: str | None = None,
-        next_key: str | None = None,
-        page_param: str | None = None,
+        params: Mapping[str, Any] | None,
+        page_key: str | None,
+        next_key: str | None,
+        page_param: str | None,
+        fetch_pages: Callable[[str | None, str, str | None], Iterable[Any]],
+        fallback_payload: Any | None = None,
     ) -> JSONRecordStream:
         effective_page_key = page_key if page_key is not None else self.page_key
         effective_next_key = next_key if next_key is not None else self.next_key
@@ -142,22 +108,23 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         def iterator() -> Iterator[dict[str, Any]]:
             self._logger.info("api_call", path=path)
             yielded = False
-            for payload in self.api_client.fetch_batch(
-                path,
-                params=params,
-                page_key=effective_page_key or "results",
-                next_key=effective_next_key,
-                page_param=effective_page_param,
-                timeout_sec=self.timeout_sec,
-                max_retries=self.max_retries,
+            for payload in fetch_pages(
+                effective_page_key, effective_next_key, effective_page_param
             ):
-                yielded = True
-                yield from self._normalize_payload(
+                page_yielded = False
+                for item in self._normalize_payload(
                     payload, page_key=effective_page_key
-                )
+                ):
+                    yielded = True
+                    page_yielded = True
+                    yield item
 
-            if not yielded:
-                return
+                if not page_yielded and fallback_payload is not None:
+                    yielded = True
+                    yield {"result": fallback_payload}
+
+            if not yielded and fallback_payload is not None:
+                yield {"result": fallback_payload}
 
         try:
             yield from self._wrap_iterator(
@@ -166,6 +133,59 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         except Exception:
             self.close()
             raise
+
+    def fetch_one(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        page_key: str | None = None,
+    ) -> JSONRecordStream:
+        payload = self._wrap_callable(
+            lambda: self.api_client.fetch_one(
+                path,
+                params=params,
+                timeout_sec=self.timeout_sec,
+                max_retries=self.max_retries,
+            ),
+            log_context={"path": path},
+        )
+
+        return self._iterate_pages(
+            path=path,
+            params=params,
+            page_key=page_key,
+            next_key=None,
+            page_param=None,
+            fetch_pages=lambda *_: [payload],
+            fallback_payload=payload if payload is not None else None,
+        )
+
+    def fetch_batch(
+        self,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        page_key: str | None = None,
+        next_key: str | None = None,
+        page_param: str | None = None,
+    ) -> JSONRecordStream:
+        return self._iterate_pages(
+            path=path,
+            params=params,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+            fetch_pages=lambda effective_page_key, effective_next_key, effective_page_param: self.api_client.fetch_batch(
+                path,
+                params=params,
+                page_key=effective_page_key or "results",
+                next_key=effective_next_key,
+                page_param=effective_page_param,
+                timeout_sec=self.timeout_sec,
+                max_retries=self.max_retries,
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -250,10 +270,72 @@ class RouteEnricherMixin(BaseEnricherClient):
         return super().fetch_batch(path, params=params_with_value)
 
 
+class RouteProviderMixin(RouteEnricherMixin):
+    """Базовый миксин для провайдеров с маршрутизацией по ROUTES."""
+
+    ROUTES: ClassVar[Iterable[RouteConfig]]
+    SOURCE: ClassVar[str]
+
+    def fetch_one(
+        self,
+        value: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        route_name: str | None = None,
+        page_key: str | None = None,
+    ) -> JSONRecordStream:
+        return super().fetch_one(
+            value, params=params, route_name=route_name, page_key=page_key
+        )
+
+    def fetch_batch(
+        self,
+        value: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        route_name: str | None = None,
+        page_key: str | None = None,
+        next_key: str | None = None,
+        page_param: str | None = None,
+    ) -> JSONRecordStream:
+        return super().fetch_batch(
+            value,
+            params=params,
+            route_name=route_name,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+        )
+
+
+class DeprecatedAliasMixin:
+    """Автоматически проксирует устаревшие алиасы методов."""
+
+    DEPRECATED_ALIASES: ClassVar[TypingMapping[str, str]] = {}
+
+    def __getattr__(self, name: str) -> Any:  # pragma: no cover - wrapper path
+        alias_target = self.DEPRECATED_ALIASES.get(name)
+        if alias_target:
+            target = getattr(self, alias_target)
+
+            def _wrapper(*args: Any, **kwargs: Any) -> Any:
+                warnings.warn(
+                    f"{name} устарел; используйте {alias_target}",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                return target(*args, **kwargs)
+
+            return _wrapper
+        raise AttributeError(f"{self.__class__.__name__!s} has no attribute {name!r}")
+
+
 __all__ = [
     "BaseEnricherClient",
     "EnricherClientOptions",
     "EnricherClientProtocol",
     "RouteConfig",
     "RouteEnricherMixin",
+    "RouteProviderMixin",
+    "DeprecatedAliasMixin",
 ]
