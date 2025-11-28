@@ -19,7 +19,15 @@ from bioetl.pipelines.chembl.common.base import ChemblCommonPipeline
 
 
 class ChemblTargetPipeline(ChemblCommonPipeline):
-    """Каркас пайплайна для ChEMBL Target с обогащением UniProt/IUPHAR."""
+    """Каркас пайплайна для ChEMBL Target без скрытого обогащения.
+
+    Все внешние обращения должны вызываться явно в пользовательском коде или
+    кастомных stage-ах. Например:
+
+    >>> from bioetl.clients import UniProtClient
+    >>> client = UniProtClient.from_config(config.get("clients", {}))
+    >>> df["uniprot_payload"] = df["uniprot_id"].apply(client.lookup)
+    """
 
     entity_name = "target"
     required_sort_fields = ("target_chembl_id",)
@@ -45,10 +53,6 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
     # ------------------------------------------------------------------
     # Stage hooks
     # ------------------------------------------------------------------
-    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = super().domain_enrich(df)
-        return self._merge_enrichment(df)
-
     def validate(
         self,
         df: pd.DataFrame,
@@ -91,20 +95,6 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-    def _merge_enrichment(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty:
-            return df
-
-        df = df.copy()
-        if "uniprot_id" in df.columns:
-            df["uniprot_payload"] = self.enrichers.enrich(
-                df["uniprot_id"], "uniprot"
-            )
-        if "iuphar_id" in df.columns:
-            df["iuphar_payload"] = self.enrichers.enrich(
-                df["iuphar_id"], "iuphar"
-            )
-        return df
 
 
 __all__ = ["ChemblTargetPipeline"]

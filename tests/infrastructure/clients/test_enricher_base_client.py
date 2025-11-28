@@ -8,7 +8,7 @@ from typing import Any, cast
 import pytest
 
 from bioetl.clients import exceptions as client_exceptions
-from bioetl.clients.enrichers.base import BaseEnricherClient
+from bioetl.clients.enricher_base import BaseEnricherClient
 from bioetl.core.http.interfaces import BaseApiClient
 
 

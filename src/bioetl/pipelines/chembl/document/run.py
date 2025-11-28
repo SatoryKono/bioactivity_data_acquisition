@@ -37,6 +37,12 @@ class ChemblDocumentPipeline(ChemblCommonPipeline):
     # ------------------------------------------------------------------
     # Stage hooks
     # ------------------------------------------------------------------
+    def transform(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
+        df = super().pre_transform(df)
+        return self.domain_enrich(df)
+
     def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
         df = super().domain_enrich(df)
         if df.empty:

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from bioetl.clients.chembl.entities import ChemblEntity
-from bioetl.clients.enrichers.factory import EnricherEntity
+from bioetl.clients.enricher_factory import EnricherEntity
 from bioetl.core.pipeline.types import (
     ClientNamespace,
     DefaultArtifactContext,

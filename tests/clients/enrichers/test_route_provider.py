@@ -1,70 +1,10 @@
-import importlib.util
-import sys
-import types
-from pathlib import Path
+from __future__ import annotations
+
 from typing import Any
 
 import pytest
 
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-SRC_ROOT = REPO_ROOT / "src"
-
-if str(SRC_ROOT) not in sys.path:
-    sys.path.insert(0, str(SRC_ROOT))
-
-
-def _prepare_namespaces() -> None:
-    bioetl_pkg = sys.modules.setdefault("bioetl", types.ModuleType("bioetl"))
-    bioetl_pkg.__path__ = [str(SRC_ROOT / "bioetl")]
-
-    clients_pkg = sys.modules.setdefault(
-        "bioetl.clients", types.ModuleType("bioetl.clients")
-    )
-    clients_pkg.__path__ = [str(SRC_ROOT / "bioetl" / "clients")]
-
-    enrichers_pkg = sys.modules.setdefault(
-        "bioetl.clients.enrichers", types.ModuleType("bioetl.clients.enrichers")
-    )
-    enrichers_pkg.__path__ = [str(SRC_ROOT / "bioetl" / "clients" / "enrichers")]
-
-    providers_pkg = sys.modules.setdefault(
-        "bioetl.clients.enrichers.providers",
-        types.ModuleType("bioetl.clients.enrichers.providers"),
-    )
-    providers_pkg.__path__ = [
-        str(SRC_ROOT / "bioetl" / "clients" / "enrichers" / "providers")
-    ]
-
-
-def _load_module(module_name: str, path: Path) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Cannot load module {module_name} from {path}")
-
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-_prepare_namespaces()
-_load_module(
-    "bioetl.clients.enrichers.base",
-    SRC_ROOT / "bioetl" / "clients" / "enrichers" / "base.py",
-)
-
-crossref = _load_module(
-    "bioetl.clients.enrichers.providers.crossref",
-    SRC_ROOT / "bioetl" / "clients" / "enrichers" / "providers" / "crossref.py",
-)
-pubchem = _load_module(
-    "bioetl.clients.enrichers.providers.pubchem",
-    SRC_ROOT / "bioetl" / "clients" / "enrichers" / "providers" / "pubchem.py",
-)
-
-CrossrefClient = crossref.CrossrefClient
-PubChemClient = pubchem.PubChemClient
+from bioetl.clients.providers import CrossrefClient, PubChemClient
 
 
 class DummyApiClient:
@@ -80,10 +20,16 @@ class DummyApiClient:
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> dict[str, Any]:
-        self.calls.append((
-            "fetch_one", path, params or {}, headers,
-            timeout_sec, max_retries
-        ))
+        self.calls.append(
+            (
+                "fetch_one",
+                path,
+                params or {},
+                headers,
+                timeout_sec,
+                max_retries,
+            )
+        )
         return {"results": [{"path": path, "params": params}]}
 
     def fetch_batch(

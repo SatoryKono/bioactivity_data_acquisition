@@ -173,14 +173,10 @@ class TestChemblPipelinesCoverage:
 
     def test_testitem_pipeline_transform(self, options):
         """Test transformation logic in TestItem pipeline."""
-        mock_client = MagicMock()
-        mock_client.lookup.return_value = {"cid": 123}
-
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["test_item_id"]}},
-            "enrichers": {"pubchem_client": mock_client}
         }
         pipeline = TestItemChemblPipeline(config)
 
@@ -195,9 +191,6 @@ class TestChemblPipelinesCoverage:
 
         # Check canonicalization
         assert transformed.iloc[0]["inchi_key"] == "INCHIKEY=123"
-
-        # Check enrichment
-        assert transformed.iloc[0]["pubchem_enrichment"] == {"cid": 123}
 
         # Check normalization
         assert transformed.iloc[0]["smiles"] == ""

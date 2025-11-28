@@ -14,7 +14,14 @@ from bioetl.pipelines.chembl.common import ChemblCommonPipeline
 from bioetl.core.schemas import TestItemSchema
 
 class TestItemChemblPipeline(ChemblCommonPipeline):
-    """Скелет пайплайна для testitem: молекулы + PubChem обогащение."""
+    """Скелет пайплайна для testitem без скрытых HTTP-обогащений.
+
+    При необходимости внешние вызовы должны выполняться явно. Пример:
+
+    >>> from bioetl.clients import PubChemClient
+    >>> client = PubChemClient.from_config(config.get("clients", {}))
+    >>> df["pubchem_enrichment"] = df["inchi_key"].apply(client.lookup)
+    """
 
     entity_name = "testitem"
     required_sort_fields = ("test_item_id",)
@@ -36,10 +43,6 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
         df = self._canonicalize_inchikey(df)
         df = self._normalize_molecule_properties(df)
         return df
-
-    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = super().domain_enrich(df)
-        return self._enrich_pubchem(df)
 
     def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         df = super().validate(df, options)
@@ -66,15 +69,6 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
             return df
         df = df.copy()
         df["inchi_key"] = df["inchi_key"].str.upper().str.strip()
-        return df
-
-    def _enrich_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty or "inchi_key" not in df.columns:
-            return df
-        df = df.copy()
-        df["pubchem_enrichment"] = self.enrichers.enrich(
-            df["inchi_key"], "pubchem"
-        )
         return df
 
     def _normalize_molecule_properties(self, df: pd.DataFrame) -> pd.DataFrame:
