@@ -1,0 +1,15 @@
+digraph "packages_bioetl_core_schemas" {
+rankdir=BT
+charset="utf-8"
+"src.bioetl.core.schemas" [color="black", label=<src.bioetl.core.schemas>, shape="box", style="solid"];
+"src.bioetl.core.schemas.activity_schema" [color="black", label=<src.bioetl.core.schemas.activity_schema>, shape="box", style="solid"];
+"src.bioetl.core.schemas.assay_schema" [color="black", label=<src.bioetl.core.schemas.assay_schema>, shape="box", style="solid"];
+"src.bioetl.core.schemas.document_schema" [color="black", label=<src.bioetl.core.schemas.document_schema>, shape="box", style="solid"];
+"src.bioetl.core.schemas.target_schema" [color="black", label=<src.bioetl.core.schemas.target_schema>, shape="box", style="solid"];
+"src.bioetl.core.schemas.testitem_schema" [color="black", label=<src.bioetl.core.schemas.testitem_schema>, shape="box", style="solid"];
+"src.bioetl.core.schemas" -> "src.bioetl.core.schemas.activity_schema" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.schemas" -> "src.bioetl.core.schemas.assay_schema" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.schemas" -> "src.bioetl.core.schemas.document_schema" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.schemas" -> "src.bioetl.core.schemas.target_schema" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.schemas" -> "src.bioetl.core.schemas.testitem_schema" [arrowhead="open", arrowtail="none"];
+}

@@ -1,0 +1,9 @@
+digraph "packages_bioetl_clients_chembl" {
+rankdir=BT
+charset="utf-8"
+"src.bioetl.clients.chembl" [color="black", label=<src.bioetl.clients.chembl>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.adapter" [color="black", label=<src.bioetl.clients.chembl.adapter>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.base" [color="black", label=<src.bioetl.clients.chembl.base>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.entities" [color="black", label=<src.bioetl.clients.chembl.entities>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.normalization" [color="black", label=<src.bioetl.clients.chembl.normalization>, shape="box", style="solid"];
+}

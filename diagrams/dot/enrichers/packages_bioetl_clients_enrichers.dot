@@ -1,0 +1,17 @@
+digraph "packages_bioetl_clients_enrichers" {
+rankdir=BT
+charset="utf-8"
+"src.bioetl.clients.enrichers" [color="black", label=<src.bioetl.clients.enrichers>, shape="box", style="solid"];
+"src.bioetl.clients.enrichers._base" [color="black", label=<src.bioetl.clients.enrichers._base>, shape="box", style="solid"];
+"src.bioetl.clients.enrichers.crossref" [color="black", label=<src.bioetl.clients.enrichers.crossref>, shape="box", style="solid"];
+"src.bioetl.clients.enrichers.openalex" [color="black", label=<src.bioetl.clients.enrichers.openalex>, shape="box", style="solid"];
+"src.bioetl.clients.enrichers.pubchem" [color="black", label=<src.bioetl.clients.enrichers.pubchem>, shape="box", style="solid"];
+"src.bioetl.clients.enrichers.pubmed" [color="black", label=<src.bioetl.clients.enrichers.pubmed>, shape="box", style="solid"];
+"src.bioetl.clients.enrichers.semantic_scholar" [color="black", label=<src.bioetl.clients.enrichers.semantic_scholar>, shape="box", style="solid"];
+"src.bioetl.clients.enrichers.uniprot" [color="black", label=<src.bioetl.clients.enrichers.uniprot>, shape="box", style="solid"];
+"src.bioetl.clients.enrichers.crossref" -> "src.bioetl.clients.enrichers._base" [arrowhead="open", arrowtail="none"];
+"src.bioetl.clients.enrichers.openalex" -> "src.bioetl.clients.enrichers._base" [arrowhead="open", arrowtail="none"];
+"src.bioetl.clients.enrichers.pubchem" -> "src.bioetl.clients.enrichers._base" [arrowhead="open", arrowtail="none"];
+"src.bioetl.clients.enrichers.pubmed" -> "src.bioetl.clients.enrichers._base" [arrowhead="open", arrowtail="none"];
+"src.bioetl.clients.enrichers.semantic_scholar" -> "src.bioetl.clients.enrichers._base" [arrowhead="open", arrowtail="none"];
+}

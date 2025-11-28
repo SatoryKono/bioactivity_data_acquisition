@@ -1,0 +1,9 @@
+digraph "packages_bioetl_pipelines_chembl_activity" {
+rankdir=BT
+charset="utf-8"
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\__init__.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\__init__.py>, shape="box", style="solid"];
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\normalizers.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\normalizers.py>, shape="box", style="solid"];
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\parsers.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\parsers.py>, shape="box", style="solid"];
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\run.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\run.py>, shape="box", style="solid"];
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\stages.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\activity\stages.py>, shape="box", style="solid"];
+}

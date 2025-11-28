@@ -1,0 +1,8 @@
+digraph "packages_bioetl_pipelines_chembl_assay" {
+rankdir=BT
+charset="utf-8"
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\assay\__init__.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\assay\__init__.py>, shape="box", style="solid"];
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\assay\normalizers.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\assay\normalizers.py>, shape="box", style="solid"];
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\assay\parsers.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\assay\parsers.py>, shape="box", style="solid"];
+"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\assay\run.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\assay\run.py>, shape="box", style="solid"];
+}

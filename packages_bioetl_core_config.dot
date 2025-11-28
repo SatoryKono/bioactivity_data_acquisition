@@ -1,0 +1,16 @@
+digraph "packages_bioetl_core_config" {
+rankdir=BT
+charset="utf-8"
+"src.bioetl.core.config" [color="black", label=<src.bioetl.core.config>, shape="box", style="solid"];
+"src.bioetl.core.config.environment" [color="black", label=<src.bioetl.core.config.environment>, shape="box", style="solid"];
+"src.bioetl.core.config.helpers" [color="black", label=<src.bioetl.core.config.helpers>, shape="box", style="solid"];
+"src.bioetl.core.config.loader" [color="black", label=<src.bioetl.core.config.loader>, shape="box", style="solid"];
+"src.bioetl.core.config.models" [color="black", label=<src.bioetl.core.config.models>, shape="box", style="solid"];
+"src.bioetl.core.config" -> "src.bioetl.core.config.environment" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.config" -> "src.bioetl.core.config.loader" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.config" -> "src.bioetl.core.config.models" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.config.environment" -> "src.bioetl.core.config.helpers" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.config.loader" -> "src.bioetl.core.config.environment" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.config.loader" -> "src.bioetl.core.config.helpers" [arrowhead="open", arrowtail="none"];
+"src.bioetl.core.config.loader" -> "src.bioetl.core.config.models" [arrowhead="open", arrowtail="none"];
+}
