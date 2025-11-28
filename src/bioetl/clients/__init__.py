@@ -1,4 +1,15 @@
-"""BioETL Clients and Integrations."""
+"""Фасад клиентского слоя BioETL.
+
+Пакет предоставляет единый вход в инфраструктурные клиенты и их фабрики:
+
+- общий реестр :data:`FACTORIES`, куда можно регистрировать доменные фабрики
+  через :func:`register_factory`, либо пакетно через
+  :func:`register_domain_factories` (``chembl``/``enricher`` алиасы);
+- хелперы для создания ChEMBL-клиентов из ``bioetl.clients.chembl``;
+- обратные совместимые алиасы к HTTP- и пагинационным абстракциям из
+  ``bioetl.core.http`` — при обращении выдаётся ``DeprecationWarning`` и
+  атрибут лениво проксируется.
+"""
 
 from __future__ import annotations
 

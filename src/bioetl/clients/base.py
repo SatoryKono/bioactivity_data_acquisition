@@ -1,4 +1,18 @@
-"""Базовые протоколы и реестр клиентских фабрик."""
+"""Базовые протоколы и реестр клиентских фабрик.
+
+Реестр предназначен для регистрации фабрик клиентов по доменным алиасам
+(``chembl``, ``enricher`` и т.д.), чтобы единообразно создавать адаптеры в
+пайплайнах и CLI.
+
+Пример подключения фабрики ChEMBL в рантайме::
+
+    from bioetl.clients import default_chembl_factory, get_factory, register_domain_factories
+
+    register_domain_factories(chembl_factory=default_chembl_factory())
+    activity_client = get_factory("chembl").create("activity")
+    with activity_client as client:
+        ...  # извлечение/итерация по ChEMBL-активностям
+"""
 
 from __future__ import annotations
 
