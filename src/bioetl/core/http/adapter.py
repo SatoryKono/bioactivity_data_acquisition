@@ -4,14 +4,12 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-import structlog
-
-from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
+from bioetl.core.http.base_http_client import BaseHttpClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
 
 
-class LoggingTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtocol):
+class LoggingTransportAdapter(BaseHttpClient, ApiTransportProtocol):
     """Thin wrapper over ``ApiTransportProtocol`` with logging helpers.
 
     This adapter captures response metadata (if present) and provides a
@@ -34,19 +32,23 @@ class LoggingTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtoco
         client_name: str = "transport_adapter",
     ) -> None:
         self._base_transport = transport
-        self.transport = transport
-        self._pagination_strategy: PaginationStrategy | None = None
-        self.pagination_strategy = pagination_strategy or (
+        self._metadata: dict[str, Any] = {}
+        strategy = pagination_strategy or (
             pagination_factory(pagination_strategy_name, pagination_factories)
             if pagination_factory
             else None
         )
-        self._metadata: dict[str, Any] = {}
-        self._logger = structlog.get_logger(__name__).bind(client=client_name)
+        super().__init__(
+            transport,
+            default_timeout_sec=getattr(transport, "default_timeout_sec", None),
+            default_max_retries=getattr(transport, "default_max_retries", None),
+            client_name=client_name,
+        )
+        self.pagination_strategy = strategy
 
     @property
     def pagination_strategy(self) -> PaginationStrategy | None:  # type: ignore[override]
-        return self._pagination_strategy
+        return getattr(self, "_pagination_strategy", None)
 
     @pagination_strategy.setter
     def pagination_strategy(self, value: PaginationStrategy | None) -> None:
@@ -79,7 +81,7 @@ class LoggingTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtoco
         if collected:
             self._metadata.update(collected)
 
-    def request(
+    def _perform_request(
         self,
         method: str,
         path: str,
@@ -87,16 +89,17 @@ class LoggingTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtoco
         headers: Mapping[str, str] | None = None,
         params: Mapping[str, Any] | None = None,
         json: Any | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
     ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
-        response = self._wrap_callable(
-            lambda: self._base_transport.request(
-                method,
-                path,
-                headers=headers,
-                params=params,
-                json=json,
-            ),
-            log_context={"path": path, "method": method},
+        response = self._base_transport.request(
+            method,
+            path,
+            headers=headers,
+            params=params,
+            json=json,
+            timeout_sec=timeout_sec,
+            max_retries=max_retries,
         )
         self._capture_metadata(response)
         return response

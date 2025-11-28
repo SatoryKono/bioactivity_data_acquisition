@@ -24,6 +24,7 @@ from bioetl.clients.interfaces import (
     RequestContext,
 )
 from bioetl.core.http import ApiClientMixin, ClosableMixin
+from bioetl.core.http.base_http_client import BaseHttpClient
 from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.types import JSONRecordStream
 
@@ -48,101 +49,21 @@ class EnricherClientOptions:
     page_param: str | None = "page"
 
 
-class OptionsAwareApiClient:
+class OptionsAwareApiClient(BaseHttpClient):
     def __init__(
         self,
         api_client: BaseApiClient,
         options: EnricherClientOptions,
     ) -> None:
+        super().__init__(
+            api_client,
+            default_timeout_sec=options.timeout_sec,
+            default_max_retries=options.max_retries,
+            client_name="enricher_http",
+        )
         self._api_client: BaseApiClient = api_client
         self.timeout_sec: float | None = options.timeout_sec
         self.max_retries: int | None = options.max_retries
-
-    def get_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
-        del headers
-        return self._api_client.get_json(endpoint, params=params)
-
-    def paginate_json(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-        page_key: str = "results",
-        next_key: str = "next",
-        page_param: str | None = "page",
-    ) -> Iterator[Mapping[str, Any]]:
-        result = self._api_client.paginate_json(
-            endpoint,
-            params=params,
-            headers=headers,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-        )
-        return iter(result)
-
-    def iterate_records(
-        self,
-        *,
-        ids: Sequence[str] | None = None,
-        page_size: int | None = None,
-        fetcher: Callable[[Sequence[str] | None], Any] | None = None,
-    ) -> Iterator[Mapping[str, Any]]:
-        return self._api_client.iterate_records(
-            ids=ids,
-            page_size=page_size,
-            fetcher=fetcher,
-        )
-
-    def close(self) -> None:
-        self._api_client.close()
-
-    def fetch_one(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-        timeout_sec: float | None = None,
-        max_retries: int | None = None,
-    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
-        return self._api_client.fetch_one(
-            endpoint,
-            params=params,
-            headers=headers,
-            timeout_sec=timeout_sec or self.timeout_sec,
-            max_retries=max_retries or self.max_retries,
-        )
-
-    def fetch_batch(
-        self,
-        endpoint: str,
-        *,
-        params: Mapping[str, Any] | None = None,
-        headers: Mapping[str, str] | None = None,
-        page_key: str = "results",
-        next_key: str = "next",
-        page_param: str | None = "page",
-        timeout_sec: float | None = None,
-        max_retries: int | None = None,
-    ) -> Iterator[Mapping[str, Any]]:
-        return self._api_client.fetch_batch(
-            endpoint,
-            params=params,
-            headers=headers,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-            timeout_sec=timeout_sec or self.timeout_sec,
-            max_retries=max_retries or self.max_retries,
-        )
 
 
 @runtime_checkable
