@@ -17,12 +17,12 @@ class CrossrefClient(RouteEnricherMixin):
     def fetch(
         self, doi: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("fetch", value=doi, params=params)
+        return self.call_route("fetch", value=doi, params=params)
 
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("search", value=query, params=params)
+        return self.call_route("search", value=query, params=params)
 
 
 __all__ = ["CrossrefClient"]
