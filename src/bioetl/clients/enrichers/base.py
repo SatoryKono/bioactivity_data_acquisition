@@ -42,4 +42,7 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
             raise
 
 
-__all__ = ["BaseEnricherClient"]
+_BaseEnricherClient = BaseEnricherClient
+
+
+__all__ = ["BaseEnricherClient", "_BaseEnricherClient"]

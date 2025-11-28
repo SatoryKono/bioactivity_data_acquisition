@@ -1,6 +1,6 @@
 """Клиенты для внешних источников обогащения."""
 
-from .base import BaseEnricherClient
+from .base import BaseEnricherClient, _BaseEnricherClient
 from bioetl.clients.enrichers.crossref import CrossrefClient
 from bioetl.clients.enrichers.openalex import OpenAlexClient
 from bioetl.clients.enrichers.pubchem import PubChemClient
@@ -10,6 +10,7 @@ from bioetl.clients.enrichers.uniprot import UniProtClient
 
 __all__ = [
     "BaseEnricherClient",
+    "_BaseEnricherClient",
     "CrossrefClient",
     "OpenAlexClient",
     "PubChemClient",
