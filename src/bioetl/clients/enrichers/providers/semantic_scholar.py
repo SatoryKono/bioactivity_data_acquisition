@@ -26,15 +26,35 @@ class SemanticScholarClient(RouteEnricherMixin):
         RouteConfig(name="fetch", path="/paper/{value}"),
     )
 
+    def fetch_batch(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_batch(query, params=params)
+
+    def fetch_one(
+        self, paper_id: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_one(paper_id, params=params)
+
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("search", value=query, params=params)
+        warnings.warn(
+            "search устарел; используйте fetch_batch",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(query, params=params)
 
     def fetch(
         self, paper_id: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("fetch", value=paper_id, params=params)
+        warnings.warn(
+            "fetch устарел; используйте fetch_one",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_one(paper_id, params=params)
 
     def title_search(
         self, query: str, params: Mapping[str, Any] | None = None
@@ -46,7 +66,7 @@ class SemanticScholarClient(RouteEnricherMixin):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.search(query, params=params)
+        return self.fetch_batch(query, params=params)
 
 
 __all__ = ["SemanticScholarClient"]

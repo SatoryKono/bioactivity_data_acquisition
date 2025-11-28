@@ -26,15 +26,35 @@ class PubChemClient(RouteEnricherMixin):
         RouteConfig(name="search", path="/compound/search", query_param="smiles"),
     )
 
+    def fetch_one(
+        self, cid: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_one(cid, params=params)
+
+    def fetch_batch(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        return super().fetch_batch(query, params=params)
+
     def fetch(
         self, cid: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("fetch", value=cid, params=params)
+        warnings.warn(
+            "fetch устарел; используйте fetch_one",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_one(cid, params=params)
 
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self.call_route("search", value=query, params=params)
+        warnings.warn(
+            "search устарел; используйте fetch_batch",  # pragma: no cover - warnings path
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(query, params=params)
 
     def fetch_by_cid(
         self, cid: str, params: Mapping[str, Any] | None = None
@@ -46,19 +66,17 @@ class PubChemClient(RouteEnricherMixin):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.fetch(cid, params=params)
+        return self.fetch_one(cid, params=params)
 
     def search_by_smiles(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        import warnings
-
         warnings.warn(
             "search_by_smiles is deprecated; use search instead",
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.search(query, params=params)
+        return self.fetch_batch(query, params=params)
 
 
 __all__ = ["PubChemClient"]

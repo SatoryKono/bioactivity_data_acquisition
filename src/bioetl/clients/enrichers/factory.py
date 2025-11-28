@@ -161,6 +161,12 @@ class _NullApiClient(BaseApiClient):
     def paginate_json(self, *args, **kwargs):  # pragma: no cover - defensive stub
         raise RuntimeError("Null API client cannot paginate requests")
 
+    def fetch_one(self, *args, **kwargs):  # pragma: no cover - defensive stub
+        raise RuntimeError("Null API client cannot perform requests")
+
+    def fetch_batch(self, *args, **kwargs):  # pragma: no cover - defensive stub
+        raise RuntimeError("Null API client cannot paginate requests")
+
     def iterate_records(self, *args, **kwargs):  # pragma: no cover - defensive stub
         raise RuntimeError("Null API client cannot iterate records")
 
