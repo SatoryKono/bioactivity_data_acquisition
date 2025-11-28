@@ -9,6 +9,7 @@ from bioetl.clients.enrichers.crossref import CrossrefClient
 from bioetl.clients.enrichers.factory import (
     EnricherClientFactory,
     EnricherClientOptions,
+    EnricherEntity,
 )
 from bioetl.clients.enrichers.openalex import OpenAlexClient
 from bioetl.clients.enrichers.pubchem import PubChemClient
@@ -23,6 +24,7 @@ __all__ = [
     "CrossrefClient",
     "EnricherClientFactory",
     "EnricherClientOptions",
+    "EnricherEntity",
     "OpenAlexClient",
     "PubChemClient",
     "PubmedClient",
