@@ -14,6 +14,10 @@
 - `_BaseEntityClient` и `ChemblEntityClient` строят endpoints сами, принимая транспорт в конструктор и не наследуя сетевые клиенты.
 - `ChemblEntityClientFactory` работает как конфигуратор: получает фабрику транспорта и возвращает готовые entity-клиенты без сетевых вызовов при создании.
 
+## Публичные импорты пакета `bioetl.clients.chembl`
+- Поддерживаемые верхнеуровневые классы и фабрики: `BaseChemblClient`, `ChemblEntityClient`, клиенты сущностей (`ChemblActivityClient`, `ChemblAssayClient`, `ChemblDocumentClient`, `ChemblTargetClient`, `ChemblTestItemClient`), `ChemblEntityClientFactory` (и её конфигурация/протоколы), нормализаторы (`BaseChemblNormalizer`, `ColumnMapping`, `ColumnNormalizationSpec`, `build_records_from_payload`), а также фабрики `default_chembl_factory`, `default_activity_client_factory`, `make_chembl_client` и `ChemblClientFactory`.
+- Остальные вспомогательные элементы (пагинация, адаптеры, протоколы) импортируйте напрямую из соответствующих модулей. Доступ к ним через `bioetl.clients.chembl` теперь считается устаревшим и сопровождается `DeprecationWarning`.
+
 ## Кэширование
 - `cache_entity_client` декорирует любой `EntityClientProtocol`, добавляя кэширование вызовов `get`/`fetch_by_ids` без изменения остальных методов.
 
