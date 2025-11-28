@@ -38,10 +38,25 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         self.api_config = api_config
         self.request_executor = request_executor
         self.request_builder = request_builder
-        self.pagination_strategy = pagination_strategy
-        self.default_timeout_sec = api_config.timeout_sec
-        self.default_max_retries = api_config.max_retries
+        self._pagination_strategy = pagination_strategy
+        self._default_timeout_sec = api_config.timeout_sec
+        self._default_max_retries = api_config.max_retries
         self._logger = structlog.get_logger(__name__)
+
+    @property
+    def pagination_strategy(self) -> Any:
+        """Return the pagination strategy configured for the client."""
+        return self._pagination_strategy
+
+    @property
+    def default_timeout_sec(self) -> float:
+        """Return the default timeout configured for requests."""
+        return self._default_timeout_sec
+
+    @property
+    def default_max_retries(self) -> int:
+        """Return the default maximum number of retries allowed."""
+        return self._default_max_retries
 
     @classmethod
     def from_config(

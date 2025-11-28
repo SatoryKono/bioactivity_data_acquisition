@@ -87,7 +87,8 @@ class EntityClientProtocol(Protocol):
         page_size: int | None = None,
         fetcher: Callable[[Sequence[str] | None], Any] | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Yield normalized records, optionally using ``ids`` or a custom fetcher."""
+        """Yield normalized records, optionally using ``ids`` or a custom
+        fetcher."""
 
     def close(self) -> None:
         """Close the client."""
@@ -113,7 +114,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         """
         self.transport = transport
         self.entity = entity.strip("/")
-        self.pagination_strategy = pagination
+        # pagination_strategy is read-only property from ApiClientMixin
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
 
     def _entity_path(self, suffix: str | None = None) -> str:
@@ -154,7 +155,9 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             wrap_callable=cast(
                 WrapCallable, self._wrap_callable
             ),
+            # type: ignore[arg-type]
             wrap_iterator=cast(WrapIterator, self._wrap_iterator),
+            # type: ignore[arg-type]
             logger=self._logger,
             path_template=path_template,
             params=params,
@@ -261,6 +264,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             list_entities=lambda: self.fetch_many(page_size=page_size or 1000),
             normalize_payload=self._normalize_payload,
             wrap_iterator=cast(WrapIterator, self._wrap_iterator),
+            # type: ignore[arg-type]
         )
 
     def list(
@@ -318,7 +322,9 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             wrap_callable=cast(
                 WrapCallable, self._wrap_callable
             ),
+            # type: ignore[arg-type]
             wrap_iterator=cast(WrapIterator, self._wrap_iterator),
+            # type: ignore[arg-type]
             normalize_payload=lambda payload: self._normalize_payload(
                 payload, page_key=page_key
             ),
@@ -363,6 +369,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
                 page_param=page_param,
             ),
             wrap_iterator=cast(WrapIterator, self._wrap_iterator),
+            # type: ignore[arg-type]
         )
 
     def search(self, params: Mapping[str, Any]) -> Iterator[dict[str, Any]]:

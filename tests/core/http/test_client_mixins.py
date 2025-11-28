@@ -54,8 +54,8 @@ def test_entity_client_fetch_batch_normalizes_and_logs_payloads() -> None:
         {"id": "12", "value": 3},
     ]
     assert transport.request.call_args_list == [
-        call("GET", "/targets/10"),
-        call("GET", "/targets/11"),
+        call("GET", "/targets/10", params=None),
+        call("GET", "/targets/11", params=None),
     ]
     assert client._logger.info.call_args_list == [
         call("api_call", entity="targets", entity_id="10"),

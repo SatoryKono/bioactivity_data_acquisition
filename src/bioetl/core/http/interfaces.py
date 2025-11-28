@@ -38,7 +38,8 @@ class BaseApiClient(Protocol):
         Args:
             endpoint: Relative path that will be appended to the base URL.
             params: Optional query parameters to include in the request.
-            headers: Optional per-call headers merged on top of client defaults.
+            headers: Optional per-call headers merged on top of client
+                defaults.
             timeout_sec: Optional request timeout override; falls back to
                 :pyattr:`default_timeout_sec` when omitted.
             max_retries: Optional retry override; falls back to
@@ -69,7 +70,8 @@ class BaseApiClient(Protocol):
         Args:
             endpoint: Relative path to the collection resource.
             params: Optional query parameters applied to every page request.
-            headers: Optional per-call headers merged on top of client defaults.
+            headers: Optional per-call headers merged on top of client
+                defaults.
             page_key: Key in the response payload containing the records.
             next_key: Key pointing to the next page URL or token.
             page_param: Name of the query parameter controlling the page index
@@ -98,7 +100,8 @@ class BaseApiClient(Protocol):
         Args:
             endpoint: Relative path that will be appended to the base URL.
             params: Optional query parameters to include in the request.
-            headers: Optional per-call headers merged on top of client defaults.
+            headers: Optional per-call headers merged on top of client
+                defaults.
             timeout_sec: Optional request timeout override; falls back to
                 :pyattr:`default_timeout_sec` when omitted.
             max_retries: Optional retry override; falls back to
@@ -126,7 +129,8 @@ class BaseApiClient(Protocol):
         Args:
             endpoint: Relative path to the collection resource.
             params: Optional query parameters applied to every page request.
-            headers: Optional per-call headers merged on top of client defaults.
+            headers: Optional per-call headers merged on top of client
+                defaults.
             page_key: Key in the response payload containing the records.
             next_key: Key pointing to the next page URL or token.
             page_param: Name of the query parameter controlling the page index

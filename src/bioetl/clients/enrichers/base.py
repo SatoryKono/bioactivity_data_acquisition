@@ -467,7 +467,9 @@ class DeprecatedAliasMixin:
                 return target(*args, **kwargs)
 
             return _wrapper
-        raise AttributeError(f"{self.__class__.__name__!s} has no attribute {name!r}")
+        raise AttributeError(
+            f"{self.__class__.__name__!s} has no attribute {name!r}"
+        )
 
 
 __all__ = [
