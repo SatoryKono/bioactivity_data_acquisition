@@ -17,16 +17,11 @@ from typing import (
 
 import pandas as pd
 
-from bioetl.clients.chembl.entities import (
-    ChemblEntity,
-    ChemblEntityClientFactory,
-)
-from bioetl.clients.enrichers.factory import (
-    EnricherClientFactory,
-    EnricherEntity,
-)
-from bioetl.core.logging import UnifiedLogger
+from bioetl.clients.base import ClientFactory
+from bioetl.clients.chembl.entities import ChemblEntity
+from bioetl.clients.enrichers.factory import EnricherEntity
 from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
+from bioetl.core.logging import UnifiedLogger
 
 
 class PipelineExtractionMode(str, Enum):
@@ -427,8 +422,8 @@ class ClientNamespace(str, Enum):
 class ClientFactoryRegistry(TypedDict, total=False):
     """Typed mapping between namespace and a factory implementation."""
 
-    chembl: ChemblEntityClientFactory
-    enricher: EnricherClientFactory
+    chembl: ClientFactory[Any]
+    enricher: ClientFactory[Any]
 
 
 class LegacyClientLookupAdapter:
@@ -497,7 +492,7 @@ class ClientRegistryContext(ClientContext):
 class ClientRegistry(ClientContext):
     """Registry resolving clients by namespace and entity."""
 
-    factories: Mapping[str, Any] = field(default_factory=dict)
+    factories: Mapping[str, ClientFactory[Any]] = field(default_factory=dict)
 
     _entity_validators: Mapping[ClientNamespace, Type[Enum]] = field(
         default_factory=lambda: {
@@ -552,12 +547,12 @@ class ClientRegistry(ClientContext):
             )
             raise KeyError(msg)
 
-        _, normalized_entity = self._normalize_entity(
+        entity_name, _ = self._normalize_entity(
             normalized_namespace,
             entity,
         )
 
-        return factory.create(normalized_entity)
+        return factory.create(entity_name)
 
     def get_client(
         self,
@@ -769,7 +764,9 @@ class StageContext(StageContextAdapter):
         clients: ClientContext | None = None,
         metrics: MetricsContext | None = None,
         config_provider: Callable[[str], Any] | None = None,
-        client_factories: Mapping[str | ClientNamespace, Any] | None = None,
+        client_factories: (
+            Mapping[str | ClientNamespace, ClientFactory[Any]] | None
+        ) = None,
         legacy_client_adapter: LegacyClientLookupAdapter | None = None,
         metric_emitter: (
             Callable[[str, Any, Mapping[str, str] | None], None] | None
@@ -829,6 +826,8 @@ __all__ = [
     "ClientNamespace",
     "ClientRegistry",
     "ClientRegistryContext",
+    "ChemblEntity",
+    "EnricherEntity",
     "DataContext",
     "MetricsContext",
     "StageFactoryContext",

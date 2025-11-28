@@ -7,6 +7,14 @@ import warnings
 from types import ModuleType
 from typing import Any
 
+from bioetl.clients.base import (
+    FACTORIES,
+    ClientFactory,
+    ClientProtocol,
+    get_factory,
+    register_domain_factories,
+    register_factory,
+)
 from bioetl.clients.exceptions import (
     ConnectionError,  # noqa: A004, pylint: disable=redefined-builtin
     HTTPError,
@@ -62,6 +70,12 @@ __all__ = [
     "HTTPError",
     "RequestException",
     "Timeout",
+    "ClientProtocol",
+    "ClientFactory",
+    "FACTORIES",
+    "register_factory",
+    "register_domain_factories",
+    "get_factory",
     "ApiTransportProtocol",
     "EntityClientProtocol",
     "PaginationStrategy",
