@@ -34,6 +34,47 @@ class ChemblEntityClientProtocol(BaseChemblEntityProtocol, Protocol):
     """Protocol alias for configured ChEMBL entity clients."""
 
 
+class ChemblFactoryMixin:
+    """Mixin encapsulating common ChEMBL factory creation logic."""
+
+    config: ChemblEntityClientFactoryConfig
+
+    def _normalize_entity(self, entity: ChemblEntity | str) -> str:
+        return (
+            ChemblEntity(entity).value
+            if not isinstance(entity, ChemblEntity)
+            else entity.value
+        )
+
+    def _pagination_kwargs(self) -> dict[str, object]:
+        return {
+            "pagination_strategy": self.config.pagination_strategy,
+            "pagination_strategy_name": self.config.pagination_strategy_name,
+            "pagination_factories": self.config.pagination_factories,
+        }
+
+    def _create_transport(self) -> ApiTransportProtocol:
+        return self.config.transport_factory()
+
+    def create(self, entity: ChemblEntity | str) -> ChemblEntityClientProtocol:
+        """Create a client for the specified entity."""
+        return ChemblEntityClient(
+            self._create_transport(),
+            self._normalize_entity(entity),
+            **self._pagination_kwargs(),
+        )
+
+    def _create_specific(
+        self, client_cls: Type[BaseChemblEntityProtocol]
+    ) -> ChemblEntityClientProtocol:
+        # client_cls is a dynamic subclass that binds the 'entity' argument
+        # in its __init__, so we don't need to pass it here.
+        return client_cls(  # type: ignore[call-arg]
+            self._create_transport(),
+            **self._pagination_kwargs(),
+        )
+
+
 @dataclass(frozen=True)
 class ChemblEntityClientFactoryConfig:
     """Configuration bundle for ChEMBL entity client factories."""
@@ -85,7 +126,7 @@ def _build_entity_client(
     return EntityClient
 
 
-class ChemblEntityClientFactory(ChemblEntityClientFactoryProtocol):
+class ChemblEntityClientFactory(ChemblFactoryMixin, ChemblEntityClientFactoryProtocol):
     """Factory for creating configured ChEMBL entity clients.
 
     Handles dependency injection for transport, pagination, and specific
@@ -113,33 +154,6 @@ class ChemblEntityClientFactory(ChemblEntityClientFactoryProtocol):
 
     def __getitem__(self, entity: ChemblEntity | str) -> Callable[[], ChemblEntityClientProtocol]:
         return lambda: self.create(entity)
-
-    def create(self, entity: ChemblEntity | str) -> ChemblEntityClientProtocol:
-        """Create a client for the specified entity."""
-        entity_name = (
-            ChemblEntity(entity).value
-            if not isinstance(entity, ChemblEntity)
-            else entity.value
-        )
-        return ChemblEntityClient(
-            self.config.transport_factory(),
-            entity_name,
-            pagination_strategy=self.config.pagination_strategy,
-            pagination_strategy_name=self.config.pagination_strategy_name,
-            pagination_factories=self.config.pagination_factories,
-        )
-
-    def _create_specific(
-        self, client_cls: Type[BaseChemblEntityProtocol]
-    ) -> ChemblEntityClientProtocol:
-        # client_cls is a dynamic subclass that binds the 'entity' argument
-        # in its __init__, so we don't need to pass it here.
-        return client_cls(  # type: ignore[call-arg]
-            self.config.transport_factory(),
-            pagination_strategy=self.config.pagination_strategy,
-            pagination_strategy_name=self.config.pagination_strategy_name,
-            pagination_factories=self.config.pagination_factories,
-        )
 
     def activity(self) -> ChemblEntityClientProtocol:
         """Create an activity client."""
@@ -186,6 +200,7 @@ ChemblDocumentClient = _build_entity_client(
 __all__ = [
     "ChemblEntity",
     "ChemblEntityClientProtocol",
+    "ChemblFactoryMixin",
     "ChemblEntityClientFactoryConfig",
     "ChemblEntityClientFactoryProtocol",
     "ChemblEntityClient",
