@@ -105,7 +105,11 @@ class ActivityExtractor:
                     # Dict-of-dicts format - wrap in results structure
                     payload = {"results": list(payload.values())}
                 frames = []
-                iterator = payload.values() if isinstance(payload, Mapping) else [payload]
+                iterator = (
+                    payload.values()
+                    if isinstance(payload, Mapping)
+                    else [payload]
+                )
                 for raw in iterator:
                     if isinstance(raw, Mapping) and "results" not in raw:
                         raw = {"results": [raw]}
@@ -116,10 +120,9 @@ class ActivityExtractor:
                     else pd.DataFrame()
                 )
                 return df, {"api_calls": payload_meta.get("api_calls", 1)}
-            except RuntimeError as exc:
-                # Try to get partial data from client if available
-                partial_data = getattr(client, "_partial_data", None)
-                print(f"DEBUG: Exception caught for batch {list(batch)}, partial_data keys: {list(partial_data.keys()) if partial_data else None}")
+            except Exception as exc:
+                # Check if it's a PartialFailureError with partial data
+                partial_data = getattr(exc, 'partial_data', None)
                 if partial_data:
                     # Process the partial successful data
                     payload = {"results": list(partial_data.values())}
@@ -134,14 +137,11 @@ class ActivityExtractor:
                         else pd.DataFrame()
                     )
                     # Calculate actual failed IDs count
-                    failed_count = len(batch) - len(partial_data)
-                    print(f"DEBUG: len(batch)={len(batch)}, len(partial_data)={len(partial_data)}, failed_count={failed_count}")
-                    # Clear partial data to prevent accumulation
-                    if hasattr(client, "_partial_data"):
-                        delattr(client, "_partial_data")
+                    failed_count = len(batch) - len(exc.partial_data)
+                    print(f"DEBUG: Partial data found, len(batch)={len(batch)}, len(partial_data)={len(exc.partial_data)}, failed_count={failed_count}")
                     return df, {"fallback": failed_count, "api_calls": 1}
                 # No partial data available, return empty DataFrame
-                print(f"DEBUG: No partial data, returning fallback={len(batch)}")
+                print(f"DEBUG: No partial data in exception, returning fallback={len(batch)}")
                 return pd.DataFrame(), {"fallback": len(batch), "api_calls": 1}
 
         df, stats = execute_chembl_batches(

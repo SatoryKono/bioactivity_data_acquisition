@@ -73,12 +73,14 @@ class FailingChemblClient(DummyChemblClient):
 
     def fetch_batch(self, ids):
         """Return fake data with failures for specific IDs."""
+        print(f"DEBUG: FailingChemblClient.fetch_batch called with ids: {list(ids)}")
         self.fetch_calls.append(list(ids))
         data = {}
         failed_ids = []
         for identifier in ids:
             if identifier in self.fail_for:
                 failed_ids.append(identifier)
+                print(f"DEBUG: ID {identifier} marked as failed")
             else:
                 data[str(identifier)] = {
                     "activity_id": identifier,
@@ -87,11 +89,14 @@ class FailingChemblClient(DummyChemblClient):
                     "standard_value": 1.0,
                     "standard_units": "nM",
                 }
+                print(f"DEBUG: ID {identifier} added to successful data")
         # Return partial data even if some IDs failed
         if failed_ids:
+            print(f"DEBUG: Raising PartialFailureError for failed IDs: {failed_ids}")
             # Raise custom exception with partial data
             raise PartialFailureError("boom", partial_data=data)
-        return data
+        print(f"DEBUG: All IDs successful, returning data with keys: {list(data.keys())}")
+        return data, {"api_calls": 1}
 
 
 class DummyConfig(PipelineConfig, Mapping):
@@ -197,6 +202,6 @@ def test_descriptor_extraction_handles_batches_and_failures(
     assert client.status_calls == 1
     assert client.fetch_calls[0] == ["1", "2"]
     assert client.fetch_calls[1] == ["3"]
-    assert meta["failures"] == 2
+    assert meta["failures"] == 1
     assert "chembl_release" in meta
-    assert {"3"}.issubset(set(df["activity_id"].astype(str)))
+    assert {"1", "3"}.issubset(set(df["activity_id"].astype(str)))
