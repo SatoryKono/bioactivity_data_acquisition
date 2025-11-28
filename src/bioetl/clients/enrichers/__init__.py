@@ -6,7 +6,7 @@
 import sys
 
 from . import base
-from .base import BaseEnricherClient
+from .base import BaseEnricherClient, EnricherClientProtocol
 from bioetl.clients.enrichers.crossref import CrossrefClient
 from bioetl.clients.enrichers.openalex import OpenAlexClient
 from bioetl.clients.enrichers.pubchem import PubChemClient
@@ -19,6 +19,7 @@ sys.modules[__name__ + "._base"] = base
 
 __all__ = [
     "BaseEnricherClient",
+    "EnricherClientProtocol",
     "_BaseEnricherClient",
     "CrossrefClient",
     "OpenAlexClient",

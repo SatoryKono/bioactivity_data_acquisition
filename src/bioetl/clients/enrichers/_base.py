@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from typing import Any
+from typing import Any, Protocol
 
 import structlog
 
@@ -10,10 +10,32 @@ from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.types import JSONRecordStream
 
 
-class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
+class EnricherClientProtocol(Protocol):
+    def fetch(
+        self, id: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        ...
+
+    def search(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        ...
+
+
+class BaseEnricherClient(ClosableMixin, ApiClientMixin):
     def __init__(self, api_client: BaseApiClient, source: str) -> None:
         self.api_client = api_client
         self._logger = structlog.get_logger(__name__).bind(source=source)
+
+    def fetch(
+        self, id: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        raise NotImplementedError
+
+    def search(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        raise NotImplementedError
 
     def _get(
         self, path: str, *, params: Mapping[str, Any] | None = None
@@ -42,4 +64,7 @@ class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
             raise
 
 
-__all__ = ["_BaseEnricherClient"]
+_BaseEnricherClient = BaseEnricherClient
+
+
+__all__ = ["BaseEnricherClient", "EnricherClientProtocol", "_BaseEnricherClient"]
