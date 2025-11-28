@@ -1,74 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from pathlib import Path
 from typing import Any
-import importlib.util
-import sys
-import types
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[3] / "src" / "bioetl"
-
-bioetl_pkg = sys.modules.setdefault("bioetl", types.ModuleType("bioetl"))
-bioetl_pkg.__path__ = [str(ROOT)]
-
-core_pkg = sys.modules.setdefault("bioetl.core", types.ModuleType("bioetl.core"))
-core_pkg.__path__ = [str(ROOT / "core")]
-
-http_pkg = sys.modules.setdefault("bioetl.core.http", types.ModuleType("bioetl.core.http"))
-http_pkg.__path__ = [str(ROOT / "core" / "http")]
-
-http_init_spec = importlib.util.spec_from_file_location(
-    "bioetl.core.http", ROOT / "core" / "http" / "__init__.py"
-)
-assert http_init_spec and http_init_spec.loader
-http_module = importlib.util.module_from_spec(http_init_spec)
-sys.modules["bioetl.core.http"] = http_module
-http_init_spec.loader.exec_module(http_module)
-
-clients_pkg = sys.modules.setdefault("bioetl.clients", types.ModuleType("bioetl.clients"))
-clients_pkg.__path__ = [str(ROOT / "clients")]
-
-enrichers_pkg = sys.modules.setdefault(
-    "bioetl.clients.enrichers", types.ModuleType("bioetl.clients.enrichers")
-)
-enrichers_pkg.__path__ = [str(ROOT / "clients" / "enrichers")]
-
-providers_pkg = sys.modules.setdefault(
-    "bioetl.clients.enrichers.providers",
-    types.ModuleType("bioetl.clients.enrichers.providers"),
-)
-providers_pkg.__path__ = [str(ROOT / "clients" / "enrichers" / "providers")]
-
-exceptions_spec = importlib.util.spec_from_file_location(
-    "bioetl.clients.exceptions", ROOT / "clients" / "exceptions.py"
-)
-assert exceptions_spec and exceptions_spec.loader
-exceptions_module = importlib.util.module_from_spec(exceptions_spec)
-sys.modules["bioetl.clients.exceptions"] = exceptions_module
-exceptions_spec.loader.exec_module(exceptions_module)
-
-base_spec = importlib.util.spec_from_file_location(
-    "bioetl.clients.enrichers.base", ROOT / "clients" / "enrichers" / "base.py"
-)
-assert base_spec and base_spec.loader
-base_module = importlib.util.module_from_spec(base_spec)
-sys.modules["bioetl.clients.enrichers.base"] = base_module
-base_spec.loader.exec_module(base_module)
-
-crossref_spec = importlib.util.spec_from_file_location(
-    "bioetl.clients.enrichers.providers.crossref",
-    ROOT / "clients" / "enrichers" / "providers" / "crossref.py",
-)
-assert crossref_spec and crossref_spec.loader
-crossref_module = importlib.util.module_from_spec(crossref_spec)
-sys.modules["bioetl.clients.enrichers.providers.crossref"] = crossref_module
-crossref_spec.loader.exec_module(crossref_module)
-
-CrossrefClient = crossref_module.CrossrefClient
-exceptions = exceptions_module
+from bioetl.clients import exceptions
+from bioetl.clients.providers import CrossrefClient
 
 
 class FakePagingApiClient:

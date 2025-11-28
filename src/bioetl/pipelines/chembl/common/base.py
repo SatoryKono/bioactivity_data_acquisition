@@ -9,8 +9,8 @@ from typing import Any, Callable, Iterable, Mapping, Sequence, cast
 import pandas as pd
 import yaml
 
-from bioetl.clients.enrichers.factory import EnricherClientFactory
-from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
+from bioetl.clients.enricher_factory import EnricherClientFactory
+from bioetl.clients.enricher_strategy_registry import StrategyRegistry
 from bioetl.core.io.artifacts import SchemaRegistry, WriteArtifacts
 from bioetl.core.pipeline.services import (
     ArtifactPlanner,

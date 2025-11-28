@@ -30,7 +30,7 @@ from bioetl.core.io.artifacts import WriteArtifacts
 def _get_default_validators() -> Mapping[ClientNamespace, Type[Enum]]:
     # Lazy imports to avoid circular dependency
     from bioetl.clients.chembl.entities import ChemblEntity
-    from bioetl.clients.enrichers.factory import EnricherEntity
+    from bioetl.clients.enricher_factory import EnricherEntity
     
     return {
         ClientNamespace.CHEMBL: ChemblEntity,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from bioetl.clients.enrichers.factory import (
+from bioetl.clients.enricher_factory import (
     EnricherApiConfig,
     EnricherClientFactory,
     EnricherClientOptions,

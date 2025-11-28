@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from ..base import RouteConfig, create_route_provider_class
-from .utils import warn_on_provider_module_move
-
-warn_on_provider_module_move(__name__)
+from ..enricher_base import RouteConfig, create_route_provider_class
 
 PubmedClient = create_route_provider_class(
     name="PubmedClient",

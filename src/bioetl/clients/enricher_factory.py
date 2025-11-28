@@ -5,7 +5,11 @@ from enum import Enum
 from typing import Any, Callable, Mapping, Protocol
 
 from bioetl.clients.base import ClientFactory
-from bioetl.clients.enrichers.providers import (
+from bioetl.clients.enricher_base import (
+    EnricherClientOptions,
+    EnricherClientProtocol,
+)
+from bioetl.clients.providers import (
     CrossrefClient,
     OpenAlexClient,
     PubChemClient,
@@ -13,7 +17,6 @@ from bioetl.clients.enrichers.providers import (
     SemanticScholarClient,
     UniProtClient,
 )
-from bioetl.clients.enrichers.base import EnricherClientOptions, EnricherClientProtocol
 from bioetl.core.http.interfaces import BaseApiClient, PaginationStrategy
 
 

@@ -1,33 +1,6 @@
 from __future__ import annotations
 
-import importlib.util
-import sys
-import types
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[3] / "src" / "bioetl"
-
-bioetl_pkg = sys.modules.setdefault("bioetl", types.ModuleType("bioetl"))
-bioetl_pkg.__path__ = [str(ROOT)]
-
-clients_pkg = sys.modules.setdefault("bioetl.clients", types.ModuleType("bioetl.clients"))
-clients_pkg.__path__ = [str(ROOT / "clients")]
-
-enrichers_pkg = sys.modules.setdefault(
-    "bioetl.clients.enrichers", types.ModuleType("bioetl.clients.enrichers")
-)
-enrichers_pkg.__path__ = [str(ROOT / "clients" / "enrichers")]
-
-spec = importlib.util.spec_from_file_location(
-    "bioetl.clients.enrichers.base", ROOT / "clients" / "enrichers" / "base.py"
-)
-assert spec and spec.loader  # защита от странных путей в окружении
-base_module = importlib.util.module_from_spec(spec)
-sys.modules["bioetl.clients.enrichers.base"] = base_module
-spec.loader.exec_module(base_module)
-
-BaseEnricherClient = base_module.BaseEnricherClient
-EnricherClientOptions = base_module.EnricherClientOptions
+from bioetl.clients.enricher_base import BaseEnricherClient, EnricherClientOptions
 
 
 class _PagingApiClient:
