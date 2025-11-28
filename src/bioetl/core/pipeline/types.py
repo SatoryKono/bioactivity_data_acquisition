@@ -161,7 +161,6 @@ class StageProtocol(Protocol):
 
     def execute(self, runtime_context: StageRuntimeContext) -> StageResult:
         """Execute the stage logic."""
-        ...
 
 
 @dataclass(slots=True, frozen=True)
@@ -198,7 +197,6 @@ class PipelineStagesProtocol(Protocol):
 
     def prepare_run(self, options: StageExecutionOptions) -> None:
         """Prepare the run environment."""
-        ...
 
     def extract(
         self,
@@ -206,19 +204,16 @@ class PipelineStagesProtocol(Protocol):
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         """Extract data from source."""
-        ...
 
     def transform(
         self, df: pd.DataFrame, options: StageExecutionOptions
     ) -> pd.DataFrame:
         """Transform the extracted data."""
-        ...
 
     def validate(
         self, df: pd.DataFrame, options: StageExecutionOptions
     ) -> pd.DataFrame:
         """Validate the transformed data."""
-        ...
 
     def save_results(
         self,
@@ -227,11 +222,9 @@ class PipelineStagesProtocol(Protocol):
         options: StageExecutionOptions,
     ) -> WriteResult:
         """Persist the results."""
-        ...
 
     def finalize_run(self, run_result: RunResult) -> None:
         """Cleanup and finalize the run."""
-        ...
 
 
 @runtime_checkable
@@ -255,19 +248,16 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
         fail_on_schema_drift: bool = True,
     ) -> RunResult:
         """Execute the full pipeline lifecycle."""
-        ...
 
     def build_stage_plan(
         self, context: "StageContext", options: StageExecutionOptions
     ) -> tuple[StageDescriptor, ...]:
         """Create the plan of stages to execute."""
-        ...
 
     def plan_run_artifacts(
         self, output_dir: Path, run_tag: str | None, mode: str | None
     ) -> tuple[Path, WriteArtifacts]:
         """Determine output paths and artifact locations."""
-        ...
 
     def build_run_metadata(
         self,
@@ -278,11 +268,9 @@ class PipelineBaseProtocol(PipelineStagesProtocol, Protocol):
         mode: str | None,
     ) -> dict[str, Any]:
         """Collect metadata about the completed run."""
-        ...
 
     def resolve_logs_directory(self, output_dir: Path) -> Path:
         """Determine the directory for log files."""
-        ...
 
 
 @runtime_checkable
@@ -299,7 +287,7 @@ class ConfigContext(Protocol):
     """Configuration access contract."""
 
     def get_config(self, key: str) -> Any:
-        ...
+        """Retrieve a configuration value by key."""
 
 
 @runtime_checkable
@@ -307,7 +295,7 @@ class ClientContext(Protocol):
     """Lookup contract for external clients."""
 
     def get_client(self, name: str) -> Any:
-        ...
+        """Retrieve a client instance by name."""
 
 
 @runtime_checkable
@@ -325,7 +313,7 @@ class MetricsContext(Protocol):
     def emit_metric(
         self, name: str, value: Any, tags: Mapping[str, str] | None = None
     ) -> None:
-        ...
+        """Emit a metric point."""
 
 
 @runtime_checkable
@@ -382,11 +370,11 @@ class StageContextProtocol(
 
     @property
     def current_df(self) -> pd.DataFrame | None:
-        ...
+        """Get the current dataframe from the bucket."""
 
     @current_df.setter
     def current_df(self, value: pd.DataFrame) -> None:
-        ...
+        """Set the current dataframe in the bucket."""
 
 
 @dataclass(slots=True)
@@ -501,22 +489,27 @@ class StageContextAdapter:
 
     @property
     def logger(self) -> UnifiedLogger:
+        """Return the unified logger."""
         return self.execution.logger
 
     @property
     def request_id(self) -> str | None:
+        """Return the request ID."""
         return self.execution.request_id
 
     @property
     def trace_id(self) -> str | None:
+        """Return the trace ID."""
         return self.execution.trace_id
 
     @property
     def pipeline(self) -> "PipelineBaseProtocol | None":
+        """Return the pipeline instance."""
         return self.domain.pipeline
 
     @property
     def metadata(self) -> dict[str, Any]:
+        """Return domain metadata."""
         return self.domain.metadata
 
     @metadata.setter
@@ -525,6 +518,7 @@ class StageContextAdapter:
 
     @property
     def descriptor(self) -> Any | None:
+        """Return the stage descriptor."""
         return self.domain.descriptor
 
     @descriptor.setter
@@ -533,18 +527,22 @@ class StageContextAdapter:
 
     @property
     def output_dir(self) -> Path:
+        """Return the output directory."""
         return self.infrastructure.output_dir
 
     @property
     def metadata_service(self) -> Any | None:
+        """Return the metadata service."""
         return self.infrastructure.metadata_service
 
     @property
     def qc_orchestrator(self) -> Any | None:
+        """Return the QC orchestrator."""
         return self.infrastructure.qc_orchestrator
 
     @property
     def data_bucket(self) -> DataBucket:
+        """Return the data bucket."""
         return self.artifacts.data_bucket
 
     @data_bucket.setter
@@ -553,6 +551,7 @@ class StageContextAdapter:
 
     @property
     def artifact_store(self) -> ArtifactStore:
+        """Return the artifact store."""
         return self.artifacts.artifact_store
 
     @artifact_store.setter
@@ -561,6 +560,7 @@ class StageContextAdapter:
 
     @property
     def current_df(self) -> pd.DataFrame | None:
+        """Get the current dataframe."""
         return self.data_bucket.get()
 
     @current_df.setter
@@ -568,12 +568,14 @@ class StageContextAdapter:
         self.data_bucket.set(value)
 
     def get_config(self, key: str) -> Any:
+        """Retrieve configuration from the configured provider."""
         if self.config is None:
             msg = "Config provider is not configured"
             raise KeyError(msg)
         return self.config.get_config(key)
 
     def get_client(self, name: str) -> Any:
+        """Retrieve a client from the registry."""
         if self.clients is None:
             msg = "Client registry is not configured"
             raise KeyError(msg)
@@ -583,6 +585,7 @@ class StageContextAdapter:
     def emit_metric(
         self, name: str, value: Any, tags: Mapping[str, str] | None = None
     ) -> None:
+        """Emit a metric using the configured provider."""
         if self.metrics:
             self.metrics.emit_metric(name, value, tags)
 

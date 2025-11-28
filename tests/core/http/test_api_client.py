@@ -45,7 +45,7 @@ def test_unified_client_respects_retry_after(
     sleep_calls: list[float] = []
     monkeypatch.setattr(time, "sleep", sleep_calls.append)
 
-    client = UnifiedAPIClient.from_config(  # type: ignore
+    client = UnifiedAPIClient.from_config(
         api_config()
     )
     retry_at = (
@@ -76,7 +76,7 @@ def test_unified_client_respects_retry_after(
 
 def test_unified_client_cache_and_pagination() -> None:
     """Test pagination iterator and caching behavior."""
-    client = UnifiedAPIClient.from_config(  # type: ignore
+    client = UnifiedAPIClient.from_config(
         api_config()
     )
     with responses.RequestsMock() as rsps:
@@ -91,7 +91,7 @@ def test_unified_client_cache_and_pagination() -> None:
             json={"items": []},
         )
 
-        pages: Iterator[dict[str, Any]] = client.paginate_json(
+        pages: Iterator[Any] = client.paginate_json(
             "/items", page_key="items"
         )
         first = next(pages)

@@ -10,6 +10,7 @@ import structlog
 from bioetl.core.http.client_mixins import ClosableMixin
 from bioetl.core.http.config import APIConfig
 from bioetl.core.http.interfaces import BaseApiClient
+from bioetl.core.http.pagination_helpers import normalize_payload
 from bioetl.core.http.resilience import ResilientRequestExecutorFactory
 
 
@@ -89,24 +90,23 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
             "GET", url, params=params, headers=merged_headers
         )
 
-        for page in self.pagination_strategy.iter_pages(
+        def _normalize(p: Any) -> Iterator[dict[str, Any]]:
+            return normalize_payload(p, page_key=page_key)
+
+        pages = self.pagination_strategy.iter_pages(
             initial_response,
             transport=self.request_executor,
-            endpoint=endpoint,
+            endpoint=url,
             params=params,
             logger=self._logger,
             page_key=page_key,
             next_key=next_key,
             page_param=page_param,
-        ):
-            if isinstance(page, Mapping):
-                items = page.get(page_key, [])
-                if isinstance(items, list):
-                    yield from items
-            elif isinstance(page, Sequence) and not isinstance(
-                page, (str, bytes)
-            ):
-                yield from page
+            normalize=_normalize,
+        )
+
+        for page in pages:
+            yield from _normalize(page)
 
     def iterate_records(
         self,
