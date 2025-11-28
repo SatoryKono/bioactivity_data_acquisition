@@ -6,7 +6,7 @@ HTTP transport to add logging, metadata capture, and pagination support.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any, cast
 
 from bioetl.clients.chembl.pagination import (
