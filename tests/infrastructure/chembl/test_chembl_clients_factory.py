@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from bioetl.clients.chembl.adapter import ChemblTransportAdapter
 from bioetl.clients.chembl.entities import (
     ChemblActivityClient,
     ChemblAssayClient,
@@ -14,8 +15,8 @@ from bioetl.clients.chembl.entities import (
     ChemblTargetClient,
     ChemblTestItemClient,
 )
-from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.clients.chembl import BaseChemblClient
+from bioetl.core.http.interfaces import ApiTransportProtocol
 
 
 class _DummyTransport(ApiTransportProtocol):
@@ -115,14 +116,18 @@ def test_factory_uses_transport_factory_each_time():
 
 
 def test_base_chembl_client_collects_metadata():
-    transport = _MetadataTransport()
-    client = BaseChemblClient(transport)
+    adapter = ChemblTransportAdapter(_MetadataTransport())
+    client = BaseChemblClient(
+        adapter,
+        "activity",
+        pagination_strategy=adapter.pagination_strategy,
+    )
 
-    response = client.request("GET", "/activity")
+    response = client.status()
 
     assert response["page_meta"] == {"total": 2, "page": 1}
     assert client.metadata == {"total": 2, "page": 1}
-    assert transport.calls == [("GET", "/activity")]
+    assert adapter.base_transport.calls == [("GET", "/status")]
 
 
 def test_factory_accepts_config_and_supports_mapping_access():

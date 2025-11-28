@@ -55,6 +55,7 @@ def test_base_chembl_client_uses_page_param_by_name():
 
     client = BaseChemblClient(
         transport,
+        "activity",
         pagination_strategy_name="page_param",
         pagination_factories=factories,
     )
