@@ -1,0 +1,4 @@
+dataset,metric,metric_type,value,threshold,status,message
+activity__ChemblActivityPipeline,row_count,row_count,0.0,,PASS,
+activity__ChemblActivityPipeline,null_percentage,null_percentage,0.0,,PASS,
+activity__ChemblActivityPipeline,unique_key_count,unique_count,0.0,,PASS,column 'id' not present

@@ -31,21 +31,37 @@ from bioetl.core.http.pagination import (
 def _resolve_api_config(config: PipelineConfig) -> APIConfig:
     if isinstance(config, dict):
         metadata = config.get("metadata") or {}
+        http_config = config.get("http") or {}
     else:
         metadata = getattr(config, "metadata", {}) or {}
+        http_config = getattr(config, "http", {}) or {}
 
     chembl_cfg = {}
     if isinstance(metadata, dict):
         chembl_cfg = metadata.get("chembl_api", {})
+
+    # Merge HTTP configuration headers with ChEMBL config
+    http_headers = {}
+    if isinstance(http_config, dict):
+        http_default = http_config.get("default", {})
+        if isinstance(http_default, dict):
+            http_headers = http_default.get("headers", {})
+            # Convert header names to match expected format
+            if "user_agent" in http_headers:
+                http_headers["user_agent"] = http_headers.pop("user_agent")
+            if "accept" in http_headers:
+                http_headers["accept"] = http_headers.pop("accept")
 
     def _get(key: str, default: Any) -> Any:
         if isinstance(chembl_cfg, dict):
             return chembl_cfg.get(key, default)
         return default
 
-    default_headers = _get("default_headers", {})
-    if not isinstance(default_headers, dict):
-        default_headers = {}
+    # Start with HTTP headers, then override with ChEMBL-specific headers
+    default_headers = dict(http_headers)
+    chembl_headers = _get("default_headers", {})
+    if isinstance(chembl_headers, dict):
+        default_headers.update(chembl_headers)
 
     return APIConfig(
         base_url=str(

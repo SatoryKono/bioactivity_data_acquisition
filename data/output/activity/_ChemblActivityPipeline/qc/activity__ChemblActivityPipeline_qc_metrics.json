@@ -1,0 +1,29 @@
+{
+  "row_count": {
+    "name": "row_count",
+    "metric_type": "row_count",
+    "value": 0,
+    "threshold": null,
+    "status": "PASS",
+    "details": null,
+    "message": null
+  },
+  "null_percentage": {
+    "name": "null_percentage",
+    "metric_type": "null_percentage",
+    "value": 0.0,
+    "threshold": null,
+    "status": "PASS",
+    "details": [],
+    "message": null
+  },
+  "unique_key_count": {
+    "name": "unique_key_count",
+    "metric_type": "unique_count",
+    "value": 0,
+    "threshold": null,
+    "status": "PASS",
+    "details": null,
+    "message": "column 'id' not present"
+  }
+}

@@ -7,6 +7,7 @@ from typing import Any, Mapping, Protocol, runtime_checkable
 import pandas as pd
 
 from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
+from bioetl.core.io.output import UnifiedOutputWriter as UnifiedOutputWriterImpl
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.types import WriteResult
 
@@ -52,7 +53,9 @@ class PipelineOutputService:
                 if hasattr(writer, "output_dir"):
                     writer.output_dir = output_dir
                 return writer  # type: ignore
-        return None
+        
+        # Create default writer when no config is provided
+        return UnifiedOutputWriterImpl(output_dir=output_dir)
 
     def save(
         self,

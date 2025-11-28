@@ -449,7 +449,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
                 "DEBUG: Attempting PipelineOutputService.save "
                 f"with df shape {df.shape}"
             )
-            result = output_service.save(df, artifacts, options)
+            result = output_service.save(df, artifacts, self.output_root)
             print("DEBUG: PipelineOutputService.save succeeded")
             return result
         except ValueError as e:
