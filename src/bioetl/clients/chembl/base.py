@@ -6,11 +6,8 @@ from typing import Any, Callable, Protocol
 
 from bioetl.clients.chembl.adapter import ChemblTransportAdapter
 from bioetl.clients.chembl.compat import ChemblCompatibilityMixin
-from bioetl.clients.chembl.pagination import (
-    PaginationFactory,
-    create_pagination_strategy,
-)
 from bioetl.clients.chembl.pagination import PaginationFactory
+from bioetl.clients.chembl.strategy_resolver import PaginationStrategyResolverMixin
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
@@ -128,7 +125,10 @@ class BaseChemblEntityProtocol(ChemblClientProtocol, Protocol):
 
 
 class BaseChemblClient(
-    ChemblCompatibilityMixin, BaseApiEntityClient, ChemblClientProtocol
+    PaginationStrategyResolverMixin,
+    ChemblCompatibilityMixin,
+    BaseApiEntityClient,
+    ChemblClientProtocol,
 ):
     """Base ChEMBL client implementing common operations and aliases."""
 
@@ -141,20 +141,13 @@ class BaseChemblClient(
         pagination_strategy_name: str | None = None,
         pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
-        strategy = resolve_pagination_strategy(
+        strategy = self.resolve_strategy(
             transport,
-            pagination_strategy=pagination_strategy,
-            pagination_strategy_name=pagination_strategy_name,
-            pagination_factories=pagination_factories,
+            name=pagination_strategy_name,
+            factories=pagination_factories,
+            default=pagination_strategy,
         )
         super().__init__(transport, strategy, entity=entity)
-
-    def fetch_one(
-        self, entity_id: str, *, params: Mapping[str, Any] | None = None
-    ) -> Mapping[str, Any]:
-        """Fetch a single ChEMBL entity."""
-
-        return super().fetch_one(entity_id, params=params)
 
     def fetch_batch(
         self,
