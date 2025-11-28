@@ -18,10 +18,18 @@ from typing import (
 import pandas as pd
 
 from bioetl.clients.base import ClientFactory
-from bioetl.clients.chembl.entities import ChemblEntity
-from bioetl.clients.enrichers.factory import EnricherEntity
 from bioetl.core.io.artifacts import RunArtifacts, WriteArtifacts
 from bioetl.core.logging import UnifiedLogger
+
+
+def _get_default_validators() -> Mapping[ClientNamespace, Type[Enum]]:
+    from bioetl.clients.chembl.entities import ChemblEntity
+    from bioetl.clients.enrichers.factory import EnricherEntity
+
+    return {
+        ClientNamespace.CHEMBL: ChemblEntity,
+        ClientNamespace.ENRICHER: EnricherEntity,
+    }
 
 
 class PipelineExtractionMode(str, Enum):
