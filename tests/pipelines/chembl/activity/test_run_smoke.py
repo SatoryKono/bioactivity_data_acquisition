@@ -33,12 +33,12 @@ class DummyChemblClient:
         self.status_calls = 0
         self.fetch_calls: list[list[str]] = []
 
-    def status(self):
+    def status(self) -> dict[str, Any]:
         """Return fake status."""
         self.status_calls += 1
         return {"chembl_release": self.releases[0]}
 
-    def fetch_batch(self, ids):
+    def fetch_batch(self, ids: list[str]) -> dict[str, Any]:
         """Return fake data for requested IDs."""
         self.fetch_calls.append(list(ids))
         data = {
@@ -73,14 +73,12 @@ class FailingChemblClient(DummyChemblClient):
 
     def fetch_batch(self, ids):
         """Return fake data with failures for specific IDs."""
-        print(f"DEBUG: FailingChemblClient.fetch_batch called with ids: {list(ids)}")
         self.fetch_calls.append(list(ids))
         data = {}
         failed_ids = []
         for identifier in ids:
             if identifier in self.fail_for:
                 failed_ids.append(identifier)
-                print(f"DEBUG: ID {identifier} marked as failed")
             else:
                 data[str(identifier)] = {
                     "activity_id": identifier,
@@ -89,13 +87,10 @@ class FailingChemblClient(DummyChemblClient):
                     "standard_value": 1.0,
                     "standard_units": "nM",
                 }
-                print(f"DEBUG: ID {identifier} added to successful data")
         # Return partial data even if some IDs failed
         if failed_ids:
-            print(f"DEBUG: Raising PartialFailureError for failed IDs: {failed_ids}")
             # Raise custom exception with partial data
             raise PartialFailureError("boom", partial_data=data)
-        print(f"DEBUG: All IDs successful, returning data with keys: {list(data.keys())}")
         return data, {"api_calls": 1}
 
 

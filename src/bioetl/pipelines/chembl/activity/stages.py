@@ -105,22 +105,9 @@ class ActivityExtractor:
                     # Dict-of-dicts format - wrap in results structure
                     payload = {"results": list(payload.values())}
                 frames = []
-                iterator = (
-                    payload.values()
-                    if isinstance(payload, Mapping)
-                    else [payload]
-                )
-                for raw in iterator:
-                    print(f"DEBUG: Processing raw: {raw}")
-                    if isinstance(raw, Mapping) and "results" not in raw:
-                        raw = {"results": [raw]}
-                    try:
-                        parsed = self.parser.parse(raw)
-                        print(f"DEBUG: Parser succeeded, columns: {parsed.columns.tolist() if not parsed.empty else 'empty'}")
-                        frames.append(parsed)
-                    except Exception as parse_exc:
-                        print(f"DEBUG: Parser failed: {type(parse_exc).__name__}: {parse_exc}")
-                        raise parse_exc
+                # Parse the wrapped payload
+                parsed = self.parser.parse(payload)
+                frames.append(parsed)
                 df = (
                     pd.concat(frames, ignore_index=True)
                     if frames
@@ -128,35 +115,16 @@ class ActivityExtractor:
                 )
                 return df, {"api_calls": payload_meta.get("api_calls", 1)}
             except Exception as exc:
-                print(f"DEBUG: Exception caught: {type(exc).__name__}: {exc}")
                 # Check if it's a PartialFailureError with partial data
                 if hasattr(exc, 'partial_data') and exc.partial_data:
-                    print(f"DEBUG: Processing PartialFailureError with {len(exc.partial_data)} items")
                     # Process the partial successful data
                     payload = {"results": list(exc.partial_data.values())}
-                    frames = []
-                    for raw in [payload]:
-                        if isinstance(raw, Mapping) and "results" not in raw:
-                            raw = {"results": [raw]}
-                        frames.append(self.parser.parse(raw))
-                    df = (
-                        pd.concat(frames, ignore_index=True)
-                        if frames
-                        else pd.DataFrame()
-                    )
+                    parsed = self.parser.parse(payload)
+                    df = parsed
                     # Calculate actual failed IDs count
                     failed_count = len(batch) - len(exc.partial_data)
-                    print(
-                        f"DEBUG: Partial data found, len(batch)={len(batch)}, "
-                        f"len(partial_data)={len(exc.partial_data)}, "
-                        f"failed_count={failed_count}"
-                    )
                     return df, {"fallback": failed_count, "api_calls": 1}
                 # No partial data available, return empty DataFrame
-                print(
-                    f"DEBUG: No partial data in exception, "
-                    f"returning fallback={len(batch)}"
-                )
                 return pd.DataFrame(), {"fallback": len(batch), "api_calls": 1}
 
         df, stats = execute_chembl_batches(

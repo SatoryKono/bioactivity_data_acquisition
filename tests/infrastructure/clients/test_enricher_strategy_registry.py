@@ -1,15 +1,21 @@
+"""Test enricher strategy registry functionality."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
 import pandas as pd
 
-from bioetl.clients.enrichers.facade import ClientMethodStrategy, build_enricher_facade
+from bioetl.clients.enrichers.facade import (
+    ClientMethodStrategy,
+    build_enricher_facade,
+)
 from bioetl.clients.enrichers.factory import NULL_ENRICHER_FACTORY
 from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
 
 
-def test_strategy_registry_derives_default_strategies():
+def test_strategy_registry_derives_default_strategies() -> None:
+    """Test that registry derives default strategies from config."""
     client = MagicMock()
     client.lookup.return_value = {"result": "ok"}
 
@@ -22,7 +28,8 @@ def test_strategy_registry_derives_default_strategies():
     assert enriched == {"result": "ok"}
 
 
-def test_strategy_registry_uses_explicit_mapping():
+def test_strategy_registry_uses_explicit_mapping() -> None:
+    """Test that registry uses explicit mapping when provided."""
     client = MagicMock()
     client.fetch.return_value = {"payload": 1}
 
