@@ -7,7 +7,6 @@ wire together prepared request components.
 """
 from __future__ import annotations
 
-
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.core.http.api_entity_client import (
     BaseApiEntityClient,
