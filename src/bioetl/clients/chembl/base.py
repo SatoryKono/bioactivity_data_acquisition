@@ -3,12 +3,12 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Callable, Protocol
-import warnings
 
 from bioetl.clients.chembl.adapter import ChemblTransportAdapter
-from bioetl.clients.chembl.adapter_factory import (
-    BaseChemblAdapterFactory,
-    resolve_pagination_strategy,
+from bioetl.clients.chembl.compat import ChemblCompatibilityMixin
+from bioetl.clients.chembl.pagination import (
+    PaginationFactory,
+    create_pagination_strategy,
 )
 from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
@@ -127,7 +127,9 @@ class BaseChemblEntityProtocol(ChemblClientProtocol, Protocol):
     """Legacy alias for configured ChEMBL entity clients."""
 
 
-class BaseChemblClient(BaseApiEntityClient, ChemblClientProtocol):
+class BaseChemblClient(
+    ChemblCompatibilityMixin, BaseApiEntityClient, ChemblClientProtocol
+):
     """Base ChEMBL client implementing common operations and aliases."""
 
     def __init__(
@@ -179,54 +181,6 @@ class BaseChemblClient(BaseApiEntityClient, ChemblClientProtocol):
         """Iterate over paginated entities via the base client."""
 
         return super().fetch_many(
-            page_size=page_size,
-            params=params,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-        )
-
-    def fetch_page(
-        self,
-        *,
-        page_size: int = 1000,
-        params: Mapping[str, Any] | None = None,
-        page_key: str = DEFAULT_PAGE_KEY,
-        next_key: str = DEFAULT_NEXT_KEY,
-        page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[dict[str, Any]]:
-        """Deprecated alias for ``fetch_many``."""
-
-        warnings.warn(
-            "fetch_page is deprecated; use fetch_many instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.fetch_many(
-            page_size=page_size,
-            params=params,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-        )
-
-    def list(
-        self,
-        *,
-        page_size: int = 1000,
-        params: Mapping[str, Any] | None = None,
-        page_key: str = DEFAULT_PAGE_KEY,
-        next_key: str = DEFAULT_NEXT_KEY,
-        page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[dict[str, Any]]:
-        """Alias for ``fetch_page`` kept for backwards compatibility."""
-
-        warnings.warn(
-            "list is deprecated; use fetch_many instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.fetch_page(
             page_size=page_size,
             params=params,
             page_key=page_key,
