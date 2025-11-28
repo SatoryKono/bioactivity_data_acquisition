@@ -67,3 +67,15 @@ def test_enricher_factory_wraps_api_client_with_options():
     assert client.api_client.max_retries == 2
     assert isinstance(client.api_client._api_client, _RecordingApiClient)
     assert client.api_client._api_client.options.timeout_sec == 2.5
+
+
+def test_enricher_factory_from_config_accepts_api_client_instance():
+    api_client = _RecordingApiClient(EnricherClientOptions())
+
+    factory = EnricherClientFactory.from_config(
+        {"api_client": api_client, "options": {"timeout_sec": 1.0, "max_retries": 1}}
+    )
+
+    assert isinstance(factory, EnricherClientFactory)
+    client = factory.pubchem()
+    assert client.api_client.timeout_sec == 1.0

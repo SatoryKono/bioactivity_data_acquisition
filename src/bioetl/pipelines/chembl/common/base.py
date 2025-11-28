@@ -14,6 +14,8 @@ from bioetl.clients.enrichers.facade import (
     NullEnricherFacade,
     build_enricher_facade,
 )
+from bioetl.clients.enrichers.factory import EnricherClientFactory
+from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
 from bioetl.core.pipeline.services import (
     default_write_service_factory,
     ArtifactPlanner,
@@ -252,10 +254,10 @@ class ChemblCommonPipeline(ChemblPipelineBase):
     def _init_enrichers(
         self, config: Mapping[str, Any]
     ) -> EnricherFacade | NullEnricherFacade:
-        facade = build_enricher_facade(config.get("enrichers")) if isinstance(
-            config, Mapping
-        ) else None
-        return facade or NullEnricherFacade()
+        enricher_cfg = config.get("enrichers") if isinstance(config, Mapping) else None
+        factory = EnricherClientFactory.from_config(enricher_cfg)
+        strategies = StrategyRegistry.from_config(enricher_cfg)
+        return build_enricher_facade(factory, strategies)
 
     def _get_config_value(self, dotted_path: str) -> Any:
         current: Any = self.config
