@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Mapping, Protocol
+import warnings
 
 from bioetl.clients.base import ClientFactory
 from bioetl.clients.enrichers.providers import (
@@ -14,7 +15,7 @@ from bioetl.clients.enrichers.providers import (
     UniProtClient,
 )
 from bioetl.clients.enrichers.base import EnricherClientOptions, EnricherClientProtocol
-from bioetl.core.http.interfaces import BaseApiClient
+from bioetl.core.http.interfaces import BaseApiClient, PaginationStrategy, RetryStrategy
 
 
 @dataclass(frozen=True)
@@ -32,10 +33,21 @@ class EnricherEntity(str, Enum):
 ENRICHER_ALLOWED_ENTITIES: tuple[str, ...] = tuple(member.value for member in EnricherEntity)
 
 
+@dataclass(frozen=True)
+class EnricherApiConfig:
+    """Расширенные настройки для построения HTTP-клиента обогатителей."""
+
+    pagination: PaginationStrategy | None = None
+    timeout_sec: float | None = None
+    retries: RetryStrategy | int | None = None
+
+
 class EnricherApiFactory(Protocol):
     """Callable capable of producing a configured ``BaseApiClient``."""
 
-    def __call__(self, options: EnricherClientOptions) -> BaseApiClient:
+    def __call__(
+        self, options: EnricherClientOptions, api_config: EnricherApiConfig | None = None
+    ) -> BaseApiClient:
         ...
 
 
@@ -51,13 +63,15 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
         self,
         api_client: BaseApiClient | EnricherApiFactory,
         *,
+        api_config: EnricherApiConfig | None = None,
         options: EnricherClientOptions | None = None,
     ) -> None:
         self._api_client_factory: EnricherApiFactory
         if callable(api_client):
-            self._api_client_factory = api_client  # type: ignore[assignment]
+            self._api_client_factory = self._wrap_api_factory(api_client)
         else:
-            self._api_client_factory = lambda *_: api_client
+            self._api_client_factory = lambda *_args, **_kwargs: api_client
+        self._api_config = api_config or EnricherApiConfig()
         self._options = options or EnricherClientOptions()
 
     @classmethod
@@ -70,7 +84,9 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
 
         * уже созданная ``EnricherClientFactory`` в ключе ``factory``;
         * ``api_client`` (готовый экземпляр ``BaseApiClient`` или билдер),
-          опционально с ``options`` (dict или ``EnricherClientOptions``).
+          опционально с ``options`` (dict или ``EnricherClientOptions``) и
+          ``api`` (dict или ``EnricherApiConfig``) для настроек пагинации и
+          стратегий таймаутов/ретраев.
 
         Если конфигурация присутствует, но валидной фабрики нет, возвращается
         ``NULL_ENRICHER_FACTORY`` для совместимости со стратегиями, которым
@@ -85,6 +101,7 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
             return factory
 
         api_client = config.get("api_client")
+        api_cfg = cls._parse_api_config(config)
         options_cfg = config.get("options")
         options: EnricherClientOptions | None
         if isinstance(options_cfg, EnricherClientOptions):
@@ -95,15 +112,63 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
             options = None
 
         if isinstance(api_client, BaseApiClient) or callable(api_client):
-            return cls(api_client, options=options)
+            return cls(api_client, api_config=api_cfg, options=options)
 
         return NULL_ENRICHER_FACTORY if config else None
+
+    @staticmethod
+    def _parse_api_config(config: Mapping[str, Any]) -> EnricherApiConfig | None:
+        api_cfg = config.get("api")
+        deprecated_fields: dict[str, Any] = {}
+        for key in ("pagination", "timeout_sec", "retries"):
+            if key in config:
+                deprecated_fields[key] = config[key]
+
+        if deprecated_fields:
+            warnings.warn(
+                "Поля 'pagination', 'timeout_sec' и 'retries' на верхнем уровне "
+                "конфигурации обогатителя устарели; используйте секцию 'api'",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            api_cfg = {**deprecated_fields, **(api_cfg or {})}
+
+        if isinstance(api_cfg, EnricherApiConfig):
+            return api_cfg
+
+        if not isinstance(api_cfg, Mapping):
+            return None
+
+        pagination = api_cfg.get("pagination")
+        retries = api_cfg.get("retries")
+        timeout = api_cfg.get("timeout_sec")
+        return EnricherApiConfig(
+            pagination=pagination if isinstance(pagination, PaginationStrategy) else pagination,
+            timeout_sec=timeout if timeout is None or isinstance(timeout, (int, float)) else None,
+            retries=retries,
+        )
+
+    @staticmethod
+    def _wrap_api_factory(
+        api_factory: Callable[..., BaseApiClient]
+    ) -> EnricherApiFactory:
+        def adapter(
+            options: EnricherClientOptions, api_config: EnricherApiConfig | None = None
+        ) -> BaseApiClient:
+            try:
+                return api_factory(options, api_config)  # type: ignore[misc]
+            except TypeError:
+                return api_factory(options)  # type: ignore[misc]
+
+        return adapter
 
     def with_options(self, **overrides) -> "EnricherClientFactory":
         """Return a clone with updated default options."""
 
         merged = replace(self._options, **overrides)
-        return EnricherClientFactory(self._api_client_factory, options=merged)
+        return EnricherClientFactory(
+            self._api_client_factory, api_config=self._api_config, options=merged
+        )
 
     def _options_with_overrides(
         self, **overrides: object
@@ -123,32 +188,32 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
 
     def crossref(self, **overrides: object) -> CrossrefClient:
         options = self._options_with_overrides(**overrides)
-        api_client = self._api_client_factory(options)
+        api_client = self._api_client_factory(options, self._api_config)
         return CrossrefClient(api_client, options=options)
 
     def openalex(self, **overrides: object) -> OpenAlexClient:
         options = self._options_with_overrides(**overrides)
-        api_client = self._api_client_factory(options)
+        api_client = self._api_client_factory(options, self._api_config)
         return OpenAlexClient(api_client, options=options)
 
     def pubchem(self, **overrides: object) -> PubChemClient:
         options = self._options_with_overrides(**overrides)
-        api_client = self._api_client_factory(options)
+        api_client = self._api_client_factory(options, self._api_config)
         return PubChemClient(api_client, options=options)
 
     def pubmed(self, **overrides: object) -> PubmedClient:
         options = self._options_with_overrides(**overrides)
-        api_client = self._api_client_factory(options)
+        api_client = self._api_client_factory(options, self._api_config)
         return PubmedClient(api_client, options=options)
 
     def semantic_scholar(self, **overrides: object) -> SemanticScholarClient:
         options = self._options_with_overrides(**overrides)
-        api_client = self._api_client_factory(options)
+        api_client = self._api_client_factory(options, self._api_config)
         return SemanticScholarClient(api_client, options=options)
 
     def uniprot(self, **overrides: object) -> UniProtClient:
         options = self._options_with_overrides(**overrides)
-        api_client = self._api_client_factory(options)
+        api_client = self._api_client_factory(options, self._api_config)
         return UniProtClient(api_client, options=options)
 
 
@@ -174,6 +239,8 @@ NULL_ENRICHER_FACTORY = EnricherClientFactory(lambda *_: _NullApiClient())
 __all__ = [
     "EnricherEntity",
     "ENRICHER_ALLOWED_ENTITIES",
+    "EnricherApiConfig",
+    "EnricherApiFactory",
     "EnricherClientFactory",
     "EnricherClientOptions",
     "EnricherClientProtocol",
