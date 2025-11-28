@@ -4,3 +4,4 @@ __pycache__/
 *.png
 /diagrams
 /.mypy_cache
+*.dot
