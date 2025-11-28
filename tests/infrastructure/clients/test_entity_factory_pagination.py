@@ -14,7 +14,7 @@ from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.clients.chembl.entities import (
     ChemblEntityClientFactory,
 )
-from bioetl.clients.factories import default_chembl_factory
+from bioetl.clients.chembl.factories import default_chembl_factory
 from bioetl.core.config.models import PipelineConfig
 
 

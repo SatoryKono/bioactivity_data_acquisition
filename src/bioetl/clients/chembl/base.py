@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from bioetl.clients.chembl.adapter import ChemblTransportAdapter
-from bioetl.clients.pagination import PaginationFactory
+from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy

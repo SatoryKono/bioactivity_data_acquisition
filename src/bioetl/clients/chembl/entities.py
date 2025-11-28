@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Callable, Type
 
 from bioetl.clients.chembl.base import ChemblEntityClient
-from bioetl.clients.pagination import PaginationFactory
+from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.core.http.api_entity_client import EntityClientProtocol
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy

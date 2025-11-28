@@ -1,61 +1,23 @@
+"""Deprecated compatibility layer for pagination utilities."""
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
-from typing import Any
+import warnings
 
-from bioetl.core.http.pagination import (
-    NextLinkPagination,
-    PageParamPagination,
+from bioetl.clients.chembl.pagination import (
+    DEFAULT_PAGINATION_STRATEGY,
+    PaginationFactory,
     PaginationStrategy,
+    available_pagination_strategies,
+    create_pagination_strategy,
+    register_pagination_strategy,
 )
 
-PaginationFactory = Callable[..., PaginationStrategy]
-
-DEFAULT_PAGINATION_STRATEGY = "next_link"
-
-_PAGINATION_FACTORIES: dict[str, PaginationFactory] = {
-    "next_link": NextLinkPagination,
-    "page_param": PageParamPagination,
-}
-
-
-def register_pagination_strategy(
-    name: str, factory: PaginationFactory
-) -> None:
-    """Register a pagination strategy factory by name."""
-
-    _PAGINATION_FACTORIES[name] = factory
-
-
-def available_pagination_strategies() -> tuple[str, ...]:
-    """Return sorted names of available pagination strategies."""
-
-    return tuple(sorted(_PAGINATION_FACTORIES))
-
-
-def create_pagination_strategy(
-    name: str | None = None,
-    *,
-    factories: Mapping[str, PaginationFactory] | None = None,
-    **kwargs: Any,
-) -> PaginationStrategy:
-    """Create a pagination strategy from registered factories."""
-
-    strategy_name = name or DEFAULT_PAGINATION_STRATEGY
-    registry: dict[str, PaginationFactory] = dict(_PAGINATION_FACTORIES)
-    if factories:
-        registry.update(factories)
-
-    try:
-        factory = registry[strategy_name]
-    except KeyError as exc:  # pragma: no cover - safety guard
-        available = ", ".join(sorted(registry)) or "<empty>"
-        raise KeyError(
-            f"Pagination strategy '{strategy_name}' is not registered. "
-            f"Available: {available}"
-        ) from exc
-    return factory(**kwargs)
-
+warnings.warn(
+    "'bioetl.clients.pagination' is deprecated; use "
+    "'bioetl.clients.chembl.pagination' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 __all__ = [
     "PaginationStrategy",
