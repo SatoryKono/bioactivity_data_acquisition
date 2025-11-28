@@ -26,6 +26,22 @@ class _DummyApiClient:
             raise self.payload
         return self.payload
 
+    def fetch_one(
+        self,
+        endpoint: str,
+        *,
+        params=None,
+        headers=None,
+        timeout_sec=None,
+        max_retries=None,
+    ) -> dict:  # noqa: ANN001 - тестовая заглушка
+        """Return payload or raise exception."""
+        del headers, timeout_sec, max_retries
+        self.calls.append((endpoint, params))
+        if isinstance(self.payload, Exception):
+            raise self.payload
+        return self.payload
+
     def close(self) -> None:
         """Close the dummy client."""
         self.closed = True
@@ -45,12 +61,12 @@ class _DummyEnricher(BaseEnricherClient):
     def fetch(
         self, path: str = "/dummy", params: dict | None = None
     ) -> Iterator[dict]:
-        """Fetch data using the base _get method."""
-        return self._get(path, params=params)
+        """Fetch data using the base fetch_one method."""
+        return self.fetch_one(path, params=params)
 
 
 def test_get_flattens_results_array_into_iterator():
-    """Test that _get flattens results array into iterator."""
+    """Test that fetch_one flattens results array into iterator."""
     payload = {"results": [{"id": 1}, {"id": 2}]}
     client = _DummyEnricher(payload)
 
@@ -60,7 +76,7 @@ def test_get_flattens_results_array_into_iterator():
 
 
 def test_get_wraps_single_payloads_and_raw_values():
-    """Test that _get wraps single payloads and raw values correctly."""
+    """Test that fetch_one wraps single payloads and raw values correctly."""
     mapping_client = _DummyEnricher({"value": 1})
     raw_client = _DummyEnricher("text")
 
@@ -77,7 +93,7 @@ def test_errors_are_normalized_to_request_exception():
 
 
 def test_get_closes_client_on_exception():
-    """Test that _get closes client on exception."""
+    """Test that fetch_one closes client on exception."""
     api_client = _DummyApiClient(client_exceptions.HTTPError("boom"))
     client = _DummyEnricher(api_client.payload)
 

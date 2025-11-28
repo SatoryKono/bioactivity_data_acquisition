@@ -10,28 +10,28 @@ from bioetl.clients.chembl.entities import ChemblEntityClientFactory
 from bioetl.clients.chembl.factories import default_chembl_factory
 
 
-T_co = TypeVar("T_co", covariant=True)
+T = TypeVar("T")
 
 
-class ChemblDescriptorFactoryBuilder(Protocol[T_co]):
+class ChemblDescriptorFactoryBuilder(Protocol[T]):
     """Контракт на фабрику дескрипторов, инжектируемую извне."""
 
     def __call__(
         self,
-        factory: "ChemblClientFactory[T_co]",
+        factory: "ChemblClientFactory[T]",
         entity: str,
         *,
         mode: str | None = None,
-    ) -> T_co:  # pragma: no cover - протокол
+    ) -> T:  # pragma: no cover - протокол
         ...
 
 
 @dataclass
-class ChemblClientFactory(ClientFactory[T_co]):
+class ChemblClientFactory(ClientFactory[T]):
     """Создаёт ChEMBL-клиентов и делегирует сборку дескрипторов колбэку."""
 
     config: Mapping[str, Any] | Any
-    builder: ChemblDescriptorFactoryBuilder[T_co]
+    builder: ChemblDescriptorFactoryBuilder[T]
 
     def build_entity_client_factory(
         self,
@@ -41,7 +41,10 @@ class ChemblClientFactory(ClientFactory[T_co]):
         pagination_factories: Mapping[str, Any] | None = None,
         transport_factory: Callable[[], Any] | None = None,
     ) -> ChemblEntityClientFactory:
-        """Собрать фабрику клиентов ChEMBL с учётом overrides из конфигурации."""
+        """Собрать фабрику клиентов ChEMBL с учётом overrides из конфигурации.
+
+        Returns configured ChemblEntityClientFactory instance.
+        """
 
         return default_chembl_factory(
             self.config,
@@ -51,7 +54,7 @@ class ChemblClientFactory(ClientFactory[T_co]):
             transport_factory=transport_factory,
         )
 
-    def create(self, entity: str, mode: str | None = None) -> T_co:
+    def create(self, entity: str, mode: str | None = None) -> T:
         return self.builder(self, entity, mode=mode)
 
 

@@ -187,10 +187,14 @@ class BaseChemblClient(
 
     def status(self) -> Mapping[str, Any]:
         """Check ChEMBL API status."""
-        return self._wrap_callable(
+        result = self._wrap_callable(
             lambda: self._transport().request("GET", "/status"),
             log_context={"path": "/status", "method": "GET"},
-        )  # type: ignore[return-value]
+        )
+        # Ensure we return Mapping[str, Any] as expected
+        if isinstance(result, Mapping):
+            return result
+        return {}
 
 
 class ChemblEntityClient(BaseChemblClient):
