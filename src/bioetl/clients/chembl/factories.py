@@ -6,10 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, overload
 
-from bioetl.clients.chembl.adapter_factory import (
-    BaseChemblAdapterFactory,
-    resolve_pagination_strategy,
-)
+from bioetl.clients.chembl.adapter_factory import BaseChemblAdapterFactory
 from bioetl.clients.chembl.entities import (
     CHEMBL_ALLOWED_ENTITIES,
     ChemblActivityClient,
@@ -188,7 +185,6 @@ def default_activity_client_factory(
 __all__ = (
     "BaseChemblAdapterFactory",
     "TransportFactoryRegistry",
-    "resolve_pagination_strategy",
     "default_chembl_factory",
     "make_chembl_client",
     "default_activity_client_factory",

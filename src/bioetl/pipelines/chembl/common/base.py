@@ -37,11 +37,13 @@ from bioetl.pipelines.chembl.common.descriptor import (
     ChemblExtractionDescriptor,
 )
 from bioetl.pipelines.chembl.common.descriptor_factory import ChemblDescriptorFactory
+from bioetl.pipelines.chembl.common.descriptor_factory_builder import (
+    build_pipeline_chembl_factory,
+)
 from bioetl.core.io.artifacts import SchemaRegistry
 from bioetl.pipelines.chembl.common.strategies import (
     ExtractionStrategyFactory,
 )
-from bioetl.clients.chembl.factory import ChemblClientFactory
 from bioetl.pipelines.client_registry import ClientFactoryRegistry, build_client_registry
 
 
@@ -193,7 +195,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
     def _create_descriptor_factory(self) -> ChemblDescriptorFactory:
         sort_fields = {self.entity_name: self.required_sort_fields}
         if self._client_registry is None:
-            chembl_factory = ChemblClientFactory(
+            chembl_factory = build_pipeline_chembl_factory(
                 self.config,
                 fallback_rows=self._fallback_rows,
                 sort_fields=sort_fields,

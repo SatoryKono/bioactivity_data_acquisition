@@ -11,6 +11,7 @@ import pandas as pd
 
 from bioetl.core.pipeline.unified import BatchExtractionStats
 from bioetl.pipelines.chembl.batch_executor import execute_chembl_batches
+from bioetl.clients.chembl.facade import ChemblClientFacade
 
 
 class ChemblExtractionService:
@@ -86,6 +87,18 @@ class ChemblExtractionService:
         page_size: int,
         client_settings: Mapping[str, Any] | None = None,
     ) -> Callable[[Sequence[str] | None], Any]:
+        if isinstance(chembl_client, ChemblClientFacade):
+            def fetch(batch: Sequence[str] | None):
+                if batch:
+                    return chembl_client.fetch_batch(
+                        batch, page_size=page_size, client_settings=client_settings
+                    )
+                return chembl_client.list(
+                    page_size=page_size, client_settings=client_settings
+                )
+
+            return fetch
+
         def fetch(batch: Sequence[str] | None):
             settings = dict(client_settings or {})
             if batch:

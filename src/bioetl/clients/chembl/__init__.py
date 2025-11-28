@@ -32,15 +32,15 @@ from bioetl.clients.chembl.factories import (
     default_activity_client_factory,
     default_chembl_factory,
     make_chembl_client,
-    resolve_pagination_strategy,
 )
-from bioetl.clients.chembl.factory import ChemblClientFactory
+from bioetl.clients.chembl.factory import ChemblClientFactory, ChemblDescriptorFactoryBuilder
 from bioetl.clients.chembl.normalization import (
     BaseChemblNormalizer,
     ColumnMapping,
     ColumnNormalizationSpec,
     build_records_from_payload,
 )
+from bioetl.clients.chembl.strategy_resolver import PaginationStrategyResolverMixin
 
 if TYPE_CHECKING:  # pragma: no cover - import-time only
     from bioetl.clients.chembl.adapter import ChemblTransportAdapter
@@ -65,7 +65,7 @@ __all__ = [
     "ChemblTestItemClient",
     "BaseChemblAdapterFactory",
     "TransportFactoryRegistry",
-    "resolve_pagination_strategy",
+    "PaginationStrategyResolverMixin",
     "ChemblEntityClientFactory",
     "ChemblEntityClientFactoryConfig",
     "ChemblEntityClientFactoryProtocol",
@@ -79,6 +79,7 @@ __all__ = [
     "default_chembl_factory",
     "make_chembl_client",
     "ChemblClientFactory",
+    "ChemblDescriptorFactoryBuilder",
 ]
 
 _DEPRECATED_EXPORTS: dict[str, tuple[str, str]] = {

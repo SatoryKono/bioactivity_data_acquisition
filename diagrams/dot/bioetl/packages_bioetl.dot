@@ -11,7 +11,6 @@ charset="utf-8"
 "src.bioetl.clients.chembl.factory" [color="black", label=<src.bioetl.clients.chembl.factory>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.normalization" [color="black", label=<src.bioetl.clients.chembl.normalization>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.pagination" [color="black", label=<src.bioetl.clients.chembl.pagination>, shape="box", style="solid"];
-"src.bioetl.clients.common" [color="black", label=<src.bioetl.clients.common>, shape="box", style="solid"];
 "src.bioetl.clients.enrichers" [color="black", label=<src.bioetl.clients.enrichers>, shape="box", style="solid"];
 "src.bioetl.clients.enrichers.base" [color="black", label=<src.bioetl.clients.enrichers.base>, shape="box", style="solid"];
 "src.bioetl.clients.enrichers.facade" [color="black", label=<src.bioetl.clients.enrichers.facade>, shape="box", style="solid"];
