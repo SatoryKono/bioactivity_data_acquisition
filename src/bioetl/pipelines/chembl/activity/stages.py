@@ -137,11 +137,18 @@ class ActivityExtractor:
                         else pd.DataFrame()
                     )
                     # Calculate actual failed IDs count
-                    failed_count = len(batch) - len(exc.partial_data)
-                    print(f"DEBUG: Partial data found, len(batch)={len(batch)}, len(partial_data)={len(exc.partial_data)}, failed_count={failed_count}")
+                    failed_count = len(batch) - len(partial_data)
+                    print(
+                        f"DEBUG: Partial data found, len(batch)={len(batch)}, "
+                        f"len(partial_data)={len(partial_data)}, "
+                        f"failed_count={failed_count}"
+                    )
                     return df, {"fallback": failed_count, "api_calls": 1}
                 # No partial data available, return empty DataFrame
-                print(f"DEBUG: No partial data in exception, returning fallback={len(batch)}")
+                print(
+                    f"DEBUG: No partial data in exception, "
+                    f"returning fallback={len(batch)}"
+                )
                 return pd.DataFrame(), {"fallback": len(batch), "api_calls": 1}
 
         df, stats = execute_chembl_batches(
