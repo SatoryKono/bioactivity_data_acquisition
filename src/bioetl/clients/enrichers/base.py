@@ -330,6 +330,45 @@ class DeprecatedAliasMixin:
         raise AttributeError(f"{self.__class__.__name__!s} has no attribute {name!r}")
 
 
+class RouteProviderBase(DeprecatedAliasMixin, RouteProviderMixin):
+    """Базовый класс для провайдеров, создаваемых фабрикой."""
+
+    SOURCE: ClassVar[str]
+    ROUTES: ClassVar[Iterable[RouteConfig]]
+    DEPRECATED_ALIASES: ClassVar[TypingMapping[str, str]] = {}
+
+
+def create_route_provider_class(
+    *,
+    name: str,
+    source: str,
+    routes: Iterable[RouteConfig],
+    deprecated_aliases: TypingMapping[str, str] | None = None,
+    module: str | None = None,
+) -> type[RouteProviderBase]:
+    """Создаёт класс провайдера на основе конфигурации маршрутов.
+
+    Args:
+        name: Имя генерируемого класса.
+        source: Имя источника данных.
+        routes: Описание маршрутов, по которым строятся запросы.
+        deprecated_aliases: Карта устаревших алиасов методов.
+        module: Имя модуля, в котором будет объявлен класс (для корректных
+            предупреждений и сериализации).
+    """
+
+    class_attributes: dict[str, Any] = {
+        "SOURCE": source,
+        "ROUTES": tuple(routes),
+        "DEPRECATED_ALIASES": dict(deprecated_aliases or {}),
+    }
+
+    if module:
+        class_attributes["__module__"] = module
+
+    return type(name, (RouteProviderBase,), class_attributes)
+
+
 __all__ = [
     "BaseEnricherClient",
     "EnricherClientOptions",
@@ -338,4 +377,6 @@ __all__ = [
     "RouteEnricherMixin",
     "RouteProviderMixin",
     "DeprecatedAliasMixin",
+    "RouteProviderBase",
+    "create_route_provider_class",
 ]
