@@ -8,14 +8,14 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.clients.enrichers.facade import (
+from bioetl.clients.enricher_facade import (
     EnricherFacade,
     EnrichmentStrategy,
     NullEnricherFacade,
     build_enricher_facade,
 )
-from bioetl.clients.enrichers.factory import EnricherClientFactory
-from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
+from bioetl.clients.enricher_factory import EnricherClientFactory
+from bioetl.clients.enricher_strategy_registry import StrategyRegistry
 
 
 @dataclass(slots=True)

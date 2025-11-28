@@ -6,12 +6,12 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 
-from bioetl.clients.enrichers.facade import (
+from bioetl.clients.enricher_facade import (
     ClientMethodStrategy,
     build_enricher_facade,
 )
-from bioetl.clients.enrichers.factory import NULL_ENRICHER_FACTORY
-from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
+from bioetl.clients.enricher_factory import NULL_ENRICHER_FACTORY
+from bioetl.clients.enricher_strategy_registry import StrategyRegistry
 
 
 def test_strategy_registry_derives_default_strategies() -> None:

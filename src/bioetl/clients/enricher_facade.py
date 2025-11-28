@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 import structlog
 
-from bioetl.clients.enrichers.factory import (
+from bioetl.clients.enricher_factory import (
     EnricherClientFactory,
     NULL_ENRICHER_FACTORY,
 )
 
 if TYPE_CHECKING:
-    from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
+    from bioetl.clients.enricher_strategy_registry import StrategyRegistry
 
 
 class EnrichmentStrategy(Protocol):
