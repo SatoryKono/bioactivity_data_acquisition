@@ -10,6 +10,14 @@ from bioetl.clients.enrichers.factory import (
     EnricherClientFactory,
     EnricherClientOptions,
 )
+from bioetl.clients.enrichers.facade import (
+    ClientMethodStrategy,
+    EnricherFacade,
+    EnrichmentStrategy,
+    NULL_ENRICHER_FACTORY,
+    build_enricher_facade,
+    NullEnricherFacade,
+)
 from bioetl.clients.enrichers.openalex import OpenAlexClient
 from bioetl.clients.enrichers.pubchem import PubChemClient
 from bioetl.clients.enrichers.pubmed import PubmedClient
@@ -23,6 +31,12 @@ __all__ = [
     "CrossrefClient",
     "EnricherClientFactory",
     "EnricherClientOptions",
+    "EnricherFacade",
+    "EnrichmentStrategy",
+    "ClientMethodStrategy",
+    "build_enricher_facade",
+    "NULL_ENRICHER_FACTORY",
+    "NullEnricherFacade",
     "OpenAlexClient",
     "PubChemClient",
     "PubmedClient",
