@@ -1,5 +1,7 @@
-from bioetl.clients.chembl.factory import ChemblClientFactory
 from bioetl.pipelines.chembl.common.descriptor_factory import ChemblDescriptorFactory
+from bioetl.pipelines.chembl.common.descriptor_factory_builder import (
+    build_pipeline_chembl_factory,
+)
 
 
 def test_factory_builds_descriptor_with_configured_fetcher():
@@ -13,7 +15,7 @@ def test_factory_builds_descriptor_with_configured_fetcher():
         }
     }
 
-    factory = ChemblClientFactory(config)
+    factory = build_pipeline_chembl_factory(config)
 
     descriptor_factory = factory.create("activity")
 
