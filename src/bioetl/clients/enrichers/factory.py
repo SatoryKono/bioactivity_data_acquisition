@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Mapping, Protocol
-import warnings
 
 from bioetl.clients.base import ClientFactory
 from bioetl.clients.enrichers.providers import (
@@ -15,7 +14,7 @@ from bioetl.clients.enrichers.providers import (
     UniProtClient,
 )
 from bioetl.clients.enrichers.base import EnricherClientOptions, EnricherClientProtocol
-from bioetl.core.http.interfaces import BaseApiClient, PaginationStrategy, RetryStrategy
+from bioetl.core.http.interfaces import BaseApiClient, PaginationStrategy
 
 
 @dataclass(frozen=True)
@@ -38,8 +37,6 @@ class EnricherApiConfig:
     """Расширенные настройки для построения HTTP-клиента обогатителей."""
 
     pagination: PaginationStrategy | None = None
-    timeout_sec: float | None = None
-    retries: RetryStrategy | int | None = None
 
 
 class EnricherApiFactory(Protocol):
@@ -85,8 +82,7 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
         * уже созданная ``EnricherClientFactory`` в ключе ``factory``;
         * ``api_client`` (готовый экземпляр ``BaseApiClient`` или билдер),
           опционально с ``options`` (dict или ``EnricherClientOptions``) и
-          ``api`` (dict или ``EnricherApiConfig``) для настроек пагинации и
-          стратегий таймаутов/ретраев.
+          ``api`` (dict или ``EnricherApiConfig``) для настроек пагинации.
 
         Если конфигурация присутствует, но валидной фабрики нет, возвращается
         ``NULL_ENRICHER_FACTORY`` для совместимости со стратегиями, которым
@@ -119,19 +115,6 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
     @staticmethod
     def _parse_api_config(config: Mapping[str, Any]) -> EnricherApiConfig | None:
         api_cfg = config.get("api")
-        deprecated_fields: dict[str, Any] = {}
-        for key in ("pagination", "timeout_sec", "retries"):
-            if key in config:
-                deprecated_fields[key] = config[key]
-
-        if deprecated_fields:
-            warnings.warn(
-                "Поля 'pagination', 'timeout_sec' и 'retries' на верхнем уровне "
-                "конфигурации обогатителя устарели; используйте секцию 'api'",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            api_cfg = {**deprecated_fields, **(api_cfg or {})}
 
         if isinstance(api_cfg, EnricherApiConfig):
             return api_cfg
@@ -140,12 +123,8 @@ class EnricherClientFactory(ClientFactory[EnricherClientProtocol]):
             return None
 
         pagination = api_cfg.get("pagination")
-        retries = api_cfg.get("retries")
-        timeout = api_cfg.get("timeout_sec")
         return EnricherApiConfig(
             pagination=pagination if isinstance(pagination, PaginationStrategy) else pagination,
-            timeout_sec=timeout if timeout is None or isinstance(timeout, (int, float)) else None,
-            retries=retries,
         )
 
     @staticmethod
