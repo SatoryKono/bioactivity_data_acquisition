@@ -36,7 +36,9 @@ def test_strategy_registry_uses_explicit_mapping() -> None:
     registry = StrategyRegistry.from_config(
         {
             "strategies": {
-                "custom": ClientMethodStrategy(lambda _factory: client, "fetch"),
+                "custom": ClientMethodStrategy(
+                    lambda _factory: client, "fetch"
+                ),
             }
         }
     )

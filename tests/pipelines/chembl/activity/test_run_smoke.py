@@ -19,8 +19,10 @@ from bioetl.pipelines.chembl.common.descriptor import (
 
 class PartialFailureError(RuntimeError):
     """Exception that carries partial successful data."""
-    
-    def __init__(self, message: str, partial_data: dict[str, Any] | None = None):
+
+    def __init__(
+        self, message: str, partial_data: dict[str, Any] | None = None
+    ) -> None:
         super().__init__(message)
         self.partial_data = partial_data
 
@@ -53,7 +55,7 @@ class DummyChemblClient:
         }
         return data, {"api_calls": 1}
 
-    def fetch_by_ids(self, ids):
+    def fetch_by_ids(self, ids: list[str]) -> dict[str, Any]:
         """Legacy alias to verify backwards compatibility."""
 
         warnings.warn(
@@ -71,7 +73,7 @@ class FailingChemblClient(DummyChemblClient):
         super().__init__()
         self.fail_for: set[str] = {"2"}
 
-    def fetch_batch(self, ids):
+    def fetch_batch(self, ids: list[str]) -> dict[str, Any]:
         """Return fake data with failures for specific IDs."""
         self.fetch_calls.append(list(ids))
         data = {}
@@ -94,16 +96,16 @@ class FailingChemblClient(DummyChemblClient):
         return data, {"api_calls": 1}
 
 
-class DummyConfig(PipelineConfig, Mapping):
+class DummyConfig(PipelineConfig, Mapping[str, Any]):
     """Minimal pipeline config for activity_chembl tests."""
 
-    metadata: dict
+    metadata: dict[str, Any]
 
     def __init__(
         self,
         root: Path,
         pipeline_name: str = "activity_chembl",
-        ids=None,
+        ids: list[str] | None = None,
     ) -> None:
         super().__init__(
             pipeline=PipelineInfo(name=pipeline_name),
@@ -136,7 +138,7 @@ class DummyConfig(PipelineConfig, Mapping):
             return current
         return self._config[key]
 
-    def __iter__(self):
+    def __iter__(self) -> Any:
         return iter(self._config)
 
     def __len__(self) -> int:
