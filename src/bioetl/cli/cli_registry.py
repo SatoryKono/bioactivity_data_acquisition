@@ -68,7 +68,8 @@ def _register_default_pipelines() -> None:
         "activity_chembl", _wrap_pipeline_factory(ChemblActivityPipeline)
     )
     print(
-        f"DEBUG: Registered activity_chembl, registry size: {len(PIPELINE_REGISTRY)}"
+        f"DEBUG: Registered activity_chembl, registry size: "
+        f"{len(PIPELINE_REGISTRY)}"
     )
     register_pipeline(
         "assay_chembl", _wrap_pipeline_factory(ChemblAssayPipeline)
