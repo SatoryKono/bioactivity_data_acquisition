@@ -17,15 +17,36 @@ class PubChemClient(RouteEnricherMixin):
     def fetch(
         self, cid: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("fetch", value=cid, params=params)
+        return self.call_route("fetch", value=cid, params=params)
 
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("search", value=query, params=params)
+        return self.call_route("search", value=query, params=params)
 
-    fetch_by_cid = fetch
-    search_by_smiles = search
+    def fetch_by_cid(
+        self, cid: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        import warnings
+
+        warnings.warn(
+            "fetch_by_cid is deprecated; use fetch instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch(cid, params=params)
+
+    def search_by_smiles(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        import warnings
+
+        warnings.warn(
+            "search_by_smiles is deprecated; use search instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.search(query, params=params)
 
 
 __all__ = ["PubChemClient"]

@@ -72,7 +72,7 @@ class ChemblExtractionService:
         def fetch(batch: Sequence[str] | None):
             if batch:
                 return chembl_client.fetch_by_ids(batch)
-            result = chembl_client.list(page_size=page_size)
+            result = chembl_client.fetch_page(page_size=page_size)
             return list(result) if isinstance(result, Iterable) else result
 
         return fetch

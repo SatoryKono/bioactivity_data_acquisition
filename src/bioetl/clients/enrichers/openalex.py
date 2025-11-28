@@ -17,12 +17,12 @@ class OpenAlexClient(RouteEnricherMixin):
     def fetch(
         self, oa_id: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("fetch", value=oa_id, params=params)
+        return self.call_route("fetch", value=oa_id, params=params)
 
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("search", value=query, params=params)
+        return self.call_route("search", value=query, params=params)
 
 
 __all__ = ["OpenAlexClient"]

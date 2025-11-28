@@ -17,15 +17,36 @@ class PubmedClient(RouteEnricherMixin):
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("search", value=query, params=params)
+        return self.call_route("search", value=query, params=params)
 
     def fetch(
         self, pmid: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("fetch", value=pmid, params=params)
+        return self.call_route("fetch", value=pmid, params=params)
 
-    search_by_title = search
-    fetch_by_pmid = fetch
+    def search_by_title(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        import warnings
+
+        warnings.warn(
+            "search_by_title is deprecated; use search instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.search(query, params=params)
+
+    def fetch_by_pmid(
+        self, pmid: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        import warnings
+
+        warnings.warn(
+            "fetch_by_pmid is deprecated; use fetch instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch(pmid, params=params)
 
 
 __all__ = ["PubmedClient"]

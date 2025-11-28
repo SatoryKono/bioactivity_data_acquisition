@@ -17,14 +17,24 @@ class SemanticScholarClient(RouteEnricherMixin):
     def search(
         self, query: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("search", value=query, params=params)
+        return self.call_route("search", value=query, params=params)
 
     def fetch(
         self, paper_id: str, params: Mapping[str, Any] | None = None
     ) -> JSONRecordStream:
-        return self._call_route("fetch", value=paper_id, params=params)
+        return self.call_route("fetch", value=paper_id, params=params)
 
-    title_search = search
+    def title_search(
+        self, query: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        import warnings
+
+        warnings.warn(
+            "title_search is deprecated; use search instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.search(query, params=params)
 
 
 __all__ = ["SemanticScholarClient"]

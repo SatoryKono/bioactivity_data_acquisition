@@ -141,16 +141,42 @@ class ChemblEntityClientFactory(ChemblFactoryMixin, ChemblEntityClientFactoryPro
         pagination_strategy: PaginationStrategy | None = None,
         pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ):
+        self.config = self._build_config(
+            config,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_strategy=pagination_strategy,
+            pagination_factories=pagination_factories,
+        )
+
+    @staticmethod
+    def _build_config(
+        config: ChemblEntityClientFactoryConfig | Callable[[], ApiTransportProtocol],
+        *,
+        pagination_strategy_name: str | None,
+        pagination_strategy: PaginationStrategy | None,
+        pagination_factories: Mapping[str, PaginationFactory] | None,
+    ) -> ChemblEntityClientFactoryConfig:
         if isinstance(config, ChemblEntityClientFactoryConfig):
-            self.config = config
-        else:
-            # Temporary adapter for legacy initialization style
-            self.config = ChemblEntityClientFactoryConfig(
-                config,
-                pagination_strategy_name=pagination_strategy_name,
-                pagination_strategy=pagination_strategy,
-                pagination_factories=pagination_factories,
+            if (
+                pagination_strategy_name is None
+                and pagination_strategy is None
+                and pagination_factories is None
+            ):
+                return config
+            return ChemblEntityClientFactoryConfig(
+                config.transport_factory,
+                pagination_strategy_name=(
+                    pagination_strategy_name or config.pagination_strategy_name
+                ),
+                pagination_strategy=pagination_strategy or config.pagination_strategy,
+                pagination_factories=pagination_factories or config.pagination_factories,
             )
+        return ChemblEntityClientFactoryConfig(
+            config,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_strategy=pagination_strategy,
+            pagination_factories=pagination_factories,
+        )
 
     def __getitem__(self, entity: ChemblEntity | str) -> Callable[[], ChemblEntityClientProtocol]:
         return lambda: self.create(entity)

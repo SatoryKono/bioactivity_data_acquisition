@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 from bioetl.clients.chembl.base import (
     BaseChemblClient,
     BaseChemblEntityProtocol,
+    ChemblClientProtocol,
     ChemblEntityClient,
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
@@ -50,6 +51,7 @@ from bioetl.clients.chembl.pagination import (
 __all__ = [
     "BaseChemblClient",
     "BaseChemblEntityProtocol",
+    "ChemblClientProtocol",
     "ChemblTransportAdapter",
     "ChemblEntityClient",
     "DEFAULT_NEXT_KEY",
