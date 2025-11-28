@@ -15,11 +15,8 @@
 <polygon fill="none" stroke="black" points="184.5,-36 77.5,-36 77.5,0 184.5,0 184.5,-36"/>
 <text text-anchor="middle" x="131" y="-14.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients</text>
 </g>
-<!-- src.bioetl.clients._deprecated_proxy -->
 <g id="node2" class="node">
-<title>src.bioetl.clients._deprecated_proxy</title>
 <polygon fill="none" stroke="black" points="241.5,-90 20.5,-90 20.5,-54 241.5,-54 241.5,-90"/>
-<text text-anchor="middle" x="131" y="-68.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients._deprecated_proxy</text>
 </g>
 <!-- src.bioetl.clients.chembl -->
 <g id="node3" class="node">

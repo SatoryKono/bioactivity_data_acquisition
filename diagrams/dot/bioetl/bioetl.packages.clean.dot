@@ -3,7 +3,6 @@ rankdir=BT
 charset="utf-8"
 "src.bioetl" [color="black", label=<src.bioetl>, shape="box", style="solid"];
 "src.bioetl.clients" [color="black", label=<src.bioetl.clients>, shape="box", style="solid"];
-"src.bioetl.clients._deprecated_proxy" [color="black", label=<src.bioetl.clients._deprecated_proxy>, shape="box", style="solid"];
 "src.bioetl.clients.chembl" [color="black", label=<src.bioetl.clients.chembl>, shape="box", style="solid"];
 "src.bioetl.clients.chembl._factories_impl" [color="black", label=<src.bioetl.clients.chembl._factories_impl>, shape="box", style="solid"];
 "src.bioetl.clients.chembl._pagination_impl" [color="black", label=<src.bioetl.clients.chembl._pagination_impl>, shape="box", style="solid"];
