@@ -10,7 +10,7 @@
 - `emit_metric(name, value, tags=None)`: безопасный канал для публикации служебных метрик без прямой зависимости от конкретного бекенда.
 
 ### Доступные клиенты и ключи конфигурации
-- Фабрика `default_chembl_factory` (см. `bioetl.clients.factories.default_chembl_factory`) регистрирует клиентов ChEMBL: `activity`, `assay`, `document`, `target`, `testitem`. Все они строятся на основе общего HTTP-клиента с ретраями и rate-limit.
+- Фабрика `default_chembl_factory` (см. `bioetl.clients.chembl.factories.default_chembl_factory`) регистрирует клиентов ChEMBL: `activity`, `assay`, `document`, `target`, `testitem`. Все они строятся на основе общего HTTP-клиента с ретраями и rate-limit.
 - Ключи конфигурации `metadata.chembl_api.*` влияют на параметры HTTP-доступа: `base_url`, `timeout_sec`, `max_retries`, `backoff_factor`, `max_backoff_sec`, `rate_limit_calls`, `rate_limit_period_sec`, `cache_enabled`, `cache_ttl_sec`, `circuit_breaker_fail_max`, `circuit_breaker_reset_sec`, `default_headers`, `user_agent`.
 
 ### Работа с секретами

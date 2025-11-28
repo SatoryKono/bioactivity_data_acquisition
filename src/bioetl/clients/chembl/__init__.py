@@ -6,7 +6,6 @@ entity-specific clients, transport adapters, and normalization logic.
 """
 from typing import TYPE_CHECKING
 
-from bioetl.clients import factories, pagination
 from bioetl.clients.chembl.base import (
     BaseChemblClient,
     ChemblEntityClient,
@@ -24,18 +23,18 @@ from bioetl.clients.chembl.entities import (
     ChemblEntityClientFactory,
     CHEMBL_ALLOWED_ENTITIES,
 )
+from bioetl.clients.chembl.factories import (
+    default_activity_client_factory,
+    default_chembl_factory,
+    make_chembl_client,
+)
 from bioetl.clients.chembl.normalization import (
     BaseChemblNormalizer,
     ColumnMapping,
     ColumnNormalizationSpec,
     build_records_from_payload,
 )
-from bioetl.clients.factories import (
-    default_activity_client_factory,
-    default_chembl_factory,
-    make_chembl_client,
-)
-from bioetl.clients.pagination import (
+from bioetl.clients.chembl.pagination import (
     DEFAULT_PAGINATION_STRATEGY,
     PaginationFactory,
     PaginationStrategy,
@@ -63,8 +62,6 @@ __all__ = [
     "ColumnMapping",
     "ColumnNormalizationSpec",
     "build_records_from_payload",
-    "factories",
-    "pagination",
     "default_activity_client_factory",
     "default_chembl_factory",
     "make_chembl_client",
