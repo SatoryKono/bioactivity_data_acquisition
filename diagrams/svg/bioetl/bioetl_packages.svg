@@ -90,14 +90,8 @@
 <polygon fill="none" stroke="black" points="237,-630 25,-630 25,-594 237,-594 237,-630"/>
 <text text-anchor="middle" x="131" y="-608.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.chembl.pagination</text>
 </g>
-<!-- src.bioetl.clients.common -->
-<g id="node13" class="node">
-<title>src.bioetl.clients.common</title>
-<polygon fill="none" stroke="black" points="211.5,-684 50.5,-684 50.5,-648 211.5,-648 211.5,-684"/>
-<text text-anchor="middle" x="131" y="-662.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.common</text>
-</g>
 <!-- src.bioetl.clients.enrichers -->
-<g id="node14" class="node">
+<g id="node13" class="node">
 <title>src.bioetl.clients.enrichers</title>
 <polygon fill="none" stroke="black" points="211.5,-1008 50.5,-1008 50.5,-972 211.5,-972 211.5,-1008"/>
 <text text-anchor="middle" x="131" y="-986.3" font-family="Times New Roman,serif" font-size="14.00">src.bioetl.clients.enrichers</text>
