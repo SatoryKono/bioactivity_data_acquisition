@@ -7,6 +7,7 @@ wire together prepared request components.
 """
 from __future__ import annotations
 
+from bioetl.core.http.adapter import LoggingTransportAdapter
 from bioetl.core.http.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.http.circuit_breaker import CircuitBreakerOpenError
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
@@ -21,6 +22,7 @@ __all__ = [
     "ApiClientMixin",
     "ClosableMixin",
     "CircuitBreakerOpenError",
+    "LoggingTransportAdapter",
     "HTTPClientError",
     "ResilientRequestExecutorFactory",
     "ResilienceComponents",
