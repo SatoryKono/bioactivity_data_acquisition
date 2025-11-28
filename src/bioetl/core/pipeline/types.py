@@ -466,7 +466,9 @@ class ClientRegistryContext(ClientContext):
     """Client context backed by :class:`ClientRegistry`."""
 
     registry: ClientRegistry = field(default_factory=lambda: ClientRegistry({}))
-    adapter: LegacyClientKeyAdapter = field(default_factory=LegacyClientKeyAdapter)
+    adapter: LegacyClientLookupAdapter = field(
+        default_factory=LegacyClientLookupAdapter
+    )
 
     def get_client(
         self,

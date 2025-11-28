@@ -1525,11 +1525,8 @@
 <path fill="none" stroke="black" d="M1133.27,-6538.5C1350.63,-6538.5 1618.63,-6538.5 1834.46,-6538.5"/>
 <polygon fill="none" stroke="black" points="1834.7,-6542 1844.7,-6538.5 1834.7,-6535 1834.7,-6542"/>
 </g>
-<!-- src.bioetl.clients._deprecated_proxy.DeprecatedProxyConfig -->
 <g id="node64" class="node">
-<title>src.bioetl.clients._deprecated_proxy.DeprecatedProxyConfig</title>
 <polygon fill="none" stroke="black" points="579,-6575.5 579,-6643.5 889,-6643.5 889,-6575.5 579,-6575.5"/>
-<text text-anchor="start" x="587" y="-6605.8" font-family="Times New Roman,serif" font-size="14.00">DeprecatedProxyConfig</text>
 <polyline fill="none" stroke="black" points="731,-6575.5 731,-6643.5 "/>
 <text text-anchor="start" x="739" y="-6628.3" font-family="Times New Roman,serif" font-size="14.00">exports : tuple[str, ...]</text>
 <text text-anchor="start" x="739" y="-6613.3" font-family="Times New Roman,serif" font-size="14.00">message : str | None</text>

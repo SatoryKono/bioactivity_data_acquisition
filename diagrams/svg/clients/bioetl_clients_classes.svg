@@ -607,11 +607,8 @@
 <path fill="none" stroke="black" d="M2468.18,-835.06C2506.37,-829.54 2544.4,-821.64 2580,-810.5 2642.78,-790.86 2666.22,-786.11 2707,-734.5 2723.47,-713.66 2704.17,-693.99 2725,-677.5 2803.72,-615.21 2922.85,-617.21 3006.27,-629"/>
 <polygon fill="none" stroke="black" points="3005.86,-632.48 3016.26,-630.49 3006.88,-625.56 3005.86,-632.48"/>
 </g>
-<!-- src.bioetl.clients._deprecated_proxy.DeprecatedProxyConfig -->
 <g id="node29" class="node">
-<title>src.bioetl.clients._deprecated_proxy.DeprecatedProxyConfig</title>
 <polygon fill="none" stroke="black" points="132.5,-1445.5 132.5,-1513.5 442.5,-1513.5 442.5,-1445.5 132.5,-1445.5"/>
-<text text-anchor="start" x="140.5" y="-1475.8" font-family="Times New Roman,serif" font-size="14.00">DeprecatedProxyConfig</text>
 <polyline fill="none" stroke="black" points="284.5,-1445.5 284.5,-1513.5 "/>
 <text text-anchor="start" x="292.5" y="-1498.3" font-family="Times New Roman,serif" font-size="14.00">exports : tuple[str, ...]</text>
 <text text-anchor="start" x="292.5" y="-1483.3" font-family="Times New Roman,serif" font-size="14.00">message : str | None</text>
