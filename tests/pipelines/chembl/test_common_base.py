@@ -19,6 +19,7 @@ from bioetl.pipelines.chembl.common.base import (
 from bioetl.pipelines.chembl.common.chembl_extraction_service import (
     ChemblExtractionService,
 )
+from bioetl.pipelines.chembl.common.strategies import ExtractionStrategyFactory
 
 
 class TestChemblWriteService:
@@ -266,9 +267,51 @@ class TestChemblCommonPipeline:
         options.dry_run = True
         
         result = pipeline.extract(None, options)
-        
+
         assert not result.empty
         pipeline.validation_service.empty_frame.assert_called_once()
+
+    def test_extract_uses_injected_strategy_factory(self) -> None:
+        """Ensure extract delegates to provided strategy factory."""
+
+        class DummyStrategy:
+            def __init__(self) -> None:
+                self.called = False
+
+            def supports(self, descriptor_type: str) -> bool:
+                return True
+
+            def run(self, pipeline, descriptor, options):
+                self.called = True
+                assert pipeline._descriptor_type == "service"
+                assert descriptor is None
+                assert options is options_mock
+                return pd.DataFrame([{"id": 1}])
+
+        dummy_strategy = DummyStrategy()
+        factory = MagicMock(spec=ExtractionStrategyFactory)
+        factory.get.return_value = dummy_strategy
+
+        config = {
+            "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
+            "cache": {"namespace": "test"},
+            "determinism": {"sort": {"by": ["id"]}},
+        }
+
+        options_mock = MagicMock()
+        options_mock.dry_run = False
+
+        pipeline = ChemblCommonPipeline(
+            config,
+            run_id="test",
+            extraction_strategy_factory=factory,
+        )
+
+        result = pipeline.extract(None, options_mock)
+
+        factory.get.assert_called_once_with("service")
+        assert dummy_strategy.called
+        assert not result.empty
 
     def test_transform(self) -> None:
         """Test transform method."""

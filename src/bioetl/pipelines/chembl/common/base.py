@@ -30,6 +30,9 @@ from bioetl.pipelines.chembl.common.descriptor import (
     ChemblExtractionDescriptor,
 )
 from bioetl.core.io.artifacts import SchemaRegistry
+from bioetl.pipelines.chembl.common.strategies import (
+    ExtractionStrategyFactory,
+)
 
 
 class ChemblWriteService:
@@ -150,6 +153,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         ) = None,
         schema_registry_factory: Callable[[], SchemaRegistry] | None = None,
         descriptor_type: str = "service",
+        extraction_strategy_factory: ExtractionStrategyFactory | None = None,
     ) -> None:
         super().__init__(
             config,
@@ -165,6 +169,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         self._custom_artifact_planner_factory = custom_artifact_planner_factory
         self._schema_registry_factory = schema_registry_factory
         self._descriptor_type = descriptor_type
+        self._extraction_strategy_factory = (
+            extraction_strategy_factory or ExtractionStrategyFactory()
+        )
 
     def _validate_common_config(self) -> None:
         batch_size = self._get_config_value("sources.chembl.batch_size")
@@ -236,43 +243,8 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         if options.dry_run and self.validation_service:
             return self.validation_service.empty_frame()
 
-        ids = (
-            self.config.get("ids")
-            if isinstance(self.config, Mapping)
-            else None
-        )
-        
-        # Handle different descriptor types
-        if self._descriptor_type == "dataclass":
-            # Use dataclass descriptor pattern (like Activity pipeline)
-            descriptor = descriptor or self.build_descriptor()
-            if isinstance(descriptor, ChemblExtractionDescriptor):
-                return self._extract_with_dataclass_descriptor(
-                    descriptor, options
-                )
-        
-        # Default to service descriptor pattern
-        descriptor = descriptor or self.build_descriptor()
-        if isinstance(descriptor, ChemblExtractionServiceDescriptor):
-            frame, _stats = self.run_descriptor_extraction(
-                descriptor,
-                ids if isinstance(ids, Sequence) else None,
-                summary_event=f"{self.entity_name}_summary",
-                batch_size=int(
-                    self._get_config_value("sources.chembl.batch_size")
-                ),
-            )
-            # Return schema-compliant empty dataframe if extraction returned
-            # empty
-            if frame.empty and self.validation_service:
-                return self.validation_service.empty_frame()
-            return frame
-
-        # Fallback for backward compatibility - return schema-compliant empty
-        # frame
-        if self.validation_service:
-            return self.validation_service.empty_frame()
-        return pd.DataFrame()
+        strategy = self._extraction_strategy_factory.get(self._descriptor_type)
+        return strategy.run(self, descriptor, options)
 
     def transform(
         self, df: pd.DataFrame, options: StageExecutionOptions
