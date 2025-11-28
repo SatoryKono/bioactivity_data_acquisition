@@ -1,11 +1,15 @@
-"""Factories for constructing ChEMBL clients."""
+"""Factories and registries for constructing ChEMBL clients."""
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, overload
 
+from bioetl.clients.chembl.adapter_factory import (
+    BaseChemblAdapterFactory,
+    resolve_pagination_strategy,
+)
 from bioetl.clients.chembl.entities import (
     CHEMBL_ALLOWED_ENTITIES,
     ChemblActivityClient,
@@ -17,17 +21,17 @@ from bioetl.clients.chembl.pagination import (
     DEFAULT_PAGINATION_STRATEGY,
     PaginationFactory,
     PaginationStrategy,
-    create_pagination_strategy,
 )
 from bioetl.core.config.models import ChemblAPIConfigModel, PipelineConfig
 from bioetl.core.http.config import APIConfig
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.resilience import ResilienceComponents, ResilientRequestExecutorFactory
 
+FactoryCallable = Callable[[], ApiTransportProtocol]
+TransportFactoryBuilder = Callable[[APIConfig], FactoryCallable]
 FACTORIES_DEPRECATION_MESSAGE = (
     "'bioetl.clients.factories' is deprecated; use 'bioetl.clients.chembl.factories'"
 )
-
 
 @dataclass
 class _ResilientChemblTransport(ApiTransportProtocol):
@@ -87,12 +91,45 @@ def _build_api_config(config: PipelineConfig | Mapping[str, Any] | None) -> APIC
     )
 
 
-def _transport_factory_builder(api_config: APIConfig) -> Callable[[], ApiTransportProtocol]:
+def _transport_factory_builder(api_config: APIConfig) -> FactoryCallable:
     def factory() -> ApiTransportProtocol:
         components = ResilientRequestExecutorFactory(api_config).create()
         return _ResilientChemblTransport(components)
 
     return factory
+
+
+@dataclass(slots=True)
+class TransportFactoryRegistry:
+    """Реестр транспортных фабрик для ChEMBL."""
+
+    registry: dict[str, TransportFactoryBuilder] = field(default_factory=dict)
+    default_factory_name: str = "resilient"
+
+    def __post_init__(self) -> None:
+        if self.default_factory_name not in self.registry:
+            self.registry[self.default_factory_name] = _transport_factory_builder
+
+    def register(self, name: str, factory: TransportFactoryBuilder) -> None:
+        self.registry[name] = factory
+
+    @overload
+    def create(self, api_config: APIConfig) -> FactoryCallable:
+        ...
+
+    @overload
+    def create(self, api_config: APIConfig, *, name: str | None = None) -> FactoryCallable:
+        ...
+
+    def create(
+        self, api_config: APIConfig, *, name: str | None = None
+    ) -> FactoryCallable:
+        factory = self.registry.get(name or self.default_factory_name)
+        if factory is None:
+            available = ", ".join(sorted(self.registry)) or "none"
+            msg = f"Unknown transport factory '{name}'. Available: {available}"
+            raise KeyError(msg)
+        return factory(api_config)
 
 
 def default_chembl_factory(
@@ -102,19 +139,30 @@ def default_chembl_factory(
     pagination_strategy_name: str | None = DEFAULT_PAGINATION_STRATEGY,
     pagination_factories: Mapping[str, PaginationFactory] | None = None,
     transport_factory: Callable[[], ApiTransportProtocol] | None = None,
+    transport_factory_name: str | None = None,
+    transport_factory_registry: TransportFactoryRegistry | None = None,
+    adapter_factory: BaseChemblAdapterFactory | None = None,
 ) -> ChemblEntityClientFactory:
     api_config = _build_api_config(config)
-    strategy = pagination_strategy or create_pagination_strategy(
-        pagination_strategy_name,
-        factories=pagination_factories,
-        default=None,
+    registry = transport_factory_registry or TransportFactoryRegistry()
+    resolved_transport_factory = transport_factory or registry.create(
+        api_config, name=transport_factory_name
     )
-    resolved_transport_factory = transport_factory or _transport_factory_builder(api_config)
+    resolved_adapter_factory = adapter_factory or BaseChemblAdapterFactory(
+        pagination_strategy_name=pagination_strategy_name,
+        pagination_strategy=pagination_strategy,
+        pagination_factories=pagination_factories,
+    )
+
+    def _wrapped_transport_factory() -> ApiTransportProtocol:
+        transport_instance = resolved_transport_factory()
+        return resolved_adapter_factory.ensure_adapter(transport_instance)
+
     return ChemblEntityClientFactory(
         ChemblEntityClientFactoryConfig(
-            resolved_transport_factory,
+            _wrapped_transport_factory,
             pagination_strategy_name=pagination_strategy_name,
-            pagination_strategy=strategy,
+            pagination_strategy=pagination_strategy,
             pagination_factories=pagination_factories,
         )
     )
@@ -138,6 +186,9 @@ def default_activity_client_factory(
 
 
 __all__ = (
+    "BaseChemblAdapterFactory",
+    "TransportFactoryRegistry",
+    "resolve_pagination_strategy",
     "default_chembl_factory",
     "make_chembl_client",
     "default_activity_client_factory",
