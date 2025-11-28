@@ -45,9 +45,18 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
     # ------------------------------------------------------------------
     # Stage hooks
     # ------------------------------------------------------------------
-    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = super().domain_enrich(df)
-        return self._merge_enrichment(df)
+    # Пайплайн больше не выполняет скрытое обогащение.
+    # Пример явного вызова клиента внутри кастомного stage:
+    #
+    #     import pandas as pd
+    #
+    #     enricher = self._client_registry.get("chembl").create("uniprot")
+    #     df["uniprot_payload"] = df["uniprot_id"].apply(
+    #         lambda value: None if pd.isna(value) else enricher.enrich(value)
+    #     )
+    #
+    # Здесь _client_registry формируется теми же фабриками, что используются
+    # для extraction-descriptor. Клиент нужно создавать и вызывать вручную.
 
     def validate(
         self,
@@ -87,24 +96,6 @@ class ChemblTargetPipeline(ChemblCommonPipeline):
                 exc_info=True,
             )
             return super().save_results(df, artifacts, options)
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
-    def _merge_enrichment(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty:
-            return df
-
-        df = df.copy()
-        if "uniprot_id" in df.columns:
-            df["uniprot_payload"] = self.enrichers.enrich(
-                df["uniprot_id"], "uniprot"
-            )
-        if "iuphar_id" in df.columns:
-            df["iuphar_payload"] = self.enrichers.enrich(
-                df["iuphar_id"], "iuphar"
-            )
-        return df
 
 
 __all__ = ["ChemblTargetPipeline"]
