@@ -5,11 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from typing import Any
 
-from bioetl.clients.common import (
-    NextLinkPagination,
-    PageParamPagination,
-    PaginationStrategy,
-)
+from bioetl.core.http import NextLinkPagination, PageParamPagination, PaginationStrategy
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.clients.chembl.entities import (
     ChemblEntityClientFactory,
