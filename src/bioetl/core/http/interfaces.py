@@ -32,7 +32,7 @@ class BaseApiClient(Protocol):
         page_key: str = "results",
         next_key: str = "next",
         page_param: str | None = "page",
-    ) -> Sequence[Mapping[str, Any]]:
+    ) -> Iterator[Mapping[str, Any]]:
         """Iterate over paginated JSON resources for the given ``endpoint``."""
 
     def iterate_records(

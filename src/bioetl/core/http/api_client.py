@@ -85,7 +85,7 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
             "GET", url, params=params, headers=merged_headers
         )
 
-        yield from self.pagination_strategy.iter_pages(
+        for page in self.pagination_strategy.iter_pages(
             initial_response,
             transport=self.request_executor,
             endpoint=endpoint,
@@ -94,7 +94,15 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
             page_key=page_key,
             next_key=next_key,
             page_param=page_param,
-        )
+        ):
+            if isinstance(page, Mapping):
+                items = page.get(page_key, [])
+                if isinstance(items, list):
+                    yield from items
+            elif isinstance(page, Sequence) and not isinstance(
+                page, (str, bytes)
+            ):
+                yield from page
 
     def iterate_records(
         self,
@@ -103,20 +111,23 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         page_size: int | None = None,
         fetcher: Callable[[Sequence[str] | None], Any] | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Yield normalized records, optionally using ``ids`` or a custom ``fetcher``."""
-        # UnifiedAPIClient usually just delegates to paginate_json via default implementation
-        # or specific strategy. For generic client, this might not be fully implemented
-        # or rely on fetcher.
+        """Yield normalized records, optionally using ``ids`` or ``fetcher``."""
+        # UnifiedAPIClient usually just delegates to paginate_json via default
+        # implementation or specific strategy. For generic client, this might
+        # not be fully implemented or rely on fetcher.
         # If this method is required by BaseApiClient, we should implement it.
-        # However, typical use of iterate_records is in EntityClient which wraps this.
-        # For now, returning empty iterator or raising NotImplemented if not used.
-        # But BaseApiClient says it yields Mapping.
+        # However, typical use of iterate_records is in EntityClient which
+        # wraps this. For now, returning empty iterator or raising
+        # NotImplemented if not used. But BaseApiClient says it yields Mapping.
         if fetcher:
             yield from fetcher(ids)
             return
 
         # Fallback: cannot iterate without endpoint or fetcher
-        msg = "UnifiedAPIClient.iterate_records requires a fetcher or ids handling logic"
+        msg = (
+            "UnifiedAPIClient.iterate_records requires a fetcher or ids "
+            "handling logic"
+        )
         raise NotImplementedError(msg)
 
     def close(self) -> None:
