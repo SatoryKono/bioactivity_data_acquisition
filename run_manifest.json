@@ -1,7 +1,7 @@
 {
   "pipeline_code": "ChemblActivityPipeline",
   "run_stem": null,
-  "created_at": "2025-11-28T07:08:53.118247+00:00",
+  "created_at": "2025-11-28T07:10:47.181372+00:00",
   "artifacts": {
     "dataset": {
       "path": "activity__ChemblActivityPipeline.csv",
