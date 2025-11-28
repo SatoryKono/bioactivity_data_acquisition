@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Callable, Mapping
 from unittest.mock import MagicMock
 
@@ -30,8 +31,10 @@ def stage_context_factory() -> Callable[..., StageContext]:
         def get_client(
             self, name: str, entity: object | None = None
         ) -> object:
-            _ = entity
-            return self._mapping[name]
+            obj = self._mapping[name]
+            if entity is not None and isinstance(obj, Mapping):
+                return obj[entity]
+            return obj
 
     def _build(
         *,

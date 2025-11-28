@@ -58,6 +58,7 @@ def test_base_chembl_client_uses_page_param_by_name() -> None:
     factories["page_param"] = lambda: page_param_strategy
 
     transport = MagicMock()
+    del transport.pagination_strategy
 
     client = BaseChemblClient(
         transport,
