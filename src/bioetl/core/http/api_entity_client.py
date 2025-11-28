@@ -6,6 +6,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import Any, Protocol
 
 import structlog
+import warnings
 
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
@@ -22,8 +23,6 @@ from bioetl.core.http.pagination_helpers import (
     warn_fetch_all,
 )
 
-import structlog
-
 
 class EntityClientProtocol(Protocol):
     """Protocol for entity clients."""
@@ -35,6 +34,11 @@ class EntityClientProtocol(Protocol):
     ) -> Mapping[str, Any]:
         """Retrieve an entity by ID."""
 
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Retrieve a single entity."""
+
     def list(
         self,
         *,
@@ -44,17 +48,42 @@ class EntityClientProtocol(Protocol):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[Mapping[str, Any]]:
-        """Retrieve a list of entities."""
+        """Retrieve a list of entities (deprecated)."""
+
+    def fetch_many(
+        self,
+        *,
+        page_size: int = 1000,
+        params: Mapping[str, Any] | None = None,
+        page_key: str = DEFAULT_PAGE_KEY,
+        next_key: str = DEFAULT_NEXT_KEY,
+        page_param: str | None = DEFAULT_PAGE_PARAM,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Retrieve a paginated iterator of entities."""
 
     def fetch_by_ids(
         self, ids: Sequence[str]
     ) -> Iterator[Mapping[str, Any]]:
-        """Retrieve entities by IDs."""
+        """Retrieve entities by IDs (deprecated alias)."""
+
+    def fetch_batch(
+        self, ids: Sequence[str], *, params: Mapping[str, Any] | None = None
+    ) -> Iterator[Mapping[str, Any]]:
+        """Retrieve multiple entities by IDs."""
 
     def search(
         self, params: Mapping[str, Any]
     ) -> Iterator[Mapping[str, Any]]:
         """Search for entities."""
+
+    def iterate_records(
+        self,
+        *,
+        ids: Sequence[str] | None = None,
+        page_size: int | None = None,
+        fetcher: Callable[[Sequence[str] | None], Any] | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Yield normalized records, optionally using ``ids`` or a custom fetcher."""
 
     def close(self) -> None:
         """Close the client."""
@@ -100,6 +129,8 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         self,
         ids: Sequence[str],
         path_template: str = "/{entity}/{id}",
+        *,
+        params: Mapping[str, Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
         """Iterate over entity IDs.
 
@@ -119,6 +150,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             wrap_iterator=self._wrap_iterator,
             logger=self._logger,
             path_template=path_template,
+            params=params,
         )
 
     def get(
@@ -149,7 +181,32 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         Returns:
             An iterator over entity data.
         """
-        return self.iter_ids(ids)
+        warnings.warn(
+            "fetch_by_ids is deprecated; use fetch_batch instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_batch(ids)
+
+    def fetch_batch(
+        self,
+        ids: Sequence[str],
+        *,
+        params: Mapping[str, Any] | None = None,
+        path_template: str = "/{entity}/{id}",
+    ) -> Iterator[dict[str, Any]]:
+        """Retrieve multiple entities by IDs.
+
+        Args:
+            ids: The entity IDs.
+            params: Optional query parameters to include with each request.
+            path_template: Template for building the entity URL.
+
+        Returns:
+            An iterator over entity data.
+        """
+
+        return self.iter_ids(ids, path_template=path_template, params=params)
 
     def iterate_records(
         self,
@@ -172,13 +229,35 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             ids=ids,
             page_size=page_size,
             fetcher=fetcher,
-            fetch_by_ids=self.fetch_by_ids,
-            list_entities=lambda: self.list(page_size=page_size or 1000),
+            fetch_by_ids=self.fetch_batch,
+            list_entities=lambda: self.fetch_many(page_size=page_size or 1000),
             normalize_payload=self._normalize_payload,
             wrap_iterator=self._wrap_iterator,
         )
 
     def list(
+        self,
+        *,
+        page_size: int = 1000,
+        params: Mapping[str, Any] | None = None,
+        page_key: str = DEFAULT_PAGE_KEY,
+        next_key: str = DEFAULT_NEXT_KEY,
+        page_param: str | None = DEFAULT_PAGE_PARAM,
+    ) -> Iterator[dict[str, Any]]:
+        warnings.warn(
+            "list is deprecated; use fetch_many instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_many(
+            page_size=page_size,
+            params=params,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+        )
+
+    def fetch_many(
         self,
         *,
         page_size: int = 1000,
@@ -241,7 +320,7 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             An iterator over entity data.
         """
         return warn_fetch_all(
-            list_entities_fn=lambda: self.list(
+            list_entities_fn=lambda: self.fetch_many(
                 page_size=page_size,
                 params=params,
                 page_key=page_key,
@@ -260,7 +339,22 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         Returns:
             An iterator over entity data.
         """
-        return self.list(params=params)
+        return self.fetch_many(params=params)
+
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Retrieve a single entity.
+
+        Args:
+            entity_id: The entity ID.
+            params: The request parameters.
+
+        Returns:
+            The entity data.
+        """
+
+        return self.get(entity_id, params=params)
 
 
 __all__ = ["BaseApiEntityClient", "EntityClientProtocol"]
