@@ -1,3 +1,5 @@
+"""Test cases for pagination registry injection in Chembl clients."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -11,13 +13,18 @@ PaginationFactoryMap = dict[str, Callable[[], PaginationStrategy]]
 
 
 class _DummyPaginationStrategy:
+    """Dummy pagination strategy for testing."""
+
     def iter_pages(
-        self, initial_response: Any, transport: Any, **kwargs: Any
+        self, initial_response: Any, _transport: Any, **_kwargs: Any
     ) -> Iterator[Any]:
+        """Yield the initial response and stop."""
         yield initial_response  # pragma: no cover - interface stub
 
 
 class _IteratorPaginationStrategy:
+    """Pagination strategy that yields predefined pages."""
+
     def __init__(self, pages: Sequence[Mapping[str, object]]) -> None:
         self.pages = pages
         self.calls: list[Mapping[str, object]] = []
@@ -25,9 +32,10 @@ class _IteratorPaginationStrategy:
     def iter_pages(
         self,
         initial_response: Any,
-        transport: Any,
+        _transport: Any,
         **kwargs: Any,
     ) -> Iterator[Mapping[str, object]]:
+        """Record calls and yield predefined pages."""
         self.calls.append({"initial": initial_response, "kwargs": kwargs})
         yield initial_response
         yield from self.pages
@@ -116,7 +124,7 @@ def test_iterate_records_prefers_fetcher_and_respects_ids_pagination() -> None:
     # We can cast back for the test assertions.
     strategy_impl = cast(_IteratorPaginationStrategy, pagination)
     assert strategy_impl.calls
-    assert (
-        strategy_impl.calls[0]["kwargs"]["page_key"]
-        == "results"
+    first_call_kwargs = cast(
+        dict[str, Any], strategy_impl.calls[0]["kwargs"]
     )
+    assert first_call_kwargs["page_key"] == "results"
