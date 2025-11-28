@@ -443,68 +443,37 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
             )
             artifacts.data_path = planned_artifacts.data_path
 
-        output_service = PipelineOutputService(self.config)
+        # Create UnifiedOutputWriter directly with required parameters
+        logger = UnifiedLogger.get(self.__class__.__name__).bind(
+            run_id=self.run_id
+        )
+        writer = UnifiedOutputWriter(
+            output_dir=self.output_root,
+            pipeline_code=self.pipeline_code,
+            run_stem=options.run_tag,
+            schema_registry=self.writer.schema_registry,
+            config=self.config,
+            logger=logger,
+        )
+        
+        run_artifacts = RunArtifacts(
+            output_dir=self.output_root,
+            logs_directory=self.logs_directory,
+            write_artifacts=artifacts,
+        )
+        
         try:
             print(
-                "DEBUG: Attempting PipelineOutputService.save "
+                "DEBUG: Attempting UnifiedOutputWriter.write_dataset_atomic "
                 f"with df shape {df.shape}"
             )
-            result = output_service.save(df, artifacts, self.output_root)
-            print("DEBUG: PipelineOutputService.save succeeded")
+            result = writer.write_dataset_atomic(df, run_artifacts)
+            print("DEBUG: UnifiedOutputWriter.write_dataset_atomic succeeded")
             return result
-        except ValueError as e:
-            print(
-                f"DEBUG: PipelineOutputService.save raised ValueError: {e}"
-            )
-            # Fall through to write_service
-        except Exception as e:  # pragma: no cover
-            # защита от опциональных интеграций
-            print(f"DEBUG: PipelineOutputService.save raised Exception: {e}")
-            # Fall through to write_service
-
-        output_dir = (
-            artifacts.data_path.parent
-            if artifacts.data_path
-            else self.output_root
-        )
-
-        logger = UnifiedLogger.get(self.__class__.__name__).bind(
-            run_id=self.run_id,
-            pipeline=self.pipeline_code,
-        )
-        stage_context = self.context_builder.build(
-            execution=DefaultExecutionContext(
-                logger=logger,
-                request_id=self.run_id,
-                trace_id=self.run_id,
-            ),
-            domain=DefaultDomainContext(pipeline=self),
-            infrastructure=DefaultInfrastructureContext(
-                output_dir=output_dir,
-                metadata_service=self.metadata_service,
-                qc_orchestrator=self.qc_orchestrator,
-            ),
-            artifacts=DefaultArtifactContext(
-                data_bucket=DataBucket(),
-                artifact_store=ArtifactStore(artifacts),
-            ),
-        )
-        runtime_context = StageRuntimeContext(
-            context=stage_context,
-            options=options,
-        )
-
-        try:
-            return self.write_service.save(
-                df,
-                artifacts,
-                options,
-                context=stage_context,
-                runtime=runtime_context,
-            )
         except Exception as e:
-            print(f"DEBUG: write_service.save raised Exception: {e}")
-            raise
+            print(f"DEBUG: UnifiedOutputWriter.write_dataset_atomic failed: {e}")
+            # Fall through to legacy write_service
+            return self.write_service.save(df, artifacts, options)
 
     def build_pipeline_metadata(
         self, context: StageContextProtocol | None = None
