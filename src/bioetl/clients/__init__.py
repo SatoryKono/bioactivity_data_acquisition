@@ -25,7 +25,7 @@ from bioetl.clients.chembl import (
     ChemblEntityClientFactoryProtocol,
     ChemblEntityClientProtocol,
 )
-from bioetl.clients.factories import (
+from bioetl.clients.chembl.factories import (
     make_chembl_client,
     default_chembl_factory,
 )

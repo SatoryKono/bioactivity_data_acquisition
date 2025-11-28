@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterator, Mapping
-
-import requests
-import structlog
+from typing import Any
 
 from bioetl.core.http.config import APIConfig
 

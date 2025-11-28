@@ -21,7 +21,7 @@ import pandas as pd
 
 from bioetl.core.config.models import ChemblPipelineMetadata
 from bioetl.clients.chembl.entities import ChemblActivityClient
-from bioetl.clients.factories import (
+from bioetl.clients.chembl.factories import (
     default_activity_client_factory,
 )
 from bioetl.core.io import UnifiedOutputWriter

@@ -54,9 +54,13 @@ def _register_default_pipelines() -> None:
         )
         print("DEBUG: Successfully imported all pipeline modules")
     except ImportError as e:  # pragma: no cover - optional dependency loading
+        import traceback
+        traceback.print_exc()
         print(f"DEBUG: ImportError in _register_default_pipelines: {e}")
         return
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"DEBUG: Other exception in _register_default_pipelines: {e}")
         return
 
@@ -64,7 +68,8 @@ def _register_default_pipelines() -> None:
         "activity_chembl", _wrap_pipeline_factory(ChemblActivityPipeline)
     )
     print(
-        f"DEBUG: Registered activity_chembl, registry size: {len(PIPELINE_REGISTRY)}"
+        f"DEBUG: Registered activity_chembl, registry size: "
+        f"{len(PIPELINE_REGISTRY)}"
     )
     register_pipeline(
         "assay_chembl", _wrap_pipeline_factory(ChemblAssayPipeline)

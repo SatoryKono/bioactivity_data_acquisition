@@ -5,21 +5,24 @@ from __future__ import annotations
 import traceback
 from pathlib import Path
 
+from typing import cast
+
+import typer
 from typer.testing import CliRunner
 
 from bioetl.cli.cli_app import app
 
 
-def test_list_command_reports_registered_pipelines():
+def test_list_command_reports_registered_pipelines() -> None:
     """Ensure list command shows registered pipelines."""
 
     runner = CliRunner()
-    result = runner.invoke(app, ["list"])
+    result = runner.invoke(cast(typer.Typer, app), ["list"])
     assert result.exit_code == 0
     assert "activity_chembl" in result.output
 
 
-def test_config_inspect_merges_overrides(tmp_path: Path):
+def test_config_inspect_merges_overrides(tmp_path: Path) -> None:
     """Override config via --set and show merged configuration."""
 
     runner = CliRunner()
@@ -27,7 +30,7 @@ def test_config_inspect_merges_overrides(tmp_path: Path):
     config_path.write_text("pipeline:\n  name: demo\n", encoding="utf-8")
 
     result = runner.invoke(
-        app,
+        cast(typer.Typer, app),
         [
             "config",
             "inspect",
@@ -43,7 +46,7 @@ def test_config_inspect_merges_overrides(tmp_path: Path):
     assert "owner: qa" in result.output
 
 
-def test_activity_chembl_dry_run(tmp_path: Path):
+def test_activity_chembl_dry_run(tmp_path: Path) -> None:
     """Run activity_chembl in dry-run mode via CLI."""
 
     runner = CliRunner()
@@ -66,7 +69,7 @@ sources:
     )
 
     result = runner.invoke(
-        app,
+        cast(typer.Typer, app),
         [
             "activity_chembl",
             "--config",
