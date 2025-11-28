@@ -19,7 +19,7 @@ def test_strategy_registry_derives_default_strategies():
     facade = build_enricher_facade(NULL_ENRICHER_FACTORY, registry)
     enriched = facade.enrich(pd.Series(["Q"], index=[0]), "pubchem")
 
-    assert enriched.iloc[0] == {"result": "ok"}
+    assert enriched == {"result": "ok"}
 
 
 def test_strategy_registry_uses_explicit_mapping():
@@ -37,4 +37,4 @@ def test_strategy_registry_uses_explicit_mapping():
     facade = build_enricher_facade(NULL_ENRICHER_FACTORY, registry)
     enriched = facade.enrich(pd.Series(["Q"], index=[0]), "custom")
 
-    assert enriched.iloc[0] == {"payload": 1}
+    assert enriched == {"payload": 1}

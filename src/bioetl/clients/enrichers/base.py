@@ -261,25 +261,29 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         params: Mapping[str, Any] | None = None,
         page_key: str | None = None,
     ) -> JSONRecordStream:
-        payload = self._wrap_callable(
-            lambda: self.api_client.fetch_one(
-                path,
-                params=params,
-                timeout_sec=self.timeout_sec,
-                max_retries=self.max_retries,
-            ),
-            log_context={"path": path},
-        )
+        try:
+            payload = self._wrap_callable(
+                lambda: self.api_client.fetch_one(
+                    path,
+                    params=params,
+                    timeout_sec=self.timeout_sec,
+                    max_retries=self.max_retries,
+                ),
+                log_context={"path": path},
+            )
 
-        return self._iterate_pages(
-            path=path,
-            params=params,
-            page_key=page_key,
-            next_key=None,
-            page_param=None,
-            fetch_pages=lambda *_: [payload],
-            fallback_payload=payload if payload is not None else None,
-        )
+            return self._iterate_pages(
+                path=path,
+                params=params,
+                page_key=page_key,
+                next_key=None,
+                page_param=None,
+                fetch_pages=lambda *_: [payload],
+                fallback_payload=payload if payload is not None else None,
+            )
+        except Exception:
+            self.close()
+            raise
 
     def fetch_batch(
         self,

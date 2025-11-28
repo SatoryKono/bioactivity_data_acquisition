@@ -1,27 +1,29 @@
-from __future__ import annotations
+"""Common base classes and utilities for ChEMBL pipelines."""
 
-"""Common framework for ChEMBL pipelines on new runtime."""
+from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence, cast
 
 import pandas as pd
 import yaml
 
 from bioetl.clients.enrichers.factory import EnricherClientFactory
 from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
+from bioetl.core.io.artifacts import SchemaRegistry, WriteArtifacts
 from bioetl.core.pipeline.services import (
-    default_write_service_factory,
     ArtifactPlanner,
+    default_write_service_factory,
 )
-from bioetl.core.io.artifacts import WriteArtifacts
 from bioetl.core.pipeline.services.enrichment import (
     SeriesEnricher,
     build_series_enricher,
 )
 from bioetl.core.pipeline.types import (
+    StageContextProtocol,
     StageExecutionOptions,
+    StageRuntimeContext,
     WriteResult,
 )
 from bioetl.core.pipeline.unified import (
@@ -32,24 +34,28 @@ from bioetl.pipelines.chembl.common.chembl_extraction_service import (
     ChemblExtractionService,
 )
 from bioetl.pipelines.chembl.common.descriptor import (
-    ConfigValidationError,
     ChemblExtractionDescriptor,
+    ConfigValidationError,
 )
-from bioetl.pipelines.chembl.common.descriptor_factory import ChemblDescriptorFactory
+from bioetl.pipelines.chembl.common.descriptor_factory import (
+    ChemblDescriptorFactory,
+)
 from bioetl.pipelines.chembl.common.descriptor_factory_builder import (
     build_pipeline_chembl_factory,
 )
-from bioetl.core.io.artifacts import SchemaRegistry
 from bioetl.pipelines.chembl.common.strategies import (
     ExtractionStrategyFactory,
 )
-from bioetl.pipelines.client_registry import ClientFactoryRegistry, build_client_registry
+from bioetl.pipelines.client_registry import (
+    ClientFactoryRegistry,
+    build_client_registry,
+)
 
 
 class ChemblWriteService:
     """Детерминированная запись для ChEMBL-пайплайнов."""
 
-    def __init__(self, pipeline: "ChemblCommonPipeline") -> None:
+    def __init__(self, pipeline: ChemblCommonPipeline) -> None:
         self.pipeline = pipeline
 
     def save(
@@ -58,8 +64,8 @@ class ChemblWriteService:
         artifacts: WriteArtifacts,
         options: StageExecutionOptions,
         *,
-        context,
-        runtime,
+        context: StageContextProtocol,
+        runtime: StageRuntimeContext,
     ) -> WriteResult:
         _ = runtime
         date_suffix = datetime.utcnow().date().isoformat()
@@ -91,6 +97,7 @@ class ChemblWriteService:
 
         if not options.dry_run:
             df.to_csv(dataset_path, index=False)
+            # pylint: disable=protected-access
             self.pipeline._write_quality_report(df, quality_report_path)
 
         payload = {
@@ -204,7 +211,8 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 self.config, chembl_factory=chembl_factory
             )
 
-        return self._client_registry.get("chembl").create(self.entity_name)
+        factory = self._client_registry.get("chembl").create(self.entity_name)
+        return cast(ChemblDescriptorFactory, factory)
 
     def _validate_common_config(self) -> None:
         batch_size = self._get_config_value("sources.chembl.batch_size")
@@ -255,7 +263,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
             )
 
     def _init_enrichers(self, config: Mapping[str, Any]) -> SeriesEnricher:
-        enricher_cfg = config.get("enrichers") if isinstance(config, Mapping) else None
+        enricher_cfg = (
+            config.get("enrichers") if isinstance(config, Mapping) else None
+        )
         factory = EnricherClientFactory.from_config(enricher_cfg)
         strategies = StrategyRegistry.from_config(enricher_cfg)
         return build_series_enricher(factory, strategies)
@@ -273,7 +283,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
     def extract(
         self,
         descriptor: (
-            ChemblExtractionServiceDescriptor
+            ChemblExtractionServiceDescriptor[Any]
             | ChemblExtractionDescriptor
             | None
         ),
@@ -300,15 +310,6 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 df, pipeline=self, options=options
             )
         return df
-
-    def save_results(
-        self,
-        df: pd.DataFrame,
-        artifacts: WriteArtifacts,
-        options: StageExecutionOptions,
-    ) -> WriteResult:
-        """Save results using default implementation."""
-        return super().save_results(df, artifacts, options)
 
     def _write_quality_report(
         self, df: pd.DataFrame, output_path: Path
@@ -341,9 +342,9 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
     def _build_generic_descriptor(
         self,
-    ) -> ChemblExtractionServiceDescriptor:
+    ) -> ChemblExtractionServiceDescriptor[Any]:
         def build_context(
-            _pipeline: ChemblCommonPipeline
+            _pipeline: ChemblCommonPipeline,
         ) -> Mapping[str, Any]:
             chembl_ctx = (
                 self.config.get("sources", {}).get("chembl", {})
@@ -357,10 +358,17 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                 ),
             }
 
-        def fetcher_factory(context: Mapping[str, Any]):
+        def fetcher_factory(
+            context: Mapping[str, Any],
+        ) -> Callable[
+            [Sequence[str] | None],
+            tuple[list[dict[str, Any]], dict[str, Any]],
+        ]:
             fetcher = context.get("entity_fetcher")
 
-            def fetch(batch: Sequence[str] | None):
+            def fetch(
+                batch: Sequence[str] | None,
+            ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
                 meta = {"api_calls": 0, "cache_hit": False, "fallback": 0}
                 if batch is None:
                     return [], meta
@@ -381,12 +389,14 @@ class ChemblCommonPipeline(ChemblPipelineBase):
                     meta.update(
                         {k: v for k, v in extra.items() if k not in meta}
                     )
-                    return rows, meta
-                return result, meta
+                    return cast(list[dict[str, Any]], rows), meta
+                return cast(list[dict[str, Any]], result), meta
 
             return fetch
 
-        def finalizer_factory(context: Mapping[str, Any]):
+        def finalizer_factory(
+            context: Mapping[str, Any],
+        ) -> Callable[[pd.DataFrame], pd.DataFrame]:
             release = context.get("chembl_release")
 
             def finalize(df: pd.DataFrame) -> pd.DataFrame:
@@ -413,7 +423,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
     def build_descriptor(
         self,
-    ) -> ChemblExtractionServiceDescriptor | ChemblExtractionDescriptor:
+    ) -> ChemblExtractionServiceDescriptor[Any] | ChemblExtractionDescriptor:
         """Build extraction descriptor using the configured factory."""
 
         if self._descriptor_type == "service":
@@ -430,6 +440,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
 
         For Activity pipeline.
         """
+        _ = descriptor
         # This method should be overridden by pipelines using dataclass
         # descriptors. Default implementation returns empty DataFrame
         if options.dry_run:

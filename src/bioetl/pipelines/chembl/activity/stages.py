@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
@@ -37,6 +37,7 @@ class ActivityExtractor:
     """Извлечение активностей через клиент ChEMBL."""
 
     client_registry: ChemblClientFactoryRegistry | None = None
+    client_factory: Callable[[Any], Any] | None = None
     parser: ActivityParser = field(default_factory=ActivityParser)
     release: str | None = None
 
@@ -69,10 +70,15 @@ class ActivityExtractor:
                 "batch_size must not exceed 25 for ChEMBL API"
             )
 
-        registry = self.client_registry or ChemblClientFactoryRegistry.from_config(
-            config
-        )
-        client: ChemblClientFacade = registry.create("activity")
+        client: ChemblClientFacade
+        if self.client_factory:
+            client = self.client_factory(config)
+        else:
+            registry = (
+                self.client_registry
+                or ChemblClientFactoryRegistry.from_config(config)
+            )
+            client = registry.create("activity")
         status = client.status()
         if isinstance(status, Mapping):
             self.release = (

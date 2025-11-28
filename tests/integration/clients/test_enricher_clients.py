@@ -72,7 +72,12 @@ exceptions = exceptions_module
 
 
 class FakePagingApiClient:
-    def __init__(self, *, fetch_one_payload: Any = None, batch_pages: Iterable[Any] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        fetch_one_payload: Any = None,
+        batch_pages: Iterable[Any] | None = None,
+    ) -> None:
         self.fetch_one_payload = fetch_one_payload
         self.batch_pages = list(batch_pages or [])
         self.fetch_one_calls: list[dict[str, Any]] = []
@@ -84,6 +89,7 @@ class FakePagingApiClient:
         endpoint: str,
         *,
         params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Any:
@@ -91,6 +97,7 @@ class FakePagingApiClient:
             {
                 "endpoint": endpoint,
                 "params": params,
+                "headers": headers,
                 "timeout_sec": timeout_sec,
                 "max_retries": max_retries,
             }
@@ -102,6 +109,7 @@ class FakePagingApiClient:
         endpoint: str,
         *,
         params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
         page_key: str = "results",
         next_key: str | None = "next",
         page_param: str | None = "page",
@@ -112,6 +120,7 @@ class FakePagingApiClient:
             {
                 "endpoint": endpoint,
                 "params": params,
+                "headers": headers,
                 "page_key": page_key,
                 "next_key": next_key,
                 "page_param": page_param,
@@ -138,7 +147,9 @@ class FailingBatchApiClient(FakePagingApiClient):
     "payload, page_key",
     [({"custom": []}, "custom"), ({"results": []}, None)],
 )
-def test_route_provider_fetch_one_yields_fallback_when_page_empty(payload: Mapping[str, Any], page_key: str | None) -> None:
+def test_route_provider_fetch_one_yields_fallback_when_page_empty(
+    payload: Mapping[str, Any], page_key: str | None
+) -> None:
     api_client = FakePagingApiClient(fetch_one_payload=payload)
     client = CrossrefClient(api_client)
 
@@ -149,6 +160,7 @@ def test_route_provider_fetch_one_yields_fallback_when_page_empty(payload: Mappi
         {
             "endpoint": "/works/10.1000/xyz",
             "params": None,
+            "headers": None,
             "timeout_sec": None,
             "max_retries": None,
         }
@@ -163,13 +175,16 @@ def test_route_provider_fetch_batch_paginates_and_passes_params() -> None:
     api_client = FakePagingApiClient(batch_pages=pages)
     client = CrossrefClient(api_client)
 
-    records = list(client.fetch_batch("aspirin", params={"filter": "type:journal"}))
+    records = list(
+        client.fetch_batch("aspirin", params={"filter": "type:journal"})
+    )
 
     assert records == [{"id": 1}, {"id": 2}]
     assert api_client.fetch_batch_calls == [
         {
             "endpoint": "/works",
             "params": {"query": "aspirin", "filter": "type:journal"},
+            "headers": None,
             "page_key": "results",
             "next_key": "next",
             "page_param": "page",

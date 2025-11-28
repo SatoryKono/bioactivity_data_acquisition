@@ -114,8 +114,13 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         """
         self.transport = transport
         self.entity = entity.strip("/")
-        # pagination_strategy is read-only property from ApiClientMixin
+        self._pagination_strategy = pagination
         self._logger = structlog.get_logger(__name__).bind(entity=self.entity)
+
+    @property
+    def pagination_strategy(self) -> PaginationStrategy:
+        """Return the configured pagination strategy."""
+        return self._pagination_strategy
 
     def _entity_path(self, suffix: str | None = None) -> str:
         """Get the entity path.
