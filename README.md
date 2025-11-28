@@ -27,3 +27,37 @@ python -m bioetl.cli.cli_app list
 
 Структура подготовлена для дальнейшей интеграции Pandera, backoff/requests и
 конкретных ETL-пайплайнов под ChEMBL.
+
+## Клиентский слой и совместимые алиасы
+
+- Реестр клиентских фабрик расположен в `bioetl.clients.base`: функции
+  `register_factory`/`get_factory` управляют общим `FACTORIES`, а
+  `register_domain_factories` удобно прокидывает алиасы `chembl` и `enricher`.
+- В `bioetl.clients` доступен готовый `default_chembl_factory` и вспомогательный
+  `make_chembl_client`, позволяющие быстро собрать адаптеры ChEMBL с нужной
+  пагинацией и транспортом.
+- Старые алиасы HTTP/пагинации сохраняются для обратной совместимости
+  (`ApiTransportProtocol`, `PaginationStrategy` и т.п.) и при обращении
+  проксируются в `bioetl.core.http` с `DeprecationWarning`.
+
+Минимальный пример инициализации фабрики ChEMBL в приложении:
+
+```python
+from bioetl.clients import (
+    default_chembl_factory,
+    get_factory,
+    register_domain_factories,
+)
+
+register_domain_factories(chembl_factory=default_chembl_factory())
+target_client = get_factory("chembl").create("target")
+with target_client as client:
+    # дальнейшая логика обхода/выгрузки
+    ...
+```
+
+CLI также умеет использовать зарегистрированные пайплайны/клиенты:
+
+```bash
+python -m bioetl.cli.cli_app run-chembl-all --config configs/example.yaml --dry-run
+```
