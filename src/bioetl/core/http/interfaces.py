@@ -1,3 +1,9 @@
+"""HTTP client protocols and interfaces.
+
+This module defines the core protocols and interfaces for HTTP clients
+in the BioETL system, providing contracts for resilient API interactions.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -26,8 +32,8 @@ class BaseApiClient(Protocol):
         """Fetch a single JSON document from ``endpoint``.
 
         Notes:
-            ``get_json`` is a backwards-compatible alias kept for legacy
-            call-sites. Prefer :meth:`fetch_one` for new code.
+            ``get_json`` is a backwards-compatible alias kept for
+            legacy call-sites. Prefer :meth:`fetch_one` for new code.
 
         Args:
             endpoint: Relative path that will be appended to the base URL.
@@ -86,7 +92,8 @@ class BaseApiClient(Protocol):
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
-        """Retrieve a single JSON document with optional resilience overrides.
+        """Retrieve a single JSON document with optional resilience
+        overrides.
 
         Args:
             endpoint: Relative path that will be appended to the base URL.
@@ -113,7 +120,8 @@ class BaseApiClient(Protocol):
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Iterate over a collection resource with pagination and resilience.
+        """Iterate over a collection resource with pagination and
+        resilience.
 
         Args:
             endpoint: Relative path to the collection resource.
@@ -165,6 +173,11 @@ class BaseApiClient(Protocol):
 
 @runtime_checkable
 class ApiTransportProtocol(Protocol):
+    """Protocol for low-level HTTP transport implementations.
+    
+    Provides the minimal interface required for making HTTP requests
+    and returning parsed JSON responses.
+    """
     def request(
         self,
         method: str,
@@ -214,3 +227,4 @@ __all__ = [
     "RateLimiter",
     "RetryStrategy",
 ]
+

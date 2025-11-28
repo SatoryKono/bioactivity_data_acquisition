@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Iterable, Mapping as TypingMapping, Protocol, runtime_checkable
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Iterable,
+    Mapping as TypingMapping,
+    Protocol,
+    runtime_checkable,
+)
 import warnings
 
 import structlog
@@ -17,11 +25,12 @@ class EnricherClientOptions:
     """Опции, передаваемые обогащающим HTTP-клиентам.
 
     Attributes:
-        timeout_sec: Перекрыть таймаут транспортного слоя для конкретных вызовов.
+        timeout_sec: Перекрыть таймаут транспортного слоя
+            для конкретных вызовов.
         max_retries: Перекрыть количество повторов при ошибках.
         page_key: Ключ в JSON-ответе, содержащий результаты.
         next_key: Ключ перехода на следующую страницу.
-        page_param: Имя параметра номерной пагинации (``None`` отключает его).
+        page_param: Имя параметра номерной пагинации (``None`` отключает).
     """
 
     timeout_sec: float | None = None
@@ -87,6 +96,46 @@ class OptionsAwareApiClient:
     def close(self) -> None:
         self._api_client.close()
 
+    def fetch_one(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
+        return self._api_client.fetch_one(
+            endpoint,
+            params=params,
+            headers=headers,
+            timeout_sec=timeout_sec or self.timeout_sec,
+            max_retries=max_retries or self.max_retries,
+        )
+
+    def fetch_batch(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_key: str = "results",
+        next_key: str = "next",
+        page_param: str | None = "page",
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        return self._api_client.fetch_batch(
+            endpoint,
+            params=params,
+            headers=headers,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+            timeout_sec=timeout_sec or self.timeout_sec,
+            max_retries=max_retries or self.max_retries,
+        )
+
 
 @runtime_checkable
 class EnricherClientProtocol(Protocol):
@@ -133,6 +182,8 @@ class EnricherClientProtocol(Protocol):
 
 
 class BaseEnricherClient(ClosableMixin, ApiClientMixin):
+    """Base client for data enrichment with HTTP API support."""
+
     def __init__(
         self,
         api_client: BaseApiClient,
@@ -141,7 +192,9 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         options: EnricherClientOptions | None = None,
     ) -> None:
         effective_options = options or EnricherClientOptions()
-        self.api_client = OptionsAwareApiClient(api_client, effective_options)
+        self.api_client: OptionsAwareApiClient = OptionsAwareApiClient(
+            api_client, effective_options
+        )  # type: ignore[assignment]
         self.timeout_sec = effective_options.timeout_sec
         self.max_retries = effective_options.max_retries
         self.page_key = effective_options.page_key
@@ -157,11 +210,17 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         page_key: str | None,
         next_key: str | None,
         page_param: str | None,
-        fetch_pages: Callable[[str | None, str, str | None], Iterable[Any]],
+        fetch_pages: Callable[
+            [str | None, str, str | None], Iterable[Any]
+        ],
         fallback_payload: Any | None = None,
     ) -> JSONRecordStream:
-        effective_page_key = page_key if page_key is not None else self.page_key
-        effective_next_key = next_key if next_key is not None else self.next_key
+        effective_page_key = (
+            page_key if page_key is not None else self.page_key
+        )
+        effective_next_key = (
+            next_key if next_key is not None else self.next_key
+        )
         effective_page_param = (
             page_param if page_param is not None else self.page_param
         )
@@ -231,13 +290,12 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         next_key: str | None = None,
         page_param: str | None = None,
     ) -> JSONRecordStream:
-        return self._iterate_pages(
-            path=path,
-            params=params,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-            fetch_pages=lambda effective_page_key, effective_next_key, effective_page_param: self.api_client.fetch_batch(
+        def _fetch_batch_fn(
+            effective_page_key: str | None,
+            effective_next_key: str,
+            effective_page_param: str | None,
+        ) -> Any:
+            return self.api_client.fetch_batch(
                 path,
                 params=params,
                 page_key=effective_page_key or "results",
@@ -245,7 +303,14 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
                 page_param=effective_page_param,
                 timeout_sec=self.timeout_sec,
                 max_retries=self.max_retries,
-            ),
+            )
+        return self._iterate_pages(
+            path=path,
+            params=params,
+            page_key=page_key,
+            next_key=next_key,
+            page_param=page_param,
+            fetch_pages=_fetch_batch_fn,
         )
 
 
@@ -278,7 +343,10 @@ class RouteEnricherMixin(BaseEnricherClient):
         route = self._route_map[route_name]
         params_with_value = params
         if route.query_param:
-            params_with_value = {route.query_param: value, **(params or {})}
+            params_with_value = {
+                route.query_param: value,
+                **(params or {}),
+            }
 
         path = route.path.format(value=value)
         return path, params_with_value
@@ -292,7 +360,9 @@ class RouteEnricherMixin(BaseEnricherClient):
         page_key: str | None = None,
     ) -> JSONRecordStream:
         name = route_name or self.DEFAULT_FETCH_ROUTE
-        path, params_with_value = self._resolve_route(name, value=value, params=params)
+        path, params_with_value = self._resolve_route(
+            name, value=value, params=params
+        )
         return super().fetch_one(
             path, params=params_with_value, page_key=page_key
         )
@@ -308,7 +378,9 @@ class RouteEnricherMixin(BaseEnricherClient):
         page_param: str | None = None,
     ) -> JSONRecordStream:
         name = route_name or self.DEFAULT_SEARCH_ROUTE
-        path, params_with_value = self._resolve_route(name, value=value, params=params)
+        path, params_with_value = self._resolve_route(
+            name, value=value, params=params
+        )
         return super().fetch_batch(
             path,
             params=params_with_value,
@@ -318,10 +390,14 @@ class RouteEnricherMixin(BaseEnricherClient):
         )
 
     def call_route(
-        self, route_name: str, *, value: str, params: Mapping[str, Any] | None = None
+        self,
+        route_name: str,
+        *,
+        value: str,
+        params: Mapping[str, Any] | None = None,
     ) -> JSONRecordStream:
         warnings.warn(
-            "call_route устарел; используйте fetch_one/fetch_batch",  # pragma: no cover - warnings path
+            "call_route устарел; используйте fetch_one/fetch_batch",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -372,9 +448,12 @@ class RouteProviderMixin(RouteEnricherMixin):
 class DeprecatedAliasMixin:
     """Автоматически проксирует устаревшие алиасы методов."""
 
-    DEPRECATED_ALIASES: ClassVar[TypingMapping[str, str]] = {}
+    DEPRECATED_ALIASES: ClassVar[
+        TypingMapping[str, str]
+    ] = {}
 
-    def __getattr__(self, name: str) -> Any:  # pragma: no cover - wrapper path
+    def __getattr__(self, name: str) -> Any:  # pragma: no cover
+        """Proxy deprecated method aliases to their targets."""
         alias_target = self.DEPRECATED_ALIASES.get(name)
         if alias_target:
             target = getattr(self, alias_target)
