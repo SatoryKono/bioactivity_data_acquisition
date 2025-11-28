@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from enum import Enum
 from typing import Callable, Protocol
 
 from bioetl.clients.enrichers.crossref import CrossrefClient
@@ -9,6 +10,7 @@ from bioetl.clients.enrichers.pubchem import PubChemClient
 from bioetl.clients.enrichers.pubmed import PubmedClient
 from bioetl.clients.enrichers.semantic_scholar import SemanticScholarClient
 from bioetl.clients.enrichers.uniprot import UniProtClient
+from bioetl.clients.enrichers.base import BaseEnricherClient
 from bioetl.core.http.interfaces import BaseApiClient
 
 
@@ -25,6 +27,17 @@ class EnricherApiFactory(Protocol):
 
     def __call__(self, options: EnricherClientOptions) -> BaseApiClient:
         ...
+
+
+class EnricherEntity(str, Enum):
+    """Enumeration of supported enricher providers."""
+
+    CROSSREF = "crossref"
+    OPENALEX = "openalex"
+    PUBCHEM = "pubchem"
+    PUBMED = "pubmed"
+    SEMANTIC_SCHOLAR = "semantic_scholar"
+    UNIPROT = "uniprot"
 
 
 class _ConfiguredApiClient:
@@ -75,6 +88,14 @@ class EnricherClientFactory:
         client = self._api_client_factory(merged_options)
         return _ConfiguredApiClient(client, merged_options)
 
+    def create(self, source: EnricherEntity | str, **overrides) -> BaseEnricherClient:
+        entity = EnricherEntity(source)
+        factory = getattr(self, entity.value, None)
+        if callable(factory):
+            return factory(**overrides)
+        msg = f"Enricher '{source}' is not supported"
+        raise KeyError(msg)
+
     def crossref(self, **overrides) -> CrossrefClient:
         return CrossrefClient(self._api(**overrides))
 
@@ -97,5 +118,6 @@ class EnricherClientFactory:
 __all__ = [
     "EnricherClientFactory",
     "EnricherClientOptions",
+    "EnricherEntity",
 ]
 
