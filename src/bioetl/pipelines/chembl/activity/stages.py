@@ -115,6 +115,26 @@ class ActivityExtractor:
                 )
                 return df, {"api_calls": payload_meta.get("api_calls", 1)}
             except RuntimeError as exc:  # pragma: no cover; noqa: BLE001
+                # Try to get partial data from client before it failed
+                # The client may have processed some IDs successfully
+                try:
+                    # Access the client's partial data if available
+                    if hasattr(client, '_last_partial_data'):
+                        partial_payload = client._last_partial_data
+                        iterator = partial_payload.values() if isinstance(partial_payload, Mapping) else partial_payload
+                        frames = []
+                        for raw in iterator:
+                            if isinstance(raw, Mapping) and "results" not in raw:
+                                raw = {"results": [raw]}
+                            frames.append(self.parser.parse(raw))
+                        partial_df = (
+                            pd.concat(frames, ignore_index=True)
+                            if frames
+                            else pd.DataFrame()
+                        )
+                        return partial_df, {"fallback": len(list(batch)), "api_calls": 1}
+                except Exception:
+                    pass
                 # Return empty DataFrame for failed batch to exclude failed IDs
                 return pd.DataFrame(), {"fallback": len(list(batch)), "api_calls": 1}
 

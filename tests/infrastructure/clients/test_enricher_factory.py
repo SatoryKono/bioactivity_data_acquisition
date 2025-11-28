@@ -32,7 +32,7 @@ class _RecordingApiClient:
         self.calls.append((endpoint, params))
         return {"results": [{"endpoint": endpoint, "params": params}]}
 
-        def paginate_json(
+    def paginate_json(
         self,
         endpoint: str,
         *,
@@ -57,8 +57,9 @@ class _RecordingApiClient:
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Any:
-        del endpoint, params, headers, timeout_sec, max_retries
-        return None
+        del headers, timeout_sec, max_retries
+        self.calls.append((endpoint, params))
+        return {"endpoint": endpoint, "params": params}
 
     def fetch_batch(
         self,
@@ -187,3 +188,4 @@ def test_enricher_factory_ignores_top_level_api_fields_without_warnings() -> Non
     # Верхнеуровневые поля игнорируются и не попадают в api_config
     assert isinstance(captured["api_config"], EnricherApiConfig)
     assert captured["api_config"].pagination is None
+
