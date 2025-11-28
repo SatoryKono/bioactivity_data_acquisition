@@ -428,39 +428,40 @@ class TestChemblCommonPipeline:
         assert all(row["error_code"] == "extract_failed" for row in result)
         assert all(row["error_message"] == "test error" for row in result)
 
-    def test_build_generic_descriptor(self) -> None:
-        """Test generic descriptor building."""
+    def test_build_descriptor_via_factory(self) -> None:
+        """Test descriptor construction through the factory."""
         config = {
             "sources": {
                 "chembl": {
                     "batch_size": 10,
                     "max_url_length": 1000,
                     "client": "mock_client",
-                    "activity_fetcher": MagicMock()
+                    "activity_fetcher": MagicMock(),
                 }
             },
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         pipeline = ChemblCommonPipeline(config, run_id="test")
-        
-        descriptor = pipeline._build_generic_descriptor()
+
+        descriptor = pipeline.build_descriptor()
         
         assert isinstance(descriptor, ChemblExtractionServiceDescriptor)
         assert callable(descriptor.build_context)
         assert callable(descriptor.fetcher_factory)
         assert callable(descriptor.finalizer_factory)
 
-    def test_build_descriptor_not_implemented(self) -> None:
-        """Test build_descriptor raises NotImplementedError."""
+    def test_build_descriptor_service_path(self) -> None:
+        """build_descriptor should use the service factory by default."""
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         pipeline = ChemblCommonPipeline(config, run_id="test")
-        
-        with pytest.raises(NotImplementedError):
-            pipeline.build_descriptor()
+
+        descriptor = pipeline.build_descriptor()
+
+        assert isinstance(descriptor, ChemblExtractionServiceDescriptor)

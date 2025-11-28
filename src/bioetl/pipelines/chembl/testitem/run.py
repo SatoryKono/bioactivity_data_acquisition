@@ -28,7 +28,7 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
         self.validation_service = DefaultValidationService(self.validator)
 
     def build_descriptor(self):  # pragma: no cover
-        return self._build_generic_descriptor()
+        return super().build_descriptor()
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         df = super().pre_transform(df)
