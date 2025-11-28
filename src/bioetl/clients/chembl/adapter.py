@@ -11,10 +11,7 @@ from typing import Any
 
 import structlog
 
-from bioetl.clients.pagination import (
-    PaginationFactory,
-    create_pagination_strategy,
-)
+from bioetl.clients.chembl.pagination import PaginationFactory, create_pagination_strategy
 from bioetl.core.http import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy

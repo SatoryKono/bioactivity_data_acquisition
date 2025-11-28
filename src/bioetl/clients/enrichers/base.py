@@ -10,7 +10,7 @@ from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.types import JSONRecordStream
 
 
-class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
+class BaseEnricherClient(ClosableMixin, ApiClientMixin):
     def __init__(self, api_client: BaseApiClient, source: str) -> None:
         self.api_client = api_client
         self._logger = structlog.get_logger(__name__).bind(source=source)
@@ -42,4 +42,4 @@ class _BaseEnricherClient(ClosableMixin, ApiClientMixin):
             raise
 
 
-__all__ = ["_BaseEnricherClient"]
+__all__ = ["BaseEnricherClient"]

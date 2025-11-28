@@ -5,9 +5,11 @@ from collections.abc import Mapping
 from enum import Enum
 from typing import Callable, Type
 
-from bioetl.clients.chembl.base import ChemblEntityClient
-from bioetl.clients.pagination import PaginationFactory
-from bioetl.core.http.api_entity_client import EntityClientProtocol
+from bioetl.clients.chembl.base import (
+    BaseChemblEntityProtocol,
+    ChemblEntityClient,
+)
+from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
 
@@ -29,7 +31,7 @@ CHEMBL_ALLOWED_ENTITIES: tuple[str, ...] = tuple(
 
 def _build_entity_client(
     name: str, entity: ChemblEntity
-) -> Type[ChemblEntityClient]:
+) -> Type[BaseChemblEntityProtocol]:
     class EntityClient(ChemblEntityClient):
         """Dynamically generated entity client."""
 
@@ -61,7 +63,7 @@ class ChemblEntityClientFactory:
         self._pagination_strategy = pagination_strategy
         self._pagination_factories = pagination_factories
 
-    def create(self, entity: ChemblEntity | str) -> EntityClientProtocol:
+    def create(self, entity: ChemblEntity | str) -> BaseChemblEntityProtocol:
         """Create a client for the specified entity."""
         entity_name = (
             ChemblEntity(entity).value
@@ -77,8 +79,8 @@ class ChemblEntityClientFactory:
         )
 
     def _create_specific(
-        self, client_cls: Type[ChemblEntityClient]
-    ) -> EntityClientProtocol:
+        self, client_cls: Type[BaseChemblEntityProtocol]
+    ) -> BaseChemblEntityProtocol:
         # client_cls is a dynamic subclass that binds the 'entity' argument
         # in its __init__, so we don't need to pass it here.
         return client_cls(  # type: ignore[call-arg]
@@ -88,23 +90,23 @@ class ChemblEntityClientFactory:
             pagination_factories=self._pagination_factories,
         )
 
-    def activity(self) -> EntityClientProtocol:
+    def activity(self) -> BaseChemblEntityProtocol:
         """Create an activity client."""
         return self._create_specific(ChemblActivityClient)
 
-    def assay(self) -> EntityClientProtocol:
+    def assay(self) -> BaseChemblEntityProtocol:
         """Create an assay client."""
         return self._create_specific(ChemblAssayClient)
 
-    def target(self) -> EntityClientProtocol:
+    def target(self) -> BaseChemblEntityProtocol:
         """Create a target client."""
         return self._create_specific(ChemblTargetClient)
 
-    def testitem(self) -> EntityClientProtocol:
+    def testitem(self) -> BaseChemblEntityProtocol:
         """Create a testitem client."""
         return self._create_specific(ChemblTestItemClient)
 
-    def document(self) -> EntityClientProtocol:
+    def document(self) -> BaseChemblEntityProtocol:
         """Create a document client."""
         return self._create_specific(ChemblDocumentClient)
 
