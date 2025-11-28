@@ -226,6 +226,7 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         )
 
         def iterator() -> Iterator[dict[str, Any]]:
+            _ = params
             self._logger.info("api_call", path=path)
             yielded = False
             for payload in fetch_pages(
@@ -363,6 +364,7 @@ class RouteEnricherMixin(BaseEnricherClient):
         route_name: str | None = None,
         page_key: str | None = None,
     ) -> JSONRecordStream:
+        # pylint: disable=arguments-differ
         name = route_name or self.DEFAULT_FETCH_ROUTE
         path, params_with_value = self._resolve_route(
             name, value=value, params=params
@@ -381,6 +383,7 @@ class RouteEnricherMixin(BaseEnricherClient):
         next_key: str | None = None,
         page_param: str | None = None,
     ) -> JSONRecordStream:
+        # pylint: disable=arguments-differ
         name = route_name or self.DEFAULT_SEARCH_ROUTE
         path, params_with_value = self._resolve_route(
             name, value=value, params=params

@@ -121,7 +121,8 @@ class _DummyEnricher(BaseEnricherClient):
     ) -> Iterator[dict[str, Any]]:
         """Fetch data using the base fetch_one method."""
         return cast(
-            Iterator[dict[str, Any]], self.fetch_one(path, params=params)
+            "Iterator[dict[str, Any]]",
+            self.fetch_one(path, params=params)
         )
 
 
@@ -132,7 +133,9 @@ def test_get_flattens_results_array_into_iterator() -> None:
 
     assert list(client.fetch()) == [{"id": 1}, {"id": 2}]
     # Check that the internal api_client was called correctly
-    dummy = cast(_DummyApiClient, client.api_client)
+    # Access the underlying dummy client through the wrapper
+    wrapper = client.api_client
+    dummy = cast(_DummyApiClient, wrapper._client)
     assert dummy.calls == [("/dummy", None)]
 
 

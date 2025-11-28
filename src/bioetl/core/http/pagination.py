@@ -1,3 +1,5 @@
+"""HTTP pagination strategies and utilities."""
+
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
@@ -51,6 +53,17 @@ class PaginationStrategy(Protocol):
 class DefaultPaginationStrategy(PaginationStrategy):
     """Простая стратегия пагинации, использующая номер страницы."""
 
+    def __init__(
+        self,
+        *,
+        page_key: str = DEFAULT_PAGE_KEY,
+        next_key: str = DEFAULT_NEXT_KEY,
+        page_param: str | None = DEFAULT_PAGE_PARAM,
+    ) -> None:
+        self.page_key = page_key
+        self.next_key = next_key
+        self.page_param = page_param
+
     def iter_pages(
         self,
         initial_response: ResponsePayload,
@@ -59,15 +72,15 @@ class DefaultPaginationStrategy(PaginationStrategy):
         endpoint: str,
         params: Mapping[str, Any] | None = None,
         logger: Any | None = None,
-        page_key: str | None = "results",
-        next_key: str | None = "next",
-        page_param: str | None = "page",
+        page_key: str | None = None,
+        next_key: str | None = None,
+        page_param: str | None = None,
         normalize: Any | None = None,
     ) -> Iterator[ResponsePayload]:
         pagination = PageParamPagination(
-            page_param=page_param,
-            page_key=page_key or DEFAULT_PAGE_KEY,
-            next_key=next_key or DEFAULT_NEXT_KEY,
+            page_param=self.page_param,
+            page_key=self.page_key,
+            next_key=self.next_key,
         )
         yield from pagination.iter_pages(
             initial_response,
@@ -112,8 +125,12 @@ class NextLinkPagination:
         page_key = page_key or self.page_key
         next_key = next_key or self.next_key
         next_path = endpoint
-        response: Mapping[str, Any] | Sequence[Mapping[str, Any]] = initial_response
-        query_params: Mapping[str, Any] | None = dict(params) if params else None
+        response: (
+            Mapping[str, Any] | Sequence[Mapping[str, Any]]
+        ) = initial_response
+        query_params: Mapping[str, Any] | None = (
+            dict(params) if params else None
+        )
 
         while next_path:
             yield response
@@ -161,17 +178,23 @@ class PageParamPagination:
     ) -> Iterator[Mapping[str, Any] | Sequence[Mapping[str, Any]]]:
         page_key = page_key or self.page_key
         next_key = next_key or self.next_key
-        page_param = page_param if page_param is not None else self.page_param
+        page_param = (
+            page_param if page_param is not None else self.page_param
+        )
 
         page_num = 1
         next_path = endpoint
         query_params = dict(params) if params else {}
-        response: Mapping[str, Any] | Sequence[Mapping[str, Any]] = initial_response
+        response: (
+            Mapping[str, Any] | Sequence[Mapping[str, Any]]
+        ) = initial_response
 
         while next_path:
             yield response
 
-            next_candidate = response.get(next_key) if isinstance(response, Mapping) else None
+            next_candidate = (
+                response.get(next_key) if isinstance(response, Mapping) else None
+            )
             if isinstance(next_candidate, str) and next_candidate:
                 next_path = next_candidate
                 query_params = {}
