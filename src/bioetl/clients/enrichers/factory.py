@@ -4,12 +4,14 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Mapping, Protocol
 
-from bioetl.clients.enrichers.crossref import CrossrefClient
-from bioetl.clients.enrichers.openalex import OpenAlexClient
-from bioetl.clients.enrichers.pubchem import PubChemClient
-from bioetl.clients.enrichers.pubmed import PubmedClient
-from bioetl.clients.enrichers.semantic_scholar import SemanticScholarClient
-from bioetl.clients.enrichers.uniprot import UniProtClient
+from bioetl.clients.enrichers.providers import (
+    CrossrefClient,
+    OpenAlexClient,
+    PubChemClient,
+    PubmedClient,
+    SemanticScholarClient,
+    UniProtClient,
+)
 from bioetl.clients.enrichers.base import EnricherClientOptions, EnricherClientProtocol
 from bioetl.core.http.interfaces import BaseApiClient
 

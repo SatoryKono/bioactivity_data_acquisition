@@ -6,11 +6,22 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
 import warnings
 from typing import Any
 
+from pathlib import Path
+
 from .base import BaseEnricherClient, RouteConfig, RouteEnricherMixin
-from bioetl.clients.enrichers.crossref import CrossrefClient
+from bioetl.clients.enrichers.providers import (
+    CrossrefClient,
+    OpenAlexClient,
+    PubChemClient,
+    PubmedClient,
+    SemanticScholarClient,
+    UniProtClient,
+)
 from bioetl.clients.enrichers.factory import (
     EnricherClientFactory,
     EnricherClientOptions,
@@ -25,11 +36,19 @@ from bioetl.clients.enrichers.facade import (
     NullEnricherFacade,
 )
 from bioetl.clients.enrichers.strategy_registry import StrategyRegistry
-from bioetl.clients.enrichers.openalex import OpenAlexClient
-from bioetl.clients.enrichers.pubchem import PubChemClient
-from bioetl.clients.enrichers.pubmed import PubmedClient
-from bioetl.clients.enrichers.semantic_scholar import SemanticScholarClient
-from bioetl.clients.enrichers.uniprot import UniProtClient
+
+_PROVIDERS_PATH = str(Path(__file__).with_name("providers"))
+if _PROVIDERS_PATH not in __path__:
+    __path__.append(_PROVIDERS_PATH)
+
+_DEPRECATED_MODULES: dict[str, str] = {
+    "crossref": "bioetl.clients.enrichers.providers.crossref",
+    "openalex": "bioetl.clients.enrichers.providers.openalex",
+    "pubchem": "bioetl.clients.enrichers.providers.pubchem",
+    "pubmed": "bioetl.clients.enrichers.providers.pubmed",
+    "semantic_scholar": "bioetl.clients.enrichers.providers.semantic_scholar",
+    "uniprot": "bioetl.clients.enrichers.providers.uniprot",
+}
 
 __all__ = [
     "BaseEnricherClient",
@@ -58,4 +77,14 @@ def __getattr__(name: str) -> Any:
             stacklevel=2,
         )
         return BaseEnricherClient
+    if name in _DEPRECATED_MODULES:
+        new_path = _DEPRECATED_MODULES[name]
+        warnings.warn(
+            f"'bioetl.clients.enrichers.{name}' перемещён в '{new_path}'",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        module = importlib.import_module(new_path)
+        sys.modules[f"{__name__}.{name}"] = module
+        return module
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
