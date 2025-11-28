@@ -1,24 +1,64 @@
 """ChEMBL pagination strategies."""
 
-from bioetl.clients._deprecated_proxy import (
-    DeprecatedProxyConfig,
-    export_from,
-    make_deprecated_proxy,
-)
-from bioetl.clients.chembl._pagination_impl import (
-    PAGINATION_DEPRECATION_MESSAGE as _PAGINATION_DEPRECATION_MESSAGE,
-    PAGINATION_EXPORTS,
-)
+from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 
-_PROXY_CONFIG = DeprecatedProxyConfig(
-    target="bioetl.clients.chembl._pagination_impl",
-    exports=PAGINATION_EXPORTS,
-    message=None,
+from bioetl.core.http.pagination import DefaultPaginationStrategy, PaginationStrategy
+
+PaginationFactory = Callable[[], PaginationStrategy]
+DEFAULT_PAGINATION_STRATEGY = "default"
+PAGINATION_DEPRECATION_MESSAGE = (
+    "'bioetl.clients.pagination' is deprecated; use 'bioetl.clients.chembl.pagination'"
 )
 
-_module, __all__ = make_deprecated_proxy(_PROXY_CONFIG, stacklevel=3)
-globals().update(export_from(_module, __all__))
 
-__all__ = list(__all__)
-PAGINATION_DEPRECATION_MESSAGE = _PAGINATION_DEPRECATION_MESSAGE
+def register_pagination_strategy(
+    name: str, factory: PaginationFactory, *, registry: dict[str, PaginationFactory] | None = None
+) -> None:
+    target = registry if registry is not None else _PAGINATION_REGISTRY
+    target[name] = factory
+
+
+def available_pagination_strategies(
+    *, registry: Mapping[str, PaginationFactory] | None = None
+) -> tuple[str, ...]:
+    target = registry if registry is not None else _PAGINATION_REGISTRY
+    return tuple(target.keys())
+
+
+def create_pagination_strategy(
+    name: str | None = None,
+    *,
+    factories: Mapping[str, PaginationFactory] | None = None,
+    default: PaginationStrategy | None = None,
+) -> PaginationStrategy:
+    registry: dict[str, PaginationFactory] = dict(_PAGINATION_REGISTRY)
+    if factories:
+        registry.update(factories)
+
+    strategy_name = name or DEFAULT_PAGINATION_STRATEGY
+    if default is not None and strategy_name not in registry:
+        return default
+
+    factory = registry.get(strategy_name)
+    if factory is None:
+        raise KeyError(
+            f"Unknown pagination strategy '{strategy_name}'. "
+            f"Available: {', '.join(sorted(registry)) or 'none'}"
+        )
+    return factory()
+
+
+_PAGINATION_REGISTRY: dict[str, PaginationFactory] = {}
+register_pagination_strategy(DEFAULT_PAGINATION_STRATEGY, DefaultPaginationStrategy)
+
+__all__ = (
+    "PaginationStrategy",
+    "PaginationFactory",
+    "DEFAULT_PAGINATION_STRATEGY",
+    "available_pagination_strategies",
+    "create_pagination_strategy",
+    "register_pagination_strategy",
+    "PAGINATION_DEPRECATION_MESSAGE",
+)

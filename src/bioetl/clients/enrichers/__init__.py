@@ -9,6 +9,7 @@ from bioetl.clients.enrichers.crossref import CrossrefClient
 from bioetl.clients.enrichers.factory import (
     EnricherClientFactory,
     EnricherClientOptions,
+    EnricherEntity,
 )
 from bioetl.clients.enrichers.facade import (
     ClientMethodStrategy,
@@ -31,12 +32,7 @@ __all__ = [
     "CrossrefClient",
     "EnricherClientFactory",
     "EnricherClientOptions",
-    "EnricherFacade",
-    "EnrichmentStrategy",
-    "ClientMethodStrategy",
-    "build_enricher_facade",
-    "NULL_ENRICHER_FACTORY",
-    "NullEnricherFacade",
+    "EnricherEntity",
     "OpenAlexClient",
     "PubChemClient",
     "PubmedClient",
