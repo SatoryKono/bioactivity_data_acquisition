@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 import structlog
 
@@ -60,11 +60,15 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> Mapping[str, Any] | list[Mapping[str, Any]]:
-        """Fetch a single resource from ``endpoint`` and return decoded JSON."""
+        """Fetch a single resource from ``endpoint`` and return decoded JSON.
+        """
         url = self.request_builder.build_url(endpoint)
         merged_headers = self.request_builder.merge_headers(headers)
-        return self.request_executor.request(
-            "GET", url, params=params, headers=merged_headers
+        return cast(
+            Mapping[str, Any] | list[Mapping[str, Any]],
+            self.request_executor.request(
+                "GET", url, params=params, headers=merged_headers
+            ),
         )
 
     def paginate_json(
@@ -111,22 +115,24 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         page_size: int | None = None,
         fetcher: Callable[[Sequence[str] | None], Any] | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Yield normalized records, optionally using ``ids`` or ``fetcher``."""
+        """Yield normalized records, optionally using ``ids`` or a custom
+        ``fetcher``.
+        """
         # UnifiedAPIClient usually just delegates to paginate_json via default
         # implementation or specific strategy. For generic client, this might
         # not be fully implemented or rely on fetcher.
         # If this method is required by BaseApiClient, we should implement it.
         # However, typical use of iterate_records is in EntityClient which
-        # wraps this. For now, returning empty iterator or raising
-        # NotImplemented if not used. But BaseApiClient says it yields Mapping.
+        # wraps this. For now, returning empty iterator or raising NotImplemented
+        # if not used. But BaseApiClient says it yields Mapping.
         if fetcher:
             yield from fetcher(ids)
             return
 
         # Fallback: cannot iterate without endpoint or fetcher
         msg = (
-            "UnifiedAPIClient.iterate_records requires a fetcher or ids "
-            "handling logic"
+            "UnifiedAPIClient.iterate_records requires a fetcher or "
+            "ids handling logic"
         )
         raise NotImplementedError(msg)
 

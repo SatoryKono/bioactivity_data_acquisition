@@ -91,7 +91,9 @@ def test_unified_client_cache_and_pagination() -> None:
             json={"items": []},
         )
 
-        pages: Iterator[dict[str, Any]] = client.paginate_json("/items")
+        pages: Iterator[dict[str, Any]] = client.paginate_json(
+            "/items", page_key="items"
+        )
         first = next(pages)
         second = next(pages)
         with pytest.raises(StopIteration):
