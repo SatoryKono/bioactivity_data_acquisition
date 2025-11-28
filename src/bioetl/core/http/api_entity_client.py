@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import Any, Protocol
-
-import structlog
+from typing import Any, Protocol, cast
 
 from bioetl.core.http.client_mixins import ApiClientMixin, ClosableMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
@@ -50,6 +48,20 @@ class EntityClientProtocol(Protocol):
         self, ids: Sequence[str]
     ) -> Iterator[Mapping[str, Any]]:
         """Retrieve entities by IDs."""
+
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Fetch a single entity with explicit naming."""
+
+    def fetch_batch(
+        self,
+        *,
+        ids: Sequence[str],
+        page_size: int | None = None,
+        fetcher: Callable[[Sequence[str]], Any] | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Fetch a batch of entities using the client's batching logic."""
 
     def search(
         self, params: Mapping[str, Any]
@@ -140,6 +152,13 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             log_context={"path": self._entity_path(entity_id)},
         )
 
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Alias for :meth:`get` to align with generic client interface."""
+
+        return self.get(entity_id, params=params)
+
     def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
         """Retrieve entities by IDs.
 
@@ -176,6 +195,19 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             list_entities=lambda: self.list(page_size=page_size or 1000),
             normalize_payload=self._normalize_payload,
             wrap_iterator=self._wrap_iterator,
+        )
+
+    def fetch_batch(
+        self,
+        *,
+        ids: Sequence[str],
+        page_size: int | None = None,
+        fetcher: Callable[[Sequence[str]], Any] | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Explicit batching entrypoint delegating to :meth:`iterate_records`."""
+
+        yield from self.iterate_records(
+            ids=ids, page_size=page_size, fetcher=fetcher
         )
 
     def list(
@@ -218,6 +250,18 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
             next_key=next_key,
             page_param=page_param,
         )
+
+    @property
+    def retry_strategy(self) -> Any:
+        strategy = getattr(self._transport(), "retry_strategy", None)
+        if strategy is None:
+            raise AttributeError("Transport does not expose retry_strategy")
+        return strategy
+
+    @property
+    def timeout_seconds(self) -> float:
+        raw = getattr(self._transport(), "timeout_seconds", None)
+        return cast(float, raw) if raw is not None else 0.0
 
     def fetch_all(
         self,
