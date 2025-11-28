@@ -8,6 +8,11 @@ from .descriptor import (
 )
 from .base import ChemblCommonPipeline, ChemblWriteService
 from .chembl_extraction_service import ChemblExtractionService
+from .descriptor_factory import (
+    ChemblContextFacade,
+    ChemblDescriptorFactory,
+    FetcherStrategy,
+)
 
 __all__ = [
     "BatchPlan",
@@ -19,4 +24,7 @@ __all__ = [
     "ChemblExtractionService",
     "ChemblCommonPipeline",
     "ChemblWriteService",
+    "ChemblDescriptorFactory",
+    "ChemblContextFacade",
+    "FetcherStrategy",
 ]
