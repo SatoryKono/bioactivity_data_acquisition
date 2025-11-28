@@ -35,6 +35,7 @@ class LoggingTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtoco
     ) -> None:
         self._base_transport = transport
         self.transport = transport
+        self._pagination_strategy: PaginationStrategy | None = None
         self.pagination_strategy = pagination_strategy or (
             pagination_factory(pagination_strategy_name, pagination_factories)
             if pagination_factory
@@ -42,6 +43,14 @@ class LoggingTransportAdapter(ApiClientMixin, ClosableMixin, ApiTransportProtoco
         )
         self._metadata: dict[str, Any] = {}
         self._logger = structlog.get_logger(__name__).bind(client=client_name)
+
+    @property
+    def pagination_strategy(self) -> PaginationStrategy | None:  # type: ignore[override]
+        return self._pagination_strategy
+
+    @pagination_strategy.setter
+    def pagination_strategy(self, value: PaginationStrategy | None) -> None:
+        self._pagination_strategy = value
 
     @property
     def base_transport(self) -> ApiTransportProtocol:

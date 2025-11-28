@@ -1,8 +1,10 @@
-"""Public ChEMBL client surface and helpers.
+"""Публичная поверхность ChEMBL-клиентов и фабрик.
 
-The package root exposes only the supported client classes and factories.
-Other internal helpers can be imported directly from their submodules; legacy
-aliases now emit :class:`DeprecationWarning` when accessed.
+Точка входа включает готовые фабрики адаптеров, нормализаторы и reexport’ы
+для удобной сборки клиентов ChEMBL через :func:`make_chembl_client` или
+:func:`default_chembl_factory`. Внутренние хелперы доступны из подмодулей,
+а устаревшие алиасы при обращении выдают :class:`DeprecationWarning` и
+проксируют к новым API (пагинация, протоколы транспорта и т.д.).
 """
 
 from __future__ import annotations
@@ -25,9 +27,12 @@ from bioetl.clients.chembl.entities import (
     ChemblTestItemClient,
 )
 from bioetl.clients.chembl.factories import (
+    BaseChemblAdapterFactory,
+    TransportFactoryRegistry,
     default_activity_client_factory,
     default_chembl_factory,
     make_chembl_client,
+    resolve_pagination_strategy,
 )
 from bioetl.clients.chembl.factory import ChemblClientFactory
 from bioetl.clients.chembl.normalization import (
@@ -58,6 +63,9 @@ __all__ = [
     "ChemblDocumentClient",
     "ChemblTargetClient",
     "ChemblTestItemClient",
+    "BaseChemblAdapterFactory",
+    "TransportFactoryRegistry",
+    "resolve_pagination_strategy",
     "ChemblEntityClientFactory",
     "ChemblEntityClientFactoryConfig",
     "ChemblEntityClientFactoryProtocol",

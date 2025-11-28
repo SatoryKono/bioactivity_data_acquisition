@@ -4,11 +4,12 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Callable, Protocol
 
-from bioetl.clients.chembl.adapter import ChemblTransportAdapter
-from bioetl.clients.chembl.pagination import (
-    PaginationFactory,
-    create_pagination_strategy,
+from bioetl.clients.chembl.adapter_factory import (
+    BaseChemblAdapterFactory,
+    resolve_pagination_strategy,
 )
+from bioetl.clients.chembl.compat import ChemblCompatibilityMixin
+from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
@@ -29,6 +30,34 @@ class ChemblClientProtocol(Protocol):
     ) -> Mapping[str, Any]:
         """Retrieve an entity by ID."""
 
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Retrieve a single entity payload."""
+
+    def fetch_many(
+        self,
+        *,
+        page_size: int = 1000,
+        params: Mapping[str, Any] | None = None,
+        page_key: str = DEFAULT_PAGE_KEY,
+        next_key: str = DEFAULT_NEXT_KEY,
+        page_param: str | None = DEFAULT_PAGE_PARAM,
+    ) -> Iterator[dict[str, Any]]:
+        """Iterate over paginated entities."""
+
+    def fetch_batch(
+        self,
+        ids: Sequence[str],
+        *,
+        params: Mapping[str, Any] | None = None,
+        path_template: str = "/{entity}/{id}",
+    ) -> Iterator[dict[str, Any]]:
+        """Fetch entities by their identifiers."""
+
+    def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
+        """Deprecated alias for ``fetch_batch``."""
+
     def fetch_page(
         self,
         *,
@@ -38,7 +67,7 @@ class ChemblClientProtocol(Protocol):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
-        """Fetch a single page of entities."""
+        """Deprecated alias for ``fetch_many``."""
 
     def list(
         self,
@@ -49,7 +78,7 @@ class ChemblClientProtocol(Protocol):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
-        """Alias for ``fetch_page`` to preserve backwards compatibility."""
+        """Deprecated alias for ``fetch_many``."""
 
     def fetch_all(
         self,
@@ -61,9 +90,6 @@ class ChemblClientProtocol(Protocol):
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
         """Fetch all entities in the collection."""
-
-    def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
-        """Fetch entities by their identifiers."""
 
     def iterate_records(
         self,
@@ -89,7 +115,9 @@ class BaseChemblEntityProtocol(ChemblClientProtocol, Protocol):
     """Legacy alias for configured ChEMBL entity clients."""
 
 
-class BaseChemblClient(BaseApiEntityClient, ChemblClientProtocol):
+class BaseChemblClient(
+    ChemblCompatibilityMixin, BaseApiEntityClient, ChemblClientProtocol
+):
     """Base ChEMBL client implementing common operations and aliases."""
 
     def __init__(
@@ -101,39 +129,35 @@ class BaseChemblClient(BaseApiEntityClient, ChemblClientProtocol):
         pagination_strategy_name: str | None = None,
         pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
-        strategy = (
-            pagination_strategy
-            or getattr(transport, "pagination_strategy", None)
+        strategy = resolve_pagination_strategy(
+            transport,
+            pagination_strategy=pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_factories=pagination_factories,
         )
-        if strategy is None:
-            strategy = create_pagination_strategy(
-                pagination_strategy_name, factories=pagination_factories
-            )
-        if strategy is None:
-            msg = "Pagination strategy is required for BaseChemblClient"
-            raise ValueError(msg)
         super().__init__(transport, strategy, entity=entity)
 
-    def fetch_page(
-        self,
-        *,
-        page_size: int = 1000,
-        params: Mapping[str, Any] | None = None,
-        page_key: str = DEFAULT_PAGE_KEY,
-        next_key: str = DEFAULT_NEXT_KEY,
-        page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[dict[str, Any]]:
-        """Fetch a single page using the underlying pagination helpers."""
+    def fetch_one(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        """Fetch a single ChEMBL entity."""
 
-        return super().list(
-            page_size=page_size,
-            params=params,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
+        return super().fetch_one(entity_id, params=params)
+
+    def fetch_batch(
+        self,
+        ids: Sequence[str],
+        *,
+        params: Mapping[str, Any] | None = None,
+        path_template: str = "/{entity}/{id}",
+    ) -> Iterator[dict[str, Any]]:
+        """Fetch multiple entities by IDs using the base implementation."""
+
+        return super().fetch_batch(
+            ids, params=params, path_template=path_template
         )
 
-    def list(
+    def fetch_many(
         self,
         *,
         page_size: int = 1000,
@@ -142,9 +166,9 @@ class BaseChemblClient(BaseApiEntityClient, ChemblClientProtocol):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
-        """Alias for ``fetch_page`` kept for backwards compatibility."""
+        """Iterate over paginated entities via the base client."""
 
-        return self.fetch_page(
+        return super().fetch_many(
             page_size=page_size,
             params=params,
             page_key=page_key,
@@ -183,16 +207,17 @@ class ChemblEntityClient(BaseChemblClient):
         pagination_strategy_name: str | None = None,
         pagination_factories: Mapping[str, PaginationFactory] | None = None,
     ) -> None:
-        adapter = ChemblTransportAdapter(
-            transport,
+        adapter = BaseChemblAdapterFactory(
             pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
             pagination_factories=pagination_factories,
-        )
+        ).ensure_adapter(transport)
         super().__init__(
             adapter,
             entity,
             pagination_strategy=adapter.pagination_strategy,
+            pagination_strategy_name=pagination_strategy_name,
+            pagination_factories=pagination_factories,
         )
 
 

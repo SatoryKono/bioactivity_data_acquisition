@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any
 import warnings
 
-from ..base import RouteConfig, RouteEnricherMixin
-from bioetl.core.http.types import JSONRecordStream
+from ..base import DeprecatedAliasMixin, RouteConfig, RouteProviderMixin
 
 if __name__.startswith("bioetl.clients.enrichers.") and ".providers." not in __name__:
     module = __name__.split(".")[-1]
@@ -19,22 +16,13 @@ if __name__.startswith("bioetl.clients.enrichers.") and ".providers." not in __n
     )
 
 
-class CrossrefClient(RouteEnricherMixin):
+class CrossrefClient(DeprecatedAliasMixin, RouteProviderMixin):
     SOURCE = "crossref"
     ROUTES = (
         RouteConfig(name="fetch", path="/works/{value}"),
         RouteConfig(name="search", path="/works", query_param="query"),
     )
-
-    def fetch(
-        self, doi: str, params: Mapping[str, Any] | None = None
-    ) -> JSONRecordStream:
-        return self.call_route("fetch", value=doi, params=params)
-
-    def search(
-        self, query: str, params: Mapping[str, Any] | None = None
-    ) -> JSONRecordStream:
-        return self.call_route("search", value=query, params=params)
+    DEPRECATED_ALIASES = {"fetch": "fetch_one", "search": "fetch_batch"}
 
 
 __all__ = ["CrossrefClient"]

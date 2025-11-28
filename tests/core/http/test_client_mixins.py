@@ -28,8 +28,8 @@ class _DummyApiClient(ApiClientMixin, ClosableMixin):
         self._logger = MagicMock()
 
 
-def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
-    """Test that fetch_by_ids normalizes payloads and logs calls."""
+def test_entity_client_fetch_batch_normalizes_and_logs_payloads() -> None:
+    """Test that fetch_batch normalizes payloads and logs calls."""
     transport = MagicMock(spec=ApiTransportProtocol)
     transport.request.side_effect = [
         {"id": "10", "value": 1},
@@ -46,7 +46,7 @@ def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
     )
     client._logger = MagicMock()
 
-    result = list(client.fetch_by_ids(["10", "11"]))
+    result = list(client.fetch_batch(["10", "11"]))
 
     assert result == [
         {"id": "10", "value": 1},
@@ -63,8 +63,8 @@ def test_entity_client_fetch_by_ids_normalizes_and_logs_payloads() -> None:
     ]
 
 
-def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
-    """Test that ChemblEntityClient uses the shared fetch_by_ids logic."""
+def test_chembl_client_fetch_batch_uses_shared_iterator() -> None:
+    """Test that ChemblEntityClient uses the shared fetch_batch logic."""
     transport = MagicMock(spec=ApiTransportProtocol)
     transport.request.side_effect = [
         {"chembl_id": "CHEMBL1"},
@@ -74,7 +74,7 @@ def test_chembl_client_fetch_by_ids_uses_shared_iterator() -> None:
     client = ChemblEntityClient(transport=transport, entity="molecule")
     client._logger = MagicMock()
 
-    result = list(client.fetch_by_ids(["1", "2"]))
+    result = list(client.fetch_batch(["1", "2"]))
 
     assert result == [
         {"chembl_id": "CHEMBL1"},

@@ -80,6 +80,7 @@ def iter_ids(
     wrap_iterator: WrapIterator,
     logger: Any,
     path_template: str = "/{entity}/{id}",
+    params: Mapping[str, Any] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Унифицированный обход сущностей по списку идентификаторов."""
 
@@ -88,7 +89,7 @@ def iter_ids(
             entity_id = str(raw_id)
             path = path_template.format(entity=entity, id=entity_id)
             payload = wrap_callable(
-                lambda: transport.request("GET", path),
+                lambda: transport.request("GET", path, params=params),
                 log_context={"path": path},
             )
             logger.info("api_call", entity=entity, entity_id=entity_id)

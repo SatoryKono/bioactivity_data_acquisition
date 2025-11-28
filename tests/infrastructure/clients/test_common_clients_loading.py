@@ -157,13 +157,13 @@ def test_wrap_callable_converts_exceptions_and_logs_error() -> None:
     assert any(entry.get("event") == "api_call_failed" for entry in logs)
 
 
-def test_fetch_by_ids_reuses_transport_iteration() -> None:
-    """Test that fetch_by_ids reuses transport iteration correctly."""
+def test_fetch_batch_reuses_transport_iteration() -> None:
+    """Test that fetch_batch reuses transport iteration correctly."""
     payloads: list[Mapping[str, Any]] = []
     api_client = _DummyApiClient(payloads)
     client = _DummyEntityClient(api_client, payloads)
 
-    records = list(client.fetch_by_ids(["123", "456"]))
+    records = list(client.fetch_batch(["123", "456"]))
 
     assert records == [
         {"endpoint": "/dummy/123", "params": {}},
