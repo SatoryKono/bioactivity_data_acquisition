@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, ClassVar, Iterable
 
 import structlog
 
@@ -42,7 +43,31 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
             raise
 
 
-_BaseEnricherClient = BaseEnricherClient
+@dataclass(frozen=True)
+class RouteConfig:
+    name: str
+    path: str
+    query_param: str | None = None
 
 
-__all__ = ["BaseEnricherClient", "_BaseEnricherClient"]
+class RouteEnricherMixin(BaseEnricherClient):
+    SOURCE: ClassVar[str]
+    ROUTES: ClassVar[Iterable[RouteConfig]]
+
+    def __init__(self, api_client: BaseApiClient) -> None:
+        super().__init__(api_client, self.SOURCE)
+        self._route_map = {route.name: route for route in self.ROUTES}
+
+    def _call_route(
+        self, route_name: str, *, value: str, params: Mapping[str, Any] | None = None
+    ) -> JSONRecordStream:
+        route = self._route_map[route_name]
+        params_with_value = params
+        if route.query_param:
+            params_with_value = {route.query_param: value, **(params or {})}
+
+        path = route.path.format(value=value)
+        return self._get(path, params=params_with_value)
+
+
+__all__ = ["BaseEnricherClient", "RouteConfig", "RouteEnricherMixin"]
