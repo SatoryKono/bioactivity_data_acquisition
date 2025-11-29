@@ -1,9 +1,0 @@
-digraph "packages_bioetl_pipelines_chembl_document" {
-rankdir=BT
-charset="utf-8"
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\__init__.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\__init__.py>, shape="box", style="solid"];
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\adapters.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\adapters.py>, shape="box", style="solid"];
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\normalizers.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\normalizers.py>, shape="box", style="solid"];
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\parsers.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\parsers.py>, shape="box", style="solid"];
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\run.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\document\run.py>, shape="box", style="solid"];
-}

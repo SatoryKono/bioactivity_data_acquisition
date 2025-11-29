@@ -1,8 +1,0 @@
-digraph "packages_bioetl_pipelines_chembl_target" {
-rankdir=BT
-charset="utf-8"
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\target\__init__.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\target\__init__.py>, shape="box", style="solid"];
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\target\normalizers.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\target\normalizers.py>, shape="box", style="solid"];
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\target\parsers.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\target\parsers.py>, shape="box", style="solid"];
-"e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\target\run.py" [color="black", label=<e:\github\bioactivity_data_acquisition1\src\bioetl\pipelines\chembl\target\run.py>, shape="box", style="solid"];
-}

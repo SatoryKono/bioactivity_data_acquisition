@@ -1,8 +1,0 @@
-digraph "packages_bioetl_core_runtime" {
-rankdir=BT
-charset="utf-8"
-"src.bioetl.core.runtime" [color="black", label=<src.bioetl.core.runtime>, shape="box", style="solid"];
-"src.bioetl.core.runtime.lifecycle" [color="black", label=<src.bioetl.core.runtime.lifecycle>, shape="box", style="solid"];
-"src.bioetl.core.runtime.metadata" [color="black", label=<src.bioetl.core.runtime.metadata>, shape="box", style="solid"];
-"src.bioetl.core.runtime.qc" [color="black", label=<src.bioetl.core.runtime.qc>, shape="box", style="solid"];
-}

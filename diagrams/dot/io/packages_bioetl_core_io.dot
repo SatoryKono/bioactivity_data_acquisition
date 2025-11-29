@@ -1,9 +1,0 @@
-digraph "packages_bioetl_core_io" {
-rankdir=BT
-charset="utf-8"
-"src.bioetl.core.io" [color="black", label=<src.bioetl.core.io>, shape="box", style="solid"];
-"src.bioetl.core.io.artifacts" [color="black", label=<src.bioetl.core.io.artifacts>, shape="box", style="solid"];
-"src.bioetl.core.io.output" [color="black", label=<src.bioetl.core.io.output>, shape="box", style="solid"];
-"src.bioetl.core.io.output_service" [color="black", label=<src.bioetl.core.io.output_service>, shape="box", style="solid"];
-"src.bioetl.core.io.writer" [color="black", label=<src.bioetl.core.io.writer>, shape="box", style="solid"];
-}
