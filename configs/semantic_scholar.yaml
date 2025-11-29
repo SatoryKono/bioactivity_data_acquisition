@@ -1,0 +1,8 @@
+pagination:
+  page_size: 100
+resources:
+  paper:
+    endpoint: "/paper"
+    id_field: "paperId"
+    filter_mapping:
+      status: "fieldsOfStudy"
