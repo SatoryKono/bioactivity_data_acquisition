@@ -10,7 +10,7 @@ import pandas as pd
 from bioetl.core.pipeline.unified import BatchExtractionStats
 from bioetl.pipelines.chembl.batch_executor import execute_chembl_batches
 from bioetl.clients import ClientRequest, PaginationParams
-from bioetl.clients.base.client import DataClient
+from bioetl.clients.base.contracts import DataClient
 
 
 class ChemblExtractionService:

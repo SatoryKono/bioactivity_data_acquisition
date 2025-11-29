@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from bioetl.config import load_client_config
-from bioetl.clients.base.client import PaginationParams
+from bioetl.clients.base.contracts import PaginationParams
 
 
 def split_name(name: str) -> tuple[str, str]:
