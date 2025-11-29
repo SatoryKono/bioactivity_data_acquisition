@@ -1,9 +1,17 @@
+"""Pydantic models for HTTP client configuration."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 class AuthConfig(BaseModel):

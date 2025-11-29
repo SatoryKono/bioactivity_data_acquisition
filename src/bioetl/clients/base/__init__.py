@@ -1,10 +1,15 @@
-from __future__ import annotations
-
 """Базовый слой клиентов внешних источников."""
 
-from bioetl.clients.base.client_abc import BaseClient, ClientRequest, RequestContext
-from bioetl.clients.base.db_backend import DbBackend
-from bioetl.clients.base.exceptions import (
+from __future__ import annotations
+
+# pylint: disable=redefined-builtin
+
+from bioetl.clients.base.client_abc import (
+    BaseClient,
+    ClientRequest,
+    RequestContext,
+)
+from bioetl.clients.base.exceptions import (  # noqa: E402
     ConfigurationError,
     ConnectionError,
     HTTPError,
@@ -22,7 +27,6 @@ __all__ = [
     "ClientRequest",
     "RequestContext",
     "HttpBackend",
-    "DbBackend",
     "Page",
     "PaginationParams",
     "Headers",

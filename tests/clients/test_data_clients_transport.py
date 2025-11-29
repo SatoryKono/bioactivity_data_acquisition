@@ -1,14 +1,26 @@
+"""Tests for HTTP data clients delegating work to transport backends."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any, Iterator
 
 import pytest
 
-from bioetl.clients.base import ClientRequest, PaginationParams, RequestContext
+from bioetl.clients.base import (
+    BaseClient,
+    ClientRequest,
+    PaginationParams,
+    RequestContext,
+)
 from bioetl.clients.base.http_backend import HttpBackend
 from bioetl.clients.base.paging import Page
+from bioetl.clients.base.types import Record
 from bioetl.clients.config.loader import load_source_config
+from bioetl.clients.config.models import (
+    ResourceConfig,
+    SourceConfig,
+)
 from bioetl.clients.crossref import CrossrefClient
 from bioetl.clients.openalex import OpenAlexClient
 from bioetl.clients.pubchem import PubChemClient
@@ -19,22 +31,66 @@ from bioetl.clients.chembl import ChemblClient
 
 
 class FakeBackend(HttpBackend):
+    """Test HTTP backend that records calls instead of performing IO."""
+
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
-    def fetch_one(self, *, source, resource, request, context=None):
-        self.calls.append({"method": "fetch_one", "source": source.source, "route": request.route, "resource": resource.path})
+    def fetch_one(
+        self,
+        *,
+        source: SourceConfig,
+        resource: ResourceConfig,
+        request: ClientRequest,
+        context: RequestContext | None = None,
+    ) -> Record | None:
+        self.calls.append(
+            {
+                "method": "fetch_one",
+                "source": source.source,
+                "route": request.route,
+                "resource": resource.path,
+            }
+        )
         return {"ok": True}
 
-    def iter_records(self, *, source, resource, request, context=None) -> Iterable[dict[str, Any]]:
-        self.calls.append({"method": "iter_records", "source": source.source, "route": request.route, "resource": resource.path})
+    def iter_records(
+        self,
+        *,
+        source: SourceConfig,
+        resource: ResourceConfig,
+        request: ClientRequest,
+        context: RequestContext | None = None,
+    ) -> Iterator[Record]:
+        self.calls.append(
+            {
+                "method": "iter_records",
+                "source": source.source,
+                "route": request.route,
+                "resource": resource.path,
+            }
+        )
         yield {"kind": "record"}
 
-    def iter_pages(self, *, source, resource, request, context=None) -> Iterable[Page]:
-        self.calls.append({"method": "iter_pages", "source": source.source, "route": request.route, "resource": resource.path})
+    def iter_pages(
+        self,
+        *,
+        source: SourceConfig,
+        resource: ResourceConfig,
+        request: ClientRequest,
+        context: RequestContext | None = None,
+    ) -> Iterator[Page]:
+        self.calls.append(
+            {
+                "method": "iter_pages",
+                "source": source.source,
+                "route": request.route,
+                "resource": resource.path,
+            }
+        )
         yield Page(items=[{"kind": "page"}])
 
-    def metadata(self, *, source):
+    def metadata(self, *, source: SourceConfig) -> dict[str, object]:
         return {"source": source.source}
 
     def close(self) -> None:  # pragma: no cover - trivial
@@ -43,7 +99,9 @@ class FakeBackend(HttpBackend):
 
 @dataclass(slots=True)
 class ClientCase:
-    client_cls: type
+    """Client type, builder name and expected route."""
+
+    client_cls: type[BaseClient]
     builder_name: str
     route: str
 
@@ -61,6 +119,8 @@ CLIENT_CASES = (
 
 @pytest.mark.parametrize("case", CLIENT_CASES)
 def test_clients_delegate_to_backend(case: ClientCase) -> None:
+    """Ensure clients delegate requests to the HTTP backend correctly."""
+
     backend = FakeBackend()
     client = case.client_cls(backend)
 
@@ -82,4 +142,6 @@ def test_clients_delegate_to_backend(case: ClientCase) -> None:
 
     assert backend.calls[0]["method"] == "fetch_one"
     assert {call["route"] for call in backend.calls} == {case.route}
-    assert {call["source"] for call in backend.calls} == {load_source_config(case.client_cls.source).source}
+    assert {
+        call["source"] for call in backend.calls
+    } == {load_source_config(case.client_cls.source).source}

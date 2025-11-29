@@ -1,5 +1,7 @@
 """Публичное API для клиентского слоя."""
 
+# pylint: disable=redefined-builtin
+
 from bioetl.clients.base import (
     BaseClient,
     ClientRequest,
@@ -14,7 +16,11 @@ from bioetl.clients.base import (
     RequestException,
     Timeout,
 )
-from bioetl.clients.factory import ClientFactory, ConfiguredHttpClient, default_client_builder
+from bioetl.clients.factory import (
+    ClientFactory,
+    ConfiguredHttpClient,
+    default_client_builder,
+)
 from bioetl.clients.registry import get_registry
 
 __all__ = [
