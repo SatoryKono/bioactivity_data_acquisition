@@ -1,7 +1,22 @@
 from __future__ import annotations
 
-"""Базовые абстракции клиентского слоя."""
+"""Базовые абстракции клиентского слоя.
 
+Новые контракты доступны напрямую из этого модуля.
+Совместимость с легаси-API сохраняется через alias-переменные,
+а также модуль ``bioetl.clients.legacy``.
+"""
+
+from .contracts import (
+    ClientRequest,
+    ExternalDataClient,
+    Page,
+    Pagination,
+    Record,
+    RequestContext,
+)
+from .http_backend import HttpBackend
+from .rest_client import ConfiguredRestClient
 from .exceptions import (
     ConfigurationError,
     ConnectionError,
@@ -11,32 +26,37 @@ from .exceptions import (
     RequestException,
     Timeout,
 )
-from .contracts import (
+from .legacy_contracts import (
     ClientError,
-    ClientRequest,
+    ClientRequest as _LegacyClientRequest,
     DataClient,
     DataProviderProtocol,
-    Page,
-    PageStream,
+    Page as _LegacyPage,
+    PageStream as LegacyPageStream,
     PaginationParams,
-    Record,
-    RecordStream,
-    RequestContext,
+    Record as _LegacyRecord,
+    RecordStream as LegacyRecordStream,
+    RequestContext as _LegacyRequestContext,
     RetryOptions,
     SupportsBatch,
     SupportsSearch,
     TransportOptions,
 )
-from bioetl.clients.registry import (
-    FACTORIES,
-    ClientFactory,
-    ClientProtocol,
-    get_factory,
-    register_domain_factories,
-    register_factory,
-)
+
+LegacyClientRequest = _LegacyClientRequest
+LegacyRequestContext = _LegacyRequestContext
+LegacyPage = _LegacyPage
+LegacyRecord = _LegacyRecord
 
 __all__ = [
+    "ClientRequest",
+    "ExternalDataClient",
+    "Page",
+    "Pagination",
+    "Record",
+    "RequestContext",
+    "ConfiguredRestClient",
+    "HttpBackend",
     "ConfigurationError",
     "ConnectionError",
     "HTTPError",
@@ -44,24 +64,19 @@ __all__ = [
     "ProviderError",
     "RequestException",
     "Timeout",
-    "ClientError",
-    "ClientRequest",
+    # legacy exports
+    "LegacyClientRequest",
+    "LegacyRequestContext",
+    "LegacyPage",
+    "LegacyPageStream",
+    "LegacyRecord",
+    "LegacyRecordStream",
+    "PaginationParams",
     "DataClient",
     "DataProviderProtocol",
     "SupportsBatch",
     "SupportsSearch",
-    "PaginationParams",
-    "RequestContext",
-    "Record",
-    "RecordStream",
-    "Page",
-    "PageStream",
     "TransportOptions",
     "RetryOptions",
-    "FACTORIES",
-    "ClientFactory",
-    "ClientProtocol",
-    "register_factory",
-    "register_domain_factories",
-    "get_factory",
+    "ClientError",
 ]
