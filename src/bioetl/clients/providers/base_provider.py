@@ -30,7 +30,7 @@ from bioetl.core.http.pagination import (
     DefaultPaginationStrategy,
     PaginationStrategy,
 )
-from bioetl.core.http.pagination_helpers import iter_pages, normalize_payload
+from bioetl.core.http.pagination_helpers import normalize_payload, paginate_with_first_request
 
 
 class BaseDataProvider(DataProviderProtocol[dict[str, Any]]):
@@ -134,27 +134,25 @@ class BaseDataProvider(DataProviderProtocol[dict[str, Any]]):
 
         log_ctx = {"params": params, **(context.extra if context else {})}
 
-        try:
-            first_payload = self.transport.request(
-                "GET",
-                "/",
-                params=params,
-                timeout_sec=self._transport_options.timeout_sec,
-                max_retries=self._retry_options.max_retries,
-            )
-        except Exception as exc:  # noqa: BLE001
-            self._logger.error("provider_first_page_failed", error=str(exc), **log_ctx)
-            raise exceptions.ProviderError(str(exc)) from exc
-
         strategy = self._pagination_strategy
         page_key = effective_pagination.page_key or DEFAULT_PAGE_KEY
         next_key = effective_pagination.next_key or DEFAULT_NEXT_KEY
         page_param = effective_pagination.page_param
 
-        for raw_page in iter_pages(
-            strategy,
-            first_payload,
-            self.transport,
+        def _handle_first_error(exc: Exception) -> Exception:
+            self._logger.error("provider_first_page_failed", error=str(exc), **log_ctx)
+            return exceptions.ProviderError(str(exc))
+
+        for raw_page in paginate_with_first_request(
+            fetch_first=lambda: self.transport.request(
+                "GET",
+                "/",
+                params=params,
+                timeout_sec=self._transport_options.timeout_sec,
+                max_retries=self._retry_options.max_retries,
+            ),
+            transport=self.transport,
+            strategy=strategy,
             endpoint="/",
             params=params,
             logger=self._logger,
@@ -162,6 +160,7 @@ class BaseDataProvider(DataProviderProtocol[dict[str, Any]]):
             next_key=next_key,
             page_param=page_param,
             normalize=None,
+            on_first_error=_handle_first_error,
         ):
             items = self._normalize_page(raw_page, page_key=page_key)
             next_cursor = raw_page.get(next_key) if isinstance(raw_page, Mapping) else None

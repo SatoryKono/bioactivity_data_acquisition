@@ -27,6 +27,7 @@ from bioetl.core.http.pagination_helpers import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
+    paginate_with_first_request,
 )
 
 
@@ -259,20 +260,20 @@ class BaseChemblClient(
         if context:
             log_context.update(context.extra)
 
-        first_payload = self._wrap_callable(
-            lambda: cast(ApiTransportProtocol, self._transport()).request(
-                "GET", entity_path, params=params
-            ),
-            log_context=log_context,
-        )
         strategy = cast(PaginationStrategy, self.pagination_strategy)
         page_key = effective_pagination.page_key or DEFAULT_PAGE_KEY
         next_key = effective_pagination.next_key or DEFAULT_NEXT_KEY
         page_param = effective_pagination.page_param
 
-        for raw_page in self.pagination_strategy.iter_pages(
-            first_payload,
-            cast(ApiTransportProtocol, self._transport()),
+        for raw_page in paginate_with_first_request(
+            fetch_first=lambda: self._wrap_callable(
+                lambda: cast(ApiTransportProtocol, self._transport()).request(
+                    "GET", entity_path, params=params
+                ),
+                log_context=log_context,
+            ),
+            transport=cast(ApiTransportProtocol, self._transport()),
+            strategy=strategy,
             endpoint=entity_path,
             params=params,
             logger=self._logger,

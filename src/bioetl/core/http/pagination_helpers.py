@@ -15,6 +15,10 @@ from bioetl.core.http.types import Normalizer, WrapCallable, WrapIterator
 
 _T = TypeVar("_T")
 
+# NOTE: типы страниц JSON варьируются между API, поэтому используем универсальную
+# подпись, совместимую как с маппингами, так и с последовательностями словарей.
+FirstPayloadLoader = Callable[[], Mapping[str, Any] | Sequence[Mapping[str, Any]]]
+
 
 def normalize_payload(payload: Any, *, page_key: str | None = DEFAULT_PAGE_KEY) -> Iterator[dict[str, Any]]:
     """Привести произвольный ответ API к итератору словарей."""
@@ -58,6 +62,51 @@ def iter_pages(
     """Обёртка над ``PaginationStrategy.iter_pages`` с передачей контекста."""
 
     yield from strategy.iter_pages(
+        first_payload,
+        transport,
+        endpoint=endpoint,
+        params=params,
+        logger=logger,
+        page_key=page_key,
+        next_key=next_key,
+        page_param=page_param,
+        normalize=normalize,
+    )
+
+
+def paginate_with_first_request(
+    *,
+    fetch_first: FirstPayloadLoader,
+    transport: ApiTransportProtocol,
+    strategy: PaginationStrategy,
+    endpoint: str,
+    params: Mapping[str, Any] | None,
+    logger: Any | None,
+    page_key: str | None,
+    next_key: str | None,
+    page_param: str | None,
+    normalize: Normalizer | None,
+    on_first_error: Callable[[Exception], Exception | None] | None = None,
+) -> Iterator[Mapping[str, Any] | Sequence[Mapping[str, Any]]]:
+    """Общий запуск пагинации с вынесенным получением первой страницы.
+
+    Функция скрывает получение первой страницы и делегирует обход
+    ``PaginationStrategy.iter_pages``. ``on_first_error`` позволяет
+    централизованно обработать ошибку первого запроса (например, залогировать
+    и пробросить специализированное исключение).
+    """
+
+    try:
+        first_payload = fetch_first()
+    except Exception as exc:  # noqa: BLE001 - пробрасываем далее
+        if on_first_error is not None:
+            replacement = on_first_error(exc)
+            if replacement is not None:
+                raise replacement from exc
+        raise
+
+    yield from iter_pages(
+        strategy,
         first_payload,
         transport,
         endpoint=endpoint,
