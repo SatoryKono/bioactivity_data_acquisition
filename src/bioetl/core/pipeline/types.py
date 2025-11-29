@@ -28,14 +28,9 @@ from bioetl.core.io.artifacts import WriteArtifacts
 
 
 def _get_default_validators() -> Mapping[ClientNamespace, Type[Enum]]:
-    # Lazy imports to avoid circular dependency
-    from bioetl.clients.chembl.entities import ChemblEntity
-    from bioetl.clients.factories.enricher_factory import EnricherEntity
-    
-    return {
-        ClientNamespace.CHEMBL: ChemblEntity,
-        ClientNamespace.ENRICHER: EnricherEntity,
-    }
+    """Возвращает валидаторы сущностей по пространствам имён клиентов."""
+
+    return {}
 
 
 class PipelineExtractionMode(str, Enum):

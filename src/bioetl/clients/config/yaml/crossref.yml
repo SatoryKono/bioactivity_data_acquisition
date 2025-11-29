@@ -1,0 +1,17 @@
+source: crossref
+protocol: http
+base_url: "https://api.crossref.org"
+auth:
+  type: none
+resources:
+  works:
+    path: "/works"
+    method: GET
+    query:
+      fixed: {}
+      allowed_params: []
+    paging:
+      type: cursor
+      cursor_param: cursor
+    response:
+      format: json

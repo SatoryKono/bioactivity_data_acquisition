@@ -1,19 +1,11 @@
-"""Публичное API клиентского слоя.
-
-Новые клиенты реализуют контракт ``ExternalDataClient`` и работают
-с объектами ``ClientRequest``/``Pagination``/``RequestContext``.
-Для совместимости со старым API используется модуль :mod:`bioetl.clients.legacy`.
-"""
-
-from __future__ import annotations
+"""Публичное API для клиентского слоя."""
 
 from bioetl.clients.base import (
+    BaseClient,
     ClientRequest,
-    ExternalDataClient,
-    Page,
-    Pagination,
-    Record,
     RequestContext,
+    Page,
+    PaginationParams,
     ConfigurationError,
     ConnectionError,
     HTTPError,
@@ -22,27 +14,15 @@ from bioetl.clients.base import (
     RequestException,
     Timeout,
 )
-from bioetl.clients.base import exceptions as _exceptions
-from bioetl.clients import legacy
-from bioetl.clients.registry import (
-    FACTORIES,
-    ClientFactory,
-    ClientProtocol,
-    get_factory,
-    register_domain_factories,
-    register_factory,
-)
-
-# Re-export exceptions for public API
-exceptions = _exceptions
+from bioetl.clients.factory import ClientFactory, ConfiguredHttpClient, default_client_builder
+from bioetl.clients.registry import get_registry
 
 __all__ = [
+    "BaseClient",
     "ClientRequest",
-    "ExternalDataClient",
-    "Page",
-    "Pagination",
-    "Record",
     "RequestContext",
+    "Page",
+    "PaginationParams",
     "ConfigurationError",
     "ConnectionError",
     "HTTPError",
@@ -50,12 +30,8 @@ __all__ = [
     "ProviderError",
     "RequestException",
     "Timeout",
-    "exceptions",
-    "legacy",
-    "FACTORIES",
     "ClientFactory",
-    "ClientProtocol",
-    "register_factory",
-    "register_domain_factories",
-    "get_factory",
+    "ConfiguredHttpClient",
+    "default_client_builder",
+    "get_registry",
 ]

@@ -1,0 +1,17 @@
+source: uniprot
+protocol: http
+base_url: "https://rest.uniprot.org"
+auth:
+  type: none
+resources:
+  protein:
+    path: "/uniprotkb/search"
+    method: GET
+    query:
+      fixed: {}
+      allowed_params: []
+    paging:
+      type: cursor
+      cursor_param: cursor
+    response:
+      format: json

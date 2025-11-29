@@ -1,133 +1,37 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Mapping, Sequence
 
-from bioetl.clients.legacy import (
-    ClientRequest,
-    DataClient,
-    PaginationParams,
-    PageStream,
-    Record,
-    RecordStream,
-    RequestContext,
-)
-from bioetl.clients.utils.config_loader import (
-    build_pagination,
-    load_resource_settings,
-    split_name,
-)
-from bioetl.core.http.transport import HttpTransport
+from bioetl.clients.base import ClientRequest, PaginationParams, RequestContext
+from bioetl.clients.base.http_backend import HttpBackend
+from bioetl.clients.config.loader import load_source_config
+from bioetl.clients.config.models import SourceConfig
+from bioetl.clients.factory import ConfiguredHttpClient
 
 
-@dataclass(frozen=True)
-class PubmedResourceConfig:
-    """
-    Конфиг ресурса PUBMED.
-
-    Только технические детали:
-    - относительный endpoint,
-    - имя поля идентификатора,
-    - отображение абстрактных фильтров → query-параметры API.
-    """
-
-    endpoint: str
-    id_field: str
-    filter_mapping: dict[str, str] | None = None
-    pagination: PaginationParams | None = None
-
-
-class PubmedArticleClient(DataClient):
+class PubMedClient(ConfiguredHttpClient):
     source = "pubmed"
 
-    def __init__(
+    def __init__(self, backend: HttpBackend, *, config: SourceConfig | None = None) -> None:
+        cfg = config or load_source_config(self.source)
+        super().__init__(config=cfg, backend=backend)
+        self.name = f"{self.source}.client"
+
+    def request_articles(
         self,
-        name: str,
-        transport: HttpTransport,
-    ) -> None:
-        self.name = name
-        source, resource = split_name(name)
-        self.source = source
-        resource_settings = load_resource_settings(source, resource)
-        self._resource_config = PubmedResourceConfig(
-            endpoint=resource_settings["endpoint"],
-            id_field=resource_settings["id_field"],
-            filter_mapping=resource_settings.get("filter_mapping"),
-            pagination=build_pagination(resource_settings.get("pagination")),
-        )
-        self._transport = transport
-
-    def fetch_one(
-        self, request: ClientRequest, *, context: RequestContext | None = None
-    ) -> Record | None:
-        mapped_request = self._map_request(request)
-        return self._transport.fetch_one(
-            endpoint=mapped_request["endpoint"],
-            params=mapped_request["params"],
-            pagination=mapped_request["pagination"],
-            raw=mapped_request["raw"],
+        *,
+        ids: Sequence[str] | None = None,
+        filters: Mapping[str, object] | None = None,
+        pagination: PaginationParams | None = None,
+        context: RequestContext | None = None,
+    ) -> ClientRequest:
+        return ClientRequest(
+            route="article",
+            ids=ids,
+            filters=filters,
+            pagination=pagination,
             context=context,
         )
 
-    def iter_records(
-        self, request: ClientRequest, *, context: RequestContext | None = None
-    ) -> RecordStream:
-        mapped_request = self._map_request(request)
-        return self._transport.iter_records(
-            endpoint=mapped_request["endpoint"],
-            params=mapped_request["params"],
-            pagination=mapped_request["pagination"],
-            raw=mapped_request["raw"],
-            context=context,
-        )
 
-    def iter_pages(
-        self, request: ClientRequest, *, context: RequestContext | None = None
-    ) -> PageStream:
-        mapped_request = self._map_request(request)
-        return self._transport.iter_pages(
-            endpoint=mapped_request["endpoint"],
-            params=mapped_request["params"],
-            pagination=mapped_request["pagination"],
-            raw=mapped_request["raw"],
-            context=context,
-        )
-
-    def close(self) -> None:
-        self._transport.close()
-
-    def __enter__(self) -> "PubmedArticleClient":
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        tb: Any,
-    ) -> None:
-        self.close()
-
-    def _map_request(self, request: ClientRequest) -> dict[str, Any]:
-        filter_mapping = self._resource_config.filter_mapping or {}
-        params: dict[str, Any] = {}
-
-        if request.filters:
-            params.update(
-                {
-                    filter_mapping.get(key, key): value
-                    for key, value in request.filters.items()
-                }
-            )
-
-        if request.ids:
-            params[self._resource_config.id_field] = request.ids
-
-        return {
-            "endpoint": self._resource_config.endpoint,
-            "params": params or None,
-            "pagination": request.pagination or self._resource_config.pagination,
-            "raw": request.raw,
-        }
-
-
-__all__ = ["PubmedArticleClient", "PubmedResourceConfig"]
+__all__ = ["PubMedClient"]

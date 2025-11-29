@@ -1,5 +1,3 @@
-"""Клиенты API Semantic Scholar."""
+from bioetl.clients.semantic_scholar.client import SemanticScholarClient
 
-from .client import SemanticScholarPaperClient, SemanticScholarResourceConfig
-
-__all__ = ["SemanticScholarPaperClient", "SemanticScholarResourceConfig"]
+__all__ = ["SemanticScholarClient"]
