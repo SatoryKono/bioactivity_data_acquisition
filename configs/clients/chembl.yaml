@@ -1,0 +1,71 @@
+source: chembl
+protocol: http
+base_url: "https://www.ebi.ac.uk/chembl/api/data"
+default_timeout: 30.0
+auth:
+  type: none
+rate_limit:
+  requests_per_minute: 60
+resources:
+  activity:
+    path: "/activity"
+    method: GET
+    query:
+      fixed:
+        format: json
+      allowed_params:
+        - target_chembl_id
+        - assay_chembl_id
+        - document_chembl_id
+        - molecule_chembl_id
+    paging:
+      type: page
+      page_param: page
+      page_size_param: page_size
+      default_page_size: 1000
+      max_page_size: 1000
+    response:
+      format: json
+      record_path: activities
+      fields:
+        - name: activity_id
+          path: activity_id
+          type: int
+        - name: standard_value
+          path: standard_value
+          type: float
+        - name: standard_units
+          path: standard_units
+          type: str
+      extra_metadata:
+        - name: page
+          path: page_info.page
+          type: int
+  target:
+    path: "/target"
+    method: GET
+    query:
+      fixed:
+        format: json
+      allowed_params:
+        - target_chembl_id
+        - pref_name
+    paging:
+      type: page
+      page_param: page
+      page_size_param: page_size
+      default_page_size: 1000
+      max_page_size: 1000
+    response:
+      format: json
+      record_path: targets
+      fields:
+        - name: target_chembl_id
+          path: target_chembl_id
+          type: str
+        - name: pref_name
+          path: pref_name
+          type: str
+        - name: organism
+          path: organism
+          type: str

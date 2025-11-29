@@ -15,6 +15,8 @@ from .contracts import (
     Record,
     RequestContext,
 )
+from .http_backend import HttpBackend
+from .rest_client import ConfiguredRestClient
 from .exceptions import (
     ConfigurationError,
     ConnectionError,
@@ -53,6 +55,8 @@ __all__ = [
     "Pagination",
     "Record",
     "RequestContext",
+    "ConfiguredRestClient",
+    "HttpBackend",
     "ConfigurationError",
     "ConnectionError",
     "HTTPError",
