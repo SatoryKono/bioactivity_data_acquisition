@@ -1,152 +1,38 @@
-"""Фасад клиентского слоя BioETL."""
+"""Публичное API клиентского слоя.
+
+Обязательные правила:
+- все клиенты должны реализовывать ``DataClient``;
+- все вызовы клиентов используют ``ClientRequest`` и ``RequestContext``;
+- слой ``clients`` не содержит доменной логики;
+- старые API считаются устаревшими и должны быть удалены.
+"""
 
 from __future__ import annotations
 
-from bioetl.clients.base import (
-    FACTORIES,
-    ClientFactory,
-    ClientProtocol,
-    DataProviderProtocol,
+from bioetl.clients.base.client import (
+    ClientError,
+    ClientRequest,
+    DataClient,
     Page,
     PageStream,
     PaginationParams,
+    Record,
     RecordStream,
     RequestContext,
-    RetryOptions,
-    SupportsBatch,
-    SupportsSearch,
-    TransportOptions,
-    get_factory,
-    register_domain_factories,
-    register_factory,
 )
-from bioetl.clients.providers.base_provider import BaseDataProvider
-from bioetl.clients.chembl import (
-    BaseChemblClient,
-    ChemblActivityClient,
-    ChemblAssayClient,
-    ChemblDocumentClient,
-    ChemblEntityClientFactory,
-    ChemblEntityClientFactoryConfig,
-    ChemblEntityClientFactoryProtocol,
-    ChemblEntityClientProtocol,
-    ChemblTargetClient,
-    ChemblTestItemClient,
-)
-from bioetl.clients.chembl.factories import (
-    default_chembl_factory,
-    make_chembl_client,
-)
-from bioetl.clients.enricher_base import (
-    BaseEnricherClient,
-    DeprecatedAliasMixin,
-    EnricherClientOptions,
-    EnricherClientProtocol,
-    RouteConfig,
-    RouteEnricherMixin,
-    RouteProviderBase,
-    UnifiedProviderAdapter,
-    create_route_provider_class,
-)
-from bioetl.clients.factories import (
-    ClientMethodStrategy,
-    ENRICHER_ALLOWED_ENTITIES,
-    EnricherApiConfig,
-    EnricherApiFactory,
-    EnricherClientFactory,
-    EnricherEntity,
-    EnricherFacade,
-    EnrichmentStrategy,
-    NULL_ENRICHER_FACTORY,
-    NullEnricherFacade,
-    StrategyRegistry,
-    build_enricher_facade,
-)
-from bioetl.clients.exceptions import (
-    ConnectionError,  # noqa: A004, pylint: disable=redefined-builtin
-    HTTPError,
-    ProviderError,
-    PaginationError,
-    ConfigurationError,
-    RequestException,
-    Timeout,
-)
-from bioetl.clients.providers import (
-    CrossrefClient,
-    OpenAlexClient,
-    PubChemClient,
-    PubmedClient,
-    SemanticScholarClient,
-    UniProtClient,
-)
+from bioetl.clients.factory import get_client, get_factory, register_factory
 
 __all__ = [
-    # Base client plumbing
-    "ConnectionError",
-    "ProviderError",
-    "PaginationError",
-    "ConfigurationError",
-    "HTTPError",
-    "RequestException",
-    "Timeout",
-    "ClientProtocol",
-    "ClientFactory",
-    "FACTORIES",
-    "register_factory",
-    "register_domain_factories",
-    "get_factory",
-    "BaseDataProvider",
-    "DataProviderProtocol",
-    "SupportsBatch",
-    "SupportsSearch",
-    "PaginationParams",
-    "RequestContext",
-    "RecordStream",
+    "ClientError",
+    "ClientRequest",
+    "DataClient",
     "Page",
     "PageStream",
-    "TransportOptions",
-    "RetryOptions",
-    # Chembl clients
-    "BaseChemblClient",
-    "ChemblActivityClient",
-    "ChemblAssayClient",
-    "ChemblDocumentClient",
-    "ChemblTargetClient",
-    "ChemblTestItemClient",
-    "ChemblEntityClientFactory",
-    "ChemblEntityClientFactoryConfig",
-    "ChemblEntityClientFactoryProtocol",
-    "ChemblEntityClientProtocol",
-    "make_chembl_client",
-    "default_chembl_factory",
-    # Enricher base
-    "BaseEnricherClient",
-    "DeprecatedAliasMixin",
-    "EnricherClientOptions",
-    "EnricherClientProtocol",
-    "RouteConfig",
-    "RouteEnricherMixin",
-    "RouteProviderBase",
-    "UnifiedProviderAdapter",
-    "create_route_provider_class",
-    # Enricher factory & facade
-    "ClientMethodStrategy",
-    "EnricherApiConfig",
-    "EnricherApiFactory",
-    "EnricherClientFactory",
-    "EnricherEntity",
-    "ENRICHER_ALLOWED_ENTITIES",
-    "NULL_ENRICHER_FACTORY",
-    "EnricherFacade",
-    "EnrichmentStrategy",
-    "NullEnricherFacade",
-    "StrategyRegistry",
-    "build_enricher_facade",
-    # Providers
-    "CrossrefClient",
-    "OpenAlexClient",
-    "PubChemClient",
-    "PubmedClient",
-    "SemanticScholarClient",
-    "UniProtClient",
+    "PaginationParams",
+    "Record",
+    "RecordStream",
+    "RequestContext",
+    "get_client",
+    "get_factory",
+    "register_factory",
 ]
