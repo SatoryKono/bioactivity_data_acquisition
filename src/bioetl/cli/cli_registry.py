@@ -6,6 +6,11 @@ from typing import Any, cast
 
 from bioetl.core.config import PipelineConfig
 from bioetl.core.pipeline.types import PipelineBaseProtocol
+from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.assay import ChemblAssayPipeline
+from bioetl.pipelines.chembl.document import ChemblDocumentPipeline
+from bioetl.pipelines.chembl.target import ChemblTargetPipeline
+from bioetl.pipelines.chembl.testitem import TestItemChemblPipeline
 
 PipelineFactory = Callable[[PipelineConfig, str | None], PipelineBaseProtocol]
 
@@ -38,9 +43,36 @@ def _wrap_pipeline_factory(pipeline_cls: type[Any]) -> PipelineFactory:
 
 
 def _register_default_pipelines() -> None:
-    # Регистрация по умолчанию отключена в новой архитектуре, чтобы
-    # избегать автоподключения устаревших пайплайнов.
-    return
+    """Register default ChEMBL pipelines in the CLI registry.
+
+    The registry is limited to modern ChemblCommonPipeline-based
+    implementations. Legacy and thin pipelines are not exposed via
+    the CLI by default.
+    """
+
+    if PIPELINE_REGISTRY:
+        return
+
+    register_pipeline(
+        "activity_chembl",
+        _wrap_pipeline_factory(ChemblActivityPipeline),
+    )
+    register_pipeline(
+        "assay_chembl",
+        _wrap_pipeline_factory(ChemblAssayPipeline),
+    )
+    register_pipeline(
+        "document_chembl",
+        _wrap_pipeline_factory(ChemblDocumentPipeline),
+    )
+    register_pipeline(
+        "target_chembl",
+        _wrap_pipeline_factory(ChemblTargetPipeline),
+    )
+    register_pipeline(
+        "testitem_chembl",
+        _wrap_pipeline_factory(TestItemChemblPipeline),
+    )
 
 
 _register_default_pipelines()

@@ -57,7 +57,8 @@ class FakeDbBackend:
 def test_dbbackend_protocol_runtime_shape() -> None:
     """Ensure FakeDbBackend can be treated as a DbBackendProtocol."""
 
-    backend: DbBackendProtocol = FakeDbBackend()
+    backend_impl = FakeDbBackend()
+    backend: DbBackendProtocol = backend_impl
 
     request = ClientRequest(route="test")
     context = RequestContext(source="test-source")
@@ -70,5 +71,5 @@ def test_dbbackend_protocol_runtime_shape() -> None:
     assert meta["backend"] == "fake-db"
 
     backend.close()
-    methods = {call["method"] for call in backend.calls}
+    methods = {call["method"] for call in backend_impl.calls}
     assert methods == {"fetch_one", "iter_records", "iter_pages", "close"}
