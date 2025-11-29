@@ -21,6 +21,7 @@ def test_factory_builds_descriptor_with_configured_fetcher() -> None:
     config = {
         "sources": {
             "chembl": {
+                "client": object(),
                 "activity_fetcher": lambda batch: [
                     {"chembl_id": chembl_id, "value": 1}
                     for chembl_id in (batch or [])
