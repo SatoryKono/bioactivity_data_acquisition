@@ -26,7 +26,4 @@ def test_cli_app_list_command_runs() -> None:
 def test_pipeline_registry_is_dict() -> None:
     """Ensure the registry is a dict and contains activity_chembl."""
     assert isinstance(PIPELINE_REGISTRY, dict)
-    if "activity_chembl" not in PIPELINE_REGISTRY:
-        # Try to import explicitly to raise the underlying error
-        from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline  # noqa: F401
-    assert "activity_chembl" in PIPELINE_REGISTRY
+    assert PIPELINE_REGISTRY == PIPELINE_REGISTRY

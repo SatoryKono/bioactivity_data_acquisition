@@ -1,5 +1,3 @@
-"""Клиенты API UniProt."""
+from bioetl.clients.uniprot.client import UniProtClient
 
-from .client import UniprotProteinClient, UniprotResourceConfig
-
-__all__ = ["UniprotProteinClient", "UniprotResourceConfig"]
+__all__ = ["UniProtClient"]

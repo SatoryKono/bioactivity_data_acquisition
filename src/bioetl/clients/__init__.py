@@ -1,53 +1,37 @@
-"""Публичное API клиентского слоя.
+"""Публичное API для клиентского слоя."""
 
-Обязательные правила:
-- все клиенты должны реализовывать ``DataClient``;
-- все вызовы клиентов используют ``ClientRequest`` и ``RequestContext``;
-- слой ``clients`` не содержит доменной логики;
-- старые API считаются устаревшими и должны быть удалены.
-"""
-
-from __future__ import annotations
-
-from bioetl.clients.base.contracts import (
-    ClientError,
+from bioetl.clients.base import (
+    BaseClient,
     ClientRequest,
-    DataClient,
-    Page,
-    PageStream,
-    PaginationParams,
-    Record,
-    RecordStream,
     RequestContext,
+    Page,
+    PaginationParams,
+    ConfigurationError,
+    ConnectionError,
+    HTTPError,
+    PaginationError,
+    ProviderError,
+    RequestException,
+    Timeout,
 )
-from bioetl.clients.base import exceptions as _exceptions
-from bioetl.clients.registry import (
-    FACTORIES,
-    ClientFactory,
-    ClientProtocol,
-    get_factory,
-    register_domain_factories,
-    register_factory,
-)
-
-# Re-export exceptions for public API
-exceptions = _exceptions
+from bioetl.clients.factory import ClientFactory, ConfiguredHttpClient, default_client_builder
+from bioetl.clients.registry import get_registry
 
 __all__ = [
-    "ClientError",
+    "BaseClient",
     "ClientRequest",
-    "DataClient",
-    "Page",
-    "PageStream",
-    "PaginationParams",
-    "Record",
-    "RecordStream",
     "RequestContext",
-    "exceptions",
-    "FACTORIES",
+    "Page",
+    "PaginationParams",
+    "ConfigurationError",
+    "ConnectionError",
+    "HTTPError",
+    "PaginationError",
+    "ProviderError",
+    "RequestException",
+    "Timeout",
     "ClientFactory",
-    "ClientProtocol",
-    "register_factory",
-    "register_domain_factories",
-    "get_factory",
+    "ConfiguredHttpClient",
+    "default_client_builder",
+    "get_registry",
 ]

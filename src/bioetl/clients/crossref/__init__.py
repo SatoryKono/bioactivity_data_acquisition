@@ -1,5 +1,3 @@
-"""Клиенты API Crossref."""
+from bioetl.clients.crossref.client import CrossrefClient
 
-from .client import CrossrefResourceConfig, CrossrefWorkClient
-
-__all__ = ["CrossrefResourceConfig", "CrossrefWorkClient"]
+__all__ = ["CrossrefClient"]

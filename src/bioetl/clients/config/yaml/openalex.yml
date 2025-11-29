@@ -1,0 +1,17 @@
+source: openalex
+protocol: http
+base_url: "https://api.openalex.org"
+auth:
+  type: none
+resources:
+  works:
+    path: "/works"
+    method: GET
+    query:
+      fixed: {}
+      allowed_params: []
+    paging:
+      type: cursor
+      cursor_param: cursor
+    response:
+      format: json

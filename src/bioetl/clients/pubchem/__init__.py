@@ -1,5 +1,3 @@
-"""Клиенты API PubChem."""
+from bioetl.clients.pubchem.client import PubChemClient
 
-from .client import PubchemCompoundClient, PubchemResourceConfig
-
-__all__ = ["PubchemCompoundClient", "PubchemResourceConfig"]
+__all__ = ["PubChemClient"]

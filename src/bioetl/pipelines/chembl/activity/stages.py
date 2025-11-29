@@ -9,10 +9,10 @@ from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.clients import ClientRequest, PaginationParams
+from bioetl.clients.legacy import ClientRequest, PaginationParams
 from bioetl.clients.base.exceptions import ProviderError
 from bioetl.clients.exceptions import PartialFailureError
-from bioetl.clients.base.contracts import DataClient
+from bioetl.clients.legacy import DataClient
 from bioetl.clients.chembl.data_client import build_chembl_client_factory
 from bioetl.core.io.artifacts import (
     RunArtifacts,

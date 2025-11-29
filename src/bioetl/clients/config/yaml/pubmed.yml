@@ -1,0 +1,16 @@
+source: pubmed
+protocol: http
+base_url: "https://api.ncbi.nlm.nih.gov/lit/ctxp"
+auth:
+  type: none
+resources:
+  article:
+    path: "/pubmed"
+    method: GET
+    query:
+      fixed: {}
+      allowed_params: []
+    paging:
+      type: none
+    response:
+      format: json

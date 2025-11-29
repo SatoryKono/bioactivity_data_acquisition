@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, Protocol
 
-from bioetl.clients.base.contracts import PageStream, RecordStream, RequestContext
+from bioetl.clients.legacy import PageStream, RecordStream, RequestContext
 
 
 class HttpTransport(Protocol):

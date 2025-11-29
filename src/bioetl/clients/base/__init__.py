@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-"""Базовые абстракции клиентского слоя."""
+"""Базовый слой клиентов внешних источников."""
 
-from .exceptions import (
+from bioetl.clients.base.client_abc import BaseClient, ClientRequest, RequestContext
+from bioetl.clients.base.db_backend import DbBackend
+from bioetl.clients.base.exceptions import (
     ConfigurationError,
     ConnectionError,
     HTTPError,
@@ -11,32 +13,22 @@ from .exceptions import (
     RequestException,
     Timeout,
 )
-from .contracts import (
-    ClientError,
-    ClientRequest,
-    DataClient,
-    DataProviderProtocol,
-    Page,
-    PageStream,
-    PaginationParams,
-    Record,
-    RecordStream,
-    RequestContext,
-    RetryOptions,
-    SupportsBatch,
-    SupportsSearch,
-    TransportOptions,
-)
-from bioetl.clients.registry import (
-    FACTORIES,
-    ClientFactory,
-    ClientProtocol,
-    get_factory,
-    register_domain_factories,
-    register_factory,
-)
+from bioetl.clients.base.http_backend import HttpBackend
+from bioetl.clients.base.paging import Page, PaginationParams
+from bioetl.clients.base.types import Headers, JsonData, QueryParams, Record
 
 __all__ = [
+    "BaseClient",
+    "ClientRequest",
+    "RequestContext",
+    "HttpBackend",
+    "DbBackend",
+    "Page",
+    "PaginationParams",
+    "Headers",
+    "JsonData",
+    "QueryParams",
+    "Record",
     "ConfigurationError",
     "ConnectionError",
     "HTTPError",
@@ -44,24 +36,4 @@ __all__ = [
     "ProviderError",
     "RequestException",
     "Timeout",
-    "ClientError",
-    "ClientRequest",
-    "DataClient",
-    "DataProviderProtocol",
-    "SupportsBatch",
-    "SupportsSearch",
-    "PaginationParams",
-    "RequestContext",
-    "Record",
-    "RecordStream",
-    "Page",
-    "PageStream",
-    "TransportOptions",
-    "RetryOptions",
-    "FACTORIES",
-    "ClientFactory",
-    "ClientProtocol",
-    "register_factory",
-    "register_domain_factories",
-    "get_factory",
 ]
