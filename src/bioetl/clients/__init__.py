@@ -1,26 +1,29 @@
 """Публичное API клиентского слоя.
 
-Обязательные правила:
-- все клиенты должны реализовывать ``DataClient``;
-- все вызовы клиентов используют ``ClientRequest`` и ``RequestContext``;
-- слой ``clients`` не содержит доменной логики;
-- старые API считаются устаревшими и должны быть удалены.
+Новые клиенты реализуют контракт ``ExternalDataClient`` и работают
+с объектами ``ClientRequest``/``Pagination``/``RequestContext``.
+Для совместимости со старым API используется модуль :mod:`bioetl.clients.legacy`.
 """
 
 from __future__ import annotations
 
-from bioetl.clients.base.contracts import (
-    ClientError,
+from bioetl.clients.base import (
     ClientRequest,
-    DataClient,
+    ExternalDataClient,
     Page,
-    PageStream,
-    PaginationParams,
+    Pagination,
     Record,
-    RecordStream,
     RequestContext,
+    ConfigurationError,
+    ConnectionError,
+    HTTPError,
+    PaginationError,
+    ProviderError,
+    RequestException,
+    Timeout,
 )
 from bioetl.clients.base import exceptions as _exceptions
+from bioetl.clients import legacy
 from bioetl.clients.registry import (
     FACTORIES,
     ClientFactory,
@@ -34,16 +37,21 @@ from bioetl.clients.registry import (
 exceptions = _exceptions
 
 __all__ = [
-    "ClientError",
     "ClientRequest",
-    "DataClient",
+    "ExternalDataClient",
     "Page",
-    "PageStream",
-    "PaginationParams",
+    "Pagination",
     "Record",
-    "RecordStream",
     "RequestContext",
+    "ConfigurationError",
+    "ConnectionError",
+    "HTTPError",
+    "PaginationError",
+    "ProviderError",
+    "RequestException",
+    "Timeout",
     "exceptions",
+    "legacy",
     "FACTORIES",
     "ClientFactory",
     "ClientProtocol",
