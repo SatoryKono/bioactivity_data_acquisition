@@ -8,7 +8,7 @@ from typing import Any, Callable, Mapping
 
 from bioetl.clients import ClientRequest, DataClient, Page, PageStream, Record, RecordStream
 from bioetl.clients.base import ClientFactory
-from bioetl.clients.base.client import PaginationParams, RequestContext
+from bioetl.clients.base.contracts import PaginationParams, RequestContext
 from bioetl.clients.chembl.factories import default_chembl_factory
 
 

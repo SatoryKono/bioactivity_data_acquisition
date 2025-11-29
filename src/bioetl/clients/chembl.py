@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from bioetl.clients.base.client import (
+from bioetl.clients.base.contracts import (
     ClientRequest,
     DataClient,
     PaginationParams,

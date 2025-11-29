@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from bioetl.clients.base.client import (
+from bioetl.clients.base.contracts import (
     ClientError,
     ClientRequest,
     DataClient,
