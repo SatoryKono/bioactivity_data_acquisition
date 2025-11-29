@@ -6,12 +6,6 @@ from bioetl.clients.base import (
     FACTORIES,
     ClientFactory,
     ClientProtocol,
-    get_factory,
-    register_domain_factories,
-    register_factory,
-)
-from bioetl.clients.base_provider import BaseDataProvider
-from bioetl.clients.interfaces import (
     DataProviderProtocol,
     Page,
     PageStream,
@@ -22,7 +16,11 @@ from bioetl.clients.interfaces import (
     SupportsBatch,
     SupportsSearch,
     TransportOptions,
+    get_factory,
+    register_domain_factories,
+    register_factory,
 )
+from bioetl.clients.providers.base_provider import BaseDataProvider
 from bioetl.clients.chembl import (
     BaseChemblClient,
     ChemblActivityClient,
@@ -50,22 +48,20 @@ from bioetl.clients.enricher_base import (
     UnifiedProviderAdapter,
     create_route_provider_class,
 )
-from bioetl.clients.enricher_facade import (
+from bioetl.clients.factories import (
     ClientMethodStrategy,
-    EnricherFacade,
-    EnrichmentStrategy,
-    NullEnricherFacade,
-    build_enricher_facade,
-)
-from bioetl.clients.enricher_factory import (
     ENRICHER_ALLOWED_ENTITIES,
     EnricherApiConfig,
     EnricherApiFactory,
     EnricherClientFactory,
     EnricherEntity,
+    EnricherFacade,
+    EnrichmentStrategy,
     NULL_ENRICHER_FACTORY,
+    NullEnricherFacade,
+    StrategyRegistry,
+    build_enricher_facade,
 )
-from bioetl.clients.enricher_strategy_registry import StrategyRegistry
 from bioetl.clients.exceptions import (
     ConnectionError,  # noqa: A004, pylint: disable=redefined-builtin
     HTTPError,

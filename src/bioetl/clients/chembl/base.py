@@ -12,7 +12,7 @@ from bioetl.clients.chembl.pagination import (
 from bioetl.clients.chembl.strategy_resolver import (
     PaginationStrategyResolverMixin,
 )
-from bioetl.clients.interfaces import (
+from bioetl.clients.base import (
     DataProviderProtocol,
     Page,
     PageStream,

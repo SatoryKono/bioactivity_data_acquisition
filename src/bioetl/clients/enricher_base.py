@@ -15,7 +15,7 @@ import warnings
 
 import structlog
 
-from bioetl.clients.interfaces import (
+from bioetl.clients.base import (
     DataProviderProtocol,
     Page,
     PageStream,
