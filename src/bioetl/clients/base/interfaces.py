@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Compatibility facade for legacy provider interfaces."""
 
-from .contracts import (
+from .legacy_contracts import (
     DataProviderProtocol,
     Page,
     PageStream,

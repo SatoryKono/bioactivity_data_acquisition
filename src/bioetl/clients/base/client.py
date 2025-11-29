@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Compatibility facade for client contracts."""
 
-from .contracts import (
+from .legacy_contracts import (
     ClientError,
     ClientRequest,
     DataClient,

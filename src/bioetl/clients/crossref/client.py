@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, MutableMapping, cast
-from bioetl.clients.base.contracts import (
+from bioetl.clients.legacy import (
     ClientRequest,
     DataClient,
     PaginationParams,
