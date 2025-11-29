@@ -1,0 +1,8 @@
+pagination:
+  page_size: 1000
+resources:
+  target:
+    endpoint: "/target"
+    id_field: "target_chembl_id"
+    filter_mapping:
+      pref_name: "pref_name__iexact"

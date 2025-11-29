@@ -37,10 +37,6 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
         df = self._normalize_molecule_properties(df)
         return df
 
-    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = super().domain_enrich(df)
-        return self._enrich_pubchem(df)
-
     def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
         df = super().validate(df, options)
         if "test_item_id" in df.columns and df["test_item_id"].isna().any():
@@ -68,14 +64,14 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
         df["inchi_key"] = df["inchi_key"].str.upper().str.strip()
         return df
 
-    def _enrich_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
-        if df.empty or "inchi_key" not in df.columns:
-            return df
-        df = df.copy()
-        df["pubchem_enrichment"] = self.enrichers.enrich(
-            df["inchi_key"], "pubchem"
-        )
-        return df
+    # Обогащение нужно выполнять явно. Пример вызова клиента PubChem:
+    #
+    #     import pandas as pd
+    #
+    #     pubchem = self._client_registry.get("chembl").create("pubchem")
+    #     df["pubchem_enrichment"] = df["inchi_key"].apply(
+    #         lambda value: None if pd.isna(value) else pubchem.enrich(value)
+    #     )
 
     def _normalize_molecule_properties(self, df: pd.DataFrame) -> pd.DataFrame:
         if df.empty:

@@ -12,7 +12,8 @@ from bioetl.clients.chembl.entities import (
 )
 from bioetl.clients.chembl.facade import ChemblClientFacade
 from bioetl.clients.chembl.factories import default_chembl_factory
-from bioetl.clients.chembl.pagination import PaginationFactory, PaginationStrategy
+from bioetl.clients.chembl.pagination import PaginationFactory
+from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.http.interfaces import ApiTransportProtocol
 
 FacadeFactory = Callable[[str], ChemblClientFacade]

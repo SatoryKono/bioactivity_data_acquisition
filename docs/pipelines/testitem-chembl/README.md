@@ -28,3 +28,23 @@ Field-level descriptions for related entities can be found in
 This documentation focuses on the domain model. CLI commands and config
 options for running this pipeline should be documented centrally in the
 CLI and configuration documentation.
+
+Автоматического enrichment нет. Пример ручного вызова клиента:
+
+```python
+from bioetl.clients import EnricherClientFactory
+
+# Получаем фабрику из config
+factory = EnricherClientFactory.from_config(config.get("clients", {}).get("enrichers"))
+pubchem = factory.create("pubchem")
+
+# Внутри pipeline stage (явно)
+def enrich_pubchem_column(df):
+    if df.empty or "inchi_key" not in df.columns:
+        return df
+    df = df.copy()
+    df["pubchem_enrichment"] = df["inchi_key"].apply(
+        lambda v: None if pd.isna(v) else pubchem.lookup(v)
+    )
+    return df
+```

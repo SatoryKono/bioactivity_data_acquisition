@@ -7,8 +7,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from bioetl.clients.chembl.pagination import PaginationFactory, PaginationStrategy
+from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.clients.chembl.strategy_resolver import PaginationStrategyResolverMixin
+from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.http.interfaces import ApiTransportProtocol
 
 if TYPE_CHECKING:  # pragma: no cover

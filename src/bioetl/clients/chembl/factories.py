@@ -17,8 +17,8 @@ from bioetl.clients.chembl.entities import (
 from bioetl.clients.chembl.pagination import (
     DEFAULT_PAGINATION_STRATEGY,
     PaginationFactory,
-    PaginationStrategy,
 )
+from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.config.models import ChemblAPIConfigModel, PipelineConfig
 from bioetl.core.http.config import APIConfig
 from bioetl.core.http.interfaces import ApiTransportProtocol

@@ -3,15 +3,14 @@ from __future__ import annotations
 """Сервис, инкапсулирующий общие шаги извлечения ChEMBL."""
 
 import time
-import warnings
-from collections.abc import Iterable
 from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
 from bioetl.core.pipeline.unified import BatchExtractionStats
 from bioetl.pipelines.chembl.batch_executor import execute_chembl_batches
-from bioetl.clients.chembl.facade import ChemblClientFacade
+from bioetl.clients import ClientRequest, PaginationParams
+from bioetl.clients.base.client import DataClient
 
 
 class ChemblExtractionService:
@@ -24,11 +23,15 @@ class ChemblExtractionService:
     def chembl_release(self) -> str | None:
         return self._chembl_release
 
-    def resolve_chembl_release(self, chembl_client: Any) -> str:
+    def resolve_chembl_release(self, chembl_client: DataClient | Any) -> str:
         if self._chembl_release:
             return self._chembl_release
-        status = chembl_client.status()
-        release = status.get("chembl_release") if isinstance(status, Mapping) else None
+        status = getattr(chembl_client, "status", None)
+        release = None
+        if callable(status):
+            status_payload = status()
+            if isinstance(status_payload, Mapping):
+                release = status_payload.get("chembl_release")
         if not release:
             raise RuntimeError("Не удалось определить chembl_release")
         self._chembl_release = str(release)
@@ -82,62 +85,19 @@ class ChemblExtractionService:
 
     def _build_client_fetcher(
         self,
-        chembl_client: Any,
+        chembl_client: DataClient,
         *,
         page_size: int,
         client_settings: Mapping[str, Any] | None = None,
     ) -> Callable[[Sequence[str] | None], Any]:
-        if isinstance(chembl_client, ChemblClientFacade):
-            def fetch(batch: Sequence[str] | None):
-                if batch:
-                    return chembl_client.fetch_batch(
-                        batch, page_size=page_size, client_settings=client_settings
-                    )
-                return chembl_client.list(
-                    page_size=page_size, client_settings=client_settings
-                )
-
-            return fetch
-
         def fetch(batch: Sequence[str] | None):
-            settings = dict(client_settings or {})
-            if batch:
-                fetch_batch = getattr(chembl_client, "fetch_batch", None)
-                if callable(fetch_batch):
-                    return fetch_batch(batch, **settings)
-
-                legacy_batch = getattr(chembl_client, "fetch_by_ids", None)
-                if callable(legacy_batch):
-                    warnings.warn(
-                        "chembl_client.fetch_by_ids is deprecated; use fetch_batch instead",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
-                    return legacy_batch(batch, **settings)
-
-                fetch_one = getattr(chembl_client, "fetch_one", None)
-                if callable(fetch_one):
-                    return [fetch_one(identifier, **settings) for identifier in batch]
-
-                raise RuntimeError("chembl_client does not support batch fetching")
-
-            fetch_page = getattr(chembl_client, "fetch_page", None)
-            if callable(fetch_page):
-                warnings.warn(
-                    "chembl_client.fetch_page is deprecated; use list or fetch_batch",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-                result = fetch_page(page_size=page_size, **settings)
-            else:
-                list_entities = getattr(chembl_client, "list", None)
-                if not callable(list_entities):
-                    raise RuntimeError(
-                        "chembl_client must implement fetch_batch/list to build a fetcher"
-                    )
-                result = list_entities(page_size=page_size, **settings)
-
-            return list(result) if isinstance(result, Iterable) else result
+            request = ClientRequest(
+                ids=list(batch) if batch else None,
+                filters=dict(client_settings or {}),
+                pagination=PaginationParams(page_size=page_size),
+            )
+            records = list(chembl_client.iter_records(request))
+            return {"results": records}, {"api_calls": 1}
 
         return fetch
 
