@@ -1,17 +1,8 @@
-"""Base ChEMBL client implementations."""
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Callable, Protocol, cast
+from typing import Any, Protocol, cast
 
-from bioetl.clients.chembl.adapter import ChemblTransportAdapter
-from bioetl.clients.chembl.compat import ChemblCompatibilityMixin
-from bioetl.clients.chembl.pagination import (
-    PaginationFactory,
-)
-from bioetl.clients.chembl.strategy_resolver import (
-    PaginationStrategyResolverMixin,
-)
 from bioetl.clients.base import (
     DataProviderProtocol,
     Page,
@@ -20,41 +11,44 @@ from bioetl.clients.base import (
     RecordStream,
     RequestContext,
 )
-from bioetl.core.http.api_entity_client import BaseApiEntityClient
+from bioetl.clients.chembl.strategy_resolver import PaginationStrategyResolverMixin
 from bioetl.core.http.interfaces import ApiTransportProtocol
-from bioetl.core.http.pagination import PaginationStrategy
-from bioetl.core.http.pagination_helpers import (
+from bioetl.core.http.pagination import (
     DEFAULT_NEXT_KEY,
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
+    PaginationStrategy,
 )
+from bioetl.core.http.pagination_helpers import normalize_payload
 
 
 class ChemblClientProtocol(Protocol):
-    """Protocol describing the ChEMBL client contract."""
+    """Contract for ChEMBL entity clients."""
 
     entity: str
 
     def get(
         self, entity_id: str, *, params: Mapping[str, Any] | None = None
     ) -> Mapping[str, Any]:
-        """Retrieve an entity by ID."""
+        ...
 
     def fetch_one(
         self, entity_id: str, *, params: Mapping[str, Any] | None = None
-    ) -> Mapping[str, Any]:
-        """Retrieve a single entity payload."""
+    ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
+        ...
 
     def fetch_many(
         self,
         *,
-        page_size: int = 1000,
+        query: Mapping[str, Any] | None = None,
+        page_size: int | None = None,
         params: Mapping[str, Any] | None = None,
+        pagination: PaginationParams | None = None,
         page_key: str = DEFAULT_PAGE_KEY,
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[dict[str, Any]]:
-        """Iterate over paginated entities."""
+    ) -> RecordStream:
+        ...
 
     def fetch_batch(
         self,
@@ -62,77 +56,29 @@ class ChemblClientProtocol(Protocol):
         *,
         params: Mapping[str, Any] | None = None,
         path_template: str = "/{entity}/{id}",
-    ) -> Iterator[dict[str, Any]]:
-        """Fetch entities by their identifiers."""
-
-    def fetch_by_ids(self, ids: Sequence[str]) -> Iterator[dict[str, Any]]:
-        """Deprecated alias for ``fetch_batch``."""
-
-    def fetch_page(
-        self,
-        *,
-        page_size: int = 1000,
-        params: Mapping[str, Any] | None = None,
-        page_key: str = DEFAULT_PAGE_KEY,
-        next_key: str = DEFAULT_NEXT_KEY,
-        page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[dict[str, Any]]:
-        """Deprecated alias for ``fetch_many``."""
-
-    def list(
-        self,
-        *,
-        page_size: int = 1000,
-        params: Mapping[str, Any] | None = None,
-        page_key: str = DEFAULT_PAGE_KEY,
-        next_key: str = DEFAULT_NEXT_KEY,
-        page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[dict[str, Any]]:
-        """Deprecated alias for ``fetch_many``."""
-
-    def fetch_all(
-        self,
-        *,
-        page_size: int = 1000,
-        params: Mapping[str, Any] | None = None,
-        page_key: str = DEFAULT_PAGE_KEY,
-        next_key: str = DEFAULT_NEXT_KEY,
-        page_param: str | None = DEFAULT_PAGE_PARAM,
-    ) -> Iterator[dict[str, Any]]:
-        """Fetch all entities in the collection."""
-
-    def iterate_records(
-        self,
-        *,
-        ids: Sequence[str] | None = None,
-        page_size: int | None = None,
-        fetcher: Callable[[Sequence[str] | None], Any] | None = None,
-    ) -> Iterator[dict[str, Any]]:
-        """Iterate over entity records with optional batching."""
-
-    def search(self, params: Mapping[str, Any]) -> Iterator[dict[str, Any]]:
-        """Search for entities using query parameters."""
+    ) -> RecordStream:
+        ...
 
     def status(self) -> Mapping[str, Any]:
-        """Return ChEMBL API status information."""
+        ...
 
-    @property
     def metadata(self) -> Mapping[str, Any]:
-        """Expose transport metadata."""
+        ...
+
+    def close(self) -> None:
+        ...
 
 
 class BaseChemblEntityProtocol(ChemblClientProtocol, Protocol):
-    """Legacy alias for configured ChEMBL entity clients."""
+    """Alias for typed ChEMBL entity clients."""
 
 
 class BaseChemblClient(
     PaginationStrategyResolverMixin,
-    ChemblCompatibilityMixin,
-    BaseApiEntityClient,
-    ChemblClientProtocol,
     DataProviderProtocol[dict[str, Any]],
+    ChemblClientProtocol,
 ):
-    """Base ChEMBL client implementing common operations and aliases."""
+    """Тонкая обёртка над транспортом ChEMBL без бизнес-логики."""
 
     def __init__(
         self,
@@ -141,9 +87,11 @@ class BaseChemblClient(
         *,
         pagination_strategy: PaginationStrategy | None = None,
         pagination_strategy_name: str | None = None,
-        pagination_factories: Mapping[str, PaginationFactory] | None = None,
+        pagination_factories: Mapping[str, Any] | None = None,
     ) -> None:
-        strategy = self.resolve_strategy(
+        self._transport = transport
+        self.entity = entity.strip("/")
+        self.pagination_strategy = self.resolve_strategy(
             transport,
             name=pagination_strategy_name,
             factories=pagination_factories,
@@ -154,7 +102,6 @@ class BaseChemblClient(
             next_key=DEFAULT_NEXT_KEY,
             page_param=DEFAULT_PAGE_PARAM,
         )
-        super().__init__(transport, strategy, entity=entity)
 
     def configure(
         self,
@@ -168,20 +115,10 @@ class BaseChemblClient(
             self._default_pagination = pagination
         return self
 
-    def fetch_batch(
-        self,
-        ids: Sequence[str],
-        *,
-        params: Mapping[str, Any] | None = None,
-        path_template: str = "/{entity}/{id}",
-        context: RequestContext | None = None,
-    ) -> RecordStream:
-        """Fetch multiple entities by IDs using the base implementation."""
-
-        _ = context
-        return super().fetch_batch(
-            ids, params=params, path_template=path_template
-        )
+    def _entity_path(self, suffix: str | None = None) -> str:
+        if not suffix:
+            return f"/{self.entity}"
+        return f"/{self.entity}/{suffix.lstrip('/')}"
 
     def _resolve_pagination(
         self,
@@ -205,6 +142,33 @@ class BaseChemblClient(
             page_size=pagination.page_size if pagination else None,
         )
 
+    def fetch_one(
+        self,
+        ref: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        context: RequestContext | None = None,
+    ) -> RecordStream:
+        _ = context
+        payload = self._transport.request(
+            "GET", self._entity_path(ref), params=params
+        )
+        yield from normalize_payload(payload, page_key=None)
+
+    def fetch_batch(
+        self,
+        ids: Sequence[str],
+        *,
+        params: Mapping[str, Any] | None = None,
+        path_template: str = "/{entity}/{id}",
+        context: RequestContext | None = None,
+    ) -> RecordStream:
+        _ = context
+        for entity_id in ids:
+            path = path_template.format(entity=self.entity, id=entity_id)
+            payload = self._transport.request("GET", path, params=params)
+            yield from normalize_payload(payload, page_key=None)
+
     def fetch_many(
         self,
         *,
@@ -217,11 +181,10 @@ class BaseChemblClient(
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> RecordStream:
-        """Iterate over paginated entities via the base client."""
-
+        _ = context
         effective_pagination = self._resolve_pagination(
             pagination,
-            fallback_page_size=page_size or 1000,
+            fallback_page_size=page_size,
             page_key=page_key,
             next_key=next_key,
             page_param=page_param,
@@ -231,13 +194,25 @@ class BaseChemblClient(
             merged_params.update(query)
         if params:
             merged_params.update(params)
-        return super().fetch_many(
-            page_size=effective_pagination.page_size or 1000,
-            params=merged_params or None,
-            page_key=effective_pagination.page_key or DEFAULT_PAGE_KEY,
-            next_key=effective_pagination.next_key or DEFAULT_NEXT_KEY,
-            page_param=effective_pagination.page_param,
+        response = self._transport.request(
+            "GET", self._entity_path(), params=merged_params or None
         )
+        strategy = self.pagination_strategy
+        if strategy is None:
+            yield from normalize_payload(response, page_key=effective_pagination.page_key)
+            return
+
+        for page in strategy.iter_pages(
+            response,
+            self._transport,
+            endpoint=self._entity_path(),
+            params=merged_params or None,
+            page_key=effective_pagination.page_key,
+            next_key=effective_pagination.next_key,
+            page_param=effective_pagination.page_param,
+            normalize=None,
+        ):
+            yield from normalize_payload(page, page_key=effective_pagination.page_key)
 
     def iter_pages(
         self,
@@ -246,86 +221,80 @@ class BaseChemblClient(
         pagination: PaginationParams | None = None,
         context: RequestContext | None = None,
     ) -> PageStream:
-        effective_pagination = self._resolve_pagination(
-            pagination,
-            fallback_page_size=pagination.page_size if pagination else None,
-        )
+        _ = context
+        effective_pagination = self._resolve_pagination(pagination)
         params = dict(query or {})
         if effective_pagination.page_size:
             params.setdefault("limit", effective_pagination.page_size)
 
-        entity_path = self._entity_path()
-        log_context = {"path": entity_path}
-        if context:
-            log_context.update(context.extra)
-
-        first_payload = self._wrap_callable(
-            lambda: cast(ApiTransportProtocol, self._transport()).request(
-                "GET", entity_path, params=params
-            ),
-            log_context=log_context,
+        response = self._transport.request(
+            "GET", self._entity_path(), params=params or None
         )
-        strategy = cast(PaginationStrategy, self.pagination_strategy)
-        page_key = effective_pagination.page_key or DEFAULT_PAGE_KEY
-        next_key = effective_pagination.next_key or DEFAULT_NEXT_KEY
-        page_param = effective_pagination.page_param
+        strategy = self.pagination_strategy
+        if strategy is None:
+            items = list(normalize_payload(response, page_key=effective_pagination.page_key))
+            yield Page(items=items, next_cursor=None, raw=cast(Mapping[str, Any] | None, response if isinstance(response, Mapping) else None))
+            return
 
-        for raw_page in self.pagination_strategy.iter_pages(
-            first_payload,
-            cast(ApiTransportProtocol, self._transport()),
-            endpoint=entity_path,
-            params=params,
-            logger=self._logger,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-            normalize=self._normalize_payload,
+        for raw_page in strategy.iter_pages(
+            response,
+            self._transport,
+            endpoint=self._entity_path(),
+            params=params or None,
+            page_key=effective_pagination.page_key,
+            next_key=effective_pagination.next_key,
+            page_param=effective_pagination.page_param,
+            normalize=None,
         ):
-            items = list(self._normalize_payload(raw_page, page_key=page_key))
-            next_cursor = raw_page.get(next_key) if isinstance(raw_page, Mapping) else None
-            yield Page(items=items, next_cursor=next_cursor, raw=raw_page if isinstance(raw_page, Mapping) else None)
-
-    def metadata(self) -> Mapping[str, Any]:
-        """Return metadata from the underlying transport."""
-        base_transport = getattr(self, "transport", None)
-        if base_transport is None:
-            return {}
-        metadata = getattr(base_transport, "metadata", None)
-        if isinstance(metadata, Mapping):
-            return dict(metadata)
-        return {}
+            items = list(
+                normalize_payload(raw_page, page_key=effective_pagination.page_key)
+            )
+            next_cursor: int | str | None = None
+            if isinstance(raw_page, Mapping):
+                next_cursor = cast(int | str | None, raw_page.get(effective_pagination.next_key or DEFAULT_NEXT_KEY))
+            yield Page(
+                items=items,
+                next_cursor=next_cursor,
+                raw=raw_page if isinstance(raw_page, Mapping) else None,
+            )
 
     def status(self) -> Mapping[str, Any]:
-        """Check ChEMBL API status."""
-        result = self._wrap_callable(
-            lambda: self._transport().request("GET", "/status"),
-            log_context={"path": "/status", "method": "GET"},
+        result = self._transport.request("GET", "/status")
+        return result if isinstance(result, Mapping) else {}
+
+    def metadata(self) -> Mapping[str, Any]:
+        meta = getattr(self._transport, "metadata", None)
+        return dict(meta) if isinstance(meta, Mapping) else {}
+
+    def get(
+        self, entity_id: str, *, params: Mapping[str, Any] | None = None
+    ) -> Mapping[str, Any]:
+        result = self._transport.request(
+            "GET", self._entity_path(entity_id), params=params
         )
-        # Ensure we return Mapping[str, Any] as expected
-        if isinstance(result, Mapping):
-            return result
-        return {}
+        return cast(Mapping[str, Any], result)
 
-    def fetch_one(
+    def iterate_records(
         self,
-        ref: str,
         *,
-        params: Mapping[str, Any] | None = None,
-        context: RequestContext | None = None,
-    ) -> RecordStream:
-        log_context = {"ref": ref}
-        if context:
-            log_context.update(context.extra)
+        ids: Sequence[str] | None = None,
+        page_size: int | None = None,
+        fetcher: Any | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        _ = fetcher
+        if ids:
+            yield from self.fetch_batch(ids, params=None)
+        else:
+            yield from self.fetch_many(page_size=page_size)
 
-        def iterator() -> Iterator[dict[str, Any]]:
-            payload = self.get(ref, params=params)
-            yield from self._normalize_payload(payload, page_key=None)
-
-        return self._wrap_iterator(iterator, log_context=log_context)
+    def close(self) -> None:
+        close = getattr(self._transport, "close", None)
+        if callable(close):
+            close()
 
 
 class ChemblEntityClient(BaseChemblClient):
-    """Client for specific ChEMBL entity types (activity, assay, etc)."""
+    """Client for specific ChEMBL entities."""
 
     def __init__(
         self,
@@ -334,18 +303,12 @@ class ChemblEntityClient(BaseChemblClient):
         *,
         pagination_strategy: PaginationStrategy | None = None,
         pagination_strategy_name: str | None = None,
-        pagination_factories: Mapping[str, PaginationFactory] | None = None,
+        pagination_factories: Mapping[str, Any] | None = None,
     ) -> None:
-        adapter = ChemblTransportAdapter(
-            transport,
-            pagination_strategy=pagination_strategy,
-            pagination_strategy_name=pagination_strategy_name,
-            pagination_factories=pagination_factories,
-        )
         super().__init__(
-            adapter,
+            transport,
             entity,
-            pagination_strategy=adapter.pagination_strategy,
+            pagination_strategy=pagination_strategy,
             pagination_strategy_name=pagination_strategy_name,
             pagination_factories=pagination_factories,
         )

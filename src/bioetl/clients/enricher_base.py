@@ -1,19 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Callable,
-    ClassVar,
-    Iterable,
-    Mapping as TypingMapping,
-    Protocol,
-    runtime_checkable,
-)
+from typing import Any, Callable, ClassVar, Mapping as TypingMapping, Protocol, runtime_checkable
 import warnings
-
-import structlog
 
 from bioetl.clients.base import (
     DataProviderProtocol,
@@ -23,24 +13,15 @@ from bioetl.clients.base import (
     RecordStream,
     RequestContext,
 )
-from bioetl.core.http import ApiClientMixin, ClosableMixin
 from bioetl.core.http.base_http_client import BaseHttpClient
 from bioetl.core.http.interfaces import BaseApiClient
+from bioetl.core.http.pagination_helpers import normalize_payload
 from bioetl.core.http.types import JSONRecordStream
 
 
 @dataclass
 class EnricherClientOptions:
-    """Опции, передаваемые обогащающим HTTP-клиентам.
-
-    Attributes:
-        timeout_sec: Перекрыть таймаут транспортного слоя
-            для конкретных вызовов.
-        max_retries: Перекрыть количество повторов при ошибках.
-        page_key: Ключ в JSON-ответе, содержащий результаты.
-        next_key: Ключ перехода на следующую страницу.
-        page_param: Имя параметра номерной пагинации (``None`` отключает).
-    """
+    """Опции низкого уровня для обогащающих HTTP-клиентов."""
 
     timeout_sec: float | None = None
     max_retries: int | None = None
@@ -50,6 +31,8 @@ class EnricherClientOptions:
 
 
 class OptionsAwareApiClient(BaseHttpClient):
+    """Простой адаптер для проксирования таймаутов/ретраев в транспорт."""
+
     def __init__(
         self,
         api_client: BaseApiClient,
@@ -62,25 +45,22 @@ class OptionsAwareApiClient(BaseHttpClient):
             client_name="enricher_http",
         )
         self._api_client: BaseApiClient = api_client
-        self.timeout_sec: float | None = options.timeout_sec
-        self.max_retries: int | None = options.max_retries
+
+    def close(self) -> None:  # pragma: no cover - passthrough
+        close = getattr(self._api_client, "close", None)
+        if callable(close):
+            close()
 
 
 @runtime_checkable
 class EnricherClientProtocol(DataProviderProtocol[dict[str, Any]], Protocol):
-    """Унифицированный алиас для клиентов обогащения.
-
-    Контракт совпадает с ``DataProviderProtocol`` и служит для выравнивания
-    фабрик/фасадов вокруг базового набора методов извлечения данных.
-    """
-
     def fetch_one(
         self,
         ref: str,
         *,
         params: Mapping[str, Any] | None = None,
         context: RequestContext | None = None,
-    ) -> RecordStream:  # pragma: no cover - протокол
+    ) -> RecordStream:
         ...
 
     def fetch_many(
@@ -90,7 +70,7 @@ class EnricherClientProtocol(DataProviderProtocol[dict[str, Any]], Protocol):
         page_size: int | None = None,
         pagination: PaginationParams | None = None,
         context: RequestContext | None = None,
-    ) -> RecordStream:  # pragma: no cover - протокол
+    ) -> RecordStream:
         ...
 
     def iter_pages(
@@ -99,7 +79,7 @@ class EnricherClientProtocol(DataProviderProtocol[dict[str, Any]], Protocol):
         query: Mapping[str, Any] | None = None,
         pagination: PaginationParams | None = None,
         context: RequestContext | None = None,
-    ) -> PageStream:  # pragma: no cover - протокол
+    ) -> PageStream:
         ...
 
     def configure(
@@ -108,18 +88,18 @@ class EnricherClientProtocol(DataProviderProtocol[dict[str, Any]], Protocol):
         transport: Any | None = None,
         pagination: PaginationParams | None = None,
         retries: Any | None = None,
-    ) -> "EnricherClientProtocol":  # pragma: no cover - протокол
+    ) -> "EnricherClientProtocol":
         ...
 
-    def metadata(self) -> Mapping[str, Any]:  # pragma: no cover - протокол
+    def metadata(self) -> Mapping[str, Any]:
         ...
 
-    def close(self) -> None:  # pragma: no cover - протокол
+    def close(self) -> None:
         ...
 
 
-class BaseEnricherClient(ClosableMixin, ApiClientMixin):
-    """Base client for data enrichment with HTTP API support."""
+class BaseEnricherClient:
+    """Минимальный HTTP-клиент для обогащающих источников."""
 
     def __init__(
         self,
@@ -137,7 +117,12 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         self.page_key = effective_options.page_key
         self.next_key = effective_options.next_key
         self.page_param = effective_options.page_param
-        self._logger = structlog.get_logger(__name__).bind(source=source)
+        self.source = source
+
+    def _normalize_payload(
+        self, payload: Any, *, page_key: str | None = None
+    ) -> Iterator[dict[str, Any]]:
+        yield from normalize_payload(payload, page_key=page_key or self.page_key)
 
     def _iterate_pages(
         self,
@@ -147,50 +132,16 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         page_key: str | None,
         next_key: str | None,
         page_param: str | None,
-        fetch_pages: Callable[
-            [str | None, str, str | None], Iterable[Any]
-        ],
-        fallback_payload: Any | None = None,
+        fetch_pages: Callable[[str | None, str, str | None], Iterable[Any]],
     ) -> JSONRecordStream:
-        effective_page_key = (
-            page_key if page_key is not None else self.page_key
-        )
-        effective_next_key = (
-            next_key if next_key is not None else self.next_key
-        )
-        effective_page_param = (
-            page_param if page_param is not None else self.page_param
-        )
+        effective_page_key = page_key if page_key is not None else self.page_key
+        effective_next_key = next_key if next_key is not None else self.next_key
+        effective_page_param = page_param if page_param is not None else self.page_param
 
-        def iterator() -> Iterator[dict[str, Any]]:
-            _ = params
-            self._logger.info("api_call", path=path)
-            yielded = False
-            for payload in fetch_pages(
-                effective_page_key, effective_next_key, effective_page_param
-            ):
-                page_yielded = False
-                for item in self._normalize_payload(
-                    payload, page_key=effective_page_key
-                ):
-                    yielded = True
-                    page_yielded = True
-                    yield item
-
-                if not page_yielded and fallback_payload is not None:
-                    yielded = True
-                    yield {"result": fallback_payload}
-
-            if not yielded and fallback_payload is not None:
-                yield {"result": fallback_payload}
-
-        try:
-            yield from self._wrap_iterator(
-                iterator, log_context={"path": path}
-            )
-        except Exception:
-            self.close()
-            raise
+        for payload in fetch_pages(
+            effective_page_key, effective_next_key, effective_page_param
+        ):
+            yield from self._normalize_payload(payload, page_key=effective_page_key)
 
     def fetch_one(
         self,
@@ -199,29 +150,20 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
         params: Mapping[str, Any] | None = None,
         page_key: str | None = None,
     ) -> JSONRecordStream:
-        try:
-            payload = self._wrap_callable(
-                lambda: self.api_client.fetch_one(
-                    path,
-                    params=params,
-                    timeout_sec=self.timeout_sec,
-                    max_retries=self.max_retries,
-                ),
-                log_context={"path": path},
-            )
-
-            return self._iterate_pages(
-                path=path,
-                params=params,
-                page_key=page_key,
-                next_key=None,
-                page_param=None,
-                fetch_pages=lambda *_: [payload],
-                fallback_payload=payload if payload is not None else None,
-            )
-        except Exception:
-            self.close()
-            raise
+        payload = self.api_client.fetch_one(
+            path,
+            params=params,
+            timeout_sec=self.timeout_sec,
+            max_retries=self.max_retries,
+        )
+        return self._iterate_pages(
+            path=path,
+            params=params,
+            page_key=page_key,
+            next_key=None,
+            page_param=None,
+            fetch_pages=lambda *_: [payload],
+        )
 
     def fetch_batch(
         self,
@@ -246,6 +188,7 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
                 timeout_sec=self.timeout_sec,
                 max_retries=self.max_retries,
             )
+
         return self._iterate_pages(
             path=path,
             params=params,
@@ -254,6 +197,13 @@ class BaseEnricherClient(ClosableMixin, ApiClientMixin):
             page_param=page_param,
             fetch_pages=_fetch_batch_fn,
         )
+
+    def metadata(self) -> Mapping[str, Any]:
+        meta = getattr(self.api_client, "metadata", None)
+        return meta if isinstance(meta, Mapping) else {}
+
+    def close(self) -> None:
+        self.api_client.close()
 
 
 class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
@@ -286,9 +236,7 @@ class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
             self._pagination = pagination
         return self
 
-    def _resolve_pagination(
-        self, pagination: PaginationParams | None
-    ) -> PaginationParams:
+    def _resolve_pagination(self, pagination: PaginationParams | None) -> PaginationParams:
         return self._pagination.override(
             page_key=pagination.page_key if pagination else None,
             next_key=pagination.next_key if pagination else None,
@@ -440,14 +388,11 @@ class RouteEnricherMixin(BaseEnricherClient):
         route_name: str | None = None,
         page_key: str | None = None,
     ) -> JSONRecordStream:
-        # pylint: disable=arguments-differ
         name = route_name or self.DEFAULT_FETCH_ROUTE
         path, params_with_value = self._resolve_route(
             name, value=value, params=params
         )
-        return super().fetch_one(
-            path, params=params_with_value, page_key=page_key
-        )
+        return super().fetch_one(path, params=params_with_value, page_key=page_key)
 
     def fetch_batch(
         self,
@@ -459,7 +404,6 @@ class RouteEnricherMixin(BaseEnricherClient):
         next_key: str | None = None,
         page_param: str | None = None,
     ) -> JSONRecordStream:
-        # pylint: disable=arguments-differ
         name = route_name or self.DEFAULT_SEARCH_ROUTE
         path, params_with_value = self._resolve_route(
             name, value=value, params=params
@@ -531,12 +475,9 @@ class RouteProviderMixin(RouteEnricherMixin):
 class DeprecatedAliasMixin:
     """Автоматически проксирует устаревшие алиасы методов."""
 
-    DEPRECATED_ALIASES: ClassVar[
-        TypingMapping[str, str]
-    ] = {}
+    DEPRECATED_ALIASES: ClassVar[TypingMapping[str, str]] = {}
 
     def __getattr__(self, name: str) -> Any:  # pragma: no cover
-        """Proxy deprecated method aliases to their targets."""
         alias_target = self.DEPRECATED_ALIASES.get(name)
         if alias_target:
             target = getattr(self, alias_target)
@@ -571,16 +512,7 @@ def create_route_provider_class(
     deprecated_aliases: TypingMapping[str, str] | None = None,
     module: str | None = None,
 ) -> type[RouteProviderBase]:
-    """Создаёт класс провайдера на основе конфигурации маршрутов.
-
-    Args:
-        name: Имя генерируемого класса.
-        source: Имя источника данных.
-        routes: Описание маршрутов, по которым строятся запросы.
-        deprecated_aliases: Карта устаревших алиасов методов.
-        module: Имя модуля, в котором будет объявлен класс (для корректных
-            предупреждений и сериализации).
-    """
+    """Создаёт класс провайдера на основе конфигурации маршрутов."""
 
     class_attributes: dict[str, Any] = {
         "SOURCE": source,
