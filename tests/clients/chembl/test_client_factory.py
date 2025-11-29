@@ -1,15 +1,29 @@
-from bioetl.pipelines.chembl.common.descriptor_factory import ChemblDescriptorFactory
+"""Tests for ChEMBL client factory."""
+
+import sys
+import os
+
+from bioetl.pipelines.chembl.common.descriptor_factory import (
+    ChemblDescriptorFactory,
+)
 from bioetl.pipelines.chembl.common.descriptor_factory_builder import (
     build_pipeline_chembl_factory,
 )
 
+# Ensure correct Python path for IDE environments
+sys.path.insert(
+    0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "src")
+)
 
-def test_factory_builds_descriptor_with_configured_fetcher():
+
+def test_factory_builds_descriptor_with_configured_fetcher() -> None:
+    """Test that factory builds descriptor with configured fetcher."""
     config = {
         "sources": {
             "chembl": {
                 "activity_fetcher": lambda batch: [
-                    {"chembl_id": chembl_id, "value": 1} for chembl_id in (batch or [])
+                    {"chembl_id": chembl_id, "value": 1}
+                    for chembl_id in (batch or [])
                 ]
             }
         }

@@ -70,18 +70,9 @@ from bioetl.pipelines.chembl.activity.stages import (
     ActivityWriter,
 )
 from bioetl.schemas.chembl_activity_schema import (
+    ChEMBLActivitySchema,
     ChEMBLActivityColumns,
 )
-import importlib
-
-# Force reload schema to get latest changes
-import bioetl.schemas.chembl_activity_schema
-importlib.reload(bioetl.schemas.chembl_activity_schema)
-ChEMBLActivitySchema = (
-    bioetl.schemas.chembl_activity_schema.ChEMBLActivitySchema
-)
-
-print("DEBUG: activity/run.py module loaded - checking entry point")
 
 
 class ActivityWriteService(WriteService):
@@ -501,8 +492,8 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         batch_size: int | None = None,
     ) -> tuple[pd.DataFrame, dict]:  # type: ignore[type-arg]
         df, meta = self.extractor.extract(  # type: ignore[arg-type]
-            self.config,
             descriptor,
+            self.config,
             batch_size=batch_size,
         )
         self._release = self.extractor.release or self._release

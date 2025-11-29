@@ -1,3 +1,5 @@
+"""Integration tests for enricher clients."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
@@ -10,6 +12,8 @@ from bioetl.clients.providers import CrossrefClient
 
 
 class FakePagingApiClient:
+    """Fake API client for testing pagination."""
+
     def __init__(
         self,
         *,
@@ -31,6 +35,7 @@ class FakePagingApiClient:
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Any:
+        """Fetch one record."""
         self.fetch_one_calls.append(
             {
                 "endpoint": endpoint,
@@ -54,6 +59,7 @@ class FakePagingApiClient:
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Iterable[Any]:
+        """Fetch batch of records."""
         self.fetch_batch_calls.append(
             {
                 "endpoint": endpoint,
@@ -69,11 +75,17 @@ class FakePagingApiClient:
         return iter(self.batch_pages)
 
     def close(self) -> None:  # pragma: no cover - simple flag setter
+        """Close the client."""
         self.closed = True
 
 
 class FailingBatchApiClient(FakePagingApiClient):
-    def fetch_batch(self, *args: Any, **kwargs: Any) -> Iterable[Any]:  # noqa: ANN001 - test stub
+    """API client that fails during batch fetch."""
+
+    def fetch_batch(
+        self, *args: Any, **kwargs: Any
+    ) -> Iterable[Any]:  # noqa: ANN001, ARG001 - test stub
+        """Fetch batch with simulated failure."""
         def _generator() -> Iterable[Any]:
             yield {"results": [{"id": 1}]}
             raise client_exceptions.RequestException("boom")
@@ -88,6 +100,7 @@ class FailingBatchApiClient(FakePagingApiClient):
 def test_route_provider_fetch_one_yields_fallback_when_page_empty(
     payload: Mapping[str, Any], page_key: str | None
 ) -> None:
+    """Test route provider fetch one yields fallback when page empty."""
     api_client = FakePagingApiClient(fetch_one_payload=payload)
     client = CrossrefClient(api_client)
 
@@ -106,6 +119,7 @@ def test_route_provider_fetch_one_yields_fallback_when_page_empty(
 
 
 def test_route_provider_fetch_batch_paginates_and_passes_params() -> None:
+    """Test route provider fetch batch paginates and passes params."""
     pages = [
         {"results": [{"id": 1}]},
         {"results": [{"id": 2}]},
@@ -133,6 +147,7 @@ def test_route_provider_fetch_batch_paginates_and_passes_params() -> None:
 
 
 def test_route_provider_closes_transport_on_iteration_error() -> None:
+    """Test route provider closes transport on iteration error."""
     api_client = FailingBatchApiClient()
     client = CrossrefClient(api_client)
 

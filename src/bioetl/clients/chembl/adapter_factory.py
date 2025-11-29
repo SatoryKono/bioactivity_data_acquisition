@@ -1,37 +1,43 @@
 """Factories and helpers for constructing ChEMBL transport adapters."""
 from __future__ import annotations
 
-"""Factories and helpers for constructing ChEMBL transport adapters."""
-
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from bioetl.clients.chembl.pagination import PaginationFactory
-from bioetl.clients.chembl.strategy_resolver import PaginationStrategyResolverMixin
+from bioetl.clients.chembl.strategy_resolver import (
+    PaginationStrategyResolverMixin,
+)
 from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.http.interfaces import ApiTransportProtocol
 
 if TYPE_CHECKING:  # pragma: no cover
-    from bioetl.clients.chembl.adapter import ChemblTransportAdapter
+    pass
 
 
 def _get_adapter_cls():
-    from bioetl.clients.chembl.adapter import ChemblTransportAdapter
+    from bioetl.clients.chembl import ChemblTransportAdapter
 
     return ChemblTransportAdapter
 
 
 @dataclass(slots=True)
 class BaseChemblAdapterFactory(PaginationStrategyResolverMixin):
-    """Создаёт адаптеры ChEMBL с учётом порядка приоритетов."""
+    """Creates ChEMBL adapters with priority ordering."""
 
     pagination_strategy_name: str | None = None
     pagination_strategy: PaginationStrategy | None = None
-    pagination_factories: Mapping[str, PaginationFactory] | None = None
-    adapter_cls: type[ApiTransportProtocol] | None = field(default=None, repr=False)
+    pagination_factories: (
+        Mapping[str, PaginationFactory] | None
+    ) = None
+    adapter_cls: type[ApiTransportProtocol] | None = field(
+        default=None, repr=False
+    )
 
-    def _resolve_strategy(self, transport: ApiTransportProtocol) -> PaginationStrategy:
+    def _resolve_strategy(
+        self, transport: ApiTransportProtocol
+    ) -> PaginationStrategy:
         return self.resolve_strategy(
             transport,
             name=self.pagination_strategy_name,
@@ -52,11 +58,19 @@ class BaseChemblAdapterFactory(PaginationStrategyResolverMixin):
             pagination_factories=self.pagination_factories,
         )
 
-    def ensure_adapter(self, transport: ApiTransportProtocol) -> ApiTransportProtocol:
+    def ensure_adapter(
+        self, transport: ApiTransportProtocol
+    ) -> ApiTransportProtocol:
         adapter_cls = self._get_adapter_cls()
         if isinstance(transport, adapter_cls):
-            base_transport = getattr(transport, "base_transport", transport)
-            if self.pagination_strategy or self.pagination_strategy_name or self.pagination_factories:
+            base_transport = getattr(
+                transport, "base_transport", transport
+            )
+            if (
+                self.pagination_strategy
+                or self.pagination_strategy_name
+                or self.pagination_factories
+            ):
                 return self.create(base_transport)
             return transport
         return self.create(transport)

@@ -281,6 +281,7 @@ class ChemblCommonPipeline(ChemblPipelineBase):
         self, df: pd.DataFrame, options: StageExecutionOptions
     ) -> pd.DataFrame:
         df = self.pre_transform(df)
+        df = self.domain_enrich(df)
         return df
 
     def validate(

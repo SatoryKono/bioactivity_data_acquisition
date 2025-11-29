@@ -13,13 +13,16 @@ from bioetl.core.pipeline.types import StageExecutionOptions, WriteResult
 from bioetl.pipelines.chembl.common import ChemblCommonPipeline
 from bioetl.core.schemas import TestItemSchema
 
+
 class TestItemChemblPipeline(ChemblCommonPipeline):
     """Скелет пайплайна для testitem: молекулы + PubChem обогащение."""
 
     entity_name = "testitem"
     required_sort_fields = ("test_item_id",)
 
-    def __init__(self, config: Mapping[str, Any], *, run_id: str | None = None) -> None:
+    def __init__(
+        self, config: Mapping[str, Any], *, run_id: str | None = None
+    ) -> None:
         super().__init__(
             config,
             run_id=run_id,
@@ -37,14 +40,27 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
         df = self._normalize_molecule_properties(df)
         return df
 
-    def validate(self, df: pd.DataFrame, options: StageExecutionOptions) -> pd.DataFrame:
+    def transform(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
+        """Transform with PubChem enrichment."""
+        df = self.pre_transform(df)
+        df = self._enrich_with_pubchem(df)
+        return df
+
+    def validate(
+        self, df: pd.DataFrame, options: StageExecutionOptions
+    ) -> pd.DataFrame:
         df = super().validate(df, options)
         if "test_item_id" in df.columns and df["test_item_id"].isna().any():
             raise ValueError("test_item_id обязателен для testitem")
         return df
 
     def save_results(
-        self, df: pd.DataFrame, artifacts: WriteArtifacts, options: StageExecutionOptions
+        self,
+        df: pd.DataFrame,
+        artifacts: WriteArtifacts,
+        options: StageExecutionOptions,
     ) -> WriteResult:
         output_service = PipelineOutputService(self.config)
         try:
@@ -80,7 +96,26 @@ class TestItemChemblPipeline(ChemblCommonPipeline):
         if "smiles" in df.columns:
             df["smiles"] = df["smiles"].fillna("")
         if "molecular_weight" in df.columns:
-            df["molecular_weight"] = pd.to_numeric(df["molecular_weight"], errors="coerce").round(3)
+            df["molecular_weight"] = pd.to_numeric(
+                df["molecular_weight"], errors="coerce"
+            ).round(3)
+        return df
+
+    def _enrich_with_pubchem(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Enrich DataFrame with PubChem data using configured client."""
+        if df.empty or "inchi_key" not in df.columns:
+            return df
+
+        enrichers = self.config.get("enrichers", {})
+        pubchem_client = enrichers.get("pubchem_client")
+
+        if not pubchem_client:
+            return df
+
+        df = df.copy()
+        df["pubchem_enrichment"] = df["inchi_key"].apply(
+            lambda value: None if pd.isna(value) else pubchem_client.lookup(value)
+        )
         return df
 
 

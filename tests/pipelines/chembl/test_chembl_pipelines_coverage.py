@@ -17,7 +17,7 @@ from bioetl.core.pipeline.types import (
     WriteResult,
 )
 from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
-from bioetl.pipelines.chembl.common import ConfigValidationError
+from bioetl.pipelines.chembl.common.descriptor import ConfigValidationError
 from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
 from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
 from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline

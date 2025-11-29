@@ -6,6 +6,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 import warnings
+
+from bioetl.clients.chembl.client import ClientRequest
+from bioetl.clients.exceptions import PartialFailureError
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -15,16 +18,6 @@ from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.pipelines.chembl.common.descriptor import (
     ChemblExtractionDescriptor,
 )
-
-
-class PartialFailureError(RuntimeError):
-    """Exception that carries partial successful data."""
-
-    def __init__(
-        self, message: str, partial_data: dict[str, Any] | None = None
-    ) -> None:
-        super().__init__(message)
-        self.partial_data = partial_data
 
 
 class DummyChemblClient:
@@ -40,7 +33,9 @@ class DummyChemblClient:
         self.status_calls += 1
         return {"chembl_release": self.releases[0]}
 
-    def fetch_batch(self, ids: list[str]) -> dict[str, Any]:
+    def fetch_batch(
+        self, ids: list[str]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Return fake data for requested IDs."""
         self.fetch_calls.append(list(ids))
         data = {
@@ -63,7 +58,8 @@ class DummyChemblClient:
             DeprecationWarning,
             stacklevel=2,
         )
-        return self.fetch_batch(ids)
+        data, _ = self.fetch_batch(ids)
+        return data
 
 
 class FailingChemblClient(DummyChemblClient):
@@ -73,7 +69,44 @@ class FailingChemblClient(DummyChemblClient):
         super().__init__()
         self.fail_for: set[str] = {"2"}
 
-    def fetch_batch(self, ids: list[str]) -> dict[str, Any]:
+    def iter_records(self, request: Any, *, context: Any = None) -> Any:
+        """Iterate over records with failures for specific IDs."""
+        _ = context  # Mark as intentionally unused
+
+        if isinstance(request, ClientRequest):
+            batch_ids = request.ids or []
+            self.fetch_calls.append(list(batch_ids))
+
+            data = {}
+            failed_ids = []
+            for identifier in batch_ids:
+                if identifier in self.fail_for:
+                    failed_ids.append(identifier)
+                else:
+                    data[str(identifier)] = {
+                        "activity_id": identifier,
+                        "assay_id": f"ASSAY{identifier}",
+                        "target_chembl_id": f"T{identifier}",
+                        "standard_value": 1.0,
+                        "standard_units": "nM",
+                    }
+
+            # Return partial data even if some IDs failed
+            if failed_ids:
+                raise PartialFailureError(
+                    f"Failed for IDs: {failed_ids}", partial_data=data
+                )
+
+            # Yield records from data dict
+            for record in data.values():
+                yield record
+        else:
+            # Fallback for other request types
+            yield from []
+
+    def fetch_batch(
+        self, ids: list[str]
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Return fake data with failures for specific IDs."""
         self.fetch_calls.append(list(ids))
         data = {}
@@ -91,8 +124,10 @@ class FailingChemblClient(DummyChemblClient):
                 }
         # Return partial data even if some IDs failed
         if failed_ids:
-            # Raise custom exception with partial data
-            raise PartialFailureError("boom", partial_data=data)
+            # Raise partial failure error for failed IDs
+            raise PartialFailureError(
+                f"Failed for IDs: {failed_ids}", partial_data=data
+            )
         return data, {"api_calls": 1}
 
 
@@ -129,7 +164,7 @@ class DummyConfig(PipelineConfig, Mapping[str, Any]):
     def __getitem__(self, key: str) -> Any:
         # Support nested key access with dot notation for config validation
         if "." in key:
-            current = self._config
+            current: dict[str, Any] | Any = self._config
             for part in key.split("."):
                 if isinstance(current, dict) and part in current:
                     current = current[part]
@@ -201,4 +236,6 @@ def test_descriptor_extraction_handles_batches_and_failures(
     assert client.fetch_calls[1] == ["3"]
     assert meta["failures"] == 1
     assert "chembl_release" in meta
-    assert {"1", "3"}.issubset(set(df["activity_id"].astype(str)))
+    assert {"1", "3"}.issubset(
+        set(df["activity_id"].astype(str))
+    )

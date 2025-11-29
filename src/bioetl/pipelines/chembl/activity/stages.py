@@ -10,6 +10,8 @@ from typing import Any, Callable, Mapping, Sequence
 import pandas as pd
 
 from bioetl.clients import ClientRequest, PaginationParams
+from bioetl.clients.base.exceptions import ProviderError
+from bioetl.clients.exceptions import PartialFailureError
 from bioetl.clients.base.contracts import DataClient
 from bioetl.clients.chembl.data_client import build_chembl_client_factory
 from bioetl.core.io.artifacts import (
@@ -19,7 +21,7 @@ from bioetl.core.io.artifacts import (
 )
 from bioetl.core.io.output import UnifiedOutputWriter, emit_qc_artifact
 from bioetl.core.logging import UnifiedLogger
-from bioetl.core.pipeline.types import PipelineConfig, WriteResult
+from bioetl.core.pipeline.types import WriteResult
 from bioetl.pipelines.chembl.activity.normalizers import (
     ActivityNormalizer,
 )
@@ -27,9 +29,12 @@ from bioetl.pipelines.chembl.activity.parsers import (
     ActivityParser,
 )
 from bioetl.pipelines.chembl.batch_executor import execute_chembl_batches
-from bioetl.pipelines.chembl.common import (
+from bioetl.pipelines.chembl.common.descriptor import (
     ChemblExtractionDescriptor,
     ConfigValidationError,
+)
+from bioetl.core.config.models import (
+    PipelineConfig as ConfigPipelineConfig,
 )
 
 
@@ -37,11 +42,12 @@ from bioetl.pipelines.chembl.common import (
 class ActivityExtractor:
     """Извлечение активностей через клиент ChEMBL."""
 
-    client_factory: Callable[[PipelineConfig], DataClient] | None = None
+    client_factory: Callable[[ConfigPipelineConfig], DataClient] | None = None
     parser: ActivityParser = field(default_factory=ActivityParser)
     release: str | None = None
+    run_id: str = "unknown"
 
-    def _build_client(self, config: PipelineConfig) -> DataClient:
+    def _build_client(self, config: ConfigPipelineConfig) -> DataClient:
         if self.client_factory:
             return self.client_factory(config)
 
@@ -50,16 +56,15 @@ class ActivityExtractor:
 
     def extract(
         self,
-        config: PipelineConfig,
         descriptor: ChemblExtractionDescriptor,
-        *,
+        config: ConfigPipelineConfig,
         batch_size: int | None = None,
     ) -> tuple[pd.DataFrame, dict[str, Any]]:
         """Execute the extraction stage for activity data.
 
         Args:
-            config: Pipeline configuration.
             descriptor: ChEMBL extraction descriptor.
+            config: Pipeline configuration.
             batch_size: Optional batch size override.
 
         Returns:
@@ -79,6 +84,7 @@ class ActivityExtractor:
 
         client = self._build_client(config)
         status = getattr(client, "status", None)
+        status_result = None
         if callable(status):
             status_result = status()
             if isinstance(status_result, Mapping):
@@ -89,7 +95,7 @@ class ActivityExtractor:
                 )
         meta: dict[str, Any] = {
             "chembl_release": self.release,
-            "status": status() if callable(status) else None,
+            "status": status_result,
         }
 
         ids = descriptor.ids or []
@@ -102,23 +108,26 @@ class ActivityExtractor:
             try:
                 request = ClientRequest(
                     ids=list(batch),
-                    pagination=PaginationParams(page_size=effective_batch_size),
+                    pagination=PaginationParams(
+                        page_size=effective_batch_size
+                    ),
                 )
                 records = list(client.iter_records(request))
                 payload = {"results": records}
                 parsed = self.parser.parse(payload)
                 df = parsed if not records else parsed
                 return df, {"api_calls": 1}
-            except Exception as exc:
-                # Check if it's a PartialFailureError with partial data
-                if hasattr(exc, 'partial_data') and exc.partial_data:
-                    # Process the partial successful data
-                    payload = {"results": list(exc.partial_data.values())}
-                    parsed = self.parser.parse(payload)
-                    df = parsed
-                    # Calculate actual failed IDs count
-                    failed_count = len(batch) - len(exc.partial_data)
-                    return df, {"fallback": failed_count, "api_calls": 1}
+            except PartialFailureError as e:
+                # Handle partial failures - extract successful records
+                payload = {"results": list(e.partial_data.values())}
+                parsed = self.parser.parse(payload)
+                df = parsed if e.partial_data else parsed
+                failed_count = len(batch) - len(e.partial_data)
+                return df, {"fallback": failed_count, "api_calls": 1}
+            except ProviderError:
+                # Handle provider-specific errors
+                return pd.DataFrame(), {"fallback": len(batch), "api_calls": 1}
+            except Exception:
                 # No partial data available, return empty DataFrame
                 return pd.DataFrame(), {"fallback": len(batch), "api_calls": 1}
 
@@ -186,7 +195,7 @@ class ActivityWriter:
     """Запись результатов activity-пайплайна с QC артефактами."""
 
     schema_registry: SchemaRegistry
-    config: PipelineConfig
+    config: ConfigPipelineConfig
     pipeline_code: str
     run_id: str
     output_root: Path
