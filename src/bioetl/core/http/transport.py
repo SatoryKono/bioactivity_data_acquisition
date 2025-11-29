@@ -1,41 +1,30 @@
 from __future__ import annotations
 
-from typing import Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
-from bioetl.clients.base.client import (
-    ClientRequest,
-    PageStream,
-    Record,
-    RecordStream,
-    RequestContext,
-)
+from bioetl.clients.base.client import PageStream, RecordStream, RequestContext
 
 
 class HttpTransport(Protocol):
-    """
-    Абстракция HTTP-транспорта для клиентского слоя.
-
-    Реализация этого протокола:
-    - знает base_url и детали API конкретного источника;
-    - реализует пагинацию, ретраи, таймауты, логирование, кэш и т.п.;
-    - возвращает сырые записи (Record / Page) без доменных преобразований.
-      Клиенты не должны знать эти детали.
-    """
-
     def fetch_one(
         self,
         *,
         endpoint: str,
-        request: ClientRequest,
+        params: Mapping[str, Any] | None = None,
+        pagination: Any | None = None,
+        raw: Any | None = None,
         context: RequestContext | None = None,
-    ) -> Record | None:
+    ) -> Any:
         ...
 
     def iter_records(
         self,
         *,
         endpoint: str,
-        request: ClientRequest,
+        params: Mapping[str, Any] | None = None,
+        pagination: Any | None = None,
+        raw: Any | None = None,
         context: RequestContext | None = None,
     ) -> RecordStream:
         ...
@@ -44,7 +33,15 @@ class HttpTransport(Protocol):
         self,
         *,
         endpoint: str,
-        request: ClientRequest,
+        params: Mapping[str, Any] | None = None,
+        pagination: Any | None = None,
+        raw: Any | None = None,
         context: RequestContext | None = None,
     ) -> PageStream:
         ...
+
+    def close(self) -> None:
+        ...
+
+
+__all__ = ["HttpTransport"]
