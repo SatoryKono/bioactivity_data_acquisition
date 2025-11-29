@@ -20,6 +20,7 @@ from bioetl.clients.base import (
     RecordStream,
     RequestContext,
 )
+from bioetl.clients.base import exceptions as provider_exceptions
 from bioetl.core.http.api_entity_client import BaseApiEntityClient
 from bioetl.core.http.interfaces import ApiTransportProtocol
 from bioetl.core.http.pagination import PaginationStrategy
@@ -212,32 +213,44 @@ class BaseChemblClient(
         page_size: int | None = None,
         pagination: PaginationParams | None = None,
         context: RequestContext | None = None,
-        params: Mapping[str, Any] | None = None,
-        page_key: str = DEFAULT_PAGE_KEY,
-        next_key: str = DEFAULT_NEXT_KEY,
-        page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> RecordStream:
-        """Iterate over paginated entities via the base client."""
+        """Stream normalized records for the given query.
+
+        Args:
+            query: Набор фильтров/параметров ChEMBL.
+            page_size: Желаемый размер страницы (``limit`` в ChEMBL).
+            pagination: Пользовательские параметры пагинации.
+            context: Дополнительный контекст запроса.
+
+        Returns:
+            Итератор словарей с нормализованными записями.
+        """
+
+        _ = context  # контекст используется только для логирования выше по стеку
 
         effective_pagination = self._resolve_pagination(
             pagination,
             fallback_page_size=page_size or 1000,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
         )
-        merged_params: dict[str, Any] = {}
-        if query:
-            merged_params.update(query)
-        if params:
-            merged_params.update(params)
-        return super().fetch_many(
-            page_size=effective_pagination.page_size or 1000,
-            params=merged_params or None,
-            page_key=effective_pagination.page_key or DEFAULT_PAGE_KEY,
-            next_key=effective_pagination.next_key or DEFAULT_NEXT_KEY,
-            page_param=effective_pagination.page_param,
-        )
+        params: dict[str, Any] = dict(query or {})
+        if effective_pagination.page_size:
+            params.setdefault("limit", effective_pagination.page_size)
+
+        base_fetch_many = super().fetch_many
+
+        def iterator() -> Iterator[dict[str, Any]]:
+            try:
+                yield from base_fetch_many(
+                    page_size=effective_pagination.page_size or 1000,
+                    params=params or None,
+                    page_key=effective_pagination.page_key or DEFAULT_PAGE_KEY,
+                    next_key=effective_pagination.next_key or DEFAULT_NEXT_KEY,
+                    page_param=effective_pagination.page_param,
+                )
+            except Exception as exc:  # noqa: BLE001
+                raise provider_exceptions.ProviderError(str(exc)) from exc
+
+        return iterator()
 
     def iter_pages(
         self,
@@ -246,6 +259,8 @@ class BaseChemblClient(
         pagination: PaginationParams | None = None,
         context: RequestContext | None = None,
     ) -> PageStream:
+        """Iterate over pages while applying ChEMBL pagination rules."""
+
         effective_pagination = self._resolve_pagination(
             pagination,
             fallback_page_size=pagination.page_size if pagination else None,
@@ -255,45 +270,62 @@ class BaseChemblClient(
             params.setdefault("limit", effective_pagination.page_size)
 
         entity_path = self._entity_path()
-        log_context = {"path": entity_path}
+        log_context: dict[str, Any] = {"path": entity_path}
         if context:
             log_context.update(context.extra)
 
-        first_payload = self._wrap_callable(
-            lambda: cast(ApiTransportProtocol, self._transport()).request(
-                "GET", entity_path, params=params
-            ),
-            log_context=log_context,
-        )
-        strategy = cast(PaginationStrategy, self.pagination_strategy)
-        page_key = effective_pagination.page_key or DEFAULT_PAGE_KEY
-        next_key = effective_pagination.next_key or DEFAULT_NEXT_KEY
-        page_param = effective_pagination.page_param
+        try:
+            first_payload = self._wrap_callable(
+                lambda: cast(ApiTransportProtocol, self._transport()).request(
+                    "GET", entity_path, params=params
+                ),
+                log_context=log_context,
+            )
+            strategy = cast(PaginationStrategy, self.pagination_strategy)
+            page_key = effective_pagination.page_key or DEFAULT_PAGE_KEY
+            next_key = effective_pagination.next_key or DEFAULT_NEXT_KEY
+            page_param = effective_pagination.page_param
 
-        for raw_page in self.pagination_strategy.iter_pages(
-            first_payload,
-            cast(ApiTransportProtocol, self._transport()),
-            endpoint=entity_path,
-            params=params,
-            logger=self._logger,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-            normalize=self._normalize_payload,
-        ):
-            items = list(self._normalize_payload(raw_page, page_key=page_key))
-            next_cursor = raw_page.get(next_key) if isinstance(raw_page, Mapping) else None
-            yield Page(items=items, next_cursor=next_cursor, raw=raw_page if isinstance(raw_page, Mapping) else None)
+            for raw_page in strategy.iter_pages(
+                first_payload,
+                cast(ApiTransportProtocol, self._transport()),
+                endpoint=entity_path,
+                params=params,
+                logger=self._logger,
+                page_key=page_key,
+                next_key=next_key,
+                page_param=page_param,
+                normalize=self._normalize_payload,
+            ):
+                items = list(self._normalize_payload(raw_page, page_key=page_key))
+                next_cursor = (
+                    raw_page.get(next_key)
+                    if isinstance(raw_page, Mapping)
+                    else None
+                )
+                yield Page(
+                    items=items,
+                    next_cursor=next_cursor,
+                    raw=raw_page if isinstance(raw_page, Mapping) else None,
+                )
+        except Exception as exc:  # noqa: BLE001
+            raise provider_exceptions.ProviderError(str(exc)) from exc
 
     def metadata(self) -> Mapping[str, Any]:
-        """Return metadata from the underlying transport."""
+        """Return metadata describing the client and underlying transport."""
+
         base_transport = getattr(self, "transport", None)
-        if base_transport is None:
-            return {}
-        metadata = getattr(base_transport, "metadata", None)
-        if isinstance(metadata, Mapping):
-            return dict(metadata)
-        return {}
+        transport_meta: dict[str, Any] = {}
+        if base_transport is not None:
+            metadata = getattr(base_transport, "metadata", None)
+            if isinstance(metadata, Mapping):
+                transport_meta.update(metadata)
+
+        return {
+            "source": "chembl",
+            "entity": self.entity,
+            "transport": transport_meta,
+        }
 
     def status(self) -> Mapping[str, Any]:
         """Check ChEMBL API status."""
@@ -313,15 +345,32 @@ class BaseChemblClient(
         params: Mapping[str, Any] | None = None,
         context: RequestContext | None = None,
     ) -> RecordStream:
+        """Fetch a single entity and yield normalized record(s)."""
+
         log_context = {"ref": ref}
         if context:
             log_context.update(context.extra)
 
-        def iterator() -> Iterator[dict[str, Any]]:
-            payload = self.get(ref, params=params)
-            yield from self._normalize_payload(payload, page_key=None)
+        wrapped_iterator = self._wrap_iterator(
+            lambda: self._normalize_payload(self.get(ref, params=params), page_key=None),
+            log_context=log_context,
+        )
 
-        return self._wrap_iterator(iterator, log_context=log_context)
+        def provider_iterator() -> Iterator[dict[str, Any]]:
+            try:
+                yield from wrapped_iterator
+            except Exception as exc:  # noqa: BLE001
+                raise provider_exceptions.ProviderError(str(exc)) from exc
+
+        return provider_iterator()
+
+    def close(self) -> None:
+        """Close underlying transport or propagate a provider-level error."""
+
+        try:
+            super().close()
+        except Exception as exc:  # noqa: BLE001
+            raise provider_exceptions.ProviderError(str(exc)) from exc
 
 
 class ChemblEntityClient(BaseChemblClient):
