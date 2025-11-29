@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Iterator
 
 if TYPE_CHECKING:
-    from bioetl.clients.enricher_facade import EnrichmentStrategy
+    from bioetl.clients.factories.enricher_facade import EnrichmentStrategy
 
 
 class StrategyRegistry(Mapping[str, "EnrichmentStrategy"]):
@@ -48,7 +48,7 @@ class StrategyRegistry(Mapping[str, "EnrichmentStrategy"]):
             if not callable(getattr(client, method_name, None)):
                 continue
 
-            from bioetl.clients.enricher_facade import ClientMethodStrategy
+            from bioetl.clients.factories.enricher_facade import ClientMethodStrategy
 
             strategies[key.removesuffix("_client")] = ClientMethodStrategy(
                 lambda _factory, client=client: client,
