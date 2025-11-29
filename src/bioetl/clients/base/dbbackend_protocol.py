@@ -1,11 +1,14 @@
-from __future__ import annotations
-
 """Contract for database backends used by the client layer."""
+
+from __future__ import annotations
 
 from collections.abc import Iterator
 from typing import Protocol
 
-from bioetl.clients.base.client_abc import ClientRequest, RequestContext
+from bioetl.clients.base.client_abc import (
+    ClientRequest,
+    RequestContext,
+)
 from bioetl.clients.base.paging import Page
 from bioetl.clients.base.types import Record
 

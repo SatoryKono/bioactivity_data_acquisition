@@ -9,6 +9,7 @@ from bioetl.clients.base.client_abc import (
     ClientRequest,
     RequestContext,
 )
+from bioetl.clients.base.dbbackend_protocol import DbBackendProtocol
 from bioetl.clients.base.exceptions import (  # noqa: E402
     ConfigurationError,
     ConnectionError,
@@ -27,6 +28,7 @@ __all__ = [
     "ClientRequest",
     "RequestContext",
     "HttpBackend",
+    "DbBackendProtocol",
     "Page",
     "PaginationParams",
     "Headers",
