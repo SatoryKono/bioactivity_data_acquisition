@@ -34,12 +34,12 @@ class BaseHttpClient(ApiClientMixin, ClosableMixin):
     ) -> None:
         self._transport = transport
         self._logger = structlog.get_logger(__name__).bind(client=client_name)
-        self.default_timeout_sec = (
+        self._default_timeout_sec = (
             default_timeout_sec
             if default_timeout_sec is not None
             else getattr(transport, "default_timeout_sec", None)
         )
-        self.default_max_retries = (
+        self._default_max_retries = (
             default_max_retries
             if default_max_retries is not None
             else getattr(transport, "default_max_retries", None)
@@ -55,11 +55,11 @@ class BaseHttpClient(ApiClientMixin, ClosableMixin):
         self._pagination_strategy = strategy
 
     def _resolve_timeout(self, timeout_sec: float | None) -> float | None:
-        return timeout_sec if timeout_sec is not None else self.default_timeout_sec
+        return timeout_sec if timeout_sec is not None else self._default_timeout_sec
 
     def _resolve_retries(self, max_retries: int | None) -> int | None:
         return (
-            max_retries if max_retries is not None else self.default_max_retries
+            max_retries if max_retries is not None else self._default_max_retries
         )
 
     def _perform_request(

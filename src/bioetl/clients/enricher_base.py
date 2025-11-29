@@ -117,7 +117,12 @@ class BaseEnricherClient:
     def _normalize_payload(
         self, payload: Any, *, page_key: str | None = None
     ) -> Iterator[dict[str, Any]]:
-        yield from normalize_payload(payload, page_key=page_key or self.page_key)
+        items = list(normalize_payload(payload, page_key=page_key or self.page_key))
+        if not items:
+            # Fallback: wrap entire payload when no items extracted
+            yield {"result": payload}
+        else:
+            yield from items
 
     def _iterate_pages(
         self,

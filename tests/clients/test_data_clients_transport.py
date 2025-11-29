@@ -26,13 +26,15 @@ core_pkg = sys.modules.setdefault("bioetl.core", types.ModuleType("bioetl.core")
 core_pkg.__path__ = [str(src_root / "core")]
 
 chembl_spec = importlib.util.spec_from_file_location(
-    "bioetl.clients.chembl", src_root / "clients" / "chembl" / "client.py"
+    "bioetl.clients.chembl",
+    src_root / "clients" / "chembl" / "client.py",
 )
 chembl_module = importlib.util.module_from_spec(chembl_spec)
 sys.modules["bioetl.clients.chembl"] = chembl_module
 if chembl_spec and chembl_spec.loader:
     chembl_spec.loader.exec_module(chembl_module)
 
+# Импорты после динамической настройки модулей
 from bioetl.clients.base.client import (
     ClientRequest,
     Page,
@@ -70,6 +72,7 @@ class FakeHttpTransport(HttpTransport):
         self,
         *,
         endpoint: str,
+        headers: Mapping[str, Any] | None = None,
         params: Mapping[str, Any] | None = None,
         pagination: Any | None = None,
         raw: Any | None = None,
@@ -79,6 +82,7 @@ class FakeHttpTransport(HttpTransport):
         self.last_endpoint = endpoint
         self.last_context = context
         self.last_request = request if request is not None else {
+            "headers": headers,
             "params": params,
             "pagination": pagination,
             "raw": raw,
@@ -89,6 +93,7 @@ class FakeHttpTransport(HttpTransport):
         self,
         *,
         endpoint: str,
+        headers: Mapping[str, Any] | None = None,
         params: Mapping[str, Any] | None = None,
         pagination: Any | None = None,
         raw: Any | None = None,
@@ -98,6 +103,7 @@ class FakeHttpTransport(HttpTransport):
         self.last_endpoint = endpoint
         self.last_context = context
         self.last_request = request if request is not None else {
+            "headers": headers,
             "params": params,
             "pagination": pagination,
             "raw": raw,
@@ -108,6 +114,7 @@ class FakeHttpTransport(HttpTransport):
         self,
         *,
         endpoint: str,
+        headers: Mapping[str, Any] | None = None,
         params: Mapping[str, Any] | None = None,
         pagination: Any | None = None,
         raw: Any | None = None,
@@ -117,6 +124,7 @@ class FakeHttpTransport(HttpTransport):
         self.last_endpoint = endpoint
         self.last_context = context
         self.last_request = request if request is not None else {
+            "headers": headers,
             "params": params,
             "pagination": pagination,
             "raw": raw,
@@ -187,7 +195,7 @@ def test_http_client_maps_request_and_delegates(case: _ClientCase) -> None:
     transport = FakeHttpTransport(
         fetch_one_result={"kind": "one"},
         records=[{"kind": "record"}],
-        pages=[Page(items=[{"kind": "page"}], next_offset=None, has_next=False)],
+        pages=[Page(items=[{"kind": "page"}], next_cursor=None, has_next=False)],
     )
     client = case.client_cls(
         name=case.name,
@@ -221,7 +229,7 @@ def test_http_client_maps_request_and_delegates(case: _ClientCase) -> None:
     assert transport.last_request["pagination"] is pagination
 
     pages = list(client.iter_pages(request, context=context))
-    assert pages == [Page(items=[{"kind": "page"}], next_offset=None, has_next=False)]
+    assert pages == [Page(items=[{"kind": "page"}], next_cursor=None, has_next=False)]
     assert transport.last_endpoint == case.endpoint
     assert transport.last_request["pagination"] is pagination
 
@@ -230,7 +238,7 @@ def test_chembl_client_maps_ids_filters_and_pagination() -> None:
     transport = FakeHttpTransport(
         fetch_one_result={"resource": "chembl"},
         records=[{"resource": "chembl"}],
-        pages=[Page(items=[{"resource": "chembl"}], next_offset=1, has_next=True)],
+        pages=[Page(items=[{"resource": "chembl"}], next_cursor=1, has_next=True)],
     )
     client = ChemblClient(
         name="chembl.target",
@@ -266,5 +274,5 @@ def test_chembl_client_maps_ids_filters_and_pagination() -> None:
     assert mapped_request.filters["target_chembl_id"] == ["CHEMBL1", "CHEMBL2"]
 
     pages = list(client.iter_pages(request, context=context))
-    assert pages == [Page(items=[{"resource": "chembl"}], next_offset=1, has_next=True)]
+    assert pages == [Page(items=[{"resource": "chembl"}], next_cursor=1, has_next=True)]
     assert transport.last_request.pagination is pagination

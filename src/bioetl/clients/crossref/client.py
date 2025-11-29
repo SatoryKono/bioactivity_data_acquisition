@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 from bioetl.clients.base.contracts import (
     ClientRequest,
     DataClient,
@@ -60,13 +60,14 @@ class CrossrefWorkClient(DataClient):
         self, request: ClientRequest, *, context: RequestContext | None = None
     ) -> Record | None:
         mapped_request = self._map_request(request)
-        return self._transport.fetch_one(
+        result = self._transport.fetch_one(
             endpoint=mapped_request["endpoint"],
             params=mapped_request["params"],
             pagination=mapped_request["pagination"],
             raw=mapped_request["raw"],
             context=context,
         )
+        return result
 
     def iter_records(
         self, request: ClientRequest, *, context: RequestContext | None = None
@@ -124,7 +125,9 @@ class CrossrefWorkClient(DataClient):
         return {
             "endpoint": self._resource_config.endpoint,
             "params": params or None,
-            "pagination": request.pagination or self._resource_config.pagination,
+            "pagination": (
+                request.pagination or self._resource_config.pagination
+            ),
             "raw": request.raw,
         }
 

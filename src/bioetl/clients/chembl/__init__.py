@@ -33,15 +33,21 @@ from bioetl.clients.chembl.factories import (
     default_chembl_factory,
     make_chembl_client,
 )
-from bioetl.clients.chembl.factory import ChemblClientFactory, ChemblDescriptorFactoryBuilder
+from bioetl.clients.chembl.factory import (
+    ChemblClientFactory,
+    ChemblDescriptorFactoryBuilder,
+)
 from bioetl.clients.chembl.normalization import (
     BaseChemblNormalizer,
     ColumnMapping,
     ColumnNormalizationSpec,
     build_records_from_payload,
 )
-from bioetl.clients.chembl.strategy_resolver import PaginationStrategyResolverMixin
+from bioetl.clients.chembl.strategy_resolver import (
+    PaginationStrategyResolverMixin,
+)
 from bioetl.clients.chembl.client import ChemblClient, ChemblResourceConfig
+from bioetl.clients.chembl.compat import ChemblCompatibilityMixin
 
 if TYPE_CHECKING:  # pragma: no cover - import-time only
     from bioetl.clients.chembl.adapter import ChemblTransportAdapter
@@ -54,7 +60,6 @@ if TYPE_CHECKING:  # pragma: no cover - import-time only
         create_pagination_strategy,
         register_pagination_strategy,
     )
-    from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor
 
 __all__ = [
     "BaseChemblClient",
@@ -83,6 +88,7 @@ __all__ = [
     "ChemblDescriptorFactoryBuilder",
     "ChemblClient",
     "ChemblResourceConfig",
+    "ChemblCompatibilityMixin",
 ]
 
 _DEPRECATED_EXPORTS: dict[str, tuple[str, str]] = {
@@ -110,11 +116,8 @@ def __getattr__(name: str) -> Any:
     if deprecated:
         module_name, attr_name = deprecated
         warnings.warn(
-            (
-                "`bioetl.clients.chembl.%s` устарел; импортируйте ``%s`` "
-                "из ``%s``."
-            )
-            % (name, attr_name, module_name),
+            f"`bioetl.clients.chembl.{name}` устарел; импортируйте "
+            f"``{attr_name}``` из ``{module_name}``.",
             DeprecationWarning,
             stacklevel=2,
         )
