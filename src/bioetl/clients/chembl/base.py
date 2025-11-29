@@ -285,7 +285,6 @@ class BaseChemblClient(
             next_cursor = raw_page.get(next_key) if isinstance(raw_page, Mapping) else None
             yield Page(items=items, next_cursor=next_cursor, raw=raw_page if isinstance(raw_page, Mapping) else None)
 
-    @property
     def metadata(self) -> Mapping[str, Any]:
         """Return metadata from the underlying transport."""
         base_transport = getattr(self, "transport", None)

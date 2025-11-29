@@ -67,46 +67,54 @@ class OptionsAwareApiClient(BaseHttpClient):
 
 
 @runtime_checkable
-class EnricherClientProtocol(Protocol):
+class EnricherClientProtocol(DataProviderProtocol[dict[str, Any]], Protocol):
+    """Унифицированный алиас для клиентов обогащения.
+
+    Контракт совпадает с ``DataProviderProtocol`` и служит для выравнивания
+    фабрик/фасадов вокруг базового набора методов извлечения данных.
+    """
+
     def fetch_one(
         self,
-        value: str,
-        params: Mapping[str, Any] | None = None,
+        ref: str,
         *,
-        route_name: str | None = None,
-        page_key: str | None = None,
-    ) -> JSONRecordStream:
+        params: Mapping[str, Any] | None = None,
+        context: RequestContext | None = None,
+    ) -> RecordStream:  # pragma: no cover - протокол
         ...
 
-    def fetch_batch(
+    def fetch_many(
         self,
-        value: str,
-        params: Mapping[str, Any] | None = None,
         *,
-        route_name: str | None = None,
-        page_key: str | None = None,
-        next_key: str | None = None,
-        page_param: str | None = None,
-    ) -> JSONRecordStream:
+        query: Mapping[str, Any] | None = None,
+        page_size: int | None = None,
+        pagination: PaginationParams | None = None,
+        context: RequestContext | None = None,
+    ) -> RecordStream:  # pragma: no cover - протокол
         ...
 
-    def fetch(
-        self, value: str, params: Mapping[str, Any] | None = None
-    ) -> JSONRecordStream:
-        ...
-
-    def search(
-        self, value: str, params: Mapping[str, Any] | None = None
-    ) -> JSONRecordStream:
-        ...
-
-    def call_route(
+    def iter_pages(
         self,
-        route_name: str,
         *,
-        value: str,
-        params: Mapping[str, Any] | None = None,
-    ) -> JSONRecordStream:
+        query: Mapping[str, Any] | None = None,
+        pagination: PaginationParams | None = None,
+        context: RequestContext | None = None,
+    ) -> PageStream:  # pragma: no cover - протокол
+        ...
+
+    def configure(
+        self,
+        *,
+        transport: Any | None = None,
+        pagination: PaginationParams | None = None,
+        retries: Any | None = None,
+    ) -> "EnricherClientProtocol":  # pragma: no cover - протокол
+        ...
+
+    def metadata(self) -> Mapping[str, Any]:  # pragma: no cover - протокол
+        ...
+
+    def close(self) -> None:  # pragma: no cover - протокол
         ...
 
 
@@ -266,7 +274,14 @@ class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
         pagination: PaginationParams | None = None,
         retries: Any | None = None,
     ) -> "UnifiedProviderAdapter":
-        _ = (transport, retries)
+        provider_configure = getattr(self._provider, "configure", None)
+        if callable(provider_configure):
+            provider_configure(
+                transport=transport, pagination=pagination, retries=retries
+            )
+        elif transport or retries:
+            _ = (transport, retries)
+
         if pagination:
             self._pagination = pagination
         return self
@@ -367,6 +382,12 @@ class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
             yield from page.items
 
     def metadata(self) -> Mapping[str, Any]:
+        meta = getattr(self._provider, "metadata", None)
+        if callable(meta):
+            meta = meta()
+        if isinstance(meta, Mapping):
+            return meta
+
         meta = getattr(self._provider.api_client, "metadata", None)
         return meta if isinstance(meta, Mapping) else {}
 
