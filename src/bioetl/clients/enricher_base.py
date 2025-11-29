@@ -145,9 +145,15 @@ class BaseEnricherClient:
             [str | None, str, str | None], Iterable[Any]
         ],
     ) -> JSONRecordStream:
-        effective_page_key = page_key if page_key is not None else self.page_key
-        effective_next_key = next_key if next_key is not None else self.next_key
-        effective_page_param = page_param if page_param is not None else self.page_param
+        effective_page_key = (
+            page_key if page_key is not None else self.page_key
+        )
+        effective_next_key = (
+            next_key if next_key is not None else self.next_key
+        )
+        effective_page_param = (
+            page_param if page_param is not None else self.page_param
+        )
 
         try:
             for payload in fetch_pages(
@@ -248,7 +254,9 @@ class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
         provider_configure = getattr(self._provider, "configure", None)
         if callable(provider_configure):
             provider_configure(
-                transport=transport, pagination=pagination, retries=retries
+                transport=transport,
+                pagination=pagination,
+                retries=retries,
             )
         elif transport or retries:
             _ = (transport, retries)
