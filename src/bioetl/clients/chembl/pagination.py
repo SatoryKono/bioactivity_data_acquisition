@@ -54,7 +54,6 @@ _PAGINATION_REGISTRY: dict[str, PaginationFactory] = {}
 register_pagination_strategy(DEFAULT_PAGINATION_STRATEGY, DefaultPaginationStrategy)
 
 __all__ = (
-    "PaginationStrategy",
     "PaginationFactory",
     "DEFAULT_PAGINATION_STRATEGY",
     "available_pagination_strategies",

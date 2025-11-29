@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from bioetl.clients.chembl.pagination import PaginationFactory, PaginationStrategy, create_pagination_strategy
+from bioetl.clients.chembl.pagination import PaginationFactory, create_pagination_strategy
+from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.http.interfaces import ApiTransportProtocol
 
 
