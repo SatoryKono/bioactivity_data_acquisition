@@ -39,16 +39,13 @@ from bioetl.clients.base.client import (
     PaginationParams,
     RequestContext,
 )
-from bioetl.clients.chembl import ChemblClient, ChemblResourceConfig
-from bioetl.clients.crossref import CrossrefResourceConfig, CrossrefWorkClient
-from bioetl.clients.openalex import OpenalexResourceConfig, OpenalexWorkClient
-from bioetl.clients.pubchem import PubchemCompoundClient, PubchemResourceConfig
-from bioetl.clients.pubmed import PubmedArticleClient, PubmedResourceConfig
-from bioetl.clients.semantic_scholar import (
-    SemanticScholarPaperClient,
-    SemanticScholarResourceConfig,
-)
-from bioetl.clients.uniprot import UniprotProteinClient, UniprotResourceConfig
+from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.crossref import CrossrefWorkClient
+from bioetl.clients.openalex import OpenalexWorkClient
+from bioetl.clients.pubchem import PubchemCompoundClient
+from bioetl.clients.pubmed import PubmedArticleClient
+from bioetl.clients.semantic_scholar import SemanticScholarPaperClient
+from bioetl.clients.uniprot import UniprotProteinClient
 from bioetl.core.http.transport import HttpTransport
 
 
@@ -133,7 +130,6 @@ class FakeHttpTransport(HttpTransport):
 @dataclass(slots=True)
 class _ClientCase:
     client_cls: type
-    config_cls: type
     endpoint: str
     id_field: str
     filter_key: str
@@ -143,7 +139,6 @@ class _ClientCase:
 CLIENT_CASES = (
     _ClientCase(
         client_cls=PubchemCompoundClient,
-        config_cls=PubchemResourceConfig,
         endpoint="/compound",
         id_field="cid",
         filter_key="pub_status",
@@ -151,7 +146,6 @@ CLIENT_CASES = (
     ),
     _ClientCase(
         client_cls=PubmedArticleClient,
-        config_cls=PubmedResourceConfig,
         endpoint="/article",
         id_field="pmid",
         filter_key="term",
@@ -159,7 +153,6 @@ CLIENT_CASES = (
     ),
     _ClientCase(
         client_cls=OpenalexWorkClient,
-        config_cls=OpenalexResourceConfig,
         endpoint="/works",
         id_field="ids",
         filter_key="filter[concepts.id]",
@@ -167,7 +160,6 @@ CLIENT_CASES = (
     ),
     _ClientCase(
         client_cls=CrossrefWorkClient,
-        config_cls=CrossrefResourceConfig,
         endpoint="/works",
         id_field="doi",
         filter_key="filter[author]",
@@ -175,7 +167,6 @@ CLIENT_CASES = (
     ),
     _ClientCase(
         client_cls=SemanticScholarPaperClient,
-        config_cls=SemanticScholarResourceConfig,
         endpoint="/paper",
         id_field="paperId",
         filter_key="fieldsOfStudy",
@@ -183,7 +174,6 @@ CLIENT_CASES = (
     ),
     _ClientCase(
         client_cls=UniprotProteinClient,
-        config_cls=UniprotResourceConfig,
         endpoint="/proteins",
         id_field="accessions",
         filter_key="organism",
@@ -199,15 +189,9 @@ def test_http_client_maps_request_and_delegates(case: _ClientCase) -> None:
         records=[{"kind": "record"}],
         pages=[Page(items=[{"kind": "page"}], next_offset=None, has_next=False)],
     )
-    config = case.config_cls(
-        endpoint=case.endpoint,
-        id_field=case.id_field,
-        filter_mapping={"status": case.filter_key},
-    )
     client = case.client_cls(
         name=case.name,
         transport=transport,
-        resource_config=config,
     )
     pagination = PaginationParams(limit=7, offset=3, page_size=2, max_pages=5)
     request = ClientRequest(
@@ -248,15 +232,9 @@ def test_chembl_client_maps_ids_filters_and_pagination() -> None:
         records=[{"resource": "chembl"}],
         pages=[Page(items=[{"resource": "chembl"}], next_offset=1, has_next=True)],
     )
-    config = ChemblResourceConfig(
-        endpoint="/target",
-        id_field="target_chembl_id",
-        filter_mapping={"pref_name": "pref_name__iexact"},
-    )
     client = ChemblClient(
         name="chembl.target",
         transport=transport,
-        resource_config=config,
     )
     pagination = PaginationParams(limit=5, offset=2, page_size=10, max_pages=3)
     request = ClientRequest(

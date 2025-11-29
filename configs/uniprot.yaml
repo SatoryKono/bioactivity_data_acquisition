@@ -1,0 +1,8 @@
+pagination:
+  page_size: 500
+resources:
+  protein:
+    endpoint: "/proteins"
+    id_field: "accessions"
+    filter_mapping:
+      status: "organism"

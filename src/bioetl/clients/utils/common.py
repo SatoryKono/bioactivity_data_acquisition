@@ -12,6 +12,18 @@ from bioetl.core.http import pagination_helpers
 # pylint: disable=line-too-long,wildcard-import,unused-wildcard-import
 from bioetl.core.http.pagination_helpers import *  # noqa: F401,F403,E501
 
+PAGINATION_META_KEYS: tuple[str, ...] = ()
+
+
+def ensure_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return [value]
+
 warnings.warn(
     (
         "bioetl.clients.common устарел и будет удалён; "
@@ -21,4 +33,4 @@ warnings.warn(
     stacklevel=2,
 )
 
-__all__ = [*pagination_helpers.__all__]
+__all__ = [*pagination_helpers.__all__, "PAGINATION_META_KEYS", "ensure_list"]

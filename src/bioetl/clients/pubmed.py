@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from bioetl.clients.base.client import (
     ClientRequest,
     DataClient,
+    PaginationParams,
     PageStream,
     Record,
     RecordStream,
     RequestContext,
+)
+from bioetl.clients.utils.config_loader import (
+    build_pagination,
+    load_resource_settings,
+    split_name,
 )
 from bioetl.core.http.transport import HttpTransport
 
@@ -28,6 +34,7 @@ class PubmedResourceConfig:
     endpoint: str
     id_field: str
     filter_mapping: dict[str, str] | None = None
+    pagination: PaginationParams | None = None
 
 
 class PubmedArticleClient(DataClient):
@@ -37,11 +44,18 @@ class PubmedArticleClient(DataClient):
         self,
         name: str,
         transport: HttpTransport,
-        resource_config: PubmedResourceConfig,
     ) -> None:
         self.name = name
+        source, resource = split_name(name)
+        self.source = source
+        resource_settings = load_resource_settings(source, resource)
+        self._resource_config = PubmedResourceConfig(
+            endpoint=resource_settings["endpoint"],
+            id_field=resource_settings["id_field"],
+            filter_mapping=resource_settings.get("filter_mapping"),
+            pagination=build_pagination(resource_settings.get("pagination")),
+        )
         self._transport = transport
-        self._resource_config = resource_config
 
     def fetch_one(
         self, request: ClientRequest, *, context: RequestContext | None = None
@@ -111,7 +125,7 @@ class PubmedArticleClient(DataClient):
         return {
             "endpoint": self._resource_config.endpoint,
             "params": params or None,
-            "pagination": request.pagination,
+            "pagination": request.pagination or self._resource_config.pagination,
             "raw": request.raw,
         }
 

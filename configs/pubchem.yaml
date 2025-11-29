@@ -1,0 +1,8 @@
+pagination:
+  page_size: 100
+resources:
+  compound:
+    endpoint: "/compound"
+    id_field: "cid"
+    filter_mapping:
+      status: "pub_status"

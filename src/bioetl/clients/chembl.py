@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Mapping
 
 from bioetl.clients.base.client import (
     ClientRequest,
     DataClient,
+    PaginationParams,
     PageStream,
     Record,
     RecordStream,
     RequestContext,
+)
+from bioetl.clients.utils.config_loader import (
+    build_pagination,
+    load_resource_settings,
+    split_name,
 )
 from bioetl.core.http.transport import HttpTransport
 
@@ -28,6 +34,7 @@ class ChemblResourceConfig:
     endpoint: str                  # "/target", "/activity" и т.п.
     id_field: str                  # "target_chembl_id", "molecule_chembl_id"
     filter_mapping: dict[str, str] | None = None
+    pagination: PaginationParams | None = None
 
 
 class ChemblClient(DataClient):
@@ -46,12 +53,18 @@ class ChemblClient(DataClient):
         *,
         name: str,
         transport: HttpTransport,
-        resource_config: ChemblResourceConfig,
     ) -> None:
         self.name = name            # например, "chembl.target"
-        self.source = "chembl"
+        source, resource = split_name(name)
+        self.source = source
+        resource_settings = load_resource_settings(source, resource)
         self._transport = transport
-        self._cfg = resource_config
+        self._cfg = ChemblResourceConfig(
+            endpoint=resource_settings["endpoint"],
+            id_field=resource_settings["id_field"],
+            filter_mapping=resource_settings.get("filter_mapping"),
+            pagination=build_pagination(resource_settings.get("pagination")),
+        )
 
     def fetch_one(
         self,
@@ -127,6 +140,6 @@ class ChemblClient(DataClient):
         return ClientRequest(
             ids=request.ids,
             filters=mapped_filters,
-            pagination=request.pagination,
+            pagination=request.pagination or self._cfg.pagination,
             raw=request.raw,
         )

@@ -1,0 +1,8 @@
+pagination:
+  page_size: 50
+resources:
+  article:
+    endpoint: "/article"
+    id_field: "pmid"
+    filter_mapping:
+      status: "term"

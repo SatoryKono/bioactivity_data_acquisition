@@ -61,3 +61,29 @@ CLI также умеет использовать зарегистрирова�
 ```bash
 python -m bioetl.cli.cli_app run-chembl-all --config configs/example.yaml --dry-run
 ```
+
+## Конфигурация HTTP-клиентов через YAML
+
+- Технические настройки клиентов (endpoint, id_field, фильтры, дефолтная
+  пагинация) хранятся в отдельных файлах `configs/<source>.yaml`. Часть имени
+  клиента (`<source>.<resource>`) используется для поиска нужного блока
+  настроек.
+- Загрузка реализована через `bioetl.config.load_client_config`, поэтому
+  конструкторы клиентов принимают только `name` и `transport` и поднимают
+  конфигурацию автоматически.
+
+Пример содержимого `configs/pubmed.yaml`:
+
+```yaml
+pagination:
+  page_size: 50
+resources:
+  article:
+    endpoint: "/article"
+    id_field: "pmid"
+    filter_mapping:
+      status: "term"
+```
+
+При отсутствии ресурса или файла конфигурации конструктор клиента завершится
+ошибкой с явным сообщением, что упрощает отладку неверных имён.

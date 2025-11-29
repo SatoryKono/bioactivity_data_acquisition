@@ -1,0 +1,8 @@
+pagination:
+  page_size: 200
+resources:
+  work:
+    endpoint: "/works"
+    id_field: "ids"
+    filter_mapping:
+      status: "filter[concepts.id]"
