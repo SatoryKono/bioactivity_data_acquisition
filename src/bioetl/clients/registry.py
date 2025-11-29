@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Регистрация фабрик клиентов по источникам."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import MutableMapping
@@ -8,7 +8,12 @@ from typing import MutableMapping
 from bioetl.clients.base import BaseClient
 from bioetl.clients.base.http_backend import HttpBackend
 from bioetl.clients.config.models import SourceConfig
-from bioetl.clients.factory import BackendFactory, ClientBuilder, ClientFactory, default_client_builder
+from bioetl.clients.factory import (
+    BackendFactory,
+    ClientBuilder,
+    ClientFactory,
+    default_client_builder,
+)
 
 
 @dataclass(slots=True)
@@ -31,11 +36,21 @@ class ClientRegistry:
 
 
 def get_registry(
-    backend_factory: BackendFactory, *, builders: MutableMapping[str, ClientBuilder] | None = None
+    backend_factory: BackendFactory,
+    *,
+    builders: MutableMapping[str, ClientBuilder] | None = None,
 ) -> ClientRegistry:
     registry = ClientRegistry(backend_factory, builders=builders or {})
     # Регистрируем дефолт для всех источников, если не перекрыт.
-    for source in ("chembl", "pubchem", "pubmed", "crossref", "openalex", "semantic_scholar", "uniprot"):
+    for source in (
+        "chembl",
+        "pubchem",
+        "pubmed",
+        "crossref",
+        "openalex",
+        "semantic_scholar",
+        "uniprot",
+    ):
         registry.builders.setdefault(source, default_client_builder)
     return registry
 

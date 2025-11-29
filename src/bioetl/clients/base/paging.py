@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Утилиты пагинации для клиентского уровня."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Iterable, Iterator
@@ -19,7 +19,8 @@ class PaginationParams:
     max_pages: int | None = None
 
     def override(self, **kwargs: Any) -> "PaginationParams":
-        data = self.__dict__ | {k: v for k, v in kwargs.items() if v is not None}
+        updates = {k: v for k, v in kwargs.items() if v is not None}
+        data = self.__dict__ | updates
         return PaginationParams(**data)
 
 

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Контракт HTTP-бэкенда, скрывающего детали транспорта."""
+
+from __future__ import annotations
 
 from collections.abc import Iterator
 from typing import Protocol

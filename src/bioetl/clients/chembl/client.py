@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Клиент ChEMBL на новой архитектуре."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Mapping, Sequence

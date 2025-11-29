@@ -1,3 +1,5 @@
+"""PubChem client on unified contract."""
+
 from __future__ import annotations
 
 from typing import Mapping, Sequence
@@ -12,7 +14,12 @@ from bioetl.clients.factory import ConfiguredHttpClient
 class PubChemClient(ConfiguredHttpClient):
     source = "pubchem"
 
-    def __init__(self, backend: HttpBackend, *, config: SourceConfig | None = None) -> None:
+    def __init__(
+        self,
+        backend: HttpBackend,
+        *,
+        config: SourceConfig | None = None,
+    ) -> None:
         cfg = config or load_source_config(self.source)
         super().__init__(config=cfg, backend=backend)
         self.name = f"{self.source}.client"

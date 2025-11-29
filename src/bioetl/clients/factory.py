@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Единая фабрика клиентов."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Callable, MutableMapping
@@ -24,19 +24,28 @@ class ConfiguredHttpClient(BaseClient):
     def fetch_one(self, request: ClientRequest):
         resource = self._resolve_resource(request.route)
         return self._backend.fetch_one(
-            source=self._config, resource=resource, request=request, context=request.context
+            source=self._config,
+            resource=resource,
+            request=request,
+            context=request.context,
         )
 
     def iter_records(self, request: ClientRequest):
         resource = self._resolve_resource(request.route)
         return self._backend.iter_records(
-            source=self._config, resource=resource, request=request, context=request.context
+            source=self._config,
+            resource=resource,
+            request=request,
+            context=request.context,
         )
 
     def iter_pages(self, request: ClientRequest):
         resource = self._resolve_resource(request.route)
         return self._backend.iter_pages(
-            source=self._config, resource=resource, request=request, context=request.context
+            source=self._config,
+            resource=resource,
+            request=request,
+            context=request.context,
         )
 
     def metadata(self):
@@ -49,7 +58,10 @@ class ConfiguredHttpClient(BaseClient):
         try:
             return self._config.resources[route]
         except KeyError as exc:  # pragma: no cover - defensive
-            msg = f"Route '{route}' не найден в SourceConfig {self._config.source}"
+            msg = (
+                f"Route '{route}' не найден в SourceConfig "
+                f"{self._config.source}"
+            )
             raise ValueError(msg) from exc
 
 
@@ -67,12 +79,23 @@ class ClientFactory:
     ) -> BaseClient:
         source_config = config or load_source_config(source)
         backend = http_backend or self.backend_factory(source_config)
-        builder = self.registry.get(source_config.source, default_client_builder)
+        builder = self.registry.get(
+            source_config.source,
+            default_client_builder,
+        )
         return builder(source_config, backend)
 
 
-def default_client_builder(config: SourceConfig, backend: HttpBackend) -> BaseClient:
+def default_client_builder(
+    config: SourceConfig,
+    backend: HttpBackend,
+) -> BaseClient:
     return ConfiguredHttpClient(config=config, backend=backend)
 
 
-__all__ = ["BackendFactory", "ClientBuilder", "ClientFactory", "default_client_builder"]
+__all__ = [
+    "BackendFactory",
+    "ClientBuilder",
+    "ClientFactory",
+    "default_client_builder",
+]

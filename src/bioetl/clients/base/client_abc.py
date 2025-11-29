@@ -39,6 +39,11 @@ class BaseClient(ABC):
     name: str
     source: str
 
+    def __init__(self, *_args: object, **_kwargs: object) -> None:
+        """Base client accepts backend-specific init arguments."""
+
+        super().__init__()
+
     @abstractmethod
     def fetch_one(self, request: ClientRequest) -> Record | None:
         """Return a single record or None for the given request."""

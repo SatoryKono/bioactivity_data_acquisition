@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Общие типы клиента."""
+
+from __future__ import annotations
 
 from collections.abc import Mapping, MutableMapping
 from typing import Any
