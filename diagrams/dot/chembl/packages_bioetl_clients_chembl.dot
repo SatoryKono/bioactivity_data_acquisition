@@ -3,11 +3,16 @@ rankdir=BT
 charset="utf-8"
 "src.bioetl.clients.chembl" [color="black", label=<src.bioetl.clients.chembl>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.adapter" [color="black", label=<src.bioetl.clients.chembl.adapter>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.adapter_factory" [color="black", label=<src.bioetl.clients.chembl.adapter_factory>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.base" [color="black", label=<src.bioetl.clients.chembl.base>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.compat" [color="black", label=<src.bioetl.clients.chembl.compat>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.descriptor_factory" [color="black", label=<src.bioetl.clients.chembl.descriptor_factory>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.entities" [color="black", label=<src.bioetl.clients.chembl.entities>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.facade" [color="black", label=<src.bioetl.clients.chembl.facade>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.factories" [color="black", label=<src.bioetl.clients.chembl.factories>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.factory" [color="black", label=<src.bioetl.clients.chembl.factory>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.normalization" [color="black", label=<src.bioetl.clients.chembl.normalization>, shape="box", style="solid"];
 "src.bioetl.clients.chembl.pagination" [color="black", label=<src.bioetl.clients.chembl.pagination>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.registry" [color="black", label=<src.bioetl.clients.chembl.registry>, shape="box", style="solid"];
+"src.bioetl.clients.chembl.strategy_resolver" [color="black", label=<src.bioetl.clients.chembl.strategy_resolver>, shape="box", style="solid"];
 }
