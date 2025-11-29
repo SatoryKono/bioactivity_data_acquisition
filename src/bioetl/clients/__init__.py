@@ -20,7 +20,6 @@ from bioetl.clients.base.client import (
     RecordStream,
     RequestContext,
 )
-from bioetl.clients.factory import get_client, get_factory, register_factory
 
 __all__ = [
     "ClientError",
@@ -32,7 +31,4 @@ __all__ = [
     "Record",
     "RecordStream",
     "RequestContext",
-    "get_client",
-    "get_factory",
-    "register_factory",
 ]
