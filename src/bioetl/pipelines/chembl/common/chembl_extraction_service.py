@@ -7,10 +7,9 @@ from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
+from bioetl.clients import BaseClient, ClientRequest, PaginationParams
 from bioetl.core.pipeline.unified import BatchExtractionStats
 from bioetl.pipelines.chembl.batch_executor import execute_chembl_batches
-from bioetl.clients.legacy import ClientRequest, PaginationParams
-from bioetl.clients.legacy import DataClient
 
 
 class ChemblExtractionService:
@@ -23,7 +22,7 @@ class ChemblExtractionService:
     def chembl_release(self) -> str | None:
         return self._chembl_release
 
-    def resolve_chembl_release(self, chembl_client: DataClient | Any) -> str:
+    def resolve_chembl_release(self, chembl_client: BaseClient | Any) -> str:
         if self._chembl_release:
             return self._chembl_release
         status = getattr(chembl_client, "status", None)
@@ -85,7 +84,7 @@ class ChemblExtractionService:
 
     def _build_client_fetcher(
         self,
-        chembl_client: DataClient,
+        chembl_client: BaseClient,
         *,
         page_size: int,
         client_settings: Mapping[str, Any] | None = None,

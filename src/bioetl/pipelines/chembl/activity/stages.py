@@ -9,11 +9,9 @@ from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.clients.legacy import ClientRequest, PaginationParams
+from bioetl.clients import BaseClient, ClientRequest, PaginationParams
 from bioetl.clients.base.exceptions import ProviderError
 from bioetl.clients.exceptions import PartialFailureError
-from bioetl.clients.legacy import DataClient
-from bioetl.clients.chembl.data_client import build_chembl_client_factory
 from bioetl.core.io.artifacts import (
     RunArtifacts,
     SchemaRegistry,
@@ -42,17 +40,17 @@ from bioetl.core.config.models import (
 class ActivityExtractor:
     """Извлечение активностей через клиент ChEMBL."""
 
-    client_factory: Callable[[ConfigPipelineConfig], DataClient] | None = None
+    client_factory: Callable[[ConfigPipelineConfig], BaseClient] | None = None
     parser: ActivityParser = field(default_factory=ActivityParser)
     release: str | None = None
     run_id: str = "unknown"
 
-    def _build_client(self, config: ConfigPipelineConfig) -> DataClient:
+    def _build_client(self, config: ConfigPipelineConfig) -> BaseClient:
         if self.client_factory:
             return self.client_factory(config)
 
-        factory = build_chembl_client_factory(config)
-        return factory("activity")
+        msg = "client_factory is required for ActivityExtractor after legacy removal"
+        raise RuntimeError(msg)
 
     def extract(
         self,

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from typing import Any, Protocol
 
-from bioetl.clients.legacy import PageStream, RecordStream, RequestContext
+from bioetl.clients.base import RequestContext
+from bioetl.clients.base.paging import Page
+from bioetl.clients.base.types import Record
 
 
 class HttpTransport(Protocol):
@@ -26,7 +28,7 @@ class HttpTransport(Protocol):
         pagination: Any | None = None,
         raw: Any | None = None,
         context: RequestContext | None = None,
-    ) -> RecordStream:
+    ) -> Iterator[Record]:
         ...
 
     def iter_pages(
@@ -37,7 +39,7 @@ class HttpTransport(Protocol):
         pagination: Any | None = None,
         raw: Any | None = None,
         context: RequestContext | None = None,
-    ) -> PageStream:
+    ) -> Iterator[Page]:
         ...
 
     def close(self) -> None:
