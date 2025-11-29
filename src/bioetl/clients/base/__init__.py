@@ -23,7 +23,7 @@ from .interfaces import (
     SupportsSearch,
     TransportOptions,
 )
-from .registry import (
+from bioetl.clients.registry import (
     FACTORIES,
     ClientFactory,
     ClientProtocol,
