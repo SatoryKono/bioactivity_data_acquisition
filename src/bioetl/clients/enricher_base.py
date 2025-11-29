@@ -13,7 +13,7 @@ from bioetl.clients.base import (
     RecordStream,
     RequestContext,
 )
-from bioetl.core.http.base_http_client import BaseHttpClient
+from bioetl.core.http.adapter import LoggingTransportAdapter
 from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.pagination_helpers import normalize_payload
 from bioetl.core.http.types import JSONRecordStream
@@ -30,7 +30,7 @@ class EnricherClientOptions:
     page_param: str | None = "page"
 
 
-class OptionsAwareApiClient(BaseHttpClient):
+class OptionsAwareApiClient(LoggingTransportAdapter):
     """Простой адаптер для проксирования таймаутов/ретраев в транспорт."""
 
     def __init__(
@@ -45,11 +45,6 @@ class OptionsAwareApiClient(BaseHttpClient):
             client_name="enricher_http",
         )
         self._api_client: BaseApiClient = api_client
-
-    def close(self) -> None:  # pragma: no cover - passthrough
-        close = getattr(self._api_client, "close", None)
-        if callable(close):
-            close()
 
 
 @runtime_checkable
