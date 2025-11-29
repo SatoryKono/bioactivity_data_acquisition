@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from bioetl.clients.base import ClientFactory
 from bioetl.clients.chembl.data_client import build_chembl_client_factory
-from bioetl.clients.factory import ClientFactory
 
 
 @dataclass

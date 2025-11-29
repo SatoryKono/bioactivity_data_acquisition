@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
 from bioetl.clients import ClientRequest, DataClient, Page, PageStream, Record, RecordStream
+from bioetl.clients.base import ClientFactory
 from bioetl.clients.base.client import PaginationParams, RequestContext
 from bioetl.clients.chembl.factories import default_chembl_factory
 
@@ -100,11 +101,24 @@ class ChemblDataClient(DataClient):
         self.close()
 
 
+@dataclass(slots=True)
+class DataClientFactoryAdapter(ClientFactory[DataClient]):
+    """Адаптер, добавляющий метод ``create`` к фабрикам ``DataClient``."""
+
+    _factory: Callable[[str], DataClient]
+
+    def create(self, entity: str, mode: str | None = None) -> DataClient:  # noqa: ARG002
+        return self._factory(entity)
+
+    def __call__(self, entity: str) -> DataClient:
+        return self.create(entity)
+
+
 def build_chembl_client_factory(
     config: Mapping[str, Any] | Any,
     *,
     name_builder: Callable[[str], str] | None = None,
-) -> Callable[[str], DataClient]:
+) -> DataClientFactoryAdapter:
     """Собрать фабрику ``DataClient`` для ChEMBL-ресурсов."""
 
     legacy_factory = default_chembl_factory(config)
@@ -118,7 +132,7 @@ def build_chembl_client_factory(
             _delegate=delegate,
         )
 
-    return factory
+    return DataClientFactoryAdapter(factory)
 
 
-__all__ = ["ChemblDataClient", "build_chembl_client_factory"]
+__all__ = ["ChemblDataClient", "DataClientFactoryAdapter", "build_chembl_client_factory"]
