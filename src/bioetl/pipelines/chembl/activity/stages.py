@@ -9,8 +9,9 @@ from typing import Any, Callable, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.clients.chembl.facade import ChemblClientFacade
-from bioetl.clients.chembl.registry import ChemblClientFactoryRegistry
+from bioetl.clients import ClientRequest, PaginationParams
+from bioetl.clients.base.client import DataClient
+from bioetl.clients.chembl.data_client import build_chembl_client_factory
 from bioetl.core.io.artifacts import (
     RunArtifacts,
     SchemaRegistry,
@@ -36,10 +37,16 @@ from bioetl.pipelines.chembl.common import (
 class ActivityExtractor:
     """Извлечение активностей через клиент ChEMBL."""
 
-    client_registry: ChemblClientFactoryRegistry | None = None
-    client_factory: Callable[[Any], Any] | None = None
+    client_factory: Callable[[PipelineConfig], DataClient] | None = None
     parser: ActivityParser = field(default_factory=ActivityParser)
     release: str | None = None
+
+    def _build_client(self, config: PipelineConfig) -> DataClient:
+        if self.client_factory:
+            return self.client_factory(config)
+
+        factory = build_chembl_client_factory(config)
+        return factory("activity")
 
     def extract(
         self,
@@ -70,25 +77,19 @@ class ActivityExtractor:
                 "batch_size must not exceed 25 for ChEMBL API"
             )
 
-        client: ChemblClientFacade
-        if self.client_factory:
-            client = self.client_factory(config)
-        else:
-            registry = (
-                self.client_registry
-                or ChemblClientFactoryRegistry.from_config(config)
-            )
-            client = registry.create("activity")
-        status = client.status()
-        if isinstance(status, Mapping):
-            self.release = (
-                str(status.get("chembl_release"))
-                if status.get("chembl_release")
-                else None
-            )
+        client = self._build_client(config)
+        status = getattr(client, "status", None)
+        if callable(status):
+            status_result = status()
+            if isinstance(status_result, Mapping):
+                self.release = (
+                    str(status_result.get("chembl_release"))
+                    if status_result.get("chembl_release")
+                    else None
+                )
         meta: dict[str, Any] = {
             "chembl_release": self.release,
-            "status": status,
+            "status": status() if callable(status) else None,
         }
 
         ids = descriptor.ids or []
@@ -99,21 +100,15 @@ class ActivityExtractor:
             if not batch:
                 return pd.DataFrame(), {"api_calls": 0}
             try:
-                payload, payload_meta = client.fetch_batch(batch)
-                # Handle both dict-of-dicts and results-wrapped formats
-                if isinstance(payload, Mapping) and "results" not in payload:
-                    # Dict-of-dicts format - wrap in results structure
-                    payload = {"results": list(payload.values())}
-                frames = []
-                # Parse the wrapped payload
-                parsed = self.parser.parse(payload)
-                frames.append(parsed)
-                df = (
-                    pd.concat(frames, ignore_index=True)
-                    if frames
-                    else pd.DataFrame()
+                request = ClientRequest(
+                    ids=list(batch),
+                    pagination=PaginationParams(page_size=effective_batch_size),
                 )
-                return df, {"api_calls": payload_meta.get("api_calls", 1)}
+                records = list(client.iter_records(request))
+                payload = {"results": records}
+                parsed = self.parser.parse(payload)
+                df = parsed if not records else parsed
+                return df, {"api_calls": 1}
             except Exception as exc:
                 # Check if it's a PartialFailureError with partial data
                 if hasattr(exc, 'partial_data') and exc.partial_data:

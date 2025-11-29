@@ -5,10 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from bioetl.clients.base import ClientFactory, register_domain_factories
-from bioetl.pipelines.chembl.common.descriptor_factory_builder import (
-    build_pipeline_chembl_factory,
-)
+from bioetl.clients.chembl.data_client import build_chembl_client_factory
+from bioetl.clients.factory import ClientFactory
 
 
 @dataclass
@@ -31,11 +29,11 @@ def build_client_registry(
     chembl_factory: ClientFactory[Any] | None = None,
     enricher_factory: ClientFactory[Any] | None = None,
 ) -> ClientFactoryRegistry:
-    factories = register_domain_factories(
-        chembl_factory=chembl_factory or build_pipeline_chembl_factory(config),
-        enricher_factory=enricher_factory,
-    )
-    return ClientFactoryRegistry(dict(factories))
+    factories: dict[str, ClientFactory[Any]] = {}
+    factories["chembl"] = chembl_factory or build_chembl_client_factory(config)
+    if enricher_factory is not None:
+        factories["enricher"] = enricher_factory
+    return ClientFactoryRegistry(factories)
 
 
 __all__ = ["ClientFactoryRegistry", "build_client_registry"]
