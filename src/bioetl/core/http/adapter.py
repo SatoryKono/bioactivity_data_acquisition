@@ -5,7 +5,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from bioetl.core.http.base_http_client import BaseHttpClient
-from bioetl.core.http.interfaces import ApiTransportProtocol
+from bioetl.core.http.interfaces import ApiTransportProtocol, BaseApiClient
 from bioetl.core.http.pagination import PaginationStrategy
 
 
@@ -20,7 +20,7 @@ class LoggingTransportAdapter(BaseHttpClient, ApiTransportProtocol):
 
     def __init__(
         self,
-        transport: ApiTransportProtocol,
+        transport: ApiTransportProtocol | BaseApiClient,
         *,
         pagination_strategy: PaginationStrategy | None = None,
         pagination_strategy_name: str | None = None,
@@ -30,6 +30,8 @@ class LoggingTransportAdapter(BaseHttpClient, ApiTransportProtocol):
         | None = None,
         pagination_factories: Mapping[str, Any] | None = None,
         client_name: str = "transport_adapter",
+        default_timeout_sec: float | None = None,
+        default_max_retries: int | None = None,
     ) -> None:
         self._base_transport = transport
         self._metadata: dict[str, Any] = {}
@@ -40,8 +42,16 @@ class LoggingTransportAdapter(BaseHttpClient, ApiTransportProtocol):
         )
         super().__init__(
             transport,
-            default_timeout_sec=getattr(transport, "default_timeout_sec", None),
-            default_max_retries=getattr(transport, "default_max_retries", None),
+            default_timeout_sec=(
+                default_timeout_sec
+                if default_timeout_sec is not None
+                else getattr(transport, "default_timeout_sec", None)
+            ),
+            default_max_retries=(
+                default_max_retries
+                if default_max_retries is not None
+                else getattr(transport, "default_max_retries", None)
+            ),
             client_name=client_name,
         )
         self.pagination_strategy = strategy
@@ -55,7 +65,7 @@ class LoggingTransportAdapter(BaseHttpClient, ApiTransportProtocol):
         self._pagination_strategy = value
 
     @property
-    def base_transport(self) -> ApiTransportProtocol:
+    def base_transport(self) -> ApiTransportProtocol | BaseApiClient:
         """Access underlying transport without wrapper layers."""
 
         return self._base_transport
@@ -92,7 +102,12 @@ class LoggingTransportAdapter(BaseHttpClient, ApiTransportProtocol):
         timeout_sec: float | None = None,
         max_retries: int | None = None,
     ) -> Mapping[str, Any] | Sequence[Mapping[str, Any]]:
-        response = self._base_transport.request(
+        requester = getattr(self._base_transport, "request", None)
+        if not callable(requester):
+            msg = "Underlying transport does not implement request"
+            raise AttributeError(msg)
+
+        response = requester(
             method,
             path,
             headers=headers,
