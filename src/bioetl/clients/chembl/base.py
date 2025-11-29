@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, Callable, Protocol, cast
+from typing import Any, Callable, Protocol, TypeVar, cast
 
+from bioetl.clients import exceptions as client_exceptions
 from bioetl.clients.chembl.adapter import ChemblTransportAdapter
 from bioetl.clients.chembl.compat import ChemblCompatibilityMixin
 from bioetl.clients.chembl.pagination import (
@@ -28,6 +29,8 @@ from bioetl.core.http.pagination_helpers import (
     DEFAULT_PAGE_KEY,
     DEFAULT_PAGE_PARAM,
 )
+
+_T = TypeVar("_T")
 
 
 class ChemblClientProtocol(Protocol):
@@ -168,6 +171,18 @@ class BaseChemblClient(
             self._default_pagination = pagination
         return self
 
+    def _yield_provider_stream(self, iterator: Iterator[_T]) -> Iterator[_T]:
+        """Convert internal errors into ``ProviderError`` for protocol callers."""
+
+        try:
+            yield from iterator
+        except client_exceptions.ProviderError:
+            raise
+        except client_exceptions.RequestException as exc:  # pragma: no cover - thin wrapper
+            raise client_exceptions.ProviderError(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise client_exceptions.ProviderError(str(exc)) from exc
+
     def fetch_batch(
         self,
         ids: Sequence[str],
@@ -219,25 +234,28 @@ class BaseChemblClient(
     ) -> RecordStream:
         """Iterate over paginated entities via the base client."""
 
-        effective_pagination = self._resolve_pagination(
-            pagination,
-            fallback_page_size=page_size or 1000,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-        )
-        merged_params: dict[str, Any] = {}
-        if query:
-            merged_params.update(query)
-        if params:
-            merged_params.update(params)
-        return super().fetch_many(
-            page_size=effective_pagination.page_size or 1000,
-            params=merged_params or None,
-            page_key=effective_pagination.page_key or DEFAULT_PAGE_KEY,
-            next_key=effective_pagination.next_key or DEFAULT_NEXT_KEY,
-            page_param=effective_pagination.page_param,
-        )
+        def iterator() -> Iterator[dict[str, Any]]:
+            effective_pagination = self._resolve_pagination(
+                pagination,
+                fallback_page_size=page_size or 1000,
+                page_key=page_key,
+                next_key=next_key,
+                page_param=page_param,
+            )
+            merged_params: dict[str, Any] = {}
+            if query:
+                merged_params.update(query)
+            if params:
+                merged_params.update(params)
+
+            for page in self.iter_pages(
+                query=merged_params or None,
+                pagination=effective_pagination,
+                context=context,
+            ):
+                yield from page.items
+
+        return self._yield_provider_stream(iterator())
 
     def iter_pages(
         self,
@@ -246,51 +264,62 @@ class BaseChemblClient(
         pagination: PaginationParams | None = None,
         context: RequestContext | None = None,
     ) -> PageStream:
-        effective_pagination = self._resolve_pagination(
-            pagination,
-            fallback_page_size=pagination.page_size if pagination else None,
-        )
-        params = dict(query or {})
-        if effective_pagination.page_size:
-            params.setdefault("limit", effective_pagination.page_size)
+        def iterator() -> Iterator[Page[dict[str, Any]]]:
+            effective_pagination = self._resolve_pagination(
+                pagination,
+                fallback_page_size=pagination.page_size if pagination else None,
+            )
+            params = dict(query or {})
+            if effective_pagination.page_size:
+                params.setdefault("limit", effective_pagination.page_size)
 
-        entity_path = self._entity_path()
-        log_context = {"path": entity_path}
-        if context:
-            log_context.update(context.extra)
+            entity_path = self._entity_path()
+            log_context = {"path": entity_path}
+            if context:
+                log_context.update(context.extra)
 
-        first_payload = self._wrap_callable(
-            lambda: cast(ApiTransportProtocol, self._transport()).request(
-                "GET", entity_path, params=params
-            ),
-            log_context=log_context,
-        )
-        strategy = cast(PaginationStrategy, self.pagination_strategy)
-        page_key = effective_pagination.page_key or DEFAULT_PAGE_KEY
-        next_key = effective_pagination.next_key or DEFAULT_NEXT_KEY
-        page_param = effective_pagination.page_param
+            first_payload = self._wrap_callable(
+                lambda: cast(ApiTransportProtocol, self._transport()).request(
+                    "GET", entity_path, params=params
+                ),
+                log_context=log_context,
+            )
+            page_key = effective_pagination.page_key or DEFAULT_PAGE_KEY
+            next_key = effective_pagination.next_key or DEFAULT_NEXT_KEY
+            page_param = effective_pagination.page_param
 
-        for raw_page in self.pagination_strategy.iter_pages(
-            first_payload,
-            cast(ApiTransportProtocol, self._transport()),
-            endpoint=entity_path,
-            params=params,
-            logger=self._logger,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-            normalize=self._normalize_payload,
-        ):
-            items = list(self._normalize_payload(raw_page, page_key=page_key))
-            next_cursor = raw_page.get(next_key) if isinstance(raw_page, Mapping) else None
-            yield Page(items=items, next_cursor=next_cursor, raw=raw_page if isinstance(raw_page, Mapping) else None)
+            for raw_page in self.pagination_strategy.iter_pages(
+                first_payload,
+                cast(ApiTransportProtocol, self._transport()),
+                endpoint=entity_path,
+                params=params,
+                logger=self._logger,
+                page_key=page_key,
+                next_key=next_key,
+                page_param=page_param,
+                normalize=self._normalize_payload,
+            ):
+                items = list(self._normalize_payload(raw_page, page_key=page_key))
+                next_cursor = raw_page.get(next_key) if isinstance(raw_page, Mapping) else None
+                yield Page(
+                    items=items,
+                    next_cursor=next_cursor,
+                    raw=raw_page if isinstance(raw_page, Mapping) else None,
+                )
+
+        return self._yield_provider_stream(iterator())
 
     def metadata(self) -> Mapping[str, Any]:
         """Return metadata from the underlying transport."""
-        base_transport = getattr(self, "transport", None)
-        if base_transport is None:
+        try:
+            transport = self._transport()
+        except Exception:  # noqa: BLE001
+            transport = getattr(self, "transport", None)
+
+        if transport is None:
             return {}
-        metadata = getattr(base_transport, "metadata", None)
+
+        metadata = getattr(transport, "metadata", None)
         if isinstance(metadata, Mapping):
             return dict(metadata)
         return {}
@@ -321,7 +350,17 @@ class BaseChemblClient(
             payload = self.get(ref, params=params)
             yield from self._normalize_payload(payload, page_key=None)
 
-        return self._wrap_iterator(iterator, log_context=log_context)
+        return self._yield_provider_stream(
+            self._wrap_iterator(iterator, log_context=log_context)
+        )
+
+    def close(self) -> None:
+        """Close underlying transport surfaces via ``ClosableMixin``."""
+
+        try:
+            super().close()
+        except Exception as exc:  # noqa: BLE001
+            raise client_exceptions.ProviderError(str(exc)) from exc
 
 
 class ChemblEntityClient(BaseChemblClient):
