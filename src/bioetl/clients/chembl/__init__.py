@@ -91,9 +91,6 @@ _DEPRECATED_EXPORTS: dict[str, tuple[str, str]] = {
         "bioetl.clients.chembl.base",
         "ChemblClientProtocol",
     ),
-    "DEFAULT_NEXT_KEY": ("bioetl.core.http.pagination", "DEFAULT_NEXT_KEY"),
-    "DEFAULT_PAGE_KEY": ("bioetl.core.http.pagination", "DEFAULT_PAGE_KEY"),
-    "DEFAULT_PAGE_PARAM": ("bioetl.core.http.pagination", "DEFAULT_PAGE_PARAM"),
     "ChemblTransportAdapter": (
         "bioetl.clients.chembl.adapter",
         "ChemblTransportAdapter",
@@ -101,30 +98,6 @@ _DEPRECATED_EXPORTS: dict[str, tuple[str, str]] = {
     "ChemblExtractionServiceDescriptor": (
         "bioetl.core.pipeline.unified",
         "ChemblExtractionServiceDescriptor",
-    ),
-    "PaginationStrategy": (
-        "bioetl.clients.chembl.pagination",
-        "PaginationStrategy",
-    ),
-    "PaginationFactory": (
-        "bioetl.clients.chembl.pagination",
-        "PaginationFactory",
-    ),
-    "DEFAULT_PAGINATION_STRATEGY": (
-        "bioetl.clients.chembl.pagination",
-        "DEFAULT_PAGINATION_STRATEGY",
-    ),
-    "available_pagination_strategies": (
-        "bioetl.clients.chembl.pagination",
-        "available_pagination_strategies",
-    ),
-    "create_pagination_strategy": (
-        "bioetl.clients.chembl.pagination",
-        "create_pagination_strategy",
-    ),
-    "register_pagination_strategy": (
-        "bioetl.clients.chembl.pagination",
-        "register_pagination_strategy",
     ),
 }
 

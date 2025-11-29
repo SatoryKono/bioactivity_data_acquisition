@@ -12,9 +12,9 @@ from bioetl.clients.chembl.entities import (
 )
 from bioetl.clients.chembl.pagination import (
     PaginationFactory,
-    PaginationStrategy,
 )
 from bioetl.core.http.interfaces import ApiTransportProtocol
+from bioetl.core.http.pagination import PaginationStrategy
 from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor
 
 
