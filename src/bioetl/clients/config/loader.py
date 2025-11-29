@@ -7,7 +7,8 @@ import yaml
 
 from bioetl.clients.config.models import SourceConfig
 
-DEFAULT_CONFIG_ROOT = Path("configs/clients")
+# Клиентские YAML-файлы хранятся вместе с кодом для упрощения поставки.
+DEFAULT_CONFIG_ROOT = Path(__file__).resolve().parent / "yaml"
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -23,10 +24,10 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 
 def load_source_config(name: str, root: Path | None = None) -> SourceConfig:
-    """Загрузить конфигурацию источника по имени YAML-файла без расширения."""
+    """Загрузить конфигурацию источника по имени файла без расширения."""
 
     config_root = root or DEFAULT_CONFIG_ROOT
-    path = Path(config_root) / f"{name}.yaml"
+    path = Path(config_root) / f"{name}.yml"
     data = _load_yaml(path)
     if "source" not in data:
         data["source"] = name
@@ -38,7 +39,7 @@ def load_all_sources(root: Path | None = None) -> dict[str, SourceConfig]:
 
     config_root = root or DEFAULT_CONFIG_ROOT
     sources: dict[str, SourceConfig] = {}
-    for path in Path(config_root).glob("*.yaml"):
+    for path in Path(config_root).glob("*.yml"):
         cfg = load_source_config(path.stem, root=config_root)
         sources[cfg.source] = cfg
     return sources

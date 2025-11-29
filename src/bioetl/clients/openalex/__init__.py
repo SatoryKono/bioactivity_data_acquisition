@@ -1,5 +1,3 @@
-"""Клиенты API OpenAlex."""
+from bioetl.clients.openalex.client import OpenAlexClient
 
-from .client import OpenalexResourceConfig, OpenalexWorkClient
-
-__all__ = ["OpenalexResourceConfig", "OpenalexWorkClient"]
+__all__ = ["OpenAlexClient"]

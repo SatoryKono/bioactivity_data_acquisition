@@ -1,0 +1,16 @@
+source: pubchem
+protocol: http
+base_url: "https://pubchem.ncbi.nlm.nih.gov/rest"
+auth:
+  type: none
+resources:
+  compound:
+    path: "/pug/compound"
+    method: GET
+    query:
+      fixed: {}
+      allowed_params: []
+    paging:
+      type: none
+    response:
+      format: json

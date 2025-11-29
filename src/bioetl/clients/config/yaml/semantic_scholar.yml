@@ -1,0 +1,16 @@
+source: semantic_scholar
+protocol: http
+base_url: "https://api.semanticscholar.org/graph"
+auth:
+  type: none
+resources:
+  paper:
+    path: "/paper"
+    method: GET
+    query:
+      fixed: {}
+      allowed_params: []
+    paging:
+      type: none
+    response:
+      format: json

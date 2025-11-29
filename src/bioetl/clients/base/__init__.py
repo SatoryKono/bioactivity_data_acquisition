@@ -1,23 +1,10 @@
 from __future__ import annotations
 
-"""Базовые абстракции клиентского слоя.
+"""Базовый слой клиентов внешних источников."""
 
-Новые контракты доступны напрямую из этого модуля.
-Совместимость с легаси-API сохраняется через alias-переменные,
-а также модуль ``bioetl.clients.legacy``.
-"""
-
-from .contracts import (
-    ClientRequest,
-    ExternalDataClient,
-    Page,
-    Pagination,
-    Record,
-    RequestContext,
-)
-from .http_backend import HttpBackend
-from .rest_client import ConfiguredRestClient
-from .exceptions import (
+from bioetl.clients.base.client_abc import BaseClient, ClientRequest, RequestContext
+from bioetl.clients.base.db_backend import DbBackend
+from bioetl.clients.base.exceptions import (
     ConfigurationError,
     ConnectionError,
     HTTPError,
@@ -26,37 +13,22 @@ from .exceptions import (
     RequestException,
     Timeout,
 )
-from .legacy_contracts import (
-    ClientError,
-    ClientRequest as _LegacyClientRequest,
-    DataClient,
-    DataProviderProtocol,
-    Page as _LegacyPage,
-    PageStream as LegacyPageStream,
-    PaginationParams,
-    Record as _LegacyRecord,
-    RecordStream as LegacyRecordStream,
-    RequestContext as _LegacyRequestContext,
-    RetryOptions,
-    SupportsBatch,
-    SupportsSearch,
-    TransportOptions,
-)
-
-LegacyClientRequest = _LegacyClientRequest
-LegacyRequestContext = _LegacyRequestContext
-LegacyPage = _LegacyPage
-LegacyRecord = _LegacyRecord
+from bioetl.clients.base.http_backend import HttpBackend
+from bioetl.clients.base.paging import Page, PaginationParams
+from bioetl.clients.base.types import Headers, JsonData, QueryParams, Record
 
 __all__ = [
+    "BaseClient",
     "ClientRequest",
-    "ExternalDataClient",
-    "Page",
-    "Pagination",
-    "Record",
     "RequestContext",
-    "ConfiguredRestClient",
     "HttpBackend",
+    "DbBackend",
+    "Page",
+    "PaginationParams",
+    "Headers",
+    "JsonData",
+    "QueryParams",
+    "Record",
     "ConfigurationError",
     "ConnectionError",
     "HTTPError",
@@ -64,19 +36,4 @@ __all__ = [
     "ProviderError",
     "RequestException",
     "Timeout",
-    # legacy exports
-    "LegacyClientRequest",
-    "LegacyRequestContext",
-    "LegacyPage",
-    "LegacyPageStream",
-    "LegacyRecord",
-    "LegacyRecordStream",
-    "PaginationParams",
-    "DataClient",
-    "DataProviderProtocol",
-    "SupportsBatch",
-    "SupportsSearch",
-    "TransportOptions",
-    "RetryOptions",
-    "ClientError",
 ]
