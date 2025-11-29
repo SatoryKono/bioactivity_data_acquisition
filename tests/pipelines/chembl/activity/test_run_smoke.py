@@ -7,8 +7,7 @@ from pathlib import Path
 from typing import Any
 import warnings
 
-from bioetl.clients.chembl.client import ClientRequest
-from bioetl.clients.exceptions import PartialFailureError
+import bioetl.clients.exceptions as client_exceptions
 from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
@@ -73,36 +72,38 @@ class FailingChemblClient(DummyChemblClient):
         """Iterate over records with failures for specific IDs."""
         _ = context  # Mark as intentionally unused
 
-        if isinstance(request, ClientRequest):
-            batch_ids = request.ids or []
-            self.fetch_calls.append(list(batch_ids))
-
-            data = {}
-            failed_ids = []
-            for identifier in batch_ids:
-                if identifier in self.fail_for:
-                    failed_ids.append(identifier)
-                else:
-                    data[str(identifier)] = {
-                        "activity_id": identifier,
-                        "assay_id": f"ASSAY{identifier}",
-                        "target_chembl_id": f"T{identifier}",
-                        "standard_value": 1.0,
-                        "standard_units": "nM",
-                    }
-
-            # Return partial data even if some IDs failed
-            if failed_ids:
-                raise PartialFailureError(
-                    f"Failed for IDs: {failed_ids}", partial_data=data
-                )
-
-            # Yield records from data dict
-            for record in data.values():
-                yield record
-        else:
-            # Fallback for other request types
+        ids = getattr(request, "ids", None)
+        if ids is None:
+            # Fallback for requests without ids attribute
             yield from []
+            return
+
+        batch_ids = [str(identifier) for identifier in list(ids)]
+        self.fetch_calls.append(batch_ids)
+
+        data: dict[str, Any] = {}
+        failed_ids: list[str] = []
+        for identifier in batch_ids:
+            if identifier in self.fail_for:
+                failed_ids.append(identifier)
+            else:
+                data[identifier] = {
+                    "activity_id": identifier,
+                    "assay_id": f"ASSAY{identifier}",
+                    "target_chembl_id": f"T{identifier}",
+                    "standard_value": 1.0,
+                    "standard_units": "nM",
+                }
+
+        # Return partial data even if some IDs failed
+        if failed_ids:
+            raise client_exceptions.PartialFailureError(
+                f"Failed for IDs: {failed_ids}", partial_data=data
+            )
+
+        # Yield records from data dict
+        for record in data.values():
+            yield record
 
     def fetch_batch(
         self, ids: list[str]
@@ -125,7 +126,7 @@ class FailingChemblClient(DummyChemblClient):
         # Return partial data even if some IDs failed
         if failed_ids:
             # Raise partial failure error for failed IDs
-            raise PartialFailureError(
+            raise client_exceptions.PartialFailureError(
                 f"Failed for IDs: {failed_ids}", partial_data=data
             )
         return data, {"api_calls": 1}

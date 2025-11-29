@@ -7,6 +7,7 @@ from typing import Any, Protocol, cast
 import warnings
 
 import structlog
+from typing_extensions import TypeAlias
 
 from bioetl.core.http.client_mixins import (
     ApiClientMixin,
@@ -25,9 +26,6 @@ from bioetl.core.http.pagination_helpers import (
     list_entities,
     warn_fetch_all,
 )
-
-# Type aliases for callable wrappers
-from typing_extensions import TypeAlias
 
 WrapCallable: TypeAlias = Callable[[Callable[[], Any]], Any]
 WrapIterator: TypeAlias = Callable[[Iterator[Any]], Iterator[Any]]
@@ -284,6 +282,10 @@ class BaseApiEntityClient(ApiClientMixin, ClosableMixin):
         next_key: str = DEFAULT_NEXT_KEY,
         page_param: str | None = DEFAULT_PAGE_PARAM,
     ) -> Iterator[dict[str, Any]]:
+        """Deprecated alias for fetch_many.
+
+        Prefer :meth:`fetch_many` for new code.
+        """
         warnings.warn(
             "list is deprecated; use fetch_many instead.",
             DeprecationWarning,

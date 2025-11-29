@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from bioetl.clients.chembl.pagination import PaginationFactory
 from bioetl.clients.chembl.strategy_resolver import (
@@ -16,8 +16,8 @@ if TYPE_CHECKING:  # pragma: no cover
     pass
 
 
-def _get_adapter_cls():
-    from bioetl.clients.chembl import ChemblTransportAdapter
+def _get_adapter_cls() -> type[ApiTransportProtocol]:
+    from bioetl.clients.chembl.adapter import ChemblTransportAdapter
 
     return ChemblTransportAdapter
 
@@ -50,12 +50,15 @@ class BaseChemblAdapterFactory(PaginationStrategyResolverMixin):
 
     def create(self, transport: ApiTransportProtocol) -> ApiTransportProtocol:
         strategy = self._resolve_strategy(transport)
-        adapter_cls = self._get_adapter_cls()
-        return adapter_cls(
-            transport,
-            pagination_strategy=strategy,
-            pagination_strategy_name=self.pagination_strategy_name,
-            pagination_factories=self.pagination_factories,
+        adapter_cls = cast(Any, self._get_adapter_cls())
+        return cast(
+            ApiTransportProtocol,
+            adapter_cls(
+                transport,
+                pagination_strategy=strategy,
+                pagination_strategy_name=self.pagination_strategy_name,
+                pagination_factories=self.pagination_factories,
+            ),
         )
 
     def ensure_adapter(

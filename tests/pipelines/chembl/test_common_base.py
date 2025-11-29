@@ -7,11 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
-import yaml
 
-from bioetl.core.io.artifacts import WriteArtifacts
-from bioetl.core.pipeline.types import StageExecutionOptions, WriteResult
-from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor, ChemblPipelineBase
+from bioetl.core.pipeline.types import WriteResult
+from bioetl.core.pipeline.unified import ChemblExtractionServiceDescriptor
 from bioetl.pipelines.chembl.common.base import (
     ChemblCommonPipeline,
     ChemblWriteService,
@@ -48,7 +46,7 @@ class TestChemblWriteService:
 
         service = ChemblWriteService(mock_pipeline)
         df = pd.DataFrame([{"id": 1, "value": "test"}])
-        
+
         artifacts = MagicMock()
         artifacts.data_path = Path("test.csv")
         artifacts.quality_report_path = Path("quality.csv")
@@ -64,7 +62,13 @@ class TestChemblWriteService:
         context.output_dir = Path("/output")
         runtime = MagicMock()
 
-        result = service.save(df, artifacts, options, context=context, runtime=runtime)
+        result = service.save(
+            df,
+            artifacts,
+            options,
+            context=context,
+            runtime=runtime,
+        )
 
         assert isinstance(result, WriteResult)
         assert result.rows == 1
@@ -82,7 +86,7 @@ class TestChemblWriteService:
 
         service = ChemblWriteService(mock_pipeline)
         df = pd.DataFrame([{"id": 1, "value": "test"}])
-        
+
         artifacts = MagicMock()
         artifacts.data_path = Path("test.csv")
         artifacts.quality_report_path = Path("quality.csv")
@@ -103,22 +107,33 @@ class TestChemblWriteService:
         mock_path.return_value = mock_file
         mock_file.mkdir = MagicMock()
         mock_file.write_text = MagicMock()
-        df.to_csv = MagicMock()
 
-        result = service.save(df, artifacts, options, context=context, runtime=runtime)
+        with patch.object(df, "to_csv") as mock_to_csv:
+            result = service.save(
+                df,
+                artifacts,
+                options,
+                context=context,
+                runtime=runtime,
+            )
 
         assert isinstance(result, WriteResult)
         assert result.rows == 1
         mock_pipeline._write_quality_report.assert_called_once()
+        mock_to_csv.assert_called_once()
 
     def test_write_metadata_compatibility(self) -> None:
         """Test write_metadata method for compatibility."""
         mock_pipeline = MagicMock()
         service = ChemblWriteService(mock_pipeline)
-        
+
         # Should not raise and should return None
-        result = service.write_metadata(Path("/out"), MagicMock(), None, dry_run=True)
-        assert result is None
+        assert (
+            service.write_metadata(
+                Path("/out"), MagicMock(), None, dry_run=True
+            )
+            is None
+        )
 
 
 class TestChemblCommonPipeline:
@@ -131,9 +146,9 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         pipeline = ChemblCommonPipeline(config, run_id="test-123")
-        
+
         assert pipeline.entity_name == "chembl"
         assert pipeline.run_id == "test-123"
         assert pipeline.write_service is not None
@@ -145,14 +160,14 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         extraction_service = MagicMock(spec=ChemblExtractionService)
         pipeline = ChemblCommonPipeline(
-            config, 
+            config,
             run_id="test-123",
             extraction_service=extraction_service
         )
-        
+
         assert pipeline.extraction_service == extraction_service
 
     def test_validate_config_invalid_batch_size(self) -> None:
@@ -162,7 +177,7 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         with pytest.raises(ConfigValidationError, match="batch_size must be integer"):
             ChemblCommonPipeline(config)
 
@@ -173,7 +188,7 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         with pytest.raises(ConfigValidationError, match="max_url_length must be integer"):
             ChemblCommonPipeline(config)
 
@@ -184,7 +199,7 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": ""},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         with pytest.raises(ConfigValidationError, match="namespace must be non-empty"):
             ChemblCommonPipeline(config)
 
@@ -195,7 +210,7 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": "invalid"}},
         }
-        
+
         with pytest.raises(ConfigValidationError, match="sort.by must be a list"):
             ChemblCommonPipeline(config)
 
@@ -204,13 +219,13 @@ class TestChemblCommonPipeline:
         class TestPipeline(ChemblCommonPipeline):
             entity_name = "test"
             required_sort_fields = ["required_field"]
-        
+
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["other_field"]}},
         }
-        
+
         with pytest.raises(ConfigValidationError, match="missing required fields"):
             TestPipeline(config)
 
@@ -223,7 +238,7 @@ class TestChemblCommonPipeline:
             "level1": {"level2": {"value": "test"}}
         }
         pipeline = ChemblCommonPipeline(config, run_id="test")
-        
+
         result = pipeline._get_config_value("level1.level2.value")
         assert result == "test"
 
@@ -236,7 +251,7 @@ class TestChemblCommonPipeline:
             "level1": {"level2": {}}
         }
         pipeline = ChemblCommonPipeline(config, run_id="test")
-        
+
         with pytest.raises(ConfigValidationError, match="Missing configuration key"):
             pipeline._get_config_value("level1.level2.missing")
 
@@ -249,7 +264,7 @@ class TestChemblCommonPipeline:
             "level1": "not_a_mapping"
         }
         pipeline = ChemblCommonPipeline(config, run_id="test")
-        
+
         with pytest.raises(ConfigValidationError, match="Missing configuration key"):
             pipeline._get_config_value("level1.level2.value")
 
@@ -260,14 +275,14 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         pipeline = ChemblCommonPipeline(config, run_id="test")
         pipeline.validation_service = MagicMock()
         pipeline.validation_service.empty_frame.return_value = pd.DataFrame([{"id": 1}])
-        
+
         options = MagicMock()
         options.dry_run = True
-        
+
         result = pipeline.extract(None, options)
 
         assert not result.empty
@@ -322,16 +337,16 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         pipeline = ChemblCommonPipeline(config, run_id="test")
         pipeline.pre_transform = MagicMock()
         pipeline.domain_enrich = MagicMock()
-        
+
         df = pd.DataFrame([{"id": 1}])
         options = MagicMock()
-        
-        result = pipeline.transform(df, options)
-        
+
+        pipeline.transform(df, options)
+
         pipeline.pre_transform.assert_called_once_with(df)
         pipeline.domain_enrich.assert_called_once()
 
@@ -342,18 +357,20 @@ class TestChemblCommonPipeline:
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
         }
-        
+
         pipeline = ChemblCommonPipeline(config, run_id="test")
         pipeline.validation_service = MagicMock()
         pipeline.validation_service.validate.return_value = pd.DataFrame([{"id": 1}])
-        
+
         df = pd.DataFrame([{"id": 1}])
         options = MagicMock()
-        
-        result = pipeline.validate(df, options)
-        
+
+        pipeline.validate(df, options)
+
         pipeline.validation_service.validate.assert_called_once_with(
-            df, pipeline=pipeline, options=options
+            df,
+            pipeline=pipeline,
+            options=options,
         )
 
     def test_validate_without_service(self) -> None:

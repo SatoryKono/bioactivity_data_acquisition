@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 from bioetl.clients import exceptions as client_exceptions
 from bioetl.clients.providers import CrossrefClient
+from bioetl.core.http.interfaces import BaseApiClient
 
 
 class FakePagingApiClient:
@@ -83,7 +84,7 @@ class FailingBatchApiClient(FakePagingApiClient):
     """API client that fails during batch fetch."""
 
     def fetch_batch(
-        self, *args: Any, **kwargs: Any
+        self, *_args: Any, **_kwargs: Any
     ) -> Iterable[Any]:  # noqa: ANN001, ARG001 - test stub
         """Fetch batch with simulated failure."""
         def _generator() -> Iterable[Any]:
@@ -102,7 +103,7 @@ def test_route_provider_fetch_one_yields_fallback_when_page_empty(
 ) -> None:
     """Test route provider fetch one yields fallback when page empty."""
     api_client = FakePagingApiClient(fetch_one_payload=payload)
-    client = CrossrefClient(api_client)
+    client = CrossrefClient(cast(BaseApiClient, api_client))
 
     result = list(client.fetch_one("10.1000/xyz", page_key=page_key))
 
@@ -125,7 +126,7 @@ def test_route_provider_fetch_batch_paginates_and_passes_params() -> None:
         {"results": [{"id": 2}]},
     ]
     api_client = FakePagingApiClient(batch_pages=pages)
-    client = CrossrefClient(api_client)
+    client = CrossrefClient(cast(BaseApiClient, api_client))
 
     records = list(
         client.fetch_batch("aspirin", params={"filter": "type:journal"})
@@ -149,7 +150,7 @@ def test_route_provider_fetch_batch_paginates_and_passes_params() -> None:
 def test_route_provider_closes_transport_on_iteration_error() -> None:
     """Test route provider closes transport on iteration error."""
     api_client = FailingBatchApiClient()
-    client = CrossrefClient(api_client)
+    client = CrossrefClient(cast(BaseApiClient, api_client))
 
     with pytest.raises(client_exceptions.RequestException):
         list(client.fetch_batch("broken"))

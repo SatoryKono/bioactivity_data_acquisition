@@ -6,6 +6,8 @@ and specific transformation logic not covered by main integration tests.
 """
 
 from unittest.mock import MagicMock, patch
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pandera as pa
@@ -27,16 +29,18 @@ class TestChemblPipelinesCoverage:
     """Test suite for Chembl pipeline coverage."""
 
     @pytest.fixture
-    def options(self):
+    def options(self) -> StageExecutionOptions:
         """Fixture providing standard StageExecutionOptions."""
         return StageExecutionOptions(
             run_tag="test",
             mode="full",
             dry_run=False,
-            extended=False
+            extended=False,
         )
 
-    def test_assay_pipeline_transform_nested(self, options):
+    def test_assay_pipeline_transform_nested(
+        self, options: StageExecutionOptions
+    ) -> None:
         """Test nested serialization flattening in Assay pipeline."""
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
@@ -59,7 +63,9 @@ class TestChemblPipelinesCoverage:
         assert "assay_parameters" not in transformed.columns
         assert "assay_class_map" in transformed.columns
 
-    def test_assay_pipeline_transform_json(self, options):
+    def test_assay_pipeline_transform_json(
+        self, options: StageExecutionOptions
+    ) -> None:
         """Test nested serialization to JSON in Assay pipeline."""
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
@@ -81,7 +87,9 @@ class TestChemblPipelinesCoverage:
         assert isinstance(transformed.iloc[0]["assay_parameters"], str)
         assert "value1" in transformed.iloc[0]["assay_parameters"]
 
-    def test_assay_pipeline_validation(self, options):
+    def test_assay_pipeline_validation(
+        self, options: StageExecutionOptions
+    ) -> None:
         """Test custom validation logic in Assay pipeline."""
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
@@ -117,7 +125,9 @@ class TestChemblPipelinesCoverage:
             with pytest.raises(pa.errors.SchemaError):
                 pipeline.validate(df_missing, options)
 
-    def test_document_pipeline_transform(self, options):
+    def test_document_pipeline_transform(
+        self, options: StageExecutionOptions
+    ) -> None:
         """Test transformation logic in Document pipeline."""
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
@@ -139,7 +149,7 @@ class TestChemblPipelinesCoverage:
         assert "crossref" in transformed.iloc[0]["enrichment_chain"]
         assert transformed.iloc[0]["fallback_policy"] == "best_effort"
 
-    def test_document_pipeline_config_validation(self):
+    def test_document_pipeline_config_validation(self) -> None:
         """Test configuration validation in Document pipeline."""
         # Invalid mode
         config = {
@@ -151,7 +161,7 @@ class TestChemblPipelinesCoverage:
         with pytest.raises(ConfigValidationError):
             ChemblDocumentPipeline(config)
 
-    def test_target_pipeline_smoke(self):
+    def test_target_pipeline_smoke(self) -> None:
         """Smoke test for Target pipeline initialization."""
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
@@ -161,7 +171,7 @@ class TestChemblPipelinesCoverage:
         pipeline = ChemblTargetPipeline(config)
         assert pipeline.entity_name == "target"
 
-    def test_testitem_pipeline_smoke(self):
+    def test_testitem_pipeline_smoke(self) -> None:
         """Smoke test for TestItem pipeline initialization."""
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
@@ -171,7 +181,9 @@ class TestChemblPipelinesCoverage:
         pipeline = TestItemChemblPipeline(config)
         assert pipeline.entity_name == "testitem"
 
-    def test_testitem_pipeline_transform(self, options):
+    def test_testitem_pipeline_transform(
+        self, options: StageExecutionOptions
+    ) -> None:
         """Test transformation logic in TestItem pipeline."""
         mock_client = MagicMock()
         mock_client.lookup.return_value = {"cid": 123}
@@ -203,7 +215,9 @@ class TestChemblPipelinesCoverage:
         assert transformed.iloc[0]["smiles"] == ""
         assert transformed.iloc[0]["molecular_weight"] == 100.123
 
-    def test_testitem_pipeline_validation(self, options):
+    def test_testitem_pipeline_validation(
+        self, options: StageExecutionOptions
+    ) -> None:
         """Test custom validation logic in TestItem pipeline."""
         config = {
             "sources": {"chembl": {"batch_size": 10, "max_url_length": 1000}},
@@ -224,10 +238,10 @@ class TestChemblPipelinesCoverage:
             with pytest.raises(ValueError):
                 pipeline.validate(df_invalid, options)
 
-    def test_chembl_common_validate_config(self):
+    def test_chembl_common_validate_config(self) -> None:
         """Test common Chembl configuration validation logic."""
         # Test common config validation
-        config = {
+        config: dict[str, Any] = {
             "sources": {"chembl": {"batch_size": -1, "max_url_length": 1000}},
             "cache": {"namespace": "test"},
             "determinism": {"sort": {"by": ["id"]}},
@@ -243,7 +257,9 @@ class TestChemblPipelinesCoverage:
         ):
             ChemblAssayPipeline(config)
 
-    def test_save_results_uses_writer(self, options, tmp_path):
+    def test_save_results_uses_writer(
+        self, options: StageExecutionOptions, tmp_path: Path
+    ) -> None:
         """Test that save_results uses the configured writer."""
         # Test save_results logic in ChemblAssayPipeline (custom writer logic)
         mock_writer = MagicMock()
