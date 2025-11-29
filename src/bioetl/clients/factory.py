@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Callable, MutableMapping
 
 from bioetl.clients.base import BaseClient, ClientRequest
 from bioetl.clients.base.http_backend import HttpBackend
+from bioetl.clients.base.paging import Page
+from bioetl.clients.base.types import Record
 from bioetl.clients.config.loader import load_source_config
 from bioetl.clients.config.models import ResourceConfig, SourceConfig
 
@@ -16,12 +19,13 @@ ClientBuilder = Callable[[SourceConfig, HttpBackend], BaseClient]
 
 class ConfiguredHttpClient(BaseClient):
     def __init__(self, *, config: SourceConfig, backend: HttpBackend) -> None:
+        super().__init__()
         self._config = config
         self._backend = backend
         self.name = f"{config.source}.default"
         self.source = config.source
 
-    def fetch_one(self, request: ClientRequest):
+    def fetch_one(self, request: ClientRequest) -> Record | None:
         resource = self._resolve_resource(request.route)
         return self._backend.fetch_one(
             source=self._config,
@@ -30,7 +34,7 @@ class ConfiguredHttpClient(BaseClient):
             context=request.context,
         )
 
-    def iter_records(self, request: ClientRequest):
+    def iter_records(self, request: ClientRequest) -> Iterator[Record]:
         resource = self._resolve_resource(request.route)
         return self._backend.iter_records(
             source=self._config,
@@ -39,7 +43,7 @@ class ConfiguredHttpClient(BaseClient):
             context=request.context,
         )
 
-    def iter_pages(self, request: ClientRequest):
+    def iter_pages(self, request: ClientRequest) -> Iterator[Page]:
         resource = self._resolve_resource(request.route)
         return self._backend.iter_pages(
             source=self._config,
@@ -48,7 +52,7 @@ class ConfiguredHttpClient(BaseClient):
             context=request.context,
         )
 
-    def metadata(self):
+    def metadata(self) -> dict[str, object]:
         return self._backend.metadata(source=self._config)
 
     def close(self) -> None:  # pragma: no cover - trivial

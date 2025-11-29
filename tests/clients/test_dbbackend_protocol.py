@@ -27,6 +27,7 @@ class FakeDbBackend:
         context: RequestContext | None = None,
     ) -> Record | None:
         self.calls.append({"method": "fetch_one", "route": request.route})
+        _ = context
         return {"ok": True}
 
     def iter_records(
@@ -36,6 +37,7 @@ class FakeDbBackend:
         context: RequestContext | None = None,
     ) -> Iterator[Record]:
         self.calls.append({"method": "iter_records", "route": request.route})
+        _ = context
         yield {"kind": "record"}
 
     def iter_pages(
@@ -45,6 +47,7 @@ class FakeDbBackend:
         context: RequestContext | None = None,
     ) -> Iterator[Page]:
         self.calls.append({"method": "iter_pages", "route": request.route})
+        _ = context
         yield Page(items=[{"kind": "page"}], has_next=False)
 
     def metadata(self) -> dict[str, object]:
