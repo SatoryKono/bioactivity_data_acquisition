@@ -41,6 +41,7 @@ from bioetl.clients.chembl.normalization import (
     build_records_from_payload,
 )
 from bioetl.clients.chembl.strategy_resolver import PaginationStrategyResolverMixin
+from bioetl.clients.chembl.client import ChemblClient, ChemblResourceConfig
 
 if TYPE_CHECKING:  # pragma: no cover - import-time only
     from bioetl.clients.chembl.adapter import ChemblTransportAdapter
@@ -80,6 +81,8 @@ __all__ = [
     "make_chembl_client",
     "ChemblClientFactory",
     "ChemblDescriptorFactoryBuilder",
+    "ChemblClient",
+    "ChemblResourceConfig",
 ]
 
 _DEPRECATED_EXPORTS: dict[str, tuple[str, str]] = {

@@ -26,7 +26,7 @@ core_pkg = sys.modules.setdefault("bioetl.core", types.ModuleType("bioetl.core")
 core_pkg.__path__ = [str(src_root / "core")]
 
 chembl_spec = importlib.util.spec_from_file_location(
-    "bioetl.clients.chembl", src_root / "clients" / "chembl.py"
+    "bioetl.clients.chembl", src_root / "clients" / "chembl" / "client.py"
 )
 chembl_module = importlib.util.module_from_spec(chembl_spec)
 sys.modules["bioetl.clients.chembl"] = chembl_module
