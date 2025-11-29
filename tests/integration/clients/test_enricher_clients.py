@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.clients import exceptions
+from bioetl.clients import exceptions as client_exceptions
 from bioetl.clients.providers import CrossrefClient
 
 

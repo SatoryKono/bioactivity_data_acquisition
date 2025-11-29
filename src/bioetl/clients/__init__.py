@@ -20,6 +20,7 @@ from bioetl.clients.base.contracts import (
     RecordStream,
     RequestContext,
 )
+from bioetl.clients.base import exceptions as _exceptions
 from bioetl.clients.registry import (
     FACTORIES,
     ClientFactory,
@@ -28,6 +29,9 @@ from bioetl.clients.registry import (
     register_domain_factories,
     register_factory,
 )
+
+# Re-export exceptions for public API
+exceptions = _exceptions
 
 __all__ = [
     "ClientError",
@@ -39,6 +43,7 @@ __all__ = [
     "Record",
     "RecordStream",
     "RequestContext",
+    "exceptions",
     "FACTORIES",
     "ClientFactory",
     "ClientProtocol",

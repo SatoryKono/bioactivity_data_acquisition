@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from bioetl.clients.chembl.entities import ChemblEntity
-from bioetl.clients.enricher_factory import EnricherEntity
+from bioetl.clients.factories.enricher_factory import EnricherEntity
 from bioetl.core.pipeline.types import (
     ClientNamespace,
     ClientRegistry,

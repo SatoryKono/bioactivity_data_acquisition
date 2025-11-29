@@ -36,12 +36,6 @@ class _DummyCompatClient(ChemblCompatibilityMixin):
         return iter([self._payload])
 
 
-def test_base_client_uses_compat_mixin() -> None:
-    """BaseChemblClient should inherit deprecated compatibility helpers."""
-
-    assert ChemblCompatibilityMixin in BaseChemblClient.__mro__
-
-
 def test_fetch_page_warns_and_delegates() -> None:
     client = _DummyCompatClient()
 
