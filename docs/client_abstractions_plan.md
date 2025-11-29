@@ -26,7 +26,7 @@
 | `clients/chembl/adapter.ChemblTransportAdapter` | Логирование/обёртку `_wrap_callable`, общую валидацию ответов/исключений | Преобразование в ChEMBL-специфичный payload/metadata | Сделать наследником `BaseHttpClient`/`LoggingMixin`; оставить адаптацию схемы ответа |
 | `clients/chembl/base.BaseChemblClient` | Пагинацию `fetch_many`, алиасы `fetch_page/list/fetch_all`, базовый `iterate_records` | Подстановка путей `/entity/{id}`, связь со стратегиями пагинации | Наследовать `PagedClientMixin` и `DeprecatedAliasMixin`; оставить связку с `PaginationStrategyResolver` |
 | `clients/providers/*.py` (генерируемые классы) | Пагинационные циклы, проверки опций, алиасы `fetch/search/call_route` | Описание маршрутов, маппинг параметров на endpoint | Переиспользовать базу через общий класс, генератор создаёт наследника `BaseHttpClient`/`PagedClientMixin` |
-| `clients/enricher_facade.py` | Нормализацию ошибок/логирование вызовов | Оркестрацию стратегий | Переключить на `LoggingMixin`/новые исключения, оставить стратегический выбор клиента |
+| `clients/enricher_facade.py` | — | Устаревший фасад обогащения | Удалён как неиспользуемый; обогащение выполняется напрямую через клиентов |
 | `clients/chembl/normalization.py` | Ничего (остаётся доменный код) | Маппинги колонок, построение DataFrame | Подключать через `NormalizerMixin` или отдельный сервис, чтобы убрать нормализацию из HTTP слоёв |
 
 ## Тестирование

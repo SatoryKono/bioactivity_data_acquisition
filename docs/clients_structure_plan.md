@@ -38,8 +38,6 @@ src/bioetl/clients/
   factories/             # Фабрики клиентов и фасады для пайплайнов
     __init__.py
     enricher_factory.py
-    enricher_facade.py
-    enricher_strategy_registry.py
     client_registry.py   # реестр фабрик (реэкспорт из base при необходимости)
   utils/                 # Утилиты, специфичные для клиентов (логирование, преобразование payload)
     __init__.py
@@ -56,8 +54,8 @@ src/bioetl/clients/
 | `src/bioetl/clients/exceptions.py` | `src/bioetl/clients/base/interfaces.py` или отдельный `base/exceptions.py` | Исключения относятся к базовой инфраструктуре | В корне оставить файл-реэкспорт для совместимости |
 | `src/bioetl/clients/enricher_base.py` | `src/bioetl/clients/providers/routes.py` + `src/bioetl/clients/base/http.py` + `src/bioetl/clients/base/pagination.py` | Содержит смешение маршрутизатора, HTTP-обёртки и пагинации | Разделить: генератор классов маршрутов → `routes.py`; базовая HTTP/пагинация → `base/` |
 | `src/bioetl/clients/enricher_factory.py` | `src/bioetl/clients/factories/enricher_factory.py` | Это фабрика клиентов, логично держать в подпакете factories | Оставить реэкспорт в `clients/enricher_factory.py` до миграции вызовов |
-| `src/bioetl/clients/enricher_facade.py` | `src/bioetl/clients/factories/enricher_facade.py` | Фасад для пайплайнов, относится к фабричному/оркестровочному слою | Временно реэкспортировать из старого пути |
-| `src/bioetl/clients/enricher_strategy_registry.py` | `src/bioetl/clients/factories/enricher_strategy_registry.py` | Регистрация стратегий — часть фабричного слоя | Добавить тонкий реэкспорт |
+| `src/bioetl/clients/enricher_facade.py` | — | Устаревший фасад обогащения | Удалён как неиспользуемый |
+| `src/bioetl/clients/enricher_strategy_registry.py` | — | Реестр стратегий обогащения | Удалён вместе с фасадом |
 | `src/bioetl/clients/chembl/*` | `src/bioetl/clients/chembl/*` (без изменений по именам файлов) | Уже выделенный домен; потребуется импортировать общие базовые классы из `base/` | Можно переместить `compat.py`/`facade.py`/`registry.py` рядом, сохраняя поддиректорию |
 | `src/bioetl/clients/providers/*.py` | `src/bioetl/clients/providers/{routes.py, base_provider.py, <provider>.py}` | Приведение к единому входу для генератора маршрутов и базового клиента | Отдельный файл `routes.py` для декларативного генератора; тонкий базовый класс для DataProviderProtocol |
 | `src/bioetl/clients/openalex.py`, `crossref.py`, `pubchem.py`, `pubmed.py`, `semantic_scholar.py`, `uniprot.py` | `src/bioetl/clients/providers/<same>.py` | Эти файлы уже фактически провайдеры; нужно собрать в подпакет | Оставить реэкспорт в корне на время миграции импорта |

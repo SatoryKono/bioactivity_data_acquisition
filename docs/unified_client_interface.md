@@ -12,7 +12,7 @@
 | Провайдеры — конкретные | `providers.crossref.OpenAlex…` (генерируются через `create_route_provider_class`) | `fetch_one(value, params, route_name)`, `fetch_batch(value, params, route_name)` | Алиасы устаревших методов (`fetch`/`search`), аргументы `value` + `params`, пагинация задаётся опциями клиента. |
 | ChEMBL — базовый | `chembl.base.BaseChemblClient` | `get(id)`, `fetch_one(id, params)`, `fetch_many(page_size, params, page_key, next_key, page_param)`, `fetch_batch(ids, params, path_template)`, `iterate_records(ids, page_size, fetcher)` | Интегрирован с `PaginationStrategyResolverMixin` и `ChemblTransportAdapter`; возвращает итераторы словарей, есть alias-методы (`fetch_page`, `list`, `fetch_all`). |
 | ChEMBL — фабрики | `chembl.entities.ChemblEntityClientFactory`, `chembl.factory.ChemblClientFactory` | `create(entity)`, алиасы `activity()/assay()/...` | Собирают транспорт, адаптеры, стратегии пагинации; тесно связаны с конфигом `default_chembl_factory`. |
-| Фасады/оркестраторы | `enricher_facade.EnricherFacade`, `enricher_factory.EnricherClientFactory` | `enrich(value, client_name)`, фабричные методы `crossref/openalex/...` | Прячут различия клиентов, но сигнатуры и поведения остаются разнородными; ошибки логируются и проглатываются (`None` на неудачу). |
+| Фасады/оркестраторы | — (устаревший `EnricherFacade` удалён) | — | Фасад обогащения не используется; пайплайны создают клиентов напрямую через фабрики. |
 
 ### Несогласованность интерфейсов
 - Нейминг операций: ChEMBL использует `fetch_many/fetch_batch/get`, провайдеры — `fetch_one/fetch_batch` с `value` и `route_name`; устаревшие алиасы (`fetch`, `search`, `call_route`).
