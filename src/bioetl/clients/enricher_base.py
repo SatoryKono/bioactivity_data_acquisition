@@ -1,8 +1,15 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Mapping as TypingMapping, Protocol, runtime_checkable
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Mapping as TypingMapping,
+    Protocol,
+    runtime_checkable,
+)
 import warnings
 
 from bioetl.clients.base import (
@@ -106,7 +113,7 @@ class BaseEnricherClient:
         effective_options = options or EnricherClientOptions()
         self.api_client: OptionsAwareApiClient = OptionsAwareApiClient(
             api_client, effective_options
-        )  # type: ignore[assignment]
+        )
         self.timeout_sec = effective_options.timeout_sec
         self.max_retries = effective_options.max_retries
         self.page_key = effective_options.page_key
@@ -117,7 +124,9 @@ class BaseEnricherClient:
     def _normalize_payload(
         self, payload: Any, *, page_key: str | None = None
     ) -> Iterator[dict[str, Any]]:
-        items = list(normalize_payload(payload, page_key=page_key or self.page_key))
+        items = list(
+            normalize_payload(payload, page_key=page_key or self.page_key)
+        )
         if not items:
             # Fallback: wrap entire payload when no items extracted
             yield {"result": payload}
@@ -132,16 +141,23 @@ class BaseEnricherClient:
         page_key: str | None,
         next_key: str | None,
         page_param: str | None,
-        fetch_pages: Callable[[str | None, str, str | None], Iterable[Any]],
+        fetch_pages: Callable[
+            [str | None, str, str | None], Iterable[Any]
+        ],
     ) -> JSONRecordStream:
         effective_page_key = page_key if page_key is not None else self.page_key
         effective_next_key = next_key if next_key is not None else self.next_key
         effective_page_param = page_param if page_param is not None else self.page_param
 
-        for payload in fetch_pages(
-            effective_page_key, effective_next_key, effective_page_param
-        ):
-            yield from self._normalize_payload(payload, page_key=effective_page_key)
+        try:
+            for payload in fetch_pages(
+                effective_page_key, effective_next_key, effective_page_param
+            ):
+                yield from self._normalize_payload(payload, page_key=effective_page_key)
+        except Exception:
+            # Ensure transport cleanup on any exception during iteration
+            self.api_client.close()
+            raise
 
     def fetch_one(
         self,
@@ -189,14 +205,19 @@ class BaseEnricherClient:
                 max_retries=self.max_retries,
             )
 
-        return self._iterate_pages(
-            path=path,
-            params=params,
-            page_key=page_key,
-            next_key=next_key,
-            page_param=page_param,
-            fetch_pages=_fetch_batch_fn,
-        )
+        try:
+            return self._iterate_pages(
+                path=path,
+                params=params,
+                page_key=page_key,
+                next_key=next_key,
+                page_param=page_param,
+                fetch_pages=_fetch_batch_fn,
+            )
+        except Exception:
+            # Ensure transport cleanup on any exception during iteration
+            self.api_client.close()
+            raise
 
     def metadata(self) -> Mapping[str, Any]:
         meta = getattr(self.api_client, "metadata", None)
@@ -265,7 +286,10 @@ class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
     ) -> RecordStream:
         route_name = context.route if context else None
         return self._provider.fetch_one(
-            ref, params=params, route_name=route_name, page_key=self._pagination.page_key
+            ref,
+            params=params,
+            route_name=route_name,
+            page_key=self._pagination.page_key,
         )
 
     def iter_pages(
@@ -279,16 +303,19 @@ class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
         value, remaining = self._extract_value(query)
         effective = self._resolve_pagination(pagination)
 
-        path, params_with_value = self._provider._resolve_route(  # type: ignore[attr-defined]
+        path, params_with_value = self._provider._resolve_route(
             route_name or self._provider.DEFAULT_SEARCH_ROUTE,
             value=value,
             params=remaining,
         )
-        params_with_value = params_with_value or {}
+        # Ensure mutable dict for setdefault operation
+        params_with_value = dict(params_with_value or {})
         if effective.page_size:
             params_with_value.setdefault("limit", effective.page_size)
 
-        effective_next = effective.next_key or self._provider.next_key or "next"
+        effective_next = (
+            effective.next_key or self._provider.next_key or "next"
+        )
         pages = self._provider.api_client.paginate_json(
             path,
             params=params_with_value,
@@ -301,13 +328,15 @@ class UnifiedProviderAdapter(DataProviderProtocol[dict[str, Any]]):
 
         for raw_page in pages:
             items = list(
-                self._provider._normalize_payload(  # type: ignore[attr-defined]
+                self._provider._normalize_payload(
                     raw_page, page_key=effective.page_key
                 )
             )
             next_cursor = raw_page.get(effective_next) if isinstance(raw_page, Mapping) else None
+            # Convert items to MutableMapping for Page constructor
+            mutable_items = [dict(item) for item in items]
             yield Page(
-                items=items,
+                items=mutable_items,
                 next_cursor=next_cursor,
                 raw=raw_page if isinstance(raw_page, Mapping) else None,
             )
@@ -368,7 +397,7 @@ class RouteEnricherMixin(BaseEnricherClient):
 
     def _resolve_route(
         self, route_name: str, *, value: str, params: Mapping[str, Any] | None
-    ) -> tuple[str, Mapping[str, Any] | None]:
+    ) -> tuple[str, dict[str, Any] | None]:
         route = self._route_map[route_name]
         params_with_value = params
         if route.query_param:
@@ -392,7 +421,9 @@ class RouteEnricherMixin(BaseEnricherClient):
         path, params_with_value = self._resolve_route(
             name, value=value, params=params
         )
-        return super().fetch_one(path, params=params_with_value, page_key=page_key)
+        return super().fetch_one(
+            path, params=params_with_value, page_key=page_key
+        )
 
     def fetch_batch(
         self,

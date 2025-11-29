@@ -76,7 +76,7 @@ class FailingBatchApiClient(FakePagingApiClient):
     def fetch_batch(self, *args: Any, **kwargs: Any) -> Iterable[Any]:  # noqa: ANN001 - test stub
         def _generator() -> Iterable[Any]:
             yield {"results": [{"id": 1}]}
-            raise RuntimeError("boom")
+            raise client_exceptions.RequestException("boom")
 
         return _generator()
 
@@ -136,7 +136,7 @@ def test_route_provider_closes_transport_on_iteration_error() -> None:
     api_client = FailingBatchApiClient()
     client = CrossrefClient(api_client)
 
-    with pytest.raises(exceptions.RequestException):
+    with pytest.raises(client_exceptions.RequestException):
         list(client.fetch_batch("broken"))
 
     assert api_client.closed is True

@@ -1,13 +1,14 @@
+"""Crossref client implementation for work data retrieval."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, MutableMapping, cast
 from bioetl.clients.base.contracts import (
     ClientRequest,
     DataClient,
     PaginationParams,
     PageStream,
-    Record,
     RecordStream,
     RequestContext,
 )
@@ -37,6 +38,7 @@ class CrossrefResourceConfig:
 
 
 class CrossrefWorkClient(DataClient):
+    """Crossref client for retrieving work data."""
     source = "crossref"
 
     def __init__(
@@ -58,7 +60,7 @@ class CrossrefWorkClient(DataClient):
 
     def fetch_one(
         self, request: ClientRequest, *, context: RequestContext | None = None
-    ) -> Record | None:
+    ) -> MutableMapping[str, Any] | None:
         mapped_request = self._map_request(request)
         result = self._transport.fetch_one(
             endpoint=mapped_request["endpoint"],
@@ -67,7 +69,7 @@ class CrossrefWorkClient(DataClient):
             raw=mapped_request["raw"],
             context=context,
         )
-        return result
+        return cast(MutableMapping[str, Any] | None, result)
 
     def iter_records(
         self, request: ClientRequest, *, context: RequestContext | None = None

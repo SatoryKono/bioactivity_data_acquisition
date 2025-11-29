@@ -2,7 +2,7 @@ columns:
 - id
 - value
 entity: activity
-generated_at: '2025-11-29T12:06:33.706620'
+generated_at: '2025-11-29T12:11:35.012224'
 pipeline: activity_pipeline
 rows: 1
 run_id: run-123
