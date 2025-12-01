@@ -57,21 +57,96 @@ class ResilienceComponents:
     circuit_breaker: CircuitBreakerStrategy
 
 
-class ResilientRequestExecutorFactory:
-    """
-    Builder factory for creating a configured resilient request executor.
+class DefaultRetryFactory:
+    """Фабрика стратегий повторов по умолчанию."""
 
-    Constructs the executor and all its dependency strategies (retry, rate
-    limiter, circuit breaker, cache) based on the provided APIConfig or
-    explicit overrides.
-    """
+    def __init__(self, config: APIConfig) -> None:
+        self._config = config
+
+    def create(self, *, strategy: RetryStrategy | None = None) -> RetryStrategy:
+        if strategy is not None:
+            return strategy
+        return RetryPolicy(
+            max_retries=self._config.max_retries,
+            backoff_factor=self._config.backoff_factor,
+            max_backoff_sec=self._config.max_backoff_sec,
+        )
+
+
+class DefaultRateLimiterFactory:
+    """Фабрика лимитеров скорости по умолчанию."""
+
+    def __init__(self, config: APIConfig) -> None:
+        self._config = config
+
+    def create(self, *, rate_limiter: RateLimiter | None = None) -> RateLimiter:
+        if rate_limiter is not None:
+            return rate_limiter
+        return TokenBucketRateLimiter(
+            TokenBucketConfig(
+                max_tokens=self._config.rate_limit_calls,
+                refill_period_sec=float(self._config.rate_limit_period_sec),
+            )
+        )
+
+
+class DefaultCacheFactory:
+    """Фабрика кэша по умолчанию."""
+
+    def __init__(self, config: APIConfig) -> None:
+        self._config = config
+
+    def create(self, *, cache: CacheStrategy | None = None) -> CacheStrategy | None:
+        if cache is not None:
+            return cache
+        if not self._config.cache_enabled:
+            return None
+        return TTLCache(TTLCacheConfig(ttl_seconds=self._config.cache_ttl_sec))
+
+
+class DefaultCircuitBreakerFactory:
+    """Фабрика circuit breaker по умолчанию."""
+
+    def __init__(self, config: APIConfig) -> None:
+        self._config = config
+
+    def create(
+        self, *, circuit_breaker: CircuitBreakerStrategy | None = None
+    ) -> CircuitBreakerStrategy:
+        if circuit_breaker is not None:
+            return circuit_breaker
+        return CircuitBreaker(
+            CircuitBreakerConfig(
+                failure_threshold=self._config.circuit_breaker_fail_max,
+                reset_timeout_sec=self._config.circuit_breaker_reset_sec,
+            )
+        )
+
+
+class DefaultResilienceFactory:
+    """Фабрика сборки устойчивых HTTP-компонентов по умолчанию."""
 
     def __init__(
-        self, config: APIConfig, *, logger: FilteringBoundLogger | None = None
+        self,
+        config: APIConfig,
+        *,
+        logger: FilteringBoundLogger | None = None,
+        retry_factory: DefaultRetryFactory | None = None,
+        rate_limiter_factory: DefaultRateLimiterFactory | None = None,
+        cache_factory: DefaultCacheFactory | None = None,
+        circuit_breaker_factory: DefaultCircuitBreakerFactory | None = None,
     ) -> None:
         self._config = config
         self._logger = logger or structlog.get_logger(__name__).bind(
             api_base=config.base_url
+        )
+        self._retry_factory = retry_factory or DefaultRetryFactory(config)
+        self._rate_limiter_factory = rate_limiter_factory or DefaultRateLimiterFactory(
+            config
+        )
+        self._cache_factory = cache_factory or DefaultCacheFactory(config)
+        self._circuit_breaker_factory = (
+            circuit_breaker_factory or DefaultCircuitBreakerFactory(config)
         )
 
     def create(
@@ -87,52 +162,21 @@ class ResilientRequestExecutorFactory:
         verify_ssl: bool = True,
         default_headers: Mapping[str, str] | None = None,
     ) -> ResilienceComponents:
-        """
-        Create all resilience components and the executor.
-
-        Args:
-            request_builder: Optional custom RequestBuilder.
-            session: Optional custom requests.Session.
-            retry_strategy: Optional custom retry strategy.
-            rate_limiter: Optional custom rate limiter.
-            cache: Optional custom cache strategy.
-            circuit_breaker: Optional custom circuit breaker strategy.
-            pagination_strategy: Optional custom pagination strategy.
-            verify_ssl: Whether to verify SSL certificates (default: True).
-            default_headers: Optional default headers to include in requests.
-
-        Returns:
-            ResilienceComponents containing the configured executor and
-            strategies.
-        """
         builder = request_builder or RequestBuilder(
             self._config,
             session=session,
             verify_ssl=verify_ssl,
             default_headers=default_headers,
         )
-        prepared_retry = retry_strategy or RetryPolicy(
-            max_retries=self._config.max_retries,
-            backoff_factor=self._config.backoff_factor,
-            max_backoff_sec=self._config.max_backoff_sec,
+        prepared_retry = self._retry_factory.create(strategy=retry_strategy)
+        prepared_rate_limiter = self._rate_limiter_factory.create(
+            rate_limiter=rate_limiter
         )
-        prepared_rate_limiter = rate_limiter or TokenBucketRateLimiter(
-            TokenBucketConfig(
-                max_tokens=self._config.rate_limit_calls,
-                refill_period_sec=float(self._config.rate_limit_period_sec),
-            )
+        prepared_cache = self._cache_factory.create(cache=cache)
+        prepared_breaker = self._circuit_breaker_factory.create(
+            circuit_breaker=circuit_breaker
         )
-        prepared_cache = cache
-        if prepared_cache is None and self._config.cache_enabled:
-            prepared_cache = TTLCache(
-                TTLCacheConfig(ttl_seconds=self._config.cache_ttl_sec)
-            )
-        prepared_breaker = circuit_breaker or CircuitBreaker(
-            CircuitBreakerConfig(
-                failure_threshold=self._config.circuit_breaker_fail_max,
-                reset_timeout_sec=self._config.circuit_breaker_reset_sec,
-            )
-        )
+
         executor = ResilientRequestExecutorImpl(
             session=builder.session,
             logger=self._logger,
@@ -155,4 +199,16 @@ class ResilientRequestExecutorFactory:
         )
 
 
-__all__ = ["ResilientRequestExecutorFactory", "ResilienceComponents"]
+class ResilientRequestExecutorFactory(DefaultResilienceFactory):
+    """Обратная совместимость для старых импортов."""
+
+
+__all__ = [
+    "DefaultCacheFactory",
+    "DefaultCircuitBreakerFactory",
+    "DefaultRateLimiterFactory",
+    "DefaultResilienceFactory",
+    "DefaultRetryFactory",
+    "ResilientRequestExecutorFactory",
+    "ResilienceComponents",
+]

@@ -14,7 +14,7 @@ from bioetl.core.http import (
     APIConfig,
     CircuitBreaker,
     RetryPolicy,
-    ResilientRequestExecutorFactory,
+    DefaultResilienceFactory,
     TTLCache,
     TokenBucketRateLimiter,
     UnifiedAPIClient,
@@ -144,7 +144,7 @@ def test_unified_client_composes_injected_strategies() -> None:
     retry = DummyRetry()
     breaker = DummyCircuitBreaker()
 
-    factory = ResilientRequestExecutorFactory(config)
+    factory = DefaultResilienceFactory(config)
     components = factory.create(
         session=session,
         cache=cache,
@@ -176,7 +176,7 @@ def test_default_component_factories_used_when_missing() -> None:
     session = MockSession(response)
 
     config = build_api_config()
-    components = ResilientRequestExecutorFactory(config).create(
+    components = DefaultResilienceFactory(config).create(
         session=session,
     )
     client = UnifiedAPIClient(

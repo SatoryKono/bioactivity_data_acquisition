@@ -13,7 +13,7 @@ from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.pagination_helpers import normalize_payload
 from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.request_executor import RequestExecutorProtocol
-from bioetl.core.http.resilience import ResilientRequestExecutorFactory
+from bioetl.core.http.resilience import DefaultResilienceFactory
 
 
 __all__ = ["APIConfig", "UnifiedAPIClient"]
@@ -66,7 +66,7 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
         **kwargs: Any,
     ) -> UnifiedAPIClient:
         """Create a UnifiedAPIClient from an APIConfig."""
-        factory = ResilientRequestExecutorFactory(api_config)
+        factory = DefaultResilienceFactory(api_config)
         components = factory.create(
             pagination_strategy=pagination_strategy, **kwargs
         )
