@@ -3,16 +3,18 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest
+
 from tests.utils.determinism import compare_artifacts, enforce_determinism
 
 
-def test_enforce_determinism_sets_timezone(monkeypatch):
+def test_enforce_determinism_sets_timezone(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TZ", raising=False)
     enforce_determinism(seed=123)
     assert os.environ["TZ"] == "UTC"
 
 
-def test_compare_artifacts(tmp_path: Path):
+def test_compare_artifacts(tmp_path: Path) -> None:
     new_dir = tmp_path / "new"
     golden_dir = tmp_path / "golden"
     new_dir.mkdir()

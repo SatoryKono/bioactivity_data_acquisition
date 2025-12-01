@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import pandera as pa
+import pandera.pandas as pa
 
 _COLUMNS = [
     "activity_id",

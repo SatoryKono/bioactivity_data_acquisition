@@ -10,7 +10,7 @@ from bioetl.core.io.output_service import PipelineOutputService
 
 
 @pytest.fixture(name="mock_writer")
-def fixture_mock_writer():
+def fixture_mock_writer() -> Mock:
     """Create a mock writer with write_dataset_atomic and write methods."""
     writer = Mock()
     writer.write_dataset_atomic.return_value = Mock(success=True)
@@ -19,12 +19,12 @@ def fixture_mock_writer():
 
 
 @pytest.fixture(name="mock_logger")
-def fixture_mock_logger():
+def fixture_mock_logger() -> Mock:
     """Create a mock logger."""
     return Mock()
 
 
-def test_resolve_writer_sets_output_dir(mock_writer):
+def test_resolve_writer_sets_output_dir(mock_writer: Mock) -> None:
     """Test that resolve_writer sets the output directory on the writer."""
     output_dir = Path("/tmp/output")
     config = {"io": {"writer": mock_writer}}
@@ -36,13 +36,13 @@ def test_resolve_writer_sets_output_dir(mock_writer):
     assert mock_writer.output_dir == output_dir
 
 
-def test_resolve_writer_returns_none_if_missing():
+def test_resolve_writer_returns_none_if_missing() -> None:
     """Test that resolve_writer returns None if no writer is configured."""
     service = PipelineOutputService(config={})
     assert service.resolve_writer(Path("/tmp")) is None
 
 
-def test_save_calls_write_atomic_and_qc(mock_writer, mock_logger):
+def test_save_calls_write_atomic_and_qc(mock_writer: Mock, mock_logger: Mock) -> None:
     """Test that save calls write_dataset_atomic and emits QC artifacts."""
     df = pd.DataFrame({"col": [1]})
     artifacts = WriteArtifacts(data_path=Path("/tmp/data.csv"))
@@ -63,7 +63,7 @@ def test_save_calls_write_atomic_and_qc(mock_writer, mock_logger):
         mock_emit_qc.assert_called_once()
 
 
-def test_save_calls_write_fallback(mock_logger):
+def test_save_calls_write_fallback(mock_logger: Mock) -> None:
     """Test save falls back to write if write_dataset_atomic is missing."""
     fallback_writer = Mock()
     # Ensure it doesn't have this method
@@ -83,14 +83,14 @@ def test_save_calls_write_fallback(mock_logger):
         fallback_writer.write.assert_called_once()
 
 
-def test_save_raises_if_no_writer():
+def test_save_raises_if_no_writer() -> None:
     """Test that save raises RuntimeError if no writer is configured."""
     service = PipelineOutputService(config={})
     with pytest.raises(RuntimeError, match="No unified writer configured"):
         service.save(pd.DataFrame(), WriteArtifacts(None), Path("/tmp"))
 
 
-def test_save_handles_qc_error(mock_writer, mock_logger):
+def test_save_handles_qc_error(mock_writer: Mock, mock_logger: Mock) -> None:
     """Test that save logs an error if QC emission fails."""
     df = pd.DataFrame()
     artifacts = WriteArtifacts(data_path=Path("/tmp/data.csv"))

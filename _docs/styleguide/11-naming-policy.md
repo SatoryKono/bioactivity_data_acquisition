@@ -1,3 +1,4 @@
+<!-- PRIMARY: Основной источник истины для правил именования в проекте bioetl -->
 # 11 Naming Policy
 
 ## 1. Purpose and scope

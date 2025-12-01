@@ -5,18 +5,22 @@ import json
 from pathlib import Path
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
+import pandera.errors
 import pytest
 import yaml
 
-from bioetl.core.config.models import PipelineConfig
-from bioetl.core.io.artifacts import (
+from bioetl.core.config.models import PipelineConfig  # type: ignore
+from bioetl.core.io.artifacts import (  # type: ignore
     DeterminismSettings,
     RunArtifacts,
     SchemaRegistry,
     SchemaRegistryEntry,
 )
-from bioetl.core.io.output import UnifiedOutputWriter, validate_with_schema
+from bioetl.core.io.output import (  # type: ignore
+    UnifiedOutputWriter,
+    validate_with_schema,
+)
 from bioetl.core.logging import UnifiedLogger
 
 
@@ -43,7 +47,7 @@ def _build_registry(sort_by: tuple[str, ...] | None = None) -> SchemaRegistry:
     return registry
 
 
-def test_write_dataset_atomic_preserves_column_order_and_sort(tmp_path: Path):
+def test_write_dataset_atomic_preserves_column_order_and_sort(tmp_path: Path) -> None:
     """Test atomic write preserves column order and sort."""
     registry = _build_registry(sort_by=("b",))
     config = PipelineConfig(
@@ -59,7 +63,7 @@ def test_write_dataset_atomic_preserves_column_order_and_sort(tmp_path: Path):
         logger=UnifiedLogger.get("test"),
     )
     df = pd.DataFrame({"b": [2, 1], "a": [10, 20]})
-    artifacts = RunArtifacts(
+    artifacts = RunArtifacts(  # type: ignore
         output_dir=tmp_path,
         logs_directory=tmp_path / "logs",
     )
@@ -71,14 +75,14 @@ def test_write_dataset_atomic_preserves_column_order_and_sort(tmp_path: Path):
     assert written.to_dict(orient="list") == {"a": [20, 10], "b": [1, 2]}
 
 
-def test_validate_with_schema_fail_and_allow_modes():
+def test_validate_with_schema_fail_and_allow_modes() -> None:
     """Test validation with fail and allow modes."""
     registry = _build_registry()
     entry = registry.get("test.pipeline")
     df = pd.DataFrame({"a": ["oops"], "b": [1]})
     logger = UnifiedLogger.get("test")
 
-    with pytest.raises(pa.errors.SchemaError):
+    with pytest.raises(pandera.errors.SchemaError):
         validate_with_schema(
             df,
             entry,
@@ -95,7 +99,7 @@ def test_validate_with_schema_fail_and_allow_modes():
     pd.testing.assert_frame_equal(result, df)
 
 
-def test_write_dataset_atomic_generates_meta_and_manifest(tmp_path: Path):
+def test_write_dataset_atomic_generates_meta_and_manifest(tmp_path: Path) -> None:
     """Test atomic write generates meta and manifest."""
     registry = _build_registry(sort_by=("b",))
     config = PipelineConfig(
@@ -115,7 +119,7 @@ def test_write_dataset_atomic_generates_meta_and_manifest(tmp_path: Path):
         logger=UnifiedLogger.get("test"),
     )
     df = pd.DataFrame({"b": [1, 2], "a": [10, 20]})
-    artifacts = RunArtifacts(
+    artifacts = RunArtifacts(  # type: ignore
         output_dir=tmp_path,
         logs_directory=tmp_path / "logs",
     )

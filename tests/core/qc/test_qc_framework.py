@@ -15,7 +15,7 @@ def sample_df() -> pd.DataFrame:
     return pd.DataFrame({"a": [1, 2, 2, 100], "b": [1.0, None, 3.5, 4.5]})
 
 
-def test_null_percentage_metric():
+def test_null_percentage_metric() -> None:
     df = sample_df()
     spec = MetricSpec(name="nulls", type="null_percentage")
     result = metric_null_percentage(df, spec)
@@ -25,7 +25,7 @@ def test_null_percentage_metric():
     assert set(result.details.columns) == {"column", "null_ratio"}
 
 
-def test_executor_threshold_violation():
+def test_executor_threshold_violation() -> None:
     plan = QCPlan(
         metrics=[MetricSpec(name="rows", type="row_count")],
         thresholds={"rows": 2},
@@ -37,7 +37,7 @@ def test_executor_threshold_violation():
         executor.execute(sample_df(), plan)
 
 
-def test_quality_and_correlation_reports(tmp_path: Path):
+def test_quality_and_correlation_reports(tmp_path: Path) -> None:
     df = sample_df()
     plan = QCPlan(metrics=[MetricSpec(name="rows", type="row_count")])
     executor = QCMetricsExecutor()

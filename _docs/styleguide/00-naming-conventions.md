@@ -1,3 +1,4 @@
+<!-- PRIMARY: Основной источник истины для конвенций именования документации -->
 # Documentation Naming Conventions
 
 This document outlines the standard naming conventions for documentation files

@@ -13,6 +13,7 @@ from bioetl.core.pipeline.types import (
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
+    RunResult,
     StageExecutionOptions,
     WriteResult,
 )
@@ -60,7 +61,7 @@ class QCPipeline(UnifiedPipelineBase):
         df.to_csv(artifacts.data_path, index=False)
         return WriteResult(rows=int(df.shape[0]), artifacts=artifacts)
 
-    def finalize_run(self, run_result) -> None:
+    def finalize_run(self, run_result: RunResult) -> None:
         """Finalize the pipeline run."""
         self._finalized = True
 

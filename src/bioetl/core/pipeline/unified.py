@@ -14,7 +14,7 @@ from typing import (
 )
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.definition import PipelineDefinition
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase

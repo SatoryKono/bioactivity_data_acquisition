@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pandera as pa
+import pandera.pandas as pa
 import pandas as pd
 
 # Full column list from activity_chembl.yaml config

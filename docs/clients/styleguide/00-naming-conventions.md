@@ -91,5 +91,5 @@ They **SHOULD NOT** have a numeric prefix.
 ## 3. References & Cross-links
 
 - The canonical rules for pipeline code layout and pipeline names are defined in the repository naming policy and pipelines architecture (see `docs/styleguide/11-naming-policy.md` and `docs/pipelines/00-pipeline-base.md`).
-- New entity-specific naming rules are defined in `02-new-entity-naming-policy.md` and should be followed for any new provider/entity introduced in the project.
+- New entity-specific naming rules are defined in `18-new-entity-naming-policy.md` and should be followed for any new provider/entity introduced in the project.
 

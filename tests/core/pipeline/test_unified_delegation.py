@@ -13,7 +13,7 @@ from bioetl.core.pipeline.unified import UnifiedPipelineBase
 class DelegatingPipeline(UnifiedPipelineBase):
     def extract(
         self,
-        descriptor,
+        descriptor: object,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:  # pragma: no cover - unused
         return pd.DataFrame()
@@ -33,7 +33,7 @@ class DelegatingPipeline(UnifiedPipelineBase):
         return df
 
 
-def test_build_stage_plan_delegates_to_default_plan():
+def test_build_stage_plan_delegates_to_default_plan() -> None:
     pipeline = DelegatingPipeline(config={}, run_id="delegate")
     context = mock.Mock()
     options = StageExecutionOptions(run_tag=None, mode=None)
@@ -51,7 +51,7 @@ def test_build_stage_plan_delegates_to_default_plan():
     assert metadata_arg.has_validator is False
 
 
-def test_run_uses_runtime_factory_spy(tmp_path: Path):
+def test_run_uses_runtime_factory_spy(tmp_path: Path) -> None:
     pipeline = DelegatingPipeline(config={}, run_id="delegate")
     with mock.patch.object(
         pipeline, "build_stage_plan", wraps=pipeline.build_stage_plan

@@ -5,7 +5,7 @@ import time
 from bioetl.core.http import TTLCache, TTLCacheConfig
 
 
-def test_ttl_cache_expiration():
+def test_ttl_cache_expiration() -> None:
     cache = TTLCache(TTLCacheConfig(ttl_seconds=0.1))
     key = cache.make_key("GET", "http://example.com", {"q": 1}, {"h": "1"})
     cache.set(key, b"payload")
@@ -14,7 +14,7 @@ def test_ttl_cache_expiration():
     assert cache.get(key) is None
 
 
-def test_ttl_cache_persists_values():
+def test_ttl_cache_persists_values() -> None:
     cache = TTLCache(TTLCacheConfig(ttl_seconds=1))
     key = cache.make_key("GET", "http://example.com", None, None)
     cache.set(key, b"payload")

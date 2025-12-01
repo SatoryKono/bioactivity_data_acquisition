@@ -13,7 +13,7 @@
 ## Entity & pipeline naming (new subsection)
 
 This subsection complements the general Python naming rules with
-entity- and pipeline-specific requirements (see `02-new-entity-naming-policy.md`).
+entity- and pipeline-specific requirements (see `18-new-entity-naming-policy.md`).
 
 ### Canonical patterns (code / factories / impls)
 

@@ -5,7 +5,7 @@ import time
 from bioetl.core.http import TokenBucketConfig, TokenBucketRateLimiter
 
 
-def test_token_bucket_timeout_and_try_acquire():
+def test_token_bucket_timeout_and_try_acquire() -> None:
     limiter = TokenBucketRateLimiter(
         TokenBucketConfig(max_tokens=1, refill_period_sec=0.2),
     )
@@ -16,7 +16,7 @@ def test_token_bucket_timeout_and_try_acquire():
     assert limiter.acquire(timeout=0.3) is True
 
 
-def test_token_bucket_refill_rate():
+def test_token_bucket_refill_rate() -> None:
     limiter = TokenBucketRateLimiter(
         TokenBucketConfig(max_tokens=2, refill_period_sec=0.2),
     )

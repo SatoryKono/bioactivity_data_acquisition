@@ -10,7 +10,7 @@ from bioetl.core.config.environment import (
 )
 
 
-def test_environment_settings_aliases(tmp_path: Path):
+def test_environment_settings_aliases(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text(
         """
@@ -26,6 +26,6 @@ BIOETL_OFFLINE_CHEMBL_CLIENT=1
     assert settings.offline_chembl_client is True
 
 
-def test_environment_settings_validates_email():
+def test_environment_settings_validates_email() -> None:
     with pytest.raises(ValueError):
         EnvironmentSettings(crossref_mailto="invalid")

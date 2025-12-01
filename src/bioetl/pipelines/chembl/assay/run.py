@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
+import pandera.errors
 
 from bioetl.core.io import PipelineOutputService
 from bioetl.core.pipeline.services import DefaultValidationService
@@ -58,7 +59,7 @@ class ChemblAssayPipeline(ChemblCommonPipeline):
         if id_column in df.columns:
             missing = df[id_column].isna().sum()
             if missing:
-                raise pa.errors.SchemaError(
+                raise pandera.errors.SchemaError(
                     schema=self.validator,
                     data=df,
                     message=f"Найдены пустые идентификаторы ассая: {missing}",

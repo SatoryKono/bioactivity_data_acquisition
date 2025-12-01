@@ -8,7 +8,7 @@ from bioetl.core.config.loader import load_config
 from bioetl.core.config.models import PipelineConfig
 
 
-def test_load_config_merges_layers_and_env(tmp_path: Path):
+def test_load_config_merges_layers_and_env(tmp_path: Path) -> None:
     profile = tmp_path / "profile.yaml"
     profile.write_text("section:\n  from_profile: true\n", encoding="utf-8")
 
@@ -45,12 +45,12 @@ section:
     assert payload["section"]["from_env"] == 42
 
 
-def test_load_config_missing_file_raises(tmp_path: Path):
+def test_load_config_missing_file_raises(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_config(tmp_path / "missing.yaml")
 
 
-def test_load_config_rejects_invalid_yaml(tmp_path: Path):
+def test_load_config_rejects_invalid_yaml(tmp_path: Path) -> None:
     path = tmp_path / "invalid.yaml"
     path.write_text("- just\n- a list", encoding="utf-8")
     with pytest.raises(TypeError):

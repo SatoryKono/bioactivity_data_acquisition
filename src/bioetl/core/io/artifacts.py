@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping, Sequence
 
-import pandera as pa
+import pandera.pandas as pa
 
 HASH_ALGORITHM = "sha256"
 

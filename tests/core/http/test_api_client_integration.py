@@ -135,7 +135,7 @@ def make_response(payload: Mapping[str, Any]) -> requests.Response:
     return response
 
 
-def test_unified_client_composes_injected_strategies():
+def test_unified_client_composes_injected_strategies() -> None:
     config = build_api_config()
     response = make_response({"ok": True})
     session = MockSession(response)
@@ -171,7 +171,7 @@ def test_unified_client_composes_injected_strategies():
     assert cache.store
 
 
-def test_default_component_factories_used_when_missing():
+def test_default_component_factories_used_when_missing() -> None:
     response = make_response({"ok": True})
     session = MockSession(response)
 

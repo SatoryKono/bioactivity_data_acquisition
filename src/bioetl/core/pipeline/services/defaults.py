@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 
 from bioetl.core.io.writer import ArtifactWriter
 from bioetl.core.pipeline.services.base import ValidationService, WriteService

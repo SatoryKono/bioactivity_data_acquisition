@@ -12,7 +12,7 @@ from bioetl.core.http import (
 )
 
 
-def test_retry_policy_backoff_and_retry_after():
+def test_retry_policy_backoff_and_retry_after() -> None:
     policy = RetryPolicy(
         max_retries=3,
         backoff_factor=0.5,
@@ -28,7 +28,7 @@ def test_retry_policy_backoff_and_retry_after():
     assert retry_after == pytest.approx(3.0)
 
 
-def test_retry_policy_caps_backoff():
+def test_retry_policy_caps_backoff() -> None:
     policy = RetryPolicy(
         max_retries=5,
         backoff_factor=2,
@@ -38,7 +38,7 @@ def test_retry_policy_caps_backoff():
     assert policy.compute_backoff(5) == 3
 
 
-def test_circuit_breaker_transitions():
+def test_circuit_breaker_transitions() -> None:
     breaker = CircuitBreaker(
         CircuitBreakerConfig(
             failure_threshold=2,
@@ -56,7 +56,7 @@ def test_circuit_breaker_transitions():
     assert breaker.state == "closed"
 
 
-def test_circuit_breaker_records_failure_on_exception():
+def test_circuit_breaker_records_failure_on_exception() -> None:
     breaker = CircuitBreaker(
         CircuitBreakerConfig(
             failure_threshold=1,

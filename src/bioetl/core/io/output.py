@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
+import pandera.errors
 import yaml
 
 from bioetl.core.config.models import PipelineConfig
@@ -89,7 +90,7 @@ def _enforce_column_order(
         col for col in schema_entry.column_order if col not in df.columns
     ]
     if missing:
-        raise pa.errors.SchemaError(
+        raise pandera.errors.SchemaError(
             schema=schema_entry.schema,
             data=df,
             message=f"Dataframe missing ordered columns: {missing}",
@@ -115,7 +116,7 @@ def _sort_dataframe(
         return df
     missing = [col for col in determinism.sort_by if col not in df.columns]
     if missing:
-        raise pa.errors.SchemaError(
+        raise pandera.errors.SchemaError(
             schema=None,  # type: ignore[arg-type]
             data=df,
             message=f"Deterministic sort columns missing: {missing}",
@@ -170,7 +171,7 @@ def validate_with_schema(
 ) -> pd.DataFrame:
     try:
         return schema_entry.schema.validate(df)
-    except pa.errors.SchemaError:
+    except pandera.errors.SchemaError:
         if fail_on_schema_drift:
             raise
         if logger:

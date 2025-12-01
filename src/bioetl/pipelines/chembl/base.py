@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 
-import pandera as pa
+import pandera.pandas as pa
 
 from bioetl.core.pipeline.services import DefaultValidationService
 from bioetl.core.pipeline.types import RunResult, StageContext, StageDescriptor, StageExecutionOptions
