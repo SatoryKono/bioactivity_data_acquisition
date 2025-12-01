@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -89,6 +90,12 @@ class _DummySecretProvider(SecretProviderABC):
 
     def get_secret(self, name: str) -> str:
         return self._secrets[name]
+
+    def get_variable(self, name: str) -> str:
+        return self._secrets[name]
+
+    def iter_variables(self) -> Mapping[str, str]:
+        return dict(self._secrets)
 
 
 def test_file_config_resolver_injects_env_and_secrets(tmp_path: Path) -> None:

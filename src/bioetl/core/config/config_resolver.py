@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, MutableMapping, Sequence
@@ -21,11 +20,84 @@ from .yaml_loader import _load_with_extends
 
 
 class SecretProviderABC(ABC):
-    """Access to external secret storage."""
+    """Доступ к внешним секретам и переменным окружения."""
 
     @abstractmethod
     def get_secret(self, name: str) -> str:
-        """Fetch secret value by ``name``."""
+        """Получить секрет по имени ``name``."""
+
+    @abstractmethod
+    def get_variable(self, name: str) -> str:
+        """Получить переменную окружения по имени ``name``."""
+
+    @abstractmethod
+    def iter_variables(self) -> Mapping[str, str]:
+        """Вернуть доступные переменные окружения."""
+
+
+class EnvSecretProvider(SecretProviderABC):
+    """Провайдер секретов на базе окружения и ``.env`` файлов."""
+
+    def __init__(
+        self,
+        env: Mapping[str, str] | None = None,
+        *,
+        env_file: Path | None = None,
+        environment_loader: Callable[..., Any] = load_environment_settings,
+    ) -> None:
+        self._env_file = env_file
+        self._environment_settings = environment_loader(env_file=env_file)
+        self._env: dict[str, str] = {}
+        self._env.update(self._load_env_file_values(env_file))
+        self._env.update(self._extract_environment_settings(self._environment_settings))
+        self._env.update(env or {})
+
+    @property
+    def environment_settings(self) -> Any:
+        return self._environment_settings
+
+    def get_secret(self, name: str) -> str:
+        if name in self._env:
+            return self._env[name]
+        msg = f"Secret not found: {name}"
+        raise KeyError(msg)
+
+    def get_variable(self, name: str) -> str:
+        if name in self._env:
+            return self._env[name]
+        msg = f"Environment variable not found: {name}"
+        raise KeyError(msg)
+
+    def iter_variables(self) -> Mapping[str, str]:
+        return dict(self._env)
+
+    def _load_env_file_values(self, env_file: Path | None) -> dict[str, str]:
+        if env_file is None or not env_file.exists():
+            return {}
+
+        values: dict[str, str] = {}
+        for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, value = line.split("=", maxsplit=1)
+            values[key.strip()] = value.strip()
+        return values
+
+    def _extract_environment_settings(self, settings: Any) -> dict[str, str]:
+        mapping: dict[str, str] = {}
+        for field_name, field in settings.model_fields.items():
+            value = getattr(settings, field_name)
+            if value is None:
+                continue
+            alias = field.alias or field_name
+            if hasattr(value, "get_secret_value"):
+                mapping[alias] = value.get_secret_value()
+            else:
+                mapping[alias] = str(value)
+        return mapping
 
 
 class ConfigResolverABC(ABC):
@@ -48,14 +120,17 @@ class FileConfigResolver(ConfigResolverABC):
         env_prefixes: Sequence[str] = ("BIOETL__",),
         include_default_profiles: bool = False,
         secret_provider: SecretProviderABC | None = None,
-        environment_loader: Callable[[], Any] = load_environment_settings,
+        environment_loader: Callable[..., Any] = load_environment_settings,
+        env_file: Path | None = None,
     ) -> None:
         self._config_path = config_path
         self._profiles = [Path(p) for p in profiles or ()]
-        self._env = env or os.environ
         self._env_prefixes = env_prefixes
         self._include_default_profiles = include_default_profiles
-        self._secret_provider = secret_provider
+        self._env_file = env_file
+        self._secret_provider = secret_provider or EnvSecretProvider(
+            env, env_file=env_file, environment_loader=environment_loader
+        )
         self._environment_loader = environment_loader
 
     def resolve(self, profile: str | Path | None = None, overrides: Mapping[str, Any] | None = None) -> PipelineConfig:
@@ -73,7 +148,9 @@ class FileConfigResolver(ConfigResolverABC):
         main_payload = load_raw_config(path)
         merged = _deep_merge(profile_payload, main_payload)
 
-        env_settings = self._environment_loader()
+        env_settings = getattr(self._secret_provider, "environment_settings", None)
+        if env_settings is None:
+            env_settings = self._environment_loader(env_file=self._env_file)
         env_name = getattr(env_settings, "bioetl_env", None)
         merged = self._merge_environment_layers(merged, env_name=env_name, base=base_dir)
 
@@ -83,7 +160,9 @@ class FileConfigResolver(ConfigResolverABC):
             )
             merged = _deep_merge(merged, nested)
 
-        env_overrides = _collect_env_overrides(self._env, prefixes=self._env_prefixes)
+        env_overrides = _collect_env_overrides(
+            self._secret_provider.iter_variables(), prefixes=self._env_prefixes
+        )
         merged = _deep_merge(merged, env_overrides)
 
         env_settings_overrides = _collect_short_env_overrides(env_settings)
@@ -137,15 +216,9 @@ class FileConfigResolver(ConfigResolverABC):
         name = match.group("name")
 
         if kind == "ENV":
-            if name not in self._env:
-                msg = f"Environment variable not found: {name}"
-                raise KeyError(msg)
-            return _coerce(self._env[name])
+            return _coerce(self._secret_provider.get_variable(name))
 
         if kind == "SECRET":
-            if self._secret_provider is None:
-                msg = "Secret provider is not configured"
-                raise ValueError(msg)
             return self._secret_provider.get_secret(name)
 
         return value
@@ -157,4 +230,10 @@ def load_raw_config(path: Path) -> dict[str, Any]:
     return _load_with_extends(path, stack=())
 
 
-__all__ = ["ConfigResolverABC", "FileConfigResolver", "SecretProviderABC", "load_raw_config"]
+__all__ = [
+    "ConfigResolverABC",
+    "EnvSecretProvider",
+    "FileConfigResolver",
+    "SecretProviderABC",
+    "load_raw_config",
+]
