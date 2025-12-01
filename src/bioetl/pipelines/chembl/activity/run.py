@@ -31,7 +31,6 @@ from bioetl.core.io.artifacts import (
     SchemaRegistryEntry,
     WriteArtifacts,
 )
-from bioetl.core.logging import UnifiedLogger
 from bioetl.core.pipeline.runtime import PipelineRuntimeBase
 from bioetl.core.pipeline.services import (
     ArtifactPlanner,
@@ -40,18 +39,16 @@ from bioetl.core.pipeline.services import (
     WriteService,
     default_artifact_service_factory,
 )
+from bioetl.core.pipeline.stage_plan import (
+    StagePlanMetadata,
+    build_default_stage_plan,
+)
 from bioetl.core.pipeline.types import (
-    ArtifactStore,
-    DataBucket,
-    DefaultArtifactContext,
-    DefaultDomainContext,
-    DefaultExecutionContext,
-    DefaultInfrastructureContext,
     MaterializationConfig,
     PipelineConfig,
     PipelineInfo,
-    RunResult,
     StageContextProtocol,
+    StageDescriptor,
     StageExecutionOptions,
     StageRuntimeContext,
     WriteResult,
@@ -290,13 +287,14 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
 
     def extract(
         self,
-        descriptor: ChemblExtractionDescriptor | None,
+        descriptor: ChemblExtractionDescriptor | StageDescriptor | None,
         options: StageExecutionOptions,
     ) -> pd.DataFrame:
         """Extract data based on descriptor."""
+        extraction_descriptor = self._resolve_descriptor(descriptor)
         df = self._extract_with_dataclass_descriptor(
-            descriptor or self.build_descriptor(),
-            options
+            extraction_descriptor,
+            options,
         )
         # Apply CLI limit if specified
         if options.limit is not None and not df.empty:
@@ -320,106 +318,6 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
     ) -> pd.DataFrame:
         """Validate transformed data."""
         return df
-
-    def run(  # type: ignore[override]
-        self,
-        output_dir: Path,
-        *,
-        run_tag: str | None = None,
-        mode: str | None = None,
-        extended: bool = False,
-        dry_run: bool | None = None,
-        sample: int | None = None,
-        limit: int | None = None,
-        include_qc_metrics: bool = False,
-        fail_on_schema_drift: bool = True,
-    ) -> RunResult:
-        """Execute the activity pipeline with custom descriptor handling."""
-        # Use the original activity pipeline execution flow
-        # to avoid StageDescriptor wrapping issues
-        print(
-            "DEBUG: Starting pipeline run with "
-            f"output_dir={output_dir}, limit={limit}"
-        )
-        options = StageExecutionOptions(
-            run_tag=run_tag,
-            mode=mode,
-            extended=extended,
-            dry_run=dry_run,
-            sample=sample,
-            limit=limit,
-            include_qc_metrics=include_qc_metrics,
-            fail_on_schema_drift=fail_on_schema_drift,
-        )
-
-        self.prepare_run(options)
-        print("DEBUG: Prepared run")
-
-        # Extract using activity-specific descriptor
-        descriptor = self.build_descriptor()
-        print(f"DEBUG: Built descriptor: {descriptor}")
-        df = self.extract(descriptor, options)
-        print(f"DEBUG: Extracted data with shape: {df.shape}")
-
-        # Transform, validate, save
-        df = self.transform(df, options)
-        print(f"DEBUG: Transformed data with shape: {df.shape}")
-        df = self.validate(df, options)
-        print(f"DEBUG: Validated data with shape: {df.shape}")
-
-        # Plan artifacts and save results
-        artifacts = self.plan_run_artifacts(output_dir, run_tag, mode)[1]
-        print(f"DEBUG: Planned artifacts: {artifacts}")
-        print("DEBUG: About to call save_results")
-        self.save_results(df, artifacts, options)
-        print("DEBUG: save_results completed")
-
-        # Generate QC reports
-        if self.qc_orchestrator and not options.dry_run:
-            try:
-                # Add DataFrame to data bucket for QC processing
-                data_bucket = DataBucket()
-                data_bucket.set(df)
-
-                qc_context = self.context_builder.build(
-                    execution=DefaultExecutionContext(
-                        logger=UnifiedLogger.get(self.__class__.__name__).bind(
-                            run_id=self.run_id,
-                            pipeline=self.pipeline_code,
-                        ),
-                        request_id=self.run_id,
-                        trace_id=self.run_id,
-                    ),
-                    domain=DefaultDomainContext(pipeline=self),
-                    infrastructure=DefaultInfrastructureContext(
-                        output_dir=output_dir,
-                        metadata_service=self.metadata_service,
-                        qc_orchestrator=self.qc_orchestrator,
-                    ),
-                    artifacts=DefaultArtifactContext(
-                        data_bucket=data_bucket,
-                        artifact_store=ArtifactStore(artifacts),
-                    ),
-                )
-                _, qc_error = self.qc_orchestrator.run(qc_context, options)
-                if qc_error:
-                    logger = UnifiedLogger.get(self.__class__.__name__)
-                    logger.error("QC generation failed", error=qc_error)
-            except Exception as exc:
-                logger = UnifiedLogger.get(self.__class__.__name__)
-                logger.error("QC generation exception", error=str(exc))
-
-        return RunResult(
-            success=True,
-            rows=len(df),
-            artifacts=RunArtifacts(
-                output_dir=output_dir,
-                logs_directory=output_dir / "logs",
-                write_artifacts=artifacts,
-            ),
-            duration_ms={},
-            metadata=self.build_pipeline_metadata(),
-        )
 
     def save_results(
         self,
@@ -520,6 +418,46 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
             )
         )
         return registry
+
+    def build_stage_plan(
+        self, context: StageContextProtocol, options: StageExecutionOptions
+    ) -> tuple[StageDescriptor, ...]:
+        """Inject prebuilt descriptor into the extract stage."""
+
+        descriptor = self._descriptor or self.build_descriptor()
+        metadata = StagePlanMetadata(
+            dry_run=options.dry_run,
+            has_validator=self.validator is not None,
+            extended=options.extended,
+        )
+        plan = build_default_stage_plan(descriptor, metadata)
+        patched_plan: list[StageDescriptor] = []
+        for stage in plan:
+            if stage.kind == "extract":
+                patched_stage = StageDescriptor(
+                    id=stage.id,
+                    kind=stage.kind,
+                    params={"descriptor": descriptor},
+                    next=stage.next,
+                )
+                patched_plan.append(patched_stage)
+            else:
+                patched_plan.append(stage)
+        return tuple(patched_plan)
+
+    def _resolve_descriptor(
+        self, descriptor: ChemblExtractionDescriptor | StageDescriptor | None
+    ) -> ChemblExtractionDescriptor:
+        if isinstance(descriptor, StageDescriptor):
+            descriptor = cast(
+                ChemblExtractionDescriptor,
+                descriptor.params.get("descriptor"),
+            )
+
+        if descriptor is None:
+            descriptor = self.build_descriptor()
+
+        return descriptor
 
 
 def _registered_pipeline_factory() -> ChemblActivityPipeline:
