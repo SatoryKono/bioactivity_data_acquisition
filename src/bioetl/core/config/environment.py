@@ -6,7 +6,13 @@ from typing import Any
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .helpers import coerce_bool
+from .environment_utils import (
+    coerce_bool,
+    normalize_env_name,
+    normalize_tool,
+    resolve_vocab_store,
+    validate_email,
+)
 
 
 class EnvironmentSettings(BaseSettings):
@@ -31,17 +37,12 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("bioetl_env")
     @classmethod
     def _normalize_env(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip().lower()
-        return normalized or None
+        return normalize_env_name(value)
 
     @field_validator("vocab_store")
     @classmethod
     def _resolve_vocab(cls, value: Path | None) -> Path | None:
-        if value is None:
-            return None
-        return value.expanduser().resolve()
+        return resolve_vocab_store(value)
 
     @field_validator("offline_chembl_client", mode="before")
     @classmethod
@@ -51,23 +52,12 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("pubmed_tool")
     @classmethod
     def _trim_tool(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip()
-        return normalized or None
+        return normalize_tool(value)
 
     @field_validator("pubmed_email", "crossref_mailto")
     @classmethod
     def _validate_email(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        normalized = value.strip()
-        if not normalized:
-            return None
-        if "@" not in normalized:
-            msg = "email address must contain '@'"
-            raise ValueError(msg)
-        return normalized
+        return validate_email(value)
 
 
 def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSettings:

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Callable, cast
 
 from .environment import load_environment_settings
+from .environment_utils import DefaultEnvironmentProvider, EnvironmentProvider
 from .file_resolver import (
     DEFAULT_PROFILE_DIR,
     _discover_layer_files,
@@ -44,11 +45,17 @@ class EnvSecretProvider(SecretProviderABC):
         *,
         env_file: Path | None = None,
         environment_loader: Callable[..., Any] = load_environment_settings,
+        environment_provider: EnvironmentProvider | None = None,
     ) -> None:
         self._env_file = env_file
-        self._environment_settings = environment_loader(env_file=env_file)
+        self._environment_provider = environment_provider or DefaultEnvironmentProvider(
+            environment_loader
+        )
+        self._environment_settings = self._environment_provider.load_environment_settings(
+            env_file=env_file
+        )
         self._env: dict[str, str] = {}
-        self._env.update(self._load_env_file_values(env_file))
+        self._env.update(self._environment_provider.load_env_file_values(env_file))
         self._env.update(self._extract_environment_settings(self._environment_settings))
         self._env.update(env or {})
 
@@ -70,21 +77,6 @@ class EnvSecretProvider(SecretProviderABC):
 
     def iter_variables(self) -> Mapping[str, str]:
         return dict(self._env)
-
-    def _load_env_file_values(self, env_file: Path | None) -> dict[str, str]:
-        if env_file is None or not env_file.exists():
-            return {}
-
-        values: dict[str, str] = {}
-        for raw_line in env_file.read_text(encoding="utf-8").splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
-                continue
-            key, value = line.split("=", maxsplit=1)
-            values[key.strip()] = value.strip()
-        return values
 
     def _extract_environment_settings(self, settings: Any) -> dict[str, str]:
         mapping: dict[str, str] = {}
@@ -122,14 +114,21 @@ class FileConfigResolver(ConfigResolverABC):
         secret_provider: SecretProviderABC | None = None,
         environment_loader: Callable[..., Any] = load_environment_settings,
         env_file: Path | None = None,
+        environment_provider: EnvironmentProvider | None = None,
     ) -> None:
         self._config_path = config_path
         self._profiles = [Path(p) for p in profiles or ()]
         self._env_prefixes = env_prefixes
         self._include_default_profiles = include_default_profiles
         self._env_file = env_file
+        self._environment_provider = environment_provider or DefaultEnvironmentProvider(
+            environment_loader
+        )
         self._secret_provider = secret_provider or EnvSecretProvider(
-            env, env_file=env_file, environment_loader=environment_loader
+            env,
+            env_file=env_file,
+            environment_loader=environment_loader,
+            environment_provider=self._environment_provider,
         )
         self._environment_loader = environment_loader
 
@@ -150,7 +149,9 @@ class FileConfigResolver(ConfigResolverABC):
 
         env_settings = getattr(self._secret_provider, "environment_settings", None)
         if env_settings is None:
-            env_settings = self._environment_loader(env_file=self._env_file)
+            env_settings = self._environment_provider.load_environment_settings(
+                env_file=self._env_file
+            )
         env_name = getattr(env_settings, "bioetl_env", None)
         merged = self._merge_environment_layers(merged, env_name=env_name, base=base_dir)
 
@@ -232,8 +233,10 @@ def load_raw_config(path: Path) -> dict[str, Any]:
 
 __all__ = [
     "ConfigResolverABC",
+    "DefaultEnvironmentProvider",
     "EnvSecretProvider",
     "FileConfigResolver",
+    "EnvironmentProvider",
     "SecretProviderABC",
     "load_raw_config",
 ]
