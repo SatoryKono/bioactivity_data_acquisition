@@ -11,6 +11,9 @@ from bioetl.pipelines.chembl.assay import ChemblAssayPipeline
 from bioetl.pipelines.chembl.document import ChemblDocumentPipeline
 from bioetl.pipelines.chembl.target import ChemblTargetPipeline
 from bioetl.pipelines.chembl.testitem import TestItemChemblPipeline
+from bioetl.clients.chembl.factories import (
+    default_activity_client_factory,
+)
 
 PipelineFactory = Callable[[PipelineConfig, str | None], PipelineBaseProtocol]
 
@@ -55,7 +58,7 @@ def _register_default_pipelines() -> None:
 
     register_pipeline(
         "activity_chembl",
-        _wrap_pipeline_factory(ChemblActivityPipeline),
+        _wrap_activity_pipeline_factory(ChemblActivityPipeline),
     )
     register_pipeline(
         "assay_chembl",

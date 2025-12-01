@@ -10,8 +10,7 @@ from typing import Any, Callable, Mapping, Sequence
 import pandas as pd
 
 from bioetl.clients import BaseClient, ClientRequest, PaginationParams
-from bioetl.clients.base.exceptions import ProviderError
-from bioetl.clients.exceptions import PartialFailureError
+from bioetl.clients.base.exceptions import ProviderError, PartialFailureError
 from bioetl.core.io.artifacts import (
     RunArtifacts,
     SchemaRegistry,

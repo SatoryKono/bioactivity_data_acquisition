@@ -20,7 +20,6 @@ from typing import Any, Callable, Mapping, MutableMapping, cast
 import pandas as pd
 
 from bioetl.core.config.models import ChemblPipelineMetadata
-from bioetl.clients.chembl.entities import ChemblActivityClient
 from bioetl.clients.chembl.factories import (
     default_activity_client_factory,
 )
@@ -164,7 +163,7 @@ class ChemblActivityPipeline(ChemblCommonPipeline, ChemblPipelineContract):
         config: Mapping[str, Any] | PipelineConfig,
         run_id: str,
         *,
-        client_factory: Callable[[Any], ChemblActivityClient] | None = None,  # type: ignore[name-defined]
+        client_factory: Callable[[Any], BaseClient] | None = None,
     ) -> None:
         print(
             "DEBUG: ChemblActivityPipeline.__init__ called "

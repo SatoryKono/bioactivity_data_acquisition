@@ -19,6 +19,15 @@ class PaginationError(ProviderError):
 class ConfigurationError(ProviderError):
     """Ошибки конфигурации клиента или транспорта."""
 
+
+class PartialFailureError(ProviderError):
+    """Частичный отказ при пакетной обработке."""
+
+    def __init__(self, message: str, partial_data: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.partial_data = partial_data
+
+
 __all__ = [
     "RequestException",
     "HTTPError",
@@ -27,6 +36,7 @@ __all__ = [
     "ProviderError",
     "PaginationError",
     "ConfigurationError",
+    "PartialFailureError",
 ]
 
 # Re-export requests exceptions while keeping the underlying types.
