@@ -49,6 +49,11 @@ from bioetl.core.http.request_executor import (
     ResilientRequestExecutorImpl,
 )
 from bioetl.core.http.resilience import (
+    DefaultCacheFactory,
+    DefaultCircuitBreakerFactory,
+    DefaultRateLimiterFactory,
+    DefaultResilienceFactory,
+    DefaultRetryFactory,
     ResilienceComponents,
     ResilientRequestExecutorFactory,
 )
@@ -82,6 +87,11 @@ __all__ = [
     "DEFAULT_PAGE_KEY",
     "DEFAULT_PAGE_PARAM",
     "DefaultPaginationStrategy",
+    "DefaultCacheFactory",
+    "DefaultCircuitBreakerFactory",
+    "DefaultRateLimiterFactory",
+    "DefaultResilienceFactory",
+    "DefaultRetryFactory",
     "EntityClientProtocol",
     "HTTPClientError",
     "JSONPage",
