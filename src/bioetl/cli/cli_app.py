@@ -14,6 +14,7 @@ from bioetl.cli.cli_command import (
     create_pipeline_command,
 )
 from bioetl.cli.cli_registry import PIPELINE_REGISTRY
+from bioetl.cli.diagrams import generate_diagrams
 from bioetl.core.config.loader import load_config
 
 
@@ -30,6 +31,8 @@ yaml.SafeDumper.add_representer(SecretStr, _secret_str_representer)
 app = typer.Typer(help="BioETL pipelines", add_completion=False)
 config_app = typer.Typer(help="Конфигурационные утилиты")
 app.add_typer(config_app, name="config")
+tools_app = typer.Typer(help="Утилиты разработки")
+app.add_typer(tools_app, name="tools")
 
 
 @app.callback(invoke_without_command=True)
@@ -183,6 +186,46 @@ def run_chembl_all(
                 validate_columns=validate_columns,
                 progress=False,
             )
+    except Exception as exc:  # pragma: no cover  # noqa: BLE001
+        _handle_cli_exception(exc)
+
+
+@tools_app.command("generate-diagrams")
+def cmd_generate_diagrams(
+    package: str | None = typer.Option(
+        None,
+        "--package",
+        "-p",
+        help="Имя пакета для генерации (например, 'bioetl.clients'). "
+        "Если не указано, генерирует для всех пакетов.",
+    ),
+    repo_root: Path | None = typer.Option(
+        None,
+        "--repo-root",
+        "-r",
+        help="Корень репозитория. Если не указано, определяется автоматически.",
+    ),
+    output_dir: Path | None = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Директория для сохранения диаграмм. "
+        "По умолчанию: 'diagrams' в корне репозитория.",
+    ),
+) -> None:
+    """Генерирует диаграммы классов и пакетов для bioetl.* пакетов.
+
+    Требует установленные инструменты:
+    - pyreverse (из пакета pylint)
+    - dot (из пакета Graphviz)
+    """
+    try:
+        generate_diagrams(
+            package=package,
+            repo_root=repo_root,
+            output_dir=output_dir,
+        )
+        typer.secho("Диаграммы успешно сгенерированы", fg=typer.colors.GREEN)
     except Exception as exc:  # pragma: no cover  # noqa: BLE001
         _handle_cli_exception(exc)
 

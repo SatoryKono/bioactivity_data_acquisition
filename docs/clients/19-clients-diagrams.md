@@ -2,7 +2,24 @@
 
 ## Быстрый старт
 
-Для генерации диаграмм классов и пакетов для `bioetl.clients` используйте существующий инструмент:
+### Через CLI (рекомендуется)
+
+Для генерации диаграмм используйте команду CLI:
+
+```bash
+# Генерация для всех пакетов
+bioetl tools generate-diagrams
+
+# Генерация только для пакета clients
+bioetl tools generate-diagrams --package bioetl.clients
+
+# С указанием выходной директории
+bioetl tools generate-diagrams --package bioetl.clients --output-dir ./my_diagrams
+```
+
+### Через скрипт
+
+Альтернативно можно использовать скрипт напрямую:
 
 ```bash
 python tools/generate_diagrams.py
@@ -41,7 +58,15 @@ diagrams/
 
 ## Генерация только для clients
 
-Если нужно сгенерировать диаграммы только для пакета `clients`, можно использовать `pyreverse` напрямую:
+### Через CLI
+
+```bash
+bioetl tools generate-diagrams --package bioetl.clients
+```
+
+### Через pyreverse напрямую
+
+Если нужно использовать `pyreverse` напрямую:
 
 ```bash
 # Из корня репозитория
