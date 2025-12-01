@@ -11,6 +11,8 @@ from bioetl.core.http.client_mixins import ClosableMixin
 from bioetl.core.http.config import APIConfig
 from bioetl.core.http.interfaces import BaseApiClient
 from bioetl.core.http.pagination_helpers import normalize_payload
+from bioetl.core.http.request_builder import RequestBuilder
+from bioetl.core.http.request_executor import RequestExecutorProtocol
 from bioetl.core.http.resilience import ResilientRequestExecutorFactory
 
 
@@ -21,15 +23,15 @@ class UnifiedAPIClient(BaseApiClient, ClosableMixin):
     """Simple adapter bundling executor, builder, and pagination strategy."""
 
     api_config: APIConfig
-    request_executor: Any
-    request_builder: Any
+    request_executor: RequestExecutorProtocol
+    request_builder: RequestBuilder
 
     def __init__(
         self,
         api_config: APIConfig,
         *,
-        request_executor: Any,
-        request_builder: Any,
+        request_executor: RequestExecutorProtocol,
+        request_builder: RequestBuilder,
         pagination_strategy: Any,
     ) -> None:
         self.api_config = api_config

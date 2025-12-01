@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 import json
 import time
 from datetime import datetime, timezone
-from typing import Any, Mapping
+from typing import Any, Mapping, Protocol, runtime_checkable
 
 from requests import Response
 from requests import Session
@@ -28,7 +26,28 @@ class HTTPClientError(RuntimeError):
     """Базовое исключение клиента."""
 
 
-class _ResilientRequestExecutor:
+@runtime_checkable
+class RequestExecutorProtocol(Protocol):
+    """Протокол устойчивого исполнителя HTTP-запросов."""
+
+    def request(
+        self,
+        method: str,
+        url: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        params: Mapping[str, Any] | None = None,
+        json: Any | None = None,
+        timeout_sec: float | None = None,
+        max_retries: int | None = None,
+    ) -> dict[str, Any]:
+        ...
+
+    def close(self) -> None:
+        ...
+
+
+class ResilientRequestExecutorImpl(RequestExecutorProtocol):
     def __init__(
         self,
         *,
@@ -173,5 +192,12 @@ class _ResilientRequestExecutor:
         self._logger.info("api_call", cache_hit=True)
         return data
 
+    def close(self) -> None:
+        self._session.close()
 
-__all__ = ["HTTPClientError", "_ResilientRequestExecutor"]
+
+__all__ = [
+    "HTTPClientError",
+    "RequestExecutorProtocol",
+    "ResilientRequestExecutorImpl",
+]

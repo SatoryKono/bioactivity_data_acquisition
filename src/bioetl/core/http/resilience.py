@@ -29,7 +29,10 @@ from bioetl.core.http.rate_limiter import (
     TokenBucketRateLimiter,
 )
 from bioetl.core.http.request_builder import RequestBuilder
-from bioetl.core.http.request_executor import _ResilientRequestExecutor
+from bioetl.core.http.request_executor import (
+    RequestExecutorProtocol,
+    ResilientRequestExecutorImpl,
+)
 from bioetl.core.http.retry import RetryPolicy, RetryStrategy
 
 if TYPE_CHECKING:
@@ -46,7 +49,7 @@ class ResilienceComponents:
     """
 
     request_builder: RequestBuilder
-    executor: _ResilientRequestExecutor
+    executor: RequestExecutorProtocol
     pagination_strategy: PaginationStrategy
     retry_strategy: RetryStrategy
     rate_limiter: RateLimiter
@@ -56,7 +59,7 @@ class ResilienceComponents:
 
 class ResilientRequestExecutorFactory:
     """
-    Builder factory for creating a configured _ResilientRequestExecutor.
+    Builder factory for creating a configured resilient request executor.
 
     Constructs the executor and all its dependency strategies (retry, rate
     limiter, circuit breaker, cache) based on the provided APIConfig or
@@ -130,7 +133,7 @@ class ResilientRequestExecutorFactory:
                 reset_timeout_sec=self._config.circuit_breaker_reset_sec,
             )
         )
-        executor = _ResilientRequestExecutor(
+        executor = ResilientRequestExecutorImpl(
             session=builder.session,
             logger=self._logger,
             retry_strategy=prepared_retry,
