@@ -25,7 +25,7 @@ class TokenBucketConfig:
     refill_period_sec: float
 
 
-class TokenBucketRateLimiter(RateLimiter):
+class TokenBucketRateLimiterImpl(RateLimiter):
     """Простой и потокобезопасный token-bucket лимитер.
 
     Поддерживает блокирующее ``acquire`` с опциональным таймаутом и
@@ -98,4 +98,4 @@ class TokenBucketRateLimiter(RateLimiter):
             waited_total += sleep_for
 
 
-__all__ = ["RateLimiter", "TokenBucketConfig", "TokenBucketRateLimiter"]
+__all__ = ["RateLimiter", "TokenBucketConfig", "TokenBucketRateLimiterImpl"]

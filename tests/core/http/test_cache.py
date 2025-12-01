@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import time
 
-from bioetl.core.http import TTLCache, TTLCacheConfig
+from bioetl.core.http import InMemoryTTLCacheImpl, TTLCacheConfig
 
 
 def test_ttl_cache_expiration() -> None:
-    cache = TTLCache(TTLCacheConfig(ttl_seconds=0.1))
+    cache = InMemoryTTLCacheImpl(TTLCacheConfig(ttl_seconds=0.1))
     key = cache.make_key("GET", "http://example.com", {"q": 1}, {"h": "1"})
     cache.set(key, b"payload")
     assert cache.get(key) == b"payload"
@@ -15,7 +15,7 @@ def test_ttl_cache_expiration() -> None:
 
 
 def test_ttl_cache_persists_values() -> None:
-    cache = TTLCache(TTLCacheConfig(ttl_seconds=1))
+    cache = InMemoryTTLCacheImpl(TTLCacheConfig(ttl_seconds=1))
     key = cache.make_key("GET", "http://example.com", None, None)
     cache.set(key, b"payload")
     assert cache.get(key) == b"payload"

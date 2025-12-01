@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import time
 
-from bioetl.core.http import TokenBucketConfig, TokenBucketRateLimiter
+from bioetl.core.http import TokenBucketConfig, TokenBucketRateLimiterImpl
 
 
 def test_token_bucket_timeout_and_try_acquire() -> None:
-    limiter = TokenBucketRateLimiter(
+    limiter = TokenBucketRateLimiterImpl(
         TokenBucketConfig(max_tokens=1, refill_period_sec=0.2),
     )
     assert limiter.try_acquire() is True
@@ -17,7 +17,7 @@ def test_token_bucket_timeout_and_try_acquire() -> None:
 
 
 def test_token_bucket_refill_rate() -> None:
-    limiter = TokenBucketRateLimiter(
+    limiter = TokenBucketRateLimiterImpl(
         TokenBucketConfig(max_tokens=2, refill_period_sec=0.2),
     )
     assert limiter.acquire(timeout=0) is True

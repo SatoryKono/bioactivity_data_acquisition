@@ -18,7 +18,7 @@ class RetryStrategy(Protocol):
 
 
 @dataclass
-class RetryPolicy:
+class ExponentialBackoffRetryImpl:
     max_retries: int
     backoff_factor: float
     max_backoff_sec: float
@@ -34,4 +34,4 @@ class RetryPolicy:
         return max(0.0, backoff)
 
 
-__all__ = ["RetryStrategy", "RetryPolicy"]
+__all__ = ["RetryStrategy", "ExponentialBackoffRetryImpl"]

@@ -37,7 +37,7 @@ class TTLCacheConfig:
     path: Path | None = None
 
 
-class TTLCache(CacheStrategy):
+class InMemoryTTLCacheImpl(CacheStrategy):
     """Потокобезопасный TTL-кэш в памяти или файле."""
 
     def __init__(self, config: TTLCacheConfig) -> None:
@@ -98,4 +98,4 @@ class TTLCache(CacheStrategy):
                 store.sync()  # type: ignore[operator]
 
 
-__all__ = ["CacheStrategy", "TTLCache", "TTLCacheConfig"]
+__all__ = ["CacheStrategy", "InMemoryTTLCacheImpl", "TTLCacheConfig"]

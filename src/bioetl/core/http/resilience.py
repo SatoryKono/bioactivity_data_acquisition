@@ -11,11 +11,11 @@ from structlog.typing import FilteringBoundLogger
 
 from bioetl.core.http.cache import (
     CacheStrategy,
-    TTLCache,
+    InMemoryTTLCacheImpl,
     TTLCacheConfig,
 )
 from bioetl.core.http.circuit_breaker import (
-    CircuitBreaker,
+    CircuitBreakerImpl,
     CircuitBreakerConfig,
     CircuitBreakerStrategy,
 )
@@ -26,14 +26,14 @@ from bioetl.core.http.pagination import (
 from bioetl.core.http.rate_limiter import (
     RateLimiter,
     TokenBucketConfig,
-    TokenBucketRateLimiter,
+    TokenBucketRateLimiterImpl,
 )
 from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.request_executor import (
     RequestExecutorProtocol,
     ResilientRequestExecutorImpl,
 )
-from bioetl.core.http.retry import RetryPolicy, RetryStrategy
+from bioetl.core.http.retry import ExponentialBackoffRetryImpl, RetryStrategy
 
 if TYPE_CHECKING:
     from bioetl.core.http.config import APIConfig
@@ -66,7 +66,7 @@ class DefaultRetryFactory:
     def create(self, *, strategy: RetryStrategy | None = None) -> RetryStrategy:
         if strategy is not None:
             return strategy
-        return RetryPolicy(
+        return ExponentialBackoffRetryImpl(
             max_retries=self._config.max_retries,
             backoff_factor=self._config.backoff_factor,
             max_backoff_sec=self._config.max_backoff_sec,
@@ -82,7 +82,7 @@ class DefaultRateLimiterFactory:
     def create(self, *, rate_limiter: RateLimiter | None = None) -> RateLimiter:
         if rate_limiter is not None:
             return rate_limiter
-        return TokenBucketRateLimiter(
+        return TokenBucketRateLimiterImpl(
             TokenBucketConfig(
                 max_tokens=self._config.rate_limit_calls,
                 refill_period_sec=float(self._config.rate_limit_period_sec),
@@ -101,7 +101,9 @@ class DefaultCacheFactory:
             return cache
         if not self._config.cache_enabled:
             return None
-        return TTLCache(TTLCacheConfig(ttl_seconds=self._config.cache_ttl_sec))
+        return InMemoryTTLCacheImpl(
+            TTLCacheConfig(ttl_seconds=self._config.cache_ttl_sec)
+        )
 
 
 class DefaultCircuitBreakerFactory:
@@ -115,7 +117,7 @@ class DefaultCircuitBreakerFactory:
     ) -> CircuitBreakerStrategy:
         if circuit_breaker is not None:
             return circuit_breaker
-        return CircuitBreaker(
+        return CircuitBreakerImpl(
             CircuitBreakerConfig(
                 failure_threshold=self._config.circuit_breaker_fail_max,
                 reset_timeout_sec=self._config.circuit_breaker_reset_sec,
