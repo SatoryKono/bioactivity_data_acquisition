@@ -43,7 +43,11 @@ from bioetl.core.http.rate_limiter import (
     TokenBucketRateLimiter,
 )
 from bioetl.core.http.request_builder import RequestBuilder
-from bioetl.core.http.request_executor import HTTPClientError
+from bioetl.core.http.request_executor import (
+    HTTPClientError,
+    RequestExecutorProtocol,
+    ResilientRequestExecutorImpl,
+)
 from bioetl.core.http.resilience import (
     ResilienceComponents,
     ResilientRequestExecutorFactory,
@@ -92,6 +96,8 @@ __all__ = [
     "RequestBuilder",
     "ResilienceComponents",
     "ResilientRequestExecutorFactory",
+    "RequestExecutorProtocol",
+    "ResilientRequestExecutorImpl",
     "RetryPolicy",
     "RetryStrategy",
     "TokenBucketConfig",
