@@ -97,16 +97,16 @@ class BaseExternalDataClient(ExternalDataClient):
 ```python
 # src/bioetl/clients/chembl/client.py
 from bioetl.clients.base.client import BaseExternalDataClient
-from bioetl.clients.config.loader import load_client_config
+from bioetl.clients.config.loader import load_source_config
 from bioetl.clients.base.transport import http_transport_factory
 
 class ChemblClient(BaseExternalDataClient):
     def __init__(self, config_path: str) -> None:
-        config = load_client_config(config_path)
+        config = load_source_config(config_path)
         super().__init__(transport=http_transport_factory(config))
 
 # Использование
-client = ChemblClient("configs/clients/chembl.yaml")
+client = ChemblClient("chembl")
 request = ClientRequest(route="fetch_molecule", params={"chembl_id": "CHEMBL25"})
 record = client.fetch_one(request)
 ```

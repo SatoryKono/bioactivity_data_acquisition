@@ -172,20 +172,20 @@ def create_client(
 
 ## Migration Plan for Existing REST Parameters
 1. Inventory current hardcoded values per source (base URLs, endpoints, query mappings, pagination, response keys).
-2. Create `configs/clients/<source>.yml` following the new schema, treating current values as the source of truth.
+2. Create `src/bioetl/clients/config/yaml/<source>.yml` following the new schema, treating current values as the source of truth.
 3. Add `clients.config` models + loaders and wire them into the factory/registry.
 4. Refactor each client to consume `SourceConfig` (no direct constants), delegating HTTP execution to `HttpBackend`.
 5. Remove legacy config loaders (`bioetl.config.load_client_config`, inline mappings) and deprecated constants.
 
 | Source | Current parameter locations | New YAML file | New config module |
 | --- | --- | --- | --- |
-| ChEMBL | Default API settings in `src/bioetl/core/config/models.py` (`ChemblAPIConfigModel`), entity names and pagination defaults across `src/bioetl/clients/chembl/*` | `configs/clients/chembl.yml` | `clients/config/models.py` (SourceConfig) + `clients/factory.py` |
-| PubChem | Resource endpoints/id fields via `configs/pubchem.yaml` + `bioetl.config.load_client_config` used in `src/bioetl/clients/pubchem/client.py` | `configs/clients/pubchem.yml` | same as above |
-| PubMed | Resource endpoints/id fields via `configs/pubmed.yaml` + `load_client_config` in `src/bioetl/clients/pubmed/client.py` | `configs/clients/pubmed.yml` | same |
-| Crossref | Resource mapping from `configs/crossref.yaml` consumed by `src/bioetl/clients/crossref/client.py` | `configs/clients/crossref.yml` | same |
-| OpenAlex | Resource mapping from `configs/openalex.yaml` consumed by `src/bioetl/clients/openalex/client.py` | `configs/clients/openalex.yml` | same |
-| Semantic Scholar | Resource mapping from `configs/semantic_scholar.yaml` consumed by `src/bioetl/clients/semantic_scholar/client.py` | `configs/clients/semantic_scholar.yml` | same |
-| UniProt | Resource mapping from `configs/uniprot.yaml` consumed by `src/bioetl/clients/uniprot/client.py` | `configs/clients/uniprot.yml` | same |
+| ChEMBL | Default API settings in `src/bioetl/core/config/models.py` (`ChemblAPIConfigModel`), entity names and pagination defaults across `src/bioetl/clients/chembl/*` | `src/bioetl/clients/config/yaml/chembl.yml` | `clients/config/models.py` (SourceConfig) + `clients/factory.py` |
+| PubChem | Resource endpoints/id fields via `configs/pubchem.yaml` + `bioetl.config.load_client_config` used in `src/bioetl/clients/pubchem/client.py` | `src/bioetl/clients/config/yaml/pubchem.yml` | same as above |
+| PubMed | Resource endpoints/id fields via `configs/pubmed.yaml` + `load_client_config` in `src/bioetl/clients/pubmed/client.py` | `src/bioetl/clients/config/yaml/pubmed.yml` | same |
+| Crossref | Resource mapping from `configs/crossref.yaml` consumed by `src/bioetl/clients/crossref/client.py` | `src/bioetl/clients/config/yaml/crossref.yml` | same |
+| OpenAlex | Resource mapping from `configs/openalex.yaml` consumed by `src/bioetl/clients/openalex/client.py` | `src/bioetl/clients/config/yaml/openalex.yml` | same |
+| Semantic Scholar | Resource mapping from `configs/semantic_scholar.yaml` consumed by `src/bioetl/clients/semantic_scholar/client.py` | `src/bioetl/clients/config/yaml/semantic_scholar.yml` | same |
+| UniProt | Resource mapping from `configs/uniprot.yaml` consumed by `src/bioetl/clients/uniprot/client.py` | `src/bioetl/clients/config/yaml/uniprot.yml` | same |
 
 ## Validation and Health-Checks
 - **Static validation:**

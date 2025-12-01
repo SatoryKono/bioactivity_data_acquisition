@@ -65,14 +65,14 @@ python -m bioetl.cli.cli_app run-chembl-all --config configs/example.yaml --dry-
 ## Конфигурация HTTP-клиентов через YAML
 
 - Технические настройки клиентов (endpoint, id_field, фильтры, дефолтная
-  пагинация) хранятся в отдельных файлах `configs/<source>.yaml`. Часть имени
-  клиента (`<source>.<resource>`) используется для поиска нужного блока
-  настроек.
-- Загрузка реализована через `bioetl.config.load_client_config`, поэтому
-  конструкторы клиентов принимают только `name` и `transport` и поднимают
-  конфигурацию автоматически.
+  пагинация) хранятся в отдельных файлах
+  `src/bioetl/clients/config/yaml/<source>.yml`. Часть имени клиента
+  (`<source>.<resource>`) используется для поиска нужного блока настроек.
+- Загрузка реализована через `bioetl.clients.config.loader.load_source_config`,
+  поэтому конструкторы клиентов принимают только `name` и `transport` и
+  поднимают конфигурацию автоматически.
 
-Пример содержимого `configs/pubmed.yaml`:
+Пример содержимого `src/bioetl/clients/config/yaml/pubmed.yml`:
 
 ```yaml
 pagination:

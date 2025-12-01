@@ -4,19 +4,7 @@ from collections.abc import Iterable, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any
 
-
-def coerce_bool(value: Any) -> bool:
-    """Convert common textual booleans into ``bool`` values."""
-
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        lowered = value.strip().lower()
-        if lowered in {"1", "true", "yes", "on"}:
-            return True
-        if lowered in {"0", "false", "no", "off"}:
-            return False
-    return bool(value)
+from .environment_utils import coerce_bool
 
 
 def resolve_directory(directory: Path, *, base: Path) -> Path:
