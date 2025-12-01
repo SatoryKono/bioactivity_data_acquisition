@@ -29,3 +29,32 @@ BIOETL_OFFLINE_CHEMBL_CLIENT=1
 def test_environment_settings_validates_email() -> None:
     with pytest.raises(ValueError):
         EnvironmentSettings(crossref_mailto="invalid")
+
+
+def test_environment_settings_normalizes_email_and_env() -> None:
+    settings = EnvironmentSettings(
+        crossref_mailto="  user@example.com  ", bioetl_env="  PROD  "
+    )
+
+    assert settings.crossref_mailto == "user@example.com"
+    assert settings.bioetl_env == "prod"
+
+
+@pytest.mark.parametrize(
+    "raw_value,expected",
+    [
+        ("1", True),
+        ("false", False),
+        (" yes ", True),
+        ("off", False),
+    ],
+)
+def test_environment_settings_coerces_boolean(raw_value: str, expected: bool) -> None:
+    settings = EnvironmentSettings(offline_chembl_client=raw_value)
+
+    assert settings.offline_chembl_client is expected
+
+
+def test_environment_settings_rejects_invalid_email() -> None:
+    with pytest.raises(ValueError):
+        EnvironmentSettings(pubmed_email="no-at-symbol")
