@@ -14,9 +14,9 @@ from bioetl.core.http.api_entity_client import (
     EntityClientProtocol,
 )
 
-from bioetl.core.http.cache import CacheStrategy, TTLCache, TTLCacheConfig
+from bioetl.core.http.cache import CacheStrategy, InMemoryTTLCacheImpl, TTLCacheConfig
 from bioetl.core.http.circuit_breaker import (
-    CircuitBreaker,
+    CircuitBreakerImpl,
     CircuitBreakerConfig,
     CircuitBreakerOpenError,
     CircuitBreakerStrategy,
@@ -40,7 +40,7 @@ from bioetl.core.http.pagination import (
 from bioetl.core.http.rate_limiter import (
     RateLimiter,
     TokenBucketConfig,
-    TokenBucketRateLimiter,
+    TokenBucketRateLimiterImpl,
 )
 from bioetl.core.http.request_builder import RequestBuilder
 from bioetl.core.http.request_executor import (
@@ -57,7 +57,7 @@ from bioetl.core.http.resilience import (
     ResilienceComponents,
     ResilientRequestExecutorFactory,
 )
-from bioetl.core.http.retry import RetryPolicy, RetryStrategy
+from bioetl.core.http.retry import ExponentialBackoffRetryImpl, RetryStrategy
 from bioetl.core.http.types import (
     JSONPage,
     JSONPayload,
@@ -78,7 +78,7 @@ __all__ = [
     "ApiTransportProtocol",
     "BaseApiEntityClient",
     "CacheStrategy",
-    "CircuitBreaker",
+    "CircuitBreakerImpl",
     "CircuitBreakerConfig",
     "CircuitBreakerOpenError",
     "CircuitBreakerStrategy",
@@ -108,11 +108,11 @@ __all__ = [
     "ResilientRequestExecutorFactory",
     "RequestExecutorProtocol",
     "ResilientRequestExecutorImpl",
-    "RetryPolicy",
+    "ExponentialBackoffRetryImpl",
     "RetryStrategy",
     "TokenBucketConfig",
-    "TokenBucketRateLimiter",
-    "TTLCache",
+    "TokenBucketRateLimiterImpl",
+    "InMemoryTTLCacheImpl",
     "TTLCacheConfig",
     "UnifiedAPIClient",
     "WrapCallable",

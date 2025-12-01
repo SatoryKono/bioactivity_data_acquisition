@@ -5,15 +5,15 @@ import time
 import pytest
 
 from bioetl.core.http import (
-    CircuitBreaker,
     CircuitBreakerConfig,
+    CircuitBreakerImpl,
     CircuitBreakerOpenError,
-    RetryPolicy,
+    ExponentialBackoffRetryImpl,
 )
 
 
 def test_retry_policy_backoff_and_retry_after() -> None:
-    policy = RetryPolicy(
+    policy = ExponentialBackoffRetryImpl(
         max_retries=3,
         backoff_factor=0.5,
         max_backoff_sec=5,
@@ -29,7 +29,7 @@ def test_retry_policy_backoff_and_retry_after() -> None:
 
 
 def test_retry_policy_caps_backoff() -> None:
-    policy = RetryPolicy(
+    policy = ExponentialBackoffRetryImpl(
         max_retries=5,
         backoff_factor=2,
         max_backoff_sec=3,
@@ -39,7 +39,7 @@ def test_retry_policy_caps_backoff() -> None:
 
 
 def test_circuit_breaker_transitions() -> None:
-    breaker = CircuitBreaker(
+    breaker = CircuitBreakerImpl(
         CircuitBreakerConfig(
             failure_threshold=2,
             reset_timeout_sec=0.1,
@@ -57,7 +57,7 @@ def test_circuit_breaker_transitions() -> None:
 
 
 def test_circuit_breaker_records_failure_on_exception() -> None:
-    breaker = CircuitBreaker(
+    breaker = CircuitBreakerImpl(
         CircuitBreakerConfig(
             failure_threshold=1,
             reset_timeout_sec=1,

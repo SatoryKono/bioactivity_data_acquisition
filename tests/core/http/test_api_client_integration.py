@@ -12,11 +12,11 @@ import requests
 
 from bioetl.core.http import (
     APIConfig,
-    CircuitBreaker,
-    RetryPolicy,
+    CircuitBreakerImpl,
+    ExponentialBackoffRetryImpl,
     DefaultResilienceFactory,
-    TTLCache,
-    TokenBucketRateLimiter,
+    InMemoryTTLCacheImpl,
+    TokenBucketRateLimiterImpl,
     UnifiedAPIClient,
 )
 from bioetl.core.http.interfaces import (
@@ -38,7 +38,7 @@ class DummyCache(CacheStrategy):
         params: Mapping[str, Any] | None,
         headers: Mapping[str, str] | None,
     ) -> str:
-        return TTLCache.make_key(method, url, params, headers)
+        return InMemoryTTLCacheImpl.make_key(method, url, params, headers)
 
     def get(self, key: str) -> bytes | None:
         return self.store.get(key)
@@ -189,6 +189,6 @@ def test_default_component_factories_used_when_missing() -> None:
     payload = client.get_json("/resource")
 
     assert payload == {"ok": True}
-    assert isinstance(components.rate_limiter, TokenBucketRateLimiter)
-    assert isinstance(components.retry_strategy, RetryPolicy)
-    assert isinstance(components.circuit_breaker, CircuitBreaker)
+    assert isinstance(components.rate_limiter, TokenBucketRateLimiterImpl)
+    assert isinstance(components.retry_strategy, ExponentialBackoffRetryImpl)
+    assert isinstance(components.circuit_breaker, CircuitBreakerImpl)

@@ -35,7 +35,7 @@ class CircuitBreakerConfig:
     reset_timeout_sec: float
 
 
-class CircuitBreaker(CircuitBreakerStrategy):
+class CircuitBreakerImpl(CircuitBreakerStrategy):
     def __init__(self, config: CircuitBreakerConfig) -> None:
         if config.failure_threshold <= 0:
             raise ValueError("failure_threshold must be positive")
@@ -95,7 +95,7 @@ class CircuitBreaker(CircuitBreakerStrategy):
 
 __all__ = [
     "CircuitBreakerStrategy",
-    "CircuitBreaker",
+    "CircuitBreakerImpl",
     "CircuitBreakerConfig",
     "CircuitBreakerOpenError",
 ]
