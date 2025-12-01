@@ -16,6 +16,7 @@ def load_config(
     env: Mapping[str, str] | None = None,
     env_prefixes: Sequence[str] = ("BIOETL__",),
     include_default_profiles: bool = False,
+    env_file: Path | None = None,
 ) -> PipelineConfig:
     """Load, merge and validate the pipeline configuration."""
 
@@ -25,6 +26,7 @@ def load_config(
         env=env,
         env_prefixes=env_prefixes,
         include_default_profiles=include_default_profiles,
+        env_file=env_file,
     )
     return resolver.resolve(overrides=cli_overrides)
 
