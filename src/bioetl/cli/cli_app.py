@@ -13,7 +13,6 @@ from bioetl.cli.cli_command import (
     _parse_cli_overrides,
     create_pipeline_command,
 )
-from bioetl.cli.cli_registry import PIPELINE_REGISTRY
 from bioetl.cli.diagrams import generate_diagrams
 from bioetl.core.config.loader import load_config
 
@@ -35,6 +34,14 @@ tools_app = typer.Typer(help="Утилиты разработки")
 app.add_typer(tools_app, name="tools")
 
 
+def _register_pipeline_commands() -> None:
+    """Регистрирует команды для всех пайплайнов в реестре."""
+    from bioetl.cli.cli_registry import PIPELINE_REGISTRY  # noqa: PLC0415
+
+    for pipeline_name, factory in PIPELINE_REGISTRY.items():
+        app.command(pipeline_name)(create_pipeline_command(pipeline_name, factory))
+
+
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
     """Базовый callback для Typer-приложения."""
@@ -44,6 +51,11 @@ def main(ctx: typer.Context) -> None:
         typer.echo(ctx.get_help())
     else:
         print(f"DEBUG: Subcommand {ctx.invoked_subcommand} will execute")
+        # Регистрируем команды пайплайнов только если это не команда из tools или config
+        # Для вложенных команд (tools, config) invoked_subcommand будет именем группы
+        subcmd = ctx.invoked_subcommand
+        if subcmd not in ("tools", "config"):
+            _register_pipeline_commands()
 
 
 @config_app.command("inspect")
@@ -91,6 +103,8 @@ def inspect_config(
 @app.command("list")
 def list_pipelines() -> None:
     """Выводит зарегистрированные пайплайны."""
+    from bioetl.cli.cli_registry import PIPELINE_REGISTRY  # noqa: PLC0415
+
     print(
         "DEBUG: list_pipelines called, registry size: "
         f"{len(PIPELINE_REGISTRY)}"
@@ -156,6 +170,7 @@ def run_chembl_all(
     ),
 ) -> None:
     """Запускает все ChEMBL пайплайны, зарегистрированные в реестре."""
+    from bioetl.cli.cli_registry import PIPELINE_REGISTRY  # noqa: PLC0415
 
     try:
         chembl_pipelines = [
@@ -230,8 +245,6 @@ def cmd_generate_diagrams(
         _handle_cli_exception(exc)
 
 
-for pipeline_name, factory in PIPELINE_REGISTRY.items():
-    app.command(pipeline_name)(create_pipeline_command(pipeline_name, factory))
 
 
 if __name__ == "__main__":
