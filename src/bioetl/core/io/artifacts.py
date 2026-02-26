@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, MutableMapping, Sequence
+from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 
 import pandera.pandas as pa
 
@@ -28,14 +28,14 @@ def compute_file_hash(path: Path, *, chunk_size: int = 8192) -> str:
     return digest.hexdigest()
 
 
-def hash_row(values: Sequence[Any]) -> str:
+def hash_row(values: Iterable[Any]) -> str:
     digest = hashlib.new(HASH_ALGORITHM)
     for value in values:
         digest.update(_ensure_bytes(value))
     return digest.hexdigest()
 
 
-def hash_business_key(values: Sequence[Any]) -> str:
+def hash_business_key(values: Iterable[Any]) -> str:
     return hash_row(values)
 
 

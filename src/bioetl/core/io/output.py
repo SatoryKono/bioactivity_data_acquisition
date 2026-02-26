@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
 
 import pandas as pd
-import pandera.pandas as pa
 import pandera.errors
 import yaml
 
