@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
 
 import pandas as pd
-import pandera.pandas as pa
 import pandera.errors
 import yaml
 
@@ -125,11 +124,8 @@ def _sort_dataframe(
 
 
 def _hash_dataframe(df: pd.DataFrame, fields: Sequence[str]) -> str:
-    digest_values: list[Any] = []
     subset = df.loc[:, list(fields)] if fields else df
-    for _, row in subset.iterrows():
-        digest_values.extend(row.tolist())
-    return hash_row(digest_values)
+    return hash_row(subset.to_numpy().ravel())
 
 
 def build_meta_yaml(
@@ -220,7 +216,7 @@ def _hash_business_keys(df: pd.DataFrame, fields: Sequence[str]) -> str | None:
     if not fields:
         return None
     subset = df.loc[:, list(fields)]
-    digest = hash_business_key(subset.to_numpy().flatten().tolist())
+    digest = hash_business_key(subset.to_numpy().ravel())
     return digest
 
 
