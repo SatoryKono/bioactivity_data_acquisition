@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import struct
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, MutableMapping, Sequence
@@ -30,19 +29,9 @@ def compute_file_hash(path: Path, *, chunk_size: int = 8192) -> str:
 
 
 def hash_row(values: Sequence[Any]) -> str:
-    """Generate a deterministic hash for a sequence of values."""
     digest = hashlib.new(HASH_ALGORITHM)
     for value in values:
-        if value is None:
-            # Type marker for None
-            digest.update(b"\x00")
-        else:
-            # Type marker for non-None
-            digest.update(b"\x01")
-            data = _ensure_bytes(value)
-            # Length-prefixing: 8-byte big-endian unsigned integer
-            digest.update(struct.pack("!Q", len(data)))
-            digest.update(data)
+        digest.update(_ensure_bytes(value))
     return digest.hexdigest()
 
 
