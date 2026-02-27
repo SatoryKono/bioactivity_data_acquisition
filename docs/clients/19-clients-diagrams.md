@@ -92,7 +92,7 @@ dot -Tpng -Gdpi=300 -Grankdir=LR classes_bioetl_clients.dot -o clients_classes.p
 
 Основные объекты пакета `clients`:
 
-- `BaseClient` — абстрактный базовый класс
+- `ExternalDataClient` — протокол контракта (или `BaseExternalDataClient`)
 - `ConfiguredHttpClient` — реализация клиента
 - `ClientFactory`, `ClientRegistry` — фабрики
 - `SourceConfig`, `ResourceConfig` — модели конфигурации
@@ -151,8 +151,9 @@ dot -Tpng -Gdpi=300 -Grankdir=LR classes_bioetl_clients.dot -o clients_classes.p
 ```plantuml
 @startuml
 package "bioetl.clients" {
-  abstract class BaseClient
-  class ConfiguredHttpClient extends BaseClient
+  interface ExternalDataClient
+  abstract class BaseExternalDataClient implements ExternalDataClient
+  class ConfiguredHttpClient extends BaseExternalDataClient
   class ClientFactory
   class ClientRegistry
 }
@@ -169,9 +170,8 @@ package "bioetl.clients.config" {
   class ResourceConfig
 }
 
-BaseClient <|-- ConfiguredHttpClient
-ClientFactory ..> BaseClient
-ClientRegistry ..> BaseClient
+ClientFactory ..> ExternalDataClient
+ClientRegistry ..> ExternalDataClient
 ClientRequest --> RequestContext
 ConfiguredHttpClient --> SourceConfig
 @enduml
@@ -183,21 +183,28 @@ ConfiguredHttpClient --> SourceConfig
 
 ```mermaid
 classDiagram
-    class BaseClient {
+    class ExternalDataClient {
+        <<interface>>
+        +fetch_one()
+        +fetch_many()
+        +iter_pages()
+    }
+    class BaseExternalDataClient {
         <<abstract>>
         +fetch_one()
-        +iter_records()
+        +fetch_many()
         +iter_pages()
     }
     class ConfiguredHttpClient {
         +fetch_one()
-        +iter_records()
+        +fetch_many()
     }
     class ClientFactory {
         +create()
     }
-    BaseClient <|-- ConfiguredHttpClient
-    ClientFactory ..> BaseClient
+    ExternalDataClient <|.. BaseExternalDataClient
+    BaseExternalDataClient <|-- ConfiguredHttpClient
+    ClientFactory ..> ExternalDataClient
 ```
 
 ## Связанная документация
